@@ -27,6 +27,7 @@
 		ACE15C522F94FC0B00F08D3A /* insulog.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = insulog.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		ACE15C612F94FC0C00F08D3A /* insulogTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = insulogTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		ACE15C6B2F94FC0D00F08D3A /* insulogUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = insulogUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		ACE15CA72F99569000F08D3A /* CLAUDE.md */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLAUDE.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -75,6 +76,7 @@
 		ACE15C492F94FC0B00F08D3A = {
 			isa = PBXGroup;
 			children = (
+				ACE15CA72F99569000F08D3A /* CLAUDE.md */,
 				ACE15C542F94FC0B00F08D3A /* insulog */,
 				ACE15C642F94FC0C00F08D3A /* insulogTests */,
 				ACE15C6E2F94FC0D00F08D3A /* insulogUITests */,
