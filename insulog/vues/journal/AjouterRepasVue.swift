@@ -160,6 +160,7 @@ struct AjouterRepasVue: View {
                         }
                     )
             }
+            .scrollDismissesKeyboard(.immediately)
             .safeAreaPadding(.bottom, alimentsRepas.isEmpty ? 0 : 90)
             // Désactive l'animation du `safeAreaPadding` quand
             // `alimentsRepas.isEmpty` change. Sans cette transaction,
@@ -182,6 +183,7 @@ struct AjouterRepasVue: View {
                     }
                 )
         }
+        .scrollDismissesKeyboard(.immediately)
         .safeAreaPadding(.bottom, alimentsRepas.isEmpty ? 0 : 90)
         // Même logique que vueRecents : on désactive l'animation
         // sur le padding pour éviter le flash de fond système.

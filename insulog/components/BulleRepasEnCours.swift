@@ -17,9 +17,6 @@ struct BulleRepasEnCours: View {
     /// Index de l'emoji actuellement affiché lors de l'alternance.
     @State private var emojiActuelIndex: Int = 0
 
-    /// Échelle utilisée pour le bump visuel à chaque ajout d'aliment.
-    @State private var echelle: CGFloat = 1.0
-
     /// Timer qui pilote l'alternance des emojis toutes les 1.5 secondes
     /// quand le repas contient plus d'un aliment.
     private let timer = Timer.publish(every: 1.5, on: .main, in: .common).autoconnect()
@@ -43,6 +40,7 @@ struct BulleRepasEnCours: View {
             bulle
         }
         .padding(.horizontal, 16)
+        .padding(.bottom, 4)
         // Toute la zone de la bulle (padding inclus) absorbe les touches
         // pour que le tap fonctionne aussi sur les bords externes.
         .contentShape(Rectangle())
@@ -57,9 +55,6 @@ struct BulleRepasEnCours: View {
         }
         .onChange(of: aliments.count) { ancienCount, nouveauCount in
             ajusterIndexEmoji(nouveauCount: nouveauCount)
-            if nouveauCount > ancienCount {
-                bumpVisuel()
-            }
         }
     }
 
@@ -111,7 +106,7 @@ struct BulleRepasEnCours: View {
         .padding(.vertical, 12)
         .glassEffect(in: RoundedRectangle(cornerRadius: 100, style: .continuous))
         .shadow(color: .black.opacity(0.15), radius: 16, x: 0, y: 4)
-        .scaleEffect(echelle)
+
     }
 
     /// Avance d'un cran l'index de l'emoji affiché, en boucle.
@@ -131,19 +126,7 @@ struct BulleRepasEnCours: View {
         }
     }
 
-    /// Bump visuel rapide (scale 1.0 → 1.05 → 1.0) pour donner
-    /// un retour tactile lors de l'ajout d'un nouvel aliment.
-    private func bumpVisuel() {
-        Task { @MainActor in
-            withAnimation(.spring(response: 0.15, dampingFraction: 0.5)) {
-                echelle = 1.05
-            }
-            try? await Task.sleep(for: .milliseconds(150))
-            withAnimation(.spring(response: 0.15, dampingFraction: 0.7)) {
-                echelle = 1.0
-            }
-        }
-    }
+
 }
 
 #Preview {
