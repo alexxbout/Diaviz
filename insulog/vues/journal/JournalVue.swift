@@ -47,8 +47,6 @@ struct JournalVue: View {
     }
 }
 
-// MARK: - Données de preview
-
 private func makeDate(hour: Int, minute: Int) -> Date {
     Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: Date()) ?? Date()
 }

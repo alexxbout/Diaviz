@@ -43,7 +43,6 @@ struct BulleRepasEnCours: View {
             bulle
         }
         .padding(.horizontal, 16)
-//        .padding(.bottom, 8)
         // Toute la zone de la bulle (padding inclus) absorbe les touches
         // pour que le tap fonctionne aussi sur les bords externes.
         .contentShape(Rectangle())
