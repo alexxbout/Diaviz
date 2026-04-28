@@ -24,9 +24,13 @@ struct AjouterRepasVue: View {
     @State private var filtre: FiltreAliment = .bruts
     @State private var scannerCodeBarres = false
 
-    /// Aliments ajoutés au repas en cours.
+    /// Aliments ajoutés au repas en cours (chacun avec sa quantité et ses paramètres).
     /// Tant qu'il est vide, la bulle reste cachée.
-    @State private var alimentsRepas: [AlimentCiqual] = []
+    @State private var alimentsRepas: [EntreeAliment] = []
+
+    /// Aliment sélectionné dans la liste — déclenche l'ouverture de la sheet de détail.
+    /// Remis à nil automatiquement à la fermeture de la sheet.
+    @State private var alimentSelectionne: AlimentCiqual? = nil
 
     var body: some View {
         VStack(spacing: 0) {
@@ -54,6 +58,14 @@ struct AjouterRepasVue: View {
         .sheet(isPresented: $scannerCodeBarres) {
             Text("Scanner un code-barres")
                 .presentationDetents([.medium])
+        }
+        // Sheet de détail d'un aliment — s'ouvre quand `alimentSelectionne` est non-nil.
+        // La fermeture (swipe ou "Annuler") remet `alimentSelectionne` à nil sans rien ajouter.
+        .sheet(item: $alimentSelectionne) { aliment in
+            DetailAlimentSheet(aliment: aliment) { entree in
+                alimentsRepas.append(entree)
+                AlimentsRecentsService.shared.marquerUtilise(aliment)
+            }
         }
     }
 
@@ -144,7 +156,7 @@ struct AjouterRepasVue: View {
                 LigneAliment(aliment: aliment)
                     .simultaneousGesture(
                         TapGesture().onEnded {
-                            alimentsRepas.append(aliment)
+                            alimentSelectionne = aliment
                         }
                     )
             }
@@ -166,7 +178,7 @@ struct AjouterRepasVue: View {
             LigneAliment(aliment: aliment)
                 .simultaneousGesture(
                     TapGesture().onEnded {
-                        alimentsRepas.append(aliment)
+                        alimentSelectionne = aliment
                     }
                 )
         }

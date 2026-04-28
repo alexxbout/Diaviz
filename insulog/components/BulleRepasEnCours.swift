@@ -12,7 +12,7 @@ import Combine
 /// de composition. Apparaît dès qu'un aliment est ajouté, disparaît
 /// quand on la tape (vide le repas).
 struct BulleRepasEnCours: View {
-    @Binding var aliments: [AlimentCiqual]
+    @Binding var aliments: [EntreeAliment]
 
     /// Index de l'emoji actuellement affiché lors de l'alternance.
     @State private var emojiActuelIndex: Int = 0
@@ -24,16 +24,17 @@ struct BulleRepasEnCours: View {
     /// quand le repas contient plus d'un aliment.
     private let timer = Timer.publish(every: 1.5, on: .main, in: .common).autoconnect()
 
-    /// Total mocké : 55g de glucides par aliment.
-    /// À remplacer plus tard par la somme réelle des glucides x quantité.
-    private var totalGlucides: Int { 55 * aliments.count }
+    /// Total glucides calculé réellement à partir de la quantité de chaque entrée.
+    private var totalGlucides: Int {
+        aliments.reduce(0) { $0 + Int($1.aliment.glucides * $1.quantiteGrammes / 100) }
+    }
 
     /// Emoji courant à afficher selon l'index actif.
     /// Fallback sur 🍽️ si la liste est vide ou l'aliment n'a pas d'emoji.
     private var emojiCourant: String {
         guard !aliments.isEmpty else { return "🍽️" }
         let index = min(emojiActuelIndex, aliments.count - 1)
-        return aliments[index].emoji ?? "🍽️"
+        return aliments[index].aliment.emoji ?? "🍽️"
     }
 
     var body: some View {
@@ -147,9 +148,15 @@ struct BulleRepasEnCours: View {
 }
 
 #Preview {
-    @Previewable @State var alimentsRepas: [AlimentCiqual] = [
-        AlimentCiqual(id: 1, nom: "Pomme", calories: 52, glucides: 14, sucres: 10, proteines: 0.3, lipides: 0.2, fibres: 2.4, emoji: "🍎"),
-        AlimentCiqual(id: 2, nom: "Pain complet", calories: 247, glucides: 45, sucres: 3, proteines: 9, lipides: 3, fibres: 6, emoji: "🍞"),
+    @Previewable @State var alimentsRepas: [EntreeAliment] = [
+        EntreeAliment(
+            aliment: AlimentCiqual(id: 1, nom: "Pomme", calories: 52, glucides: 14, sucres: 10, proteines: 0.3, lipides: 0.2, fibres: 2.4, emoji: "🍎"),
+            quantiteGrammes: 150, quantiteApproximative: false, doseInsuline: nil, note: ""
+        ),
+        EntreeAliment(
+            aliment: AlimentCiqual(id: 2, nom: "Pain complet", calories: 247, glucides: 45, sucres: 3, proteines: 9, lipides: 3, fibres: 6, emoji: "🍞"),
+            quantiteGrammes: 60, quantiteApproximative: true, doseInsuline: 2.0, note: ""
+        ),
     ]
 
     ZStack(alignment: .bottom) {
