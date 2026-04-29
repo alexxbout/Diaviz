@@ -14,6 +14,9 @@ struct JournalVue: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
+                // `.buttonStyle(.plain)` empêche le `NavigationLink` d'appliquer
+                // sa teinte par défaut, qui surchargerait le blanc/coloré de
+                // notre carte plein fond.
                 NavigationLink(destination: RepasDetailVue(sections: sections)) {
                     CarteSection(
                         icone: "fork.knife",
@@ -22,6 +25,14 @@ struct JournalVue: View {
                         couleur: .blue
                     )
                 }
+                .buttonStyle(.plain)
+
+                CarteSection(
+                    icone: "syringe",
+                    titre: "Médications",
+                    sousTitre: "Aucune médication aujourd'hui",
+                    couleur: .green
+                )
 
                 CarteSection(
                     icone: "figure.run",
@@ -29,15 +40,6 @@ struct JournalVue: View {
                     sousTitre: "Aucune activité aujourd'hui",
                     couleur: .orange
                 )
-
-                CarteSection(
-                    icone: "syringe",
-                    titre: "Médications",
-                    sousTitre: "Aucune médication aujourd'hui",
-                    couleur: .purple
-                )
-
-                Spacer()
             }
             .padding()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
