@@ -16,21 +16,37 @@ enum FiltreAliment: String, CaseIterable {
 }
 
 /// Vue principale de composition d'un repas.
+///
 /// Permet de rechercher des aliments dans CIQUAL et de les ajouter
-/// progressivement à un repas en cours, résumé dans une bulle persistante.
+/// progressivement à un repas en cours.
+///
+/// ## Présentation du repas
+/// - Tant qu'aucun aliment n'est ajouté, rien n'est affiché en plus de la
+///   liste de recherche.
+/// - Dès qu'un aliment est ajouté, `BulleRepasEnCours` apparaît en
+///   `.overlay(alignment: .bottom)` — capsule glass flottante avec le résumé
+///   du repas (compteur d'aliments, total glucides).
+/// - Tap ou drag-up sur la bulle → présente `RepasSheet` plein écran (`.large`)
+///   avec toutes les sections (insuline, alertes, détails d'injection).
 struct AjouterRepasVue: View {
     @State private var recherche: String = ""
     @State private var resultats: [AlimentCiqual] = []
     @State private var filtre: FiltreAliment = .bruts
     @State private var scannerCodeBarres = false
 
-    /// Aliments ajoutés au repas en cours (chacun avec sa quantité et ses paramètres).
-    /// Tant qu'il est vide, la bulle reste cachée.
+    /// Aliments du repas en cours. Tant que vide, la bulle ne s'affiche pas.
     @State private var alimentsRepas: [EntreeAliment] = []
 
-    /// Aliment sélectionné dans la liste — déclenche l'ouverture de la sheet de détail.
-    /// Remis à nil automatiquement à la fermeture de la sheet.
+    /// Aliment sélectionné depuis la liste de recherche — déclenche
+    /// `DetailAlimentSheet` pour configurer la quantité, la dose, etc.
     @State private var alimentSelectionne: AlimentCiqual? = nil
+
+    /// Présentation de `RepasSheet` (déclenchée par tap/drag sur la bulle).
+    @State private var repasSheetPresentee: Bool = false
+
+    /// Focus de la barre de recherche — réactivé quand l'utilisateur tape
+    /// "Ajouter un aliment" depuis la `RepasSheet`.
+    @FocusState private var rechercheActive: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -39,17 +55,19 @@ struct AjouterRepasVue: View {
             contenuPrincipal
         }
         .background(Color(.systemGroupedBackground), ignoresSafeAreaEdges: .all)
+        // Bulle en overlay : composant SwiftUI normal (pas dans une sheet),
+        // d'où le hit-testing fiable et le centrage propre.
         .overlay(alignment: .bottom) {
-            // La bulle est superposée à la liste plutôt que d'utiliser
-            // safeAreaInset, qui ajoute un fond système indésirable.
             if !alimentsRepas.isEmpty {
-                BulleRepasEnCours(aliments: $alimentsRepas)
-                    .transition(.opacity.combined(with: .offset(y: 80)))
+                BulleRepasEnCours(aliments: $alimentsRepas) {
+                    repasSheetPresentee = true
+                }
+                .transition(.opacity.combined(with: .offset(y: 80)))
             }
         }
-        // Anime UNIQUEMENT la transition d'apparition/disparition de la bulle.
-        // Le changement d'état booléen `isEmpty` pilote l'animation,
-        // pas chaque ajout d'aliment individuel.
+        // Anime UNIQUEMENT la transition d'apparition/disparition de la bulle
+        // (le passage `aliments vide` ↔ `aliments non vide`), pas chaque
+        // ajout d'aliment individuel.
         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: alimentsRepas.isEmpty)
         .toolbar(.hidden, for: .tabBar)
         .toolbar { menuToolbar }
@@ -59,19 +77,50 @@ struct AjouterRepasVue: View {
             Text("Scanner un code-barres")
                 .presentationDetents([.medium])
         }
-        // Sheet de détail d'un aliment — s'ouvre quand `alimentSelectionne` est non-nil.
-        // La fermeture (swipe ou "Annuler") remet `alimentSelectionne` à nil sans rien ajouter.
+        // Sheet de détail d'un aliment — déclenchée à chaque sélection
+        // depuis la barre de recherche. Plus besoin de filtre conditionnel
+        // (la sheet `RepasSheet` est plein écran et bloque l'interaction
+        // avec la barre de recherche → pas de conflit possible).
         .sheet(item: $alimentSelectionne) { aliment in
             DetailAlimentSheet(aliment: aliment) { entree in
                 alimentsRepas.append(entree)
                 AlimentsRecentsService.shared.marquerUtilise(aliment)
             }
         }
+        // RepasSheet — plein écran (`.large` only). L'utilisateur peut
+        // dismiss par swipe-down et revenir à la bulle en overlay.
+        .sheet(isPresented: $repasSheetPresentee) {
+            RepasSheet(
+                aliments: $alimentsRepas,
+                onAjouterUnAliment: tapperAjouterAliment,
+                onValiderRepas: validerRepas
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+            .presentationBackground(Color(.systemGroupedBackground))
+        }
     }
 
+    // MARK: - Actions
+
+    /// Tap sur "Ajouter un aliment" depuis la `RepasSheet` :
+    /// ferme la sheet et focus la barre de recherche.
+    private func tapperAjouterAliment() {
+        repasSheetPresentee = false
+        rechercheActive = true
+    }
+
+    /// Validation finale du repas : reset l'état.
+    /// La logique réelle (persistance + analyses) viendra plus tard.
+    private func validerRepas() {
+        alimentsRepas.removeAll()
+        recherche = ""
+        repasSheetPresentee = false
+    }
+
+    // MARK: - Barre de recherche
+
     /// Barre de recherche custom + bouton scanner code-barres côte à côte.
-    /// On utilise une search bar custom plutôt que `.searchable()` pour
-    /// pouvoir afficher le bouton scanner à droite de la barre.
     private var barreRecherche: some View {
         HStack(spacing: 8) {
             HStack {
@@ -83,8 +132,8 @@ struct AjouterRepasVue: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 17))
                     .submitLabel(.search)
+                    .focused($rechercheActive)
 
-                // Bouton clear visible seulement quand du texte est saisi.
                 if !recherche.isEmpty {
                     Button {
                         recherche = ""
@@ -161,12 +210,11 @@ struct AjouterRepasVue: View {
                     )
             }
             .scrollDismissesKeyboard(.immediately)
-            .safeAreaPadding(.bottom, alimentsRepas.isEmpty ? 0 : 90)
-            // Désactive l'animation du `safeAreaPadding` quand
-            // `alimentsRepas.isEmpty` change. Sans cette transaction,
-            // le padding s'animerait progressivement et exposerait
-            // brièvement le fond système gris du List, créant un
-            // rectangle parasite visible pendant la transition de la bulle.
+            // Padding en bas pour ne pas que la bulle cache le dernier
+            // aliment de la liste. 100pt = ~80pt de bulle + 20pt de marge.
+            .safeAreaPadding(.bottom, alimentsRepas.isEmpty ? 0 : 100)
+            // Désactive l'animation du padding pour éviter un flash de fond
+            // système gris pendant la transition d'apparition de la bulle.
             .transaction(value: alimentsRepas.isEmpty) { transaction in
                 transaction.animation = nil
             }
@@ -184,9 +232,7 @@ struct AjouterRepasVue: View {
                 )
         }
         .scrollDismissesKeyboard(.immediately)
-        .safeAreaPadding(.bottom, alimentsRepas.isEmpty ? 0 : 90)
-        // Même logique que vueRecents : on désactive l'animation
-        // sur le padding pour éviter le flash de fond système.
+        .safeAreaPadding(.bottom, alimentsRepas.isEmpty ? 0 : 100)
         .transaction(value: alimentsRepas.isEmpty) { transaction in
             transaction.animation = nil
         }

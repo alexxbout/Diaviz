@@ -8,11 +8,23 @@
 import SwiftUI
 import Combine
 
-/// Bulle persistante ancrée en bas de l'écran résumant le repas en cours
-/// de composition. Apparaît dès qu'un aliment est ajouté, disparaît
-/// quand on la tape (vide le repas).
+/// Rendu compact du repas en cours, présenté en `.overlay(alignment: .bottom)`
+/// au-dessus de `AjouterRepasVue` tant qu'au moins un aliment est ajouté.
+///
+/// Capsule en Liquid Glass avec ombre douce — donne à la bulle son identité
+/// visuelle distincte. Conserve l'animation d'alternance d'emojis quand le
+/// repas contient plusieurs aliments, et l'animation "bump" du compteur de
+/// glucides à chaque ajout.
+///
+/// Deux interactions possibles déclenchent `onOuvrir` (le parent présente
+/// alors la `RepasSheet` plein écran) :
+/// - **Tap** simple sur la capsule
+/// - **Drag** vers le haut (>30pt) — geste plus naturel, façon "place card"
 struct BulleRepasEnCours: View {
     @Binding var aliments: [EntreeAliment]
+
+    /// Action déclenchée au tap ou au drag-up. Le parent présente la sheet.
+    let onOuvrir: () -> Void
 
     /// Index de l'emoji actuellement affiché lors de l'alternance.
     @State private var emojiActuelIndex: Int = 0
@@ -20,6 +32,14 @@ struct BulleRepasEnCours: View {
     /// Timer qui pilote l'alternance des emojis toutes les 1.5 secondes
     /// quand le repas contient plus d'un aliment.
     private let timer = Timer.publish(every: 1.5, on: .main, in: .common).autoconnect()
+
+    /// Init explicite pour éviter que l'init memberwise synthétisé n'inclue
+    /// `timer` (let + valeur par défaut) dans sa signature, ce qui casserait
+    /// la résolution de la trailing closure pour `onOuvrir`.
+    init(aliments: Binding<[EntreeAliment]>, onOuvrir: @escaping () -> Void) {
+        self._aliments = aliments
+        self.onOuvrir = onOuvrir
+    }
 
     /// Total glucides calculé réellement à partir de la quantité de chaque entrée.
     private var totalGlucides: Int {
@@ -35,39 +55,37 @@ struct BulleRepasEnCours: View {
     }
 
     var body: some View {
-        VStack(spacing: 6) {
-            poignee
-            bulle
-        }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 4)
-        // Toute la zone de la bulle (padding inclus) absorbe les touches
-        // pour que le tap fonctionne aussi sur les bords externes.
-        .contentShape(Rectangle())
-        .onTapGesture {
-            // L'animation est gérée au niveau parent via `.animation(value:)`.
-            // On modifie juste l'état ici, sans wrapper avec withAnimation
-            // pour ne pas propager l'animation à d'autres vues.
-            aliments.removeAll()
-        }
-        .onReceive(timer) { _ in
-            alternerEmoji()
-        }
-        .onChange(of: aliments.count) { ancienCount, nouveauCount in
-            ajusterIndexEmoji(nouveauCount: nouveauCount)
-        }
+        contenuBulle
+            // Tap simple — ouvre la sheet.
+            .onTapGesture(perform: onOuvrir)
+            // Drag vers le haut — ouvre aussi la sheet quand le geste
+            // dépasse 30pt vers le haut. Cohabite avec le tap car
+            // SwiftUI route les taps simples vers `onTapGesture` et
+            // les mouvements significatifs vers la `DragGesture`.
+            .gesture(
+                DragGesture(minimumDistance: 10)
+                    .onEnded { value in
+                        if value.translation.height < -30 {
+                            onOuvrir()
+                        }
+                    }
+            )
+            .onReceive(timer) { _ in
+                alternerEmoji()
+            }
+            .onChange(of: aliments.count) { _, nouveauCount in
+                ajusterIndexEmoji(nouveauCount: nouveauCount)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel("Repas en cours, \(aliments.count) aliments, \(totalGlucides) grammes de glucides")
+            .accessibilityHint("Touchez deux fois ou faites glisser vers le haut pour ouvrir le détail du repas")
     }
 
-    /// Petite barre horizontale au-dessus de la bulle, indicateur visuel
-    /// que la bulle pourra à terme être tirée pour s'expand en sheet.
-    private var poignee: some View {
-        RoundedRectangle(cornerRadius: 2.5)
-            .fill(Color(.systemGray3))
-            .frame(width: 36, height: 5)
-    }
-
-    /// Bulle principale avec emoji, résumé textuel et total glucides.
-    private var bulle: some View {
+    /// Contenu visuel de la bulle (emoji + résumé + glucides).
+    /// Capsule en Liquid Glass avec ombre douce. Le padding horizontal
+    /// externe évite que la capsule touche les bords de l'écran.
+    private var contenuBulle: some View {
         HStack(spacing: 16) {
             // Emoji animé — alterne entre les aliments si plusieurs.
             // L'`.id(emojiActuelIndex)` force SwiftUI à recréer la vue
@@ -81,6 +99,7 @@ struct BulleRepasEnCours: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(aliments.count == 1 ? "1 aliment" : "\(aliments.count) aliments")
                     .font(.body.bold())
+                    .foregroundStyle(.primary)
                 Text("Repas en cours")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -93,10 +112,9 @@ struct BulleRepasEnCours: View {
                 Text("\(totalGlucides)g")
                     .font(.title2.bold())
                     .foregroundStyle(.green)
-                    // Anime le changement de chiffre comme un compteur
-                    // plutôt qu'un fade brutal.
+                    .monospacedDigit()
                     .contentTransition(.numericText())
-                    .animation(.spring(response: 0.3), value: totalGlucides)
+                    .animation(.easeOut(duration: 0.25), value: totalGlucides)
                 Text("glucides")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -106,7 +124,10 @@ struct BulleRepasEnCours: View {
         .padding(.vertical, 12)
         .glassEffect(in: RoundedRectangle(cornerRadius: 100, style: .continuous))
         .shadow(color: .black.opacity(0.15), radius: 16, x: 0, y: 4)
-
+        // Padding externe pour que la capsule ne touche pas les bords
+        // de la sheet et conserve son identité visuelle.
+        .padding(.horizontal, 16)
+        .contentShape(Rectangle())
     }
 
     /// Avance d'un cran l'index de l'emoji affiché, en boucle.
@@ -125,8 +146,6 @@ struct BulleRepasEnCours: View {
             emojiActuelIndex = 0
         }
     }
-
-
 }
 
 #Preview {
@@ -143,6 +162,8 @@ struct BulleRepasEnCours: View {
 
     ZStack(alignment: .bottom) {
         Color(.systemGroupedBackground).ignoresSafeArea()
-        BulleRepasEnCours(aliments: $alimentsRepas)
+        BulleRepasEnCours(aliments: $alimentsRepas) {
+            print("Bulle ouverte")
+        }
     }
 }

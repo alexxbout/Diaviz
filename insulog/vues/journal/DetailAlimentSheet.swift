@@ -15,7 +15,35 @@ struct DetailAlimentSheet: View {
     // MARK: - Paramètres
 
     let aliment: AlimentCiqual
-    let onAjouter: (EntreeAliment) -> Void
+
+    /// Entrée pré-existante quand on est en mode édition (tap sur une row
+    /// dans `RepasSheet`). nil → mode ajout (ouverture depuis la recherche).
+    let entreeExistante: EntreeAliment?
+
+    /// Callback de validation (à la fois pour l'ajout et l'édition).
+    /// L'appelant décide d'append ou de remplacer dans sa liste.
+    let onValider: (EntreeAliment) -> Void
+
+    // MARK: - Init custom (pour pré-remplir l'état en mode édition)
+
+    init(
+        aliment: AlimentCiqual,
+        entreeExistante: EntreeAliment? = nil,
+        onValider: @escaping (EntreeAliment) -> Void
+    ) {
+        self.aliment = aliment
+        self.entreeExistante = entreeExistante
+        self.onValider = onValider
+        // Pré-remplissage des @State quand on édite. En ajout, on conserve
+        // les valeurs par défaut historiques (100g, pas de dose, etc.).
+        _quantiteGrammes = State(initialValue: entreeExistante?.quantiteGrammes ?? 100)
+        _quantiteApproximative = State(initialValue: entreeExistante?.quantiteApproximative ?? false)
+        _doseInsuline = State(initialValue: entreeExistante?.doseInsuline)
+        _note = State(initialValue: entreeExistante?.note ?? "")
+    }
+
+    /// Vrai en mode édition (l'aliment fait déjà partie d'un repas).
+    private var enEdition: Bool { entreeExistante != nil }
 
     // MARK: - Environnement
 
@@ -23,10 +51,10 @@ struct DetailAlimentSheet: View {
 
     // MARK: - État local
 
-    @State private var quantiteGrammes: Double = 100
-    @State private var quantiteApproximative: Bool = false
-    @State private var doseInsuline: Double? = nil
-    @State private var note: String = ""
+    @State private var quantiteGrammes: Double
+    @State private var quantiteApproximative: Bool
+    @State private var doseInsuline: Double?
+    @State private var note: String
 
     @State private var afficherSaisieQuantite: Bool = false
     @State private var saisieQuantiteTexte: String = ""
@@ -63,6 +91,9 @@ struct DetailAlimentSheet: View {
                 sectionNote
             }
             .formStyle(.grouped)
+            // Le clavier se ferme dès qu'on commence à scroller — utile
+            // notamment dans la section Note quand on saisit une note longue.
+            .scrollDismissesKeyboard(.immediately)
             // Pas de navigationTitle : le titre est dans le contenu.
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -71,8 +102,8 @@ struct DetailAlimentSheet: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Ajouter") {
-                        confirmerAjout()
+                    Button(enEdition ? "Enregistrer" : "Ajouter") {
+                        confirmerValidation()
                     }
                     .disabled(quantiteGrammes == 0)
                     .fontWeight(.semibold)
@@ -81,6 +112,9 @@ struct DetailAlimentSheet: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+        // Pas de Liquid Glass sur les sheets internes — fond plat aligné
+        // sur le style grouped form.
+        .presentationBackground(Color(.systemGroupedBackground))
         // Alerte — saisie manuelle de la quantité
         .alert("Quantité en grammes", isPresented: $afficherSaisieQuantite) {
             TextField("ex : 150", text: $saisieQuantiteTexte)
@@ -103,15 +137,27 @@ struct DetailAlimentSheet: View {
 
     // MARK: - Actions
 
-    private func confirmerAjout() {
-        let entree = EntreeAliment(
-            aliment: aliment,
-            quantiteGrammes: quantiteGrammes,
-            quantiteApproximative: quantiteApproximative,
-            doseInsuline: doseInsuline,
-            note: note
-        )
-        onAjouter(entree)
+    private func confirmerValidation() {
+        // En mode édition, on copie l'entrée existante pour préserver son `id`
+        // (UUID auto-généré qui sert d'`Identifiable`). En mode ajout, on
+        // construit une nouvelle instance — un nouvel id est généré.
+        let entree: EntreeAliment
+        if var copie = entreeExistante {
+            copie.quantiteGrammes = quantiteGrammes
+            copie.quantiteApproximative = quantiteApproximative
+            copie.doseInsuline = doseInsuline
+            copie.note = note
+            entree = copie
+        } else {
+            entree = EntreeAliment(
+                aliment: aliment,
+                quantiteGrammes: quantiteGrammes,
+                quantiteApproximative: quantiteApproximative,
+                doseInsuline: doseInsuline,
+                note: note
+            )
+        }
+        onValider(entree)
         dismiss()
     }
 
@@ -208,7 +254,7 @@ struct DetailAlimentSheet: View {
                 .buttonStyle(.plain)
             }
 
-            Slider(value: $quantiteGrammes, in: 5...300, step: 1)
+            Slider(value: $quantiteGrammes, in: 5...300, step: 5)
                 .tint(quantiteApproximative ? .orange : .accentColor)
                 .animation(.easeInOut(duration: 0.2), value: quantiteApproximative)
         }
@@ -321,7 +367,13 @@ struct DetailAlimentSheet: View {
                                 .font(.title2.bold())
                                 .foregroundStyle(.primary)
                                 .contentTransition(.numericText())
-                                .animation(.spring(response: 0.3), value: doseInsuline)
+                                // easeOut au lieu de spring : un spring même
+                                // léger overshoote, et avec
+                                // `.contentTransition(.numericText())` cet
+                                // overshoot affichait des valeurs
+                                // intermédiaires fantômes (ex : 1.5
+                                // pendant la transition 0.5 → 1.0).
+                                .animation(.easeOut(duration: 0.2), value: doseInsuline)
                             Text("u")
                                 .font(.body.bold())
                                 .foregroundStyle(.secondary)
@@ -426,6 +478,6 @@ struct DetailAlimentSheet: View {
     )
 
     DetailAlimentSheet(aliment: aliment) { entree in
-        print("Ajouté : \(entree.aliment.nom) — \(entree.quantiteGrammes)g")
+        print("Validé : \(entree.aliment.nom) — \(entree.quantiteGrammes)g")
     }
 }
