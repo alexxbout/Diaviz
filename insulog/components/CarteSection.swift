@@ -10,8 +10,7 @@ import SwiftUI
 /// Carte de section plein hauteur, traitement aligné sur les cartes "warn"
 /// de la `RepasSheet` (IOBCard, SportDetecteCard, ValidationRatioCard) :
 ///
-/// - **Fond** : gradient linéaire très subtil dans la couleur d'accent
-///   (`couleur.opacity(0.10)` → `0.04`).
+/// - **Fond** : couleur d'accent unie à `0.10` d'opacité.
 /// - **Icône** : SF Symbol en couleur pleine, encerclée par un disque
 ///   `couleur.opacity(0.18)`. L'icône reste lisible, le cercle donne du focus.
 /// - **Texte** : titre et sous-titre directement dans la couleur d'accent
@@ -44,7 +43,7 @@ struct CarteSection: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(fondCarte)
+        .background(couleur.opacity(0.10))
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(titre), \(sousTitre)")
@@ -66,19 +65,6 @@ struct CarteSection: View {
         .accessibilityHidden(true)
     }
 
-    /// Gradient subtil dans la couleur d'accent — exactement le même
-    /// traitement que les cartes warn de la `RepasSheet` pour assurer
-    /// la cohérence visuelle entre les deux écrans.
-    private var fondCarte: LinearGradient {
-        LinearGradient(
-            colors: [
-                couleur.opacity(0.10),
-                couleur.opacity(0.04)
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    }
 }
 
 #Preview {

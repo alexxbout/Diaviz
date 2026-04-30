@@ -12,7 +12,7 @@ import SwiftUI
 /// si on n'a pas encore assez de données.
 ///
 /// Design aligné sur les autres cartes : icône en cercle bleu à gauche,
-/// titre + ratio ajusté + détail à droite, gradient subtil et ombre.
+/// titre + ratio ajusté + détail à droite, fond uni à `0.10` d'opacité.
 struct SportDetecteCard: View {
 
     let sport: SportDetecte
@@ -36,7 +36,7 @@ struct SportDetecteCard: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity)
-            .background(fondCarte, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(couleurAccent.opacity(0.10), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
         .sheet(isPresented: $afficherExplication) {
@@ -102,16 +102,6 @@ struct SportDetecteCard: View {
         }
     }
 
-    private var fondCarte: LinearGradient {
-        LinearGradient(
-            colors: [
-                couleurAccent.opacity(0.10),
-                couleurAccent.opacity(0.04)
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    }
 }
 
 // MARK: - Sheet explicative (placeholder)

@@ -35,7 +35,7 @@ struct IOBCard: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity)
-            .background(fondCarte, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(couleurAccent.opacity(0.10), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
         .sheet(isPresented: $afficherExplication) {
@@ -84,16 +84,6 @@ struct IOBCard: View {
             : String(format: "%.1f", valeur)
     }
 
-    private var fondCarte: LinearGradient {
-        LinearGradient(
-            colors: [
-                couleurAccent.opacity(0.10),
-                couleurAccent.opacity(0.04)
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    }
 }
 
 // MARK: - Sheet explicative (placeholder)

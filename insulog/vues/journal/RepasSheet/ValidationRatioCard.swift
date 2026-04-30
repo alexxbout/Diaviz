@@ -11,7 +11,7 @@ import SwiftUI
 /// par le ratio actif. 3 variantes selon l'état (cohérente/faible/élevée).
 ///
 /// Design simple : icône en cercle coloré + titre + badge profil + détail,
-/// sur un fond gradient subtil dans la couleur d'accent. Pas de bordure
+/// sur un fond uni à `0.10` d'opacité dans la couleur d'accent. Pas de bordure
 /// extérieure (qui se faisait clipper par le `Form` parent).
 struct ValidationRatioCard: View {
 
@@ -34,7 +34,7 @@ struct ValidationRatioCard: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity)
-            .background(fondCarte, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(couleurAccent.opacity(0.10), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .animation(.easeOut(duration: 0.2), value: validation.etat)
         }
         .buttonStyle(.plain)
@@ -131,18 +131,6 @@ struct ValidationRatioCard: View {
         }
     }
 
-    /// Gradient subtil dans la couleur d'accent — donne du caractère sans
-    /// surcharger le fond.
-    private var fondCarte: LinearGradient {
-        LinearGradient(
-            colors: [
-                couleurAccent.opacity(0.10),
-                couleurAccent.opacity(0.04)
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    }
 }
 
 // MARK: - Sheet explicative (placeholder)
