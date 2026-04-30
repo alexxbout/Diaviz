@@ -241,15 +241,25 @@ struct AjouterRepasVue: View {
         }
     }
 
-    /// Menu toolbar visible uniquement quand des récents existent
-    /// et que la recherche est vide.
+    /// Menu toolbar : visible quand au moins une action est applicable —
+    /// repas en cours à supprimer, ou suggestions à effacer.
     @ToolbarContentBuilder
     private var menuToolbar: some ToolbarContent {
-        if recherche.isEmpty && !AlimentsRecentsService.shared.idsRecents.isEmpty {
+        let aUnRepas = !alimentsRepas.isEmpty
+        let peutEffacerRecents = recherche.isEmpty && !AlimentsRecentsService.shared.idsRecents.isEmpty
+
+        if aUnRepas || peutEffacerRecents {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button("Effacer les suggestions", role: .destructive) {
-                        AlimentsRecentsService.shared.effacer()
+                    if aUnRepas {
+                        Button("Supprimer le repas en cours", role: .destructive) {
+                            alimentsRepas.removeAll()
+                        }
+                    }
+                    if peutEffacerRecents {
+                        Button("Effacer les suggestions", role: .destructive) {
+                            AlimentsRecentsService.shared.effacer()
+                        }
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")

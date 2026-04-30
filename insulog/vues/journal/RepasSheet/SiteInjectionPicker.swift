@@ -17,6 +17,17 @@ enum ZoneInjection: String, CaseIterable, Identifiable {
     case fesse = "Fesse"
 
     var id: String { rawValue }
+
+    /// Emoji associé à la zone — utilisé par le sélecteur en cartes et
+    /// réutilisable ailleurs (résumé de timeline, historique, notifications).
+    var emoji: String {
+        switch self {
+        case .ventre: return "🫄"
+        case .cuisse: return "🦵"
+        case .bras:   return "💪"
+        case .fesse:  return "🍑"
+        }
+    }
 }
 
 /// Côté ou position relative au sein de la zone.
@@ -67,6 +78,7 @@ struct SiteInjectionPicker: View {
                 sectionCote
                 if estMemeZone { sectionAvertissement }
             }
+            .sensoryFeedback(.selection, trigger: site.zone)
             .navigationTitle("Site d'injection")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -86,15 +98,33 @@ struct SiteInjectionPicker: View {
 
     // MARK: Sous-vues
 
+    /// Grille 2×2 de cartes sélectionnables (emoji + label) — pattern
+    /// inspiré de l'app web. La row est "custom" : on retire les insets
+    /// par défaut du `Form` pour contrôler le padding nous-mêmes.
     private var sectionZone: some View {
         Section("Zone") {
-            Picker("Zone", selection: $site.zone) {
+            LazyVGrid(
+                columns: [
+                    GridItem(.flexible(), spacing: 12),
+                    GridItem(.flexible(), spacing: 12)
+                ],
+                spacing: 12
+            ) {
                 ForEach(ZoneInjection.allCases) { zone in
-                    Text(zone.rawValue).tag(zone)
+                    CarteZone(
+                        zone: zone,
+                        estSelectionnee: site.zone == zone
+                    ) {
+                        site.zone = zone
+                    }
                 }
             }
-            .pickerStyle(.segmented)
-            .controlSize(.large)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .accessibilityElement(children: .contain)
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
         }
     }
 
@@ -128,6 +158,69 @@ struct SiteInjectionPicker: View {
     private var estMemeZone: Bool {
         guard let derniereZoneRapide else { return false }
         return derniereZoneRapide == site.zone
+    }
+}
+
+// MARK: - Carte de zone
+
+/// Carte sélectionnable d'une zone d'injection (emoji héro + label).
+/// État sélectionné : fond accent à `0.18` d'opacité + bordure 2pt accent.
+/// État neutre : fond `secondarySystemGroupedBackground` (cell standard).
+private struct CarteZone: View {
+
+    let zone: ZoneInjection
+    let estSelectionnee: Bool
+    let onTap: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Button {
+            if reduceMotion {
+                onTap()
+            } else {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    onTap()
+                }
+            }
+        } label: {
+            VStack(spacing: 8) {
+                // Emoji "héro" en taille fixe — la lisibilité Dynamic Type
+                // est portée par le label en dessous (.callout).
+                Text(zone.emoji)
+                    .font(.system(size: 40))
+
+                Text(zone.rawValue)
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .padding(.vertical, 16)
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, minHeight: 96)
+            .background(fond, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(bordure)
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(zone.rawValue)
+        .accessibilityAddTraits(estSelectionnee ? [.isButton, .isSelected] : .isButton)
+        .accessibilityHint("Touchez deux fois pour choisir cette zone")
+    }
+
+    private var fond: Color {
+        estSelectionnee
+            ? Color.accentColor.opacity(0.18)
+            : Color(.secondarySystemGroupedBackground)
+    }
+
+    @ViewBuilder
+    private var bordure: some View {
+        if estSelectionnee {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.accentColor, lineWidth: 2)
+        }
     }
 }
 

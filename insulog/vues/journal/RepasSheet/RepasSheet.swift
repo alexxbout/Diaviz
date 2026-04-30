@@ -34,7 +34,6 @@ struct RepasSheet: View {
 
     @State private var ajustements: [Ajustement] = []
     @State private var correctionHyper: Double = 0
-    @State private var heureInjection: Date = .now
     @State private var siteInjection: SiteInjection = .parDefaut
 
     /// Entrée actuellement en cours d'édition (déclenche la sheet enfant).
@@ -42,6 +41,12 @@ struct RepasSheet: View {
 
     /// Routage unifié pour la sheet d'ajustement (ajout ou édition).
     @State private var sheetAjustement: SheetAjustement? = nil
+
+    /// Présentation de la sheet de sélection de site d'injection. Présentée
+    /// à la racine du body (et non dans `DetailsSection`) pour éviter que
+    /// SwiftUI ne démonte la sheet au 1er tap quand le `Form` rebuild — bug
+    /// connu des `.sheet` attachés à une `Section` à l'intérieur d'un Form.
+    @State private var afficherSitePicker: Bool = false
 
     private var insightsService: InsightsService { .shared }
     private let derniereZoneRapideMockee: ZoneInjection? = .ventre
@@ -102,11 +107,15 @@ struct RepasSheet: View {
                     onEditerAjustement: { sheetAjustement = .edition($0) }
                 )
 
-                DetailsSection(
-                    heureInjection: $heureInjection,
-                    siteInjection: $siteInjection,
-                    derniereZoneRapide: derniereZoneRapideMockee
-                )
+                // Site d'injection : visible seulement si une dose effective
+                // est prévue. Sans injection, la zone n'a pas de sens.
+                if totalInjecte > 0 {
+                    DetailsSection(
+                        siteInjection: $siteInjection,
+                        derniereZoneRapide: derniereZoneRapideMockee,
+                        onOuvrirSitePicker: { afficherSitePicker = true }
+                    )
+                }
             }
             .formStyle(.grouped)
         }
@@ -148,6 +157,15 @@ struct RepasSheet: View {
                     }
                 )
             }
+        }
+        // Sheet de sélection du site d'injection — hostée ici (et pas dans
+        // DetailsSection) pour rester sur la racine stable du body, à côté
+        // des deux autres sheets enfants.
+        .sheet(isPresented: $afficherSitePicker) {
+            SiteInjectionPicker(
+                site: $siteInjection,
+                derniereZoneRapide: derniereZoneRapideMockee
+            )
         }
     }
 

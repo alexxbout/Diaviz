@@ -7,72 +7,30 @@
 
 import SwiftUI
 
-/// Section "DÉTAILS" repliable de la `RepasSheet`.
-/// Quand fermée : résumé compact "Injection à HH:MM · Site".
-/// Quand ouverte : DatePicker pour l'heure + sélection du site (avec sheet).
+/// Row "Site d'injection" de la `RepasSheet`. Visible uniquement quand une
+/// dose est saisie — sans injection, le site n'a pas de sens. Tap ouvre la
+/// sheet de sélection (présentée par le parent pour éviter l'auto-dismiss
+/// au 1er tap, cf. RepasSheet).
 struct DetailsSection: View {
 
-    @Binding var heureInjection: Date
     @Binding var siteInjection: SiteInjection
     /// Zone de la dernière injection rapide (mockée), utilisée pour le warning.
     let derniereZoneRapide: ZoneInjection?
-
-    @State private var ouvert: Bool = false
-    @State private var afficherPickerSite: Bool = false
+    /// Demande au parent (RepasSheet) de présenter la sheet de sélection de
+    /// site. La sheet vit à la racine du body parent — sinon SwiftUI démonte
+    /// sa présentation au premier rebuild du Form (auto-dismiss au 1er tap).
+    let onOuvrirSitePicker: () -> Void
 
     var body: some View {
         Section {
-            DisclosureGroup(isExpanded: $ouvert) {
-                heureRow
-                siteRow
-            } label: {
-                if ouvert {
-                    Text("Détails")
-                        .font(.body)
-                } else {
-                    // Résumé compact quand fermé.
-                    HStack {
-                        Text("Détails")
-                            .font(.body)
-                        Spacer()
-                        Text(resumeCompact)
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-        }
-        .sheet(isPresented: $afficherPickerSite) {
-            SiteInjectionPicker(site: $siteInjection, derniereZoneRapide: derniereZoneRapide)
-        }
-    }
-
-    // MARK: - Rows internes
-
-    private var heureRow: some View {
-        HStack {
-            Text("Heure d'injection")
-                .font(.body)
-            Spacer()
-            DatePicker(
-                "Heure d'injection",
-                selection: $heureInjection,
-                displayedComponents: [.hourAndMinute]
-            )
-            .labelsHidden()
-            .datePickerStyle(.compact)
-        }
-    }
-
-    private var siteRow: some View {
-        HStack {
-            Text("Site d'injection")
-                .font(.body)
-            Spacer()
             Button {
-                afficherPickerSite = true
+                onOuvrirSitePicker()
             } label: {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
+                    Text("Site d'injection")
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                    Spacer()
                     if memeZoneQueDerniere {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
@@ -85,6 +43,7 @@ struct DetailsSection: View {
                         .font(.caption.bold())
                         .foregroundStyle(.tertiary)
                 }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Site d'injection : \(siteInjection.libelle)")
@@ -92,42 +51,33 @@ struct DetailsSection: View {
         }
     }
 
-    // MARK: - Calculs
-
     private var memeZoneQueDerniere: Bool {
         guard let derniereZoneRapide else { return false }
         return derniereZoneRapide == siteInjection.zone
-    }
-
-    private var resumeCompact: String {
-        let formatHeure = heureInjection.formatted(date: .omitted, time: .shortened)
-        return "Injection à \(formatHeure) · \(siteInjection.libelle)"
     }
 }
 
 // MARK: - Aperçu
 
-#Preview("Section repliée") {
-    @Previewable @State var heure = Date()
+#Preview("Site standard") {
     @Previewable @State var site = SiteInjection.parDefaut
     Form {
         DetailsSection(
-            heureInjection: $heure,
             siteInjection: $site,
-            derniereZoneRapide: .cuisse
+            derniereZoneRapide: .cuisse,
+            onOuvrirSitePicker: {}
         )
     }
     .formStyle(.grouped)
 }
 
 #Preview("Avertissement même zone") {
-    @Previewable @State var heure = Date()
     @Previewable @State var site = SiteInjection(zone: .ventre, cote: .gauche)
     Form {
         DetailsSection(
-            heureInjection: $heure,
             siteInjection: $site,
-            derniereZoneRapide: .ventre
+            derniereZoneRapide: .ventre,
+            onOuvrirSitePicker: {}
         )
     }
     .formStyle(.grouped)
