@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-enum VerdictGlycemique: Hashable {
+enum VerdictGlycemique: Hashable, Codable, Sendable {
     case bon          // pic resté < 180 mg/dL
     case moyen        // pic entre 180-240 mg/dL
     case mauvais      // pic > 240 mg/dL ou hypo détectée
