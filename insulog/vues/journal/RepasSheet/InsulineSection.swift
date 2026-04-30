@@ -202,3 +202,40 @@ struct InsulineSection: View {
         return .secondary
     }
 }
+
+// MARK: - Aperçu
+
+#Preview("Sans ajustements") {
+    @Previewable @State var ajustements: [Ajustement] = []
+    @Previewable @State var correction: Double = 0
+    Form {
+        InsulineSection(
+            doseRepas: 4.5,
+            ajustements: $ajustements,
+            correctionHyper: $correction,
+            totalInjecte: 4.5,
+            onAjouterAjustement: {},
+            onEditerAjustement: { _ in }
+        )
+    }
+    .formStyle(.grouped)
+}
+
+#Preview("Avec ajustements + correction") {
+    @Previewable @State var ajustements: [Ajustement] = [
+        Ajustement(raison: .sportRecent, valeur: -0.5),
+        Ajustement(raison: .repasGras, valeur: 1.0),
+    ]
+    @Previewable @State var correction: Double = 1.5
+    Form {
+        InsulineSection(
+            doseRepas: 4.5,
+            ajustements: $ajustements,
+            correctionHyper: $correction,
+            totalInjecte: 6.5,
+            onAjouterAjustement: {},
+            onEditerAjustement: { _ in }
+        )
+    }
+    .formStyle(.grouped)
+}

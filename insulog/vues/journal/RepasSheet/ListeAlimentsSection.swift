@@ -67,3 +67,37 @@ struct ListeAlimentsSection: View {
         }
     }
 }
+
+// MARK: - Aperçu
+
+private let _previewAlimentsCiqual: [AlimentCiqual] = [
+    AlimentCiqual(id: 1, nom: "Pomme", calories: 52, glucides: 14, sucres: 10, proteines: 0.3, lipides: 0.2, fibres: 2.4, emoji: "🍎"),
+    AlimentCiqual(id: 2, nom: "Pâtes complètes cuites", calories: 124, glucides: 25, sucres: 1, proteines: 5, lipides: 0.8, fibres: 3, emoji: "🍝"),
+    AlimentCiqual(id: 3, nom: "Yaourt nature", calories: 60, glucides: 5, sucres: 5, proteines: 4, lipides: 3, fibres: 0, emoji: "🥛"),
+]
+
+#Preview("Liste avec aliments") {
+    @Previewable @State var aliments: [EntreeAliment] = _previewAlimentsCiqual.map {
+        EntreeAliment(aliment: $0, quantiteGrammes: 100, quantiteApproximative: false, doseInsuline: 1.0, note: "")
+    }
+    Form {
+        ListeAlimentsSection(
+            aliments: $aliments,
+            onEditer: { _ in },
+            onAjouterUnAliment: {}
+        )
+    }
+    .formStyle(.grouped)
+}
+
+#Preview("Liste vide") {
+    @Previewable @State var aliments: [EntreeAliment] = []
+    Form {
+        ListeAlimentsSection(
+            aliments: $aliments,
+            onEditer: { _ in },
+            onAjouterUnAliment: {}
+        )
+    }
+    .formStyle(.grouped)
+}

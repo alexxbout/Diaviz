@@ -76,3 +76,52 @@ struct InsightsSection: View {
         contexte.validation == nil && contexte.sport == nil && contexte.iob == nil
     }
 }
+
+// MARK: - Aperçu
+
+private let _previewProfil = ProfilRatio(unitesPour10g: 1.0, libelle: "midi")
+
+private let _previewContexteComplet = ContexteInsights(
+    validation: ValidationRatio(doseSaisie: 0, doseSuggeree: 4.5, profil: _previewProfil),
+    sport: SportDetecte(typeSport: "Yoga", emoji: "🧘", ilYAMinutes: 60, ratioAjuste: nil, nombreSeancesHistorique: 2),
+    iob: IOB(
+        unitesTotales: 1.8,
+        injections: [
+            InjectionActive(unitesInjectees: 2.0, heureInjection: Date().addingTimeInterval(-30 * 60), unitesRestantes: 1.2),
+            InjectionActive(unitesInjectees: 1.0, heureInjection: Date().addingTimeInterval(-4 * 3600 - 30 * 60), unitesRestantes: 0.6),
+        ]
+    )
+)
+
+private let _previewContexteCoherent = ContexteInsights(
+    validation: ValidationRatio(doseSaisie: 4.5, doseSuggeree: 4.5, profil: _previewProfil),
+    sport: nil,
+    iob: nil
+)
+
+#Preview("Trois alertes") {
+    Form {
+        InsightsSection(contexte: _previewContexteComplet)
+    }
+    .formStyle(.grouped)
+}
+
+#Preview("Validation cohérente seule") {
+    Form {
+        InsightsSection(contexte: _previewContexteCoherent)
+    }
+    .formStyle(.grouped)
+}
+
+#Preview("Aucune alerte (vue masquée)") {
+    Form {
+        InsightsSection(contexte: ContexteInsights(validation: nil, sport: nil, iob: nil))
+        // Section vide pour montrer que rien ne s'affiche.
+        Section("Suite du formulaire") {
+            Text("La section alertes est masquée quand aucun insight n'est disponible.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+    .formStyle(.grouped)
+}

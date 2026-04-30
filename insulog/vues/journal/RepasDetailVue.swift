@@ -118,3 +118,45 @@ struct RepasDetailVue: View {
         sections[sectionIndex].repas.removeAll { $0.aliments.isEmpty }
     }
 }
+
+// MARK: - Aperçu
+
+private func _previewDate(_ h: Int, _ m: Int = 0) -> Date {
+    Calendar.current.date(bySettingHour: h, minute: m, second: 0, of: Date()) ?? Date()
+}
+
+private let _previewSections: [(titre: String, repas: [Repas])] = [
+    (titre: "Petit déjeuner", repas: [
+        Repas(heure: _previewDate(7, 30), aliments: [
+            Aliment(emoji: "🥣", nom: "Flocons d'avoine", quantite: 80, glucides: 54, insuline: 3.0),
+            Aliment(emoji: "🍌", nom: "Banane", quantite: 120, glucides: 27, insuline: 1.5),
+        ]),
+    ]),
+    (titre: "Déjeuner", repas: [
+        Repas(heure: _previewDate(12, 30), aliments: [
+            Aliment(emoji: "🍝", nom: "Pâtes complètes", quantite: 90, glucides: 60, insuline: 3.5),
+        ]),
+    ]),
+    (titre: "En-cas", repas: [
+        Repas(heure: _previewDate(16, 0), aliments: [
+            Aliment(emoji: "🍪", nom: "Cookie", quantite: 30, glucides: 18, insuline: 0.0),
+        ]),
+    ]),
+    (titre: "Dîner", repas: [
+        Repas(heure: _previewDate(19, 45), aliments: [
+            Aliment(emoji: "🍚", nom: "Riz basmati", quantite: 70, glucides: 56, insuline: 3.0),
+        ]),
+    ]),
+]
+
+#Preview("Avec repas") {
+    NavigationStack {
+        RepasDetailVue(sections: _previewSections)
+    }
+}
+
+#Preview("Journée vide") {
+    NavigationStack {
+        RepasDetailVue(sections: [])
+    }
+}

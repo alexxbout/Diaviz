@@ -15,3 +15,7 @@ struct AnalysesVue: View {
         }
     }
 }
+
+#Preview {
+    AnalysesVue()
+}

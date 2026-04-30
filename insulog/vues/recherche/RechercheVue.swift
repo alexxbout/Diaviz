@@ -12,3 +12,7 @@ struct RecercheVue: View {
         Text("Analyses")
     }
 }
+
+#Preview {
+    RecercheVue()
+}

@@ -104,3 +104,31 @@ struct DetailsSection: View {
         return "Injection à \(formatHeure) · \(siteInjection.libelle)"
     }
 }
+
+// MARK: - Aperçu
+
+#Preview("Section repliée") {
+    @Previewable @State var heure = Date()
+    @Previewable @State var site = SiteInjection.parDefaut
+    Form {
+        DetailsSection(
+            heureInjection: $heure,
+            siteInjection: $site,
+            derniereZoneRapide: .cuisse
+        )
+    }
+    .formStyle(.grouped)
+}
+
+#Preview("Avertissement même zone") {
+    @Previewable @State var heure = Date()
+    @Previewable @State var site = SiteInjection(zone: .ventre, cote: .gauche)
+    Form {
+        DetailsSection(
+            heureInjection: $heure,
+            siteInjection: $site,
+            derniereZoneRapide: .ventre
+        )
+    }
+    .formStyle(.grouped)
+}

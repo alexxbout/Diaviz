@@ -115,13 +115,12 @@ struct GraphRepasJournee: View {
     private var sousTitreRepas: String {
         let n = nombreRepasAffiche
         let sans = nombreSansInjection
-        let suffixe = n > 1 ? "s" : ""
         if sans == 0 {
             return "\(n) repas"
         } else if sans == 1 {
-            return "\(n) repas\(suffixe) (1 sans insuline)"
+            return "\(n) repas (1 sans insuline)"
         } else {
-            return "\(n) repas\(suffixe) (\(sans) sans insuline)"
+            return "\(n) repas (\(sans) sans insuline)"
         }
     }
 

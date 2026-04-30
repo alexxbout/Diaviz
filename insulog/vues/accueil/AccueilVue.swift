@@ -44,3 +44,7 @@ struct AccueilVue: View {
             }
         }
 }
+
+#Preview {
+    AccueilVue()
+}
