@@ -23,13 +23,23 @@ struct RepasDetailVue: View {
         _sections = State(initialValue: initial)
     }
 
+    /// Projection à plat des repas validés en `RepasGraph`, regroupés
+    /// avec leur libellé de section. C'est le format consommé par le graphe.
+    private var repasGraph: [RepasGraph] {
+        sections.flatMap { section in
+            section.repas
+                .filter { !$0.aliments.isEmpty }
+                .map { RepasGraph($0, label: section.titre) }
+        }
+    }
+
     var body: some View {
         List {
             // Graph en première section, sans en-tête. SwiftUI gère
             // automatiquement la hauteur de cette cellule comme pour
             // n'importe quelle autre row de la List.
             Section {
-                GraphRepasJournee(sections: sections, selectedDate: $selectedDate)
+                GraphRepasJournee(repas: repasGraph, selectedDate: $selectedDate)
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)

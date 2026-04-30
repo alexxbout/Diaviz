@@ -92,6 +92,19 @@ private let previewRepas: [(titre: String, repas: [Repas])] = [
         ]
     ),
     (
+        titre: "En-cas",
+        repas: [
+            // Aujourd'hui — grignotage matin sans injection
+            Repas(heure: makeDate(hour: 10, minute: 30), aliments: [
+                Aliment(emoji: "🍎", nom: "Pomme", quantite: 150, glucides: 19, insuline: 0.0),
+            ]),
+            // Aujourd'hui — goûter sans injection
+            Repas(heure: makeDate(hour: 16, minute: 0), aliments: [
+                Aliment(emoji: "🍪", nom: "Cookie", quantite: 30, glucides: 18, insuline: 0.0),
+            ]),
+        ]
+    ),
+    (
         titre: "Dîner",
         repas: [
             // Aujourd'hui
