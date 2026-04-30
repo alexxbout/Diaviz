@@ -10,6 +10,10 @@ import SwiftUI
 struct RepasDetailVue: View {
     @State private var sections: [(titre: String, repas: [Repas])]
 
+    /// Date sélectionnée par le `GraphRepasJournee` via swipe horizontal.
+    /// Sert à filtrer les sections affichées en dessous.
+    @State private var selectedDate: Date = Calendar.current.startOfDay(for: Date())
+
     private static let titresSections = ["Petit déjeuner", "Déjeuner", "En-cas", "Dîner"]
 
     init(sections: [(titre: String, repas: [Repas])]) {
@@ -21,14 +25,24 @@ struct RepasDetailVue: View {
 
     var body: some View {
         List {
+            // Graph en première section, sans en-tête. SwiftUI gère
+            // automatiquement la hauteur de cette cellule comme pour
+            // n'importe quelle autre row de la List.
+            Section {
+                GraphRepasJournee(sections: sections, selectedDate: $selectedDate)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            }
+
             ForEach(sections.indices, id: \.self) { sectionIndex in
                 Section(sections[sectionIndex].titre) {
                     contenuSection(sectionIndex: sectionIndex)
                 }
             }
         }
-        .toolbar(.hidden, for: .tabBar)
         .listStyle(.insetGrouped)
+        .toolbar(.hidden, for: .tabBar)
         .navigationTitle("Repas")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -42,7 +56,11 @@ struct RepasDetailVue: View {
 
     @ViewBuilder
     private func contenuSection(sectionIndex: Int) -> some View {
-        let repasAvecAliments = sections[sectionIndex].repas.filter { !$0.aliments.isEmpty }
+        let cal = Calendar.current
+        let repasAvecAliments = sections[sectionIndex].repas
+            .filter { !$0.aliments.isEmpty }
+            .filter { cal.isDate($0.heure, inSameDayAs: selectedDate) }
+
         if repasAvecAliments.isEmpty {
             Text("Aucun repas enregistré")
                 .font(.subheadline)
@@ -90,4 +108,3 @@ struct RepasDetailVue: View {
         sections[sectionIndex].repas.removeAll { $0.aliments.isEmpty }
     }
 }
-
