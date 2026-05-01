@@ -40,27 +40,39 @@ struct CarteInsulineLente: View {
     // MARK: - Corps
 
     var body: some View {
-        Button(action: onTap) {
-            contenu
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
-                .background {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(couleurFond)
-                        .overlay {
-                            if let bordure = couleurBordure {
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .strokeBorder(bordure, lineWidth: 1)
-                            }
-                        }
-                }
-                .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        // Wrapping conditionnel : un `Button.disabled(...)` applique un
+        // dimming global au contenu, ce qui ternit visuellement les
+        // états passifs. On ne wrappe en bouton que si la carte est
+        // réellement actionnable.
+        Group {
+            if estTappable {
+                Button(action: onTap) { carte }
+                    .buttonStyle(.plain)
+            } else {
+                carte
+            }
         }
-        .buttonStyle(.plain)
-        .disabled(!estTappable)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(libelleAccessible)
+        .accessibilityAddTraits(estTappable ? .isButton : [])
         .accessibilityHint(estTappable ? "Touchez deux fois pour enregistrer" : "")
+    }
+
+    private var carte: some View {
+        contenu
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .background {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(couleurFond)
+                    .overlay {
+                        if let bordure = couleurBordure {
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .strokeBorder(bordure, lineWidth: 1)
+                        }
+                    }
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     // MARK: - Contenu
@@ -107,7 +119,9 @@ struct CarteInsulineLente: View {
                 .foregroundStyle(.orange)
                 .font(.title3)
         case .prochainePrevue:
-            EmptyView()
+            Image(systemName: "clock.fill")
+                .foregroundStyle(.secondary)
+                .font(.title3)
         }
     }
 
@@ -173,20 +187,20 @@ struct CarteInsulineLente: View {
 
     private var couleurFond: Color {
         switch etat {
-        case .enregistree:      return Color.blue.opacity(0.15)
-        case .aPrendre:         return Color.orange.opacity(0.15)
         // `secondarySystemGroupedBackground` matche le fond des cellules
-        // d'un List en .insetGrouped — la carte « neutre » ressort
-        // proprement sur le fond gris global de la section, là où
-        // `secondarySystemBackground` rendait la carte invisible.
+        // d'un List en .insetGrouped — blanc en clair, gris foncé en
+        // sombre. La carte enregistrée ressort sobrement sur le fond
+        // gris de la section, sans teinte bleue.
+        case .enregistree:      return Color(.secondarySystemGroupedBackground)
+        case .aPrendre:         return Color.orange.opacity(0.15)
         case .prochainePrevue:  return Color(.secondarySystemGroupedBackground)
         }
     }
 
-    /// `nil` quand on ne veut pas de bordure (état neutre).
+    /// `nil` quand on ne veut pas de bordure.
     private var couleurBordure: Color? {
         switch etat {
-        case .enregistree:      return Color.blue.opacity(0.3)
+        case .enregistree:      return nil
         case .aPrendre:         return Color.orange.opacity(0.3)
         case .prochainePrevue:  return nil
         }

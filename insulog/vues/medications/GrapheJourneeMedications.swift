@@ -74,12 +74,56 @@ struct GrapheJourneeMedications: View {
         return debut...fin
     }
 
+    /// Groupe d'injections données simultanément (même minute). Permet
+    /// de rendre une seule barre empilée pour le cas fréquent « repas
+    /// + correction en une piqûre ».
+    private struct GroupeInjections: Identifiable {
+        let heure: Date
+        /// Ordonnées du bas vers le haut de la pile (cf. `ordreEmpilement`).
+        let parts: [Injection]
+        var id: Date { heure }
+        var doseTotale: Double { parts.reduce(0) { $0 + $1.dose } }
+    }
+
+    /// Groupe les injections par minute. Les rapide qui partagent la
+    /// même minute fusionnent dans un seul groupe (repas en bas,
+    /// correction au-dessus). La lente se retrouve en groupe singleton
+    /// en pratique — elle n'a pas vocation à coïncider avec un rapide.
+    private func grouperInjections(_ injections: [Injection]) -> [GroupeInjections] {
+        let cal = Calendar.current
+        let parMinute = Dictionary(grouping: injections) { inj -> Date in
+            cal.date(bySetting: .second, value: 0, of: inj.heure) ?? inj.heure
+        }
+        return parMinute
+            .map { (heure, parts) in
+                GroupeInjections(
+                    heure: heure,
+                    parts: parts.sorted { ordreEmpilement($0.type) < ordreEmpilement($1.type) }
+                )
+            }
+            .sorted { $0.heure < $1.heure }
+    }
+
+    /// Ordre d'empilement bas → haut : repas en bas (la dose
+    /// « principale »), correction au-dessus (l'« ajout »).
+    private func ordreEmpilement(_ type: TypeInsuline) -> Int {
+        switch type {
+        case .rapideRepas:       0
+        case .rapideCorrection:  1
+        case .lente:             2
+        }
+    }
+
     /// Borne supérieure de l'axe Y pour un set d'injections — palier
-    /// de 5u au-dessus de la dose max + un palier de marge (minimum 10u).
-    /// La marge garantit que l'annotation au sommet d'une barre touchant
-    /// le maxY reste dans la zone de tracé.
+    /// de 5u au-dessus de la **dose totale max d'un groupe** + un palier
+    /// de marge (minimum 10u). On prend la somme par groupe parce que
+    /// les barres empilées montent jusqu'à `dose_repas + dose_correction`.
+    /// La marge garantit que l'annotation au sommet reste dans la zone
+    /// de tracé.
     private func maxY(pour injections: [Injection]) -> Double {
-        let max = injections.map(\.dose).max() ?? 0
+        let max = grouperInjections(injections)
+            .map(\.doseTotale)
+            .max() ?? 0
         let palier = ((Int(max) / 5) + 1) * 5
         return Swift.max(Double(palier), 10)
     }
@@ -301,19 +345,23 @@ struct GrapheJourneeMedications: View {
     @ViewBuilder
     private func chartPour(jour: Date, injections: [Injection]) -> some View {
         Chart {
-            ForEach(injections) { inj in
-                BarMark(
-                    x: .value("Heure", inj.heure),
-                    y: .value("Dose", inj.dose),
-                    width: .fixed(10)
-                )
-                .foregroundStyle(inj.type.couleur.gradient)
-                .cornerRadius(6)
-                .annotation(position: .top, spacing: 2) {
-                    Text("\(inj.dose, specifier: "%.1f")u")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(inj.type.couleur)
-                        .monospacedDigit()
+            ForEach(grouperInjections(injections)) { groupe in
+                ForEach(Array(groupe.parts.enumerated()), id: \.element.id) { idx, part in
+                    let estSommet = idx == groupe.parts.count - 1
+                    BarMark(
+                        x: .value("Heure", groupe.heure),
+                        y: .value("Dose", part.dose),
+                        width: .fixed(10)
+                    )
+                    .foregroundStyle(part.type.couleur.gradient)
+                    // Coins arrondis uniquement en haut de la pile pour
+                    // éviter un joint arrondi entre deux portions empilées.
+                    .cornerRadius(estSommet ? 6 : 0)
+                    .annotation(position: .top, spacing: 2) {
+                        if estSommet {
+                            annotationGroupe(groupe)
+                        }
+                    }
                 }
             }
         }
@@ -328,6 +376,22 @@ struct GrapheJourneeMedications: View {
         .chartYAxis(.hidden)
         .chartPlotStyle { plot in
             plot.padding(.trailing, legendWidth + legendMarge)
+        }
+    }
+
+    /// Annotation au sommet d'une barre composée — une `Text` par partie
+    /// dans la couleur sémantique de son type. Pour un groupe singleton
+    /// (cas standard), une seule valeur est rendue ; pour un groupe à
+    /// deux portions (repas + correction), les deux valeurs s'alignent.
+    @ViewBuilder
+    private func annotationGroupe(_ groupe: GroupeInjections) -> some View {
+        HStack(spacing: 3) {
+            ForEach(groupe.parts) { part in
+                Text("\(part.dose, specifier: "%.1f")u")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(part.type.couleur)
+                    .monospacedDigit()
+            }
         }
     }
 

@@ -82,14 +82,19 @@ final class InjectionsServiceMock {
                 note: nil,
                 glycemieAuMoment: 240
             ),
+            // Correction simultanée au bolus repas du déjeuner — cas
+            // fréquent « glycémie haute avant repas, on bolus pour le
+            // repas + ajout correction en une seule piqûre ». Le graphe
+            // empile cette correction au-dessus du repas (cf. groupement
+            // par minute dans `GrapheJourneeMedications`).
             Injection(
                 type: .rapideCorrection,
                 dose: 1.5,
-                heure: dateA(14, 30),
+                heure: dateA(13, 0),
                 zoneInjection: .bras,
                 coteInjection: .droite,
                 note: nil,
-                glycemieAuMoment: 165
+                glycemieAuMoment: 195
             ),
             Injection(
                 type: .rapideRepas,
