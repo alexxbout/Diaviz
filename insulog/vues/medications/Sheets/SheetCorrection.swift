@@ -111,32 +111,38 @@ struct SheetCorrection: View {
 
     private var sectionDose: some View {
         Section("Dose") {
-            VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                BoutonStepper(systemImage: "minus") {
+                    if dose >= 0.5 { dose -= 0.5 }
+                }
+                .disabled(dose < 0.5)
+
+                Spacer()
+
                 Button {
                     saisieDoseTexte = formate(dose)
                     afficherSaisieDose = true
                 } label: {
                     HStack(alignment: .lastTextBaseline, spacing: 2) {
                         Text(formate(dose))
-                            .font(.title.bold())
+                            .font(.title2.bold())
                             .monospacedDigit()
                             .foregroundStyle(.primary)
                             .contentTransition(.numericText())
                             .animation(.easeOut(duration: 0.2), value: dose)
                         Text("u")
-                            .font(.title3.bold())
+                            .font(.body.bold())
                             .foregroundStyle(.secondary)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
 
-                Stepper(value: $dose, in: 0...30, step: 0.5) {
-                    EmptyView()
+                Spacer()
+
+                BoutonStepper(systemImage: "plus") {
+                    if dose < 30 { dose += 0.5 }
                 }
-                .labelsHidden()
-                .frame(maxWidth: .infinity, alignment: .trailing)
+                .disabled(dose >= 30)
             }
             .padding(.vertical, 4)
             .accessibilityElement(children: .combine)

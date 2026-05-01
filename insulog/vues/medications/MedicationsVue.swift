@@ -118,14 +118,14 @@ struct MedicationsVue: View {
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
                 Button {
-                    sheetActive = .lente
-                } label: {
-                    Label("Insuline lente", systemImage: "drop.fill")
-                }
-                Button {
                     sheetActive = .correction
                 } label: {
                     Label("Correction rapide", systemImage: "drop.fill")
+                }
+                Button {
+                    sheetActive = .lente
+                } label: {
+                    Label("Insuline lente", systemImage: "drop.fill")
                 }
             } label: {
                 Image(systemName: "plus")
