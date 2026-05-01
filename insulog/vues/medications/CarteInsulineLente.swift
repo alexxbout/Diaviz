@@ -11,12 +11,17 @@ import SwiftUI
 ///
 /// Trois états mutuellement exclusifs, dérivés de la lente du jour
 /// affiché et de l'heure habituelle configurée par l'utilisateur :
-/// 1. **enregistree** : la lente du jour a été prise → fond bleu opaque
-///    avec bordure subtile, ✓ vert, dose et infos lisibles.
+/// 1. **enregistree** : la lente du jour a été prise → ✓ vert, dose et
+///    infos lisibles.
 /// 2. **aPrendre** : pas de lente aujourd'hui ET heure habituelle déjà
-///    passée → fond orange opaque avec bordure, ⚠ orange, tappable.
+///    passée → ⚠ orange + libellé « À prendre » orange, tappable.
 /// 3. **prochainePrevue** : pas de lente aujourd'hui ET heure pas encore
-///    atteinte → fond neutre `secondarySystemBackground`, sans bordure.
+///    atteinte → 🕐 + libellé « Prochaine injection ».
+///
+/// Tous les états partagent le même fond neutre
+/// `secondarySystemGroupedBackground` et n'ont pas de bordure : la carte
+/// se fond dans la section `List` ; la sémantique de chaque état est
+/// portée par l'icône, le libellé et leur couleur.
 ///
 /// La carte est dimensionnée pour s'insérer dans une row de `List`
 /// `.insetGrouped` avec `listRowInsets(EdgeInsets())` et un row
@@ -186,25 +191,17 @@ struct CarteInsulineLente: View {
     // MARK: - Style dérivé de l'état
 
     private var couleurFond: Color {
-        switch etat {
         // `secondarySystemGroupedBackground` matche le fond des cellules
         // d'un List en .insetGrouped — blanc en clair, gris foncé en
-        // sombre. La carte enregistrée ressort sobrement sur le fond
-        // gris de la section, sans teinte bleue.
-        case .enregistree:      return Color(.secondarySystemGroupedBackground)
-        case .aPrendre:         return Color.orange.opacity(0.15)
-        case .prochainePrevue:  return Color(.secondarySystemGroupedBackground)
-        }
+        // sombre. Tous les états utilisent ce fond neutre ; l'urgence de
+        // l'état `aPrendre` est portée par l'icône ⚠ et le libellé orange,
+        // pas par un wash de couleur.
+        Color(.secondarySystemGroupedBackground)
     }
 
-    /// `nil` quand on ne veut pas de bordure.
-    private var couleurBordure: Color? {
-        switch etat {
-        case .enregistree:      return nil
-        case .aPrendre:         return Color.orange.opacity(0.3)
-        case .prochainePrevue:  return nil
-        }
-    }
+    /// `nil` quand on ne veut pas de bordure. Aucun état n'a de bordure :
+    /// la carte se fond dans la section `List` comme les autres rows.
+    private var couleurBordure: Color? { nil }
 
     /// Couleur de l'icône drop.fill et du libellé d'en-tête.
     /// Bleu sauf pour l'alerte où l'orange prime visuellement.
