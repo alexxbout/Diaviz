@@ -11,8 +11,7 @@ import SwiftUI
 /// `NavigationLink`, donc PAS de `NavigationStack` propre — elle
 /// hérite de la stack du parent.
 ///
-/// Composition (toutes en sections de la même `List` `.insetGrouped`,
-/// pour rester cohérent avec la page Repas) :
+/// Composition en sections d'une même `List.insetGrouped` :
 /// - Section graphe — timeline 24h paginée jour par jour
 /// - Section carte lente — état de l'insuline lente du jour
 /// - Section corrections — rows tappables (édition)
@@ -52,17 +51,19 @@ struct MedicationsVue: View {
     /// confondues, lente exclue) — sert au `SiteInjectionPicker` pour le
     /// warning de rotation des sites.
     private var derniereZoneRapide: ZoneInjection? {
-        service.injections
-            .filter { $0.type != .lente }
-            .sorted { $0.heure > $1.heure }
-            .first?.zoneInjection
+        derniereZone { $0.type != .lente }
     }
 
     private var derniereZoneLente: ZoneInjection? {
+        derniereZone { $0.type == .lente }
+    }
+
+    private func derniereZone(filtre: (Injection) -> Bool) -> ZoneInjection? {
         service.injections
-            .filter { $0.type == .lente }
-            .sorted { $0.heure > $1.heure }
-            .first?.zoneInjection
+            .lazy
+            .filter(filtre)
+            .max(by: { $0.heure < $1.heure })?
+            .zoneInjection
     }
 
     /// État de la carte lente — calculé depuis le service et l'horloge.
@@ -151,10 +152,9 @@ struct MedicationsVue: View {
         }
     }
 
-    /// Section carte lente — même traitement que la section graphe :
-    /// la carte fournit son propre fond coloré + bordure et remplit
-    /// la cellule (les marges horizontales viennent uniquement du
-    /// `.insetGrouped` natif).
+    /// Section carte lente — la carte fournit son propre fond + bordure
+    /// et remplit la cellule (marges horizontales du `.insetGrouped`
+    /// natif uniquement).
     private var sectionCarteLente: some View {
         Section {
             CarteInsulineLente(
@@ -190,21 +190,20 @@ struct MedicationsVue: View {
     }
 
     /// Section bolus repas — uniquement rendue si non vide. Header
-    /// custom pour ajouter le sous-titre « Saisis via la page Repas ».
-    /// `.textCase(nil)` désactive la mise en majuscules automatique
-    /// que `Section` applique aux headers en List `.insetGrouped`.
+    /// custom avec sous-titre « Saisis via la page Repas ». Le
+    /// `.textCase(nil)` désactive la mise en majuscules auto des
+    /// headers en `.insetGrouped`.
     private var sectionBolusRepas: some View {
         Section {
             ListeBolusRepas(bolus: bolusRepas)
         } header: {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Bolus repas")
-                    .textCase(nil)
                 Text("Saisis via la page Repas")
-                    .textCase(nil)
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
+            .textCase(nil)
         }
     }
 

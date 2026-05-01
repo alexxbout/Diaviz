@@ -10,23 +10,16 @@ import Charts
 
 /// Timeline 24h des médications du jour, paginée jour par jour.
 ///
-/// Calque exact de l'archi du graphe page Repas (`GraphRepasJournee`) :
-/// - couche scrollable horizontale paginée (un Chart par jour)
-/// - couche fixe (`legendeFixe`) qui affiche l'axe Y sur le bord droit
-///
-/// Différences fonctionnelles avec le graphe Repas (et **uniquement** ces
-/// deux différences) :
-/// - **Légende** des types sous le graphe (lente / repas / correction).
-/// - **Annotation** de la dose au sommet de chaque barre.
-///
-/// Encodage sémantique des barres :
+/// Encodage des barres :
 /// - **Position X** : heure de l'injection
 /// - **Hauteur**    : dose en unités d'insuline
 /// - **Couleur**    : type (bleu lente / violet repas / orange correction)
+/// - **Annotation** : valeur de la dose au sommet de chaque barre
 ///
-/// L'échelle Y est calculée par jour (`maxYPour(jour:)`) avec une marge
-/// d'un palier au-dessus de la dose max — ça assure que l'annotation
-/// au sommet d'une barre touchant maxY reste dans la zone de tracé.
+/// Architecture :
+/// - couche scrollable horizontale paginée (un Chart par jour)
+/// - couche fixe (`legendeFixe`) qui affiche l'axe Y sur le bord droit
+/// - légende des types posée sous le graphe
 struct GrapheJourneeMedications: View {
 
     // MARK: - Paramètres
@@ -81,26 +74,21 @@ struct GrapheJourneeMedications: View {
         return debut...fin
     }
 
-    /// Borne supérieure de l'axe Y pour un jour donné, calée sur la
-    /// dose max de ce jour-là arrondie au palier de 5u **plus un palier
-    /// supplémentaire** (minimum 10u). La marge garantit que l'annotation
-    /// « Xu » au sommet d'une barre reste dans la zone de tracé même
-    /// quand cette barre est la plus haute du jour. Chaque page utilise
-    /// sa propre échelle ; la `legendeFixe` se cale sur le jour visible
-    /// et se met à jour quand l'utilisateur scroll.
-    ///
-    /// Calque la formule du graphe Repas qui ajoute aussi un palier de
-    /// marge (`((max / 25) + 1) * 25`).
-    private func maxYPour(jour: Date) -> Double {
-        let max = injectionsPour(jour: jour).map(\.dose).max() ?? 0
+    /// Borne supérieure de l'axe Y pour un set d'injections — palier
+    /// de 5u au-dessus de la dose max + un palier de marge (minimum 10u).
+    /// La marge garantit que l'annotation au sommet d'une barre touchant
+    /// le maxY reste dans la zone de tracé.
+    private func maxY(pour injections: [Injection]) -> Double {
+        let max = injections.map(\.dose).max() ?? 0
         let palier = ((Int(max) / 5) + 1) * 5
         return Swift.max(Double(palier), 10)
     }
 
     /// Borne Y du jour actuellement affiché — utilisée par la
-    /// `legendeFixe` pour afficher l'échelle correspondante.
-    private var maxY: Double {
-        maxYPour(jour: dateAffichee)
+    /// `legendeFixe`. Se met à jour quand l'utilisateur scroll d'un
+    /// jour à l'autre.
+    private var maxYAffiche: Double {
+        maxY(pour: injectionsPour(jour: dateAffichee))
     }
 
     private var libelleJour: String {
@@ -175,7 +163,8 @@ struct GrapheJourneeMedications: View {
     // MARK: - En-tête
 
     private var entete: some View {
-        HStack(alignment: .top) {
+        let inj = injectionsAffichees
+        return HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(libelleJour)
                     .font(.title3)
@@ -188,9 +177,9 @@ struct GrapheJourneeMedications: View {
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 4) {
-                if !injectionsAffichees.isEmpty {
-                    Text("\(injectionsAffichees.count) injection\(injectionsAffichees.count > 1 ? "s" : "")")
+            if !inj.isEmpty {
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("\(inj.count) injection\(inj.count > 1 ? "s" : "")")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
@@ -255,18 +244,18 @@ struct GrapheJourneeMedications: View {
     /// masque les barres qui passent en dessous pendant le scroll. Le
     /// padding bas (24pt) compense la hauteur naturelle de l'axe X côté
     /// barres pour que les graduations Y restent alignées avec la
-    /// baseline du plot. (Calque exact de la `legendeFixe` du graphe
-    /// Repas.)
+    /// baseline du plot.
     private var legendeFixe: some View {
-        Chart {
+        let domaine = maxYAffiche
+        return Chart {
             BarMark(
                 x: .value("h", Calendar.current.startOfDay(for: Date())),
-                y: .value("u", maxY)
+                y: .value("u", domaine)
             )
             .opacity(0)
         }
         .chartXAxis(.hidden)
-        .chartYScale(domain: 0...maxY)
+        .chartYScale(domain: 0...domaine)
         .chartYAxis {
             AxisMarks(position: .trailing, values: .stride(by: 5)) { value in
                 AxisValueLabel {
@@ -329,7 +318,7 @@ struct GrapheJourneeMedications: View {
             }
         }
         .chartXScale(domain: domainePour(jour: jour))
-        .chartYScale(domain: 0...maxYPour(jour: jour))
+        .chartYScale(domain: 0...maxY(pour: injections))
         .chartXAxis {
             AxisMarks(values: .stride(by: .hour, count: 6)) { _ in
                 AxisTick()
