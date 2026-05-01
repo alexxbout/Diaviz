@@ -47,6 +47,11 @@ struct GrapheJourneeMedications: View {
     /// Jour actuellement centré dans la `ScrollView`.
     @State private var dateScroll: Date?
 
+    /// Progression de l'animation d'apparition (0 → 1). Multipliée sur la
+    /// hauteur des barres pour les faire pousser depuis la baseline lors
+    /// du premier affichage du graphe.
+    @State private var progressionApparition: Double = 0
+
     private let hauteurChart: CGFloat = 180
 
     /// Largeur réservée à la légende Y fixée sur le bord droit.
@@ -190,6 +195,11 @@ struct GrapheJourneeMedications: View {
         )
         .onAppear {
             if dateScroll == nil { dateScroll = jours.last }
+        }
+        .task {
+            progressionApparition = 0
+            try? await Task.sleep(for: .milliseconds(80))
+            progressionApparition = 1
         }
         .onChange(of: dateScroll) { _, nouvelle in
             if let nouvelle { selectedDate = nouvelle }
@@ -348,9 +358,10 @@ struct GrapheJourneeMedications: View {
             ForEach(grouperInjections(injections)) { groupe in
                 ForEach(Array(groupe.parts.enumerated()), id: \.element.id) { idx, part in
                     let estSommet = idx == groupe.parts.count - 1
+                    let hauteur = part.dose * progressionApparition
                     BarMark(
                         x: .value("Heure", groupe.heure),
-                        y: .value("Dose", part.dose),
+                        y: .value("Dose", hauteur),
                         width: .fixed(10)
                     )
                     .foregroundStyle(part.type.couleur.gradient)
@@ -377,6 +388,7 @@ struct GrapheJourneeMedications: View {
         .chartPlotStyle { plot in
             plot.padding(.trailing, legendWidth + legendMarge)
         }
+        .animation(.spring(response: 0.55, dampingFraction: 0.82), value: progressionApparition)
     }
 
     /// Annotation au sommet d'une barre composée — une `Text` par partie

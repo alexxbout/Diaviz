@@ -54,6 +54,11 @@ struct GraphRepasJournee: View {
     /// Présentation du sheet expliquant la sémantique du graphe.
     @State private var afficheInfo = false
 
+    /// Progression de l'animation d'apparition (0 → 1). Multipliée sur la
+    /// hauteur des barres pour les faire pousser depuis la baseline lors
+    /// du premier affichage du graphe.
+    @State private var progressionApparition: Double = 0
+
     /// Hauteur réservée à la zone chart (excl. en-tête).
     private let hauteurChart: CGFloat = 180
 
@@ -133,6 +138,11 @@ struct GraphRepasJournee: View {
         .background(Color(.systemBackground))
         .onAppear {
             if dateScroll == nil { dateScroll = jours.last }
+        }
+        .task {
+            progressionApparition = 0
+            try? await Task.sleep(for: .milliseconds(80))
+            progressionApparition = 1
         }
         .onChange(of: dateScroll) { _, nouvelle in
             if let nouvelle { selectedDate = nouvelle }
@@ -308,9 +318,10 @@ struct GraphRepasJournee: View {
 
         Chart {
             ForEach(repasJour) { unRepas in
+                let hauteur = unRepas.glucides * progressionApparition
                 BarMark(
                     x: .value("Heure", unRepas.heure),
-                    y: .value("Glucides", unRepas.glucides),
+                    y: .value("Glucides", hauteur),
                     width: .fixed(repasSelectionne?.id == unRepas.id ? 14 : 10)
                 )
                 .foregroundStyle(unRepas.verdict.couleur.gradient)
@@ -345,6 +356,7 @@ struct GraphRepasJournee: View {
                 }
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: repasSelectionne)
+        .animation(.spring(response: 0.55, dampingFraction: 0.82), value: progressionApparition)
         .padding(.leading, 16)
         .overlay(alignment: .top) {
             if let r = repasSelectionne, isSameDay(r, jour) {
