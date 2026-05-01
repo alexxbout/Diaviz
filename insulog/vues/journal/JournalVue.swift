@@ -37,12 +37,15 @@ struct JournalVue: View {
                 }
                 .buttonStyle(.plain)
 
-                CarteSection(
-                    icone: "figure.run",
-                    titre: "Activités sportives",
-                    sousTitre: "Aucune activité aujourd'hui",
-                    couleur: .orange
-                )
+                NavigationLink(destination: SportVue()) {
+                    CarteSection(
+                        icone: "figure.run",
+                        titre: "Activités sportives",
+                        sousTitre: "Aucune activité aujourd'hui",
+                        couleur: .orange
+                    )
+                }
+                .buttonStyle(.plain)
             }
             .padding()
             .frame(maxWidth: .infinity, maxHeight: .infinity)

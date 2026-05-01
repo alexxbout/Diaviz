@@ -104,7 +104,7 @@ struct MedicationsVue: View {
         .listStyle(.insetGrouped)
         .toolbar(.hidden, for: .tabBar)
         .navigationTitle("Médications")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
         .toolbar { menuAjouter }
         .sheet(item: $sheetActive) { sheet in
             sheetVue(pour: sheet)
