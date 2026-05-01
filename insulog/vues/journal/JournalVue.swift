@@ -27,12 +27,15 @@ struct JournalVue: View {
                 }
                 .buttonStyle(.plain)
 
-                CarteSection(
-                    icone: "syringe",
-                    titre: "Médications",
-                    sousTitre: "Aucune médication aujourd'hui",
-                    couleur: .green
-                )
+                NavigationLink(destination: MedicationsVue()) {
+                    CarteSection(
+                        icone: "syringe",
+                        titre: "Médications",
+                        sousTitre: "Aucune médication aujourd'hui",
+                        couleur: .green
+                    )
+                }
+                .buttonStyle(.plain)
 
                 CarteSection(
                     icone: "figure.run",
