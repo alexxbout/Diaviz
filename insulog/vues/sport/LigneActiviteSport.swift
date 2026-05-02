@@ -10,7 +10,7 @@ import SwiftUI
 // MARK: - LigneActiviteSport
 //
 // Row d'une activité sportive dans la liste de la page Sport. Deux
-// zones horizontales — pattern identique à la `LigneRepasJournal` :
+// zones horizontales — pattern identique à la `LigneRepas` :
 // 1. infos texte — type avec emoji + sous-ligne (heure · durée · intensité)
 // 2. mini-courbe glycémique pendant la session (largeur fixe 90pt)
 //

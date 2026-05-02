@@ -105,7 +105,7 @@ enum ReponseGlycemiqueServiceMock {
     // MARK: API publique
 
     /// Génère les cas standards utilisés pour exercer toutes les variantes
-    /// de la `LigneRepasJournal`. Les valeurs numériques sont calibrées pour
+    /// de la `LigneRepas`. Les valeurs numériques sont calibrées pour
     /// que les verdicts soient visuellement distincts dans la mini-courbe :
     ///
     /// **Verdicts standards (forme classique mono-pic) :**

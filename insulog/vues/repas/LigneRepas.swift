@@ -1,5 +1,5 @@
 //
-//  LigneRepasJournal.swift
+//  LigneRepas.swift
 //  insulog
 //
 //  Created by Alexandre on 30/04/2026.
@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-// MARK: - LigneRepasJournal
+// MARK: - LigneRepas
 //
 // Row d'un repas dans la liste du Journal. Deux zones horizontales :
 // 1. infos texte — label + sous-ligne (heure · glucides · insuline) (flexible)
@@ -16,7 +16,7 @@ import SwiftUI
 // La row est tappable : un `NavigationLink` enveloppe l'ensemble pour
 // pousser la `DetailRepasVue` au tap. La `List` parente fournit
 // automatiquement le chevron de navigation à droite.
-struct LigneRepasJournal: View {
+struct LigneRepas: View {
 
     let repas: Repas
     /// Titre de la section parente ("Petit déjeuner", "Déjeuner", …) — sert
@@ -109,7 +109,7 @@ private func _previewHeure(_ h: Int, _ m: Int = 0) -> Date {
 #Preview("Tous les états") {
     List {
         Section("Petit déjeuner") {
-            LigneRepasJournal(
+            LigneRepas(
                 repas: Repas(
                     heure: _previewHeure(8, 30),
                     aliments: [
@@ -122,7 +122,7 @@ private func _previewHeure(_ h: Int, _ m: Int = 0) -> Date {
             )
         }
         Section("Déjeuner") {
-            LigneRepasJournal(
+            LigneRepas(
                 repas: Repas(
                     heure: _previewHeure(12, 30),
                     aliments: [
@@ -132,7 +132,7 @@ private func _previewHeure(_ h: Int, _ m: Int = 0) -> Date {
                 ),
                 titreSection: "Déjeuner"
             )
-            LigneRepasJournal(
+            LigneRepas(
                 repas: Repas(
                     heure: _previewHeure(13, 0),
                     aliments: [
@@ -144,7 +144,7 @@ private func _previewHeure(_ h: Int, _ m: Int = 0) -> Date {
             )
         }
         Section("En-cas") {
-            LigneRepasJournal(
+            LigneRepas(
                 repas: Repas(
                     heure: _previewHeure(16, 0),
                     aliments: [
@@ -154,7 +154,7 @@ private func _previewHeure(_ h: Int, _ m: Int = 0) -> Date {
                 ),
                 titreSection: "En-cas"
             )
-            LigneRepasJournal(
+            LigneRepas(
                 repas: Repas(
                     heure: _previewHeure(17, 30),
                     aliments: [
@@ -164,7 +164,7 @@ private func _previewHeure(_ h: Int, _ m: Int = 0) -> Date {
                 ),
                 titreSection: "En-cas"
             )
-            LigneRepasJournal(
+            LigneRepas(
                 repas: Repas(
                     heure: _previewHeure(18, 0),
                     aliments: [

@@ -9,7 +9,7 @@ import SwiftUI
 
 // MARK: - DetailRepasVue
 //
-// Page de détail d'un repas, pushée depuis la `LigneRepasJournal` via un
+// Page de détail d'un repas, pushée depuis la `LigneRepas` via un
 // `NavigationLink`. Architecture en 5 sections empilées dans un `ScrollView` :
 //
 // 1. **En-tête contextuel** — nom du repas + date relative

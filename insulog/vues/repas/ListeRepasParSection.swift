@@ -82,7 +82,7 @@ struct ListeRepasParSection: View {
             ForEach(repasAvecAliments) { unRepas in
                 // En-tête du repas : emoji + infos + mini-courbe glycémique.
                 // Tap → sheet de détail. Swipe → suppression du repas entier.
-                LigneRepasJournal(repas: unRepas, titreSection: titreSection)
+                LigneRepas(repas: unRepas, titreSection: titreSection)
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         Button(role: .destructive) {
                             supprimerRepas(unRepas.id, dansSectionIndex: sectionIndex)

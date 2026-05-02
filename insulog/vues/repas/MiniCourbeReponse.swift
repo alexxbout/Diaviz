@@ -10,7 +10,7 @@ import SwiftUI
 // MARK: - MiniCourbeReponse
 //
 // Aperçu compact (90×48pt) de la réponse glycémique post-repas, conçu
-// pour s'intégrer dans la `LigneRepasJournal` sans surcharger visuellement
+// pour s'intégrer dans la `LigneRepas` sans surcharger visuellement
 // la liste. La vue route entre 4 états — la courbe Swift Charts n'est
 // rendue que dans le cas `disponible`.
 struct MiniCourbeReponse: View {
