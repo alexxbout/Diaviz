@@ -25,6 +25,13 @@ struct Repas: Identifiable {
     /// previews/données legacy). La valeur par défaut `nil` est nécessaire
     /// pour préserver les call-sites historiques `Repas(heure:, aliments:)`.
     var etatAnalyse: EtatAnalyse? = nil
+    /// Insuline rapide encore active (« on board ») au démarrage du
+    /// repas, en unités. Information critique pour un diabétique :
+    /// prendre un repas alors qu'il reste beaucoup d'IOB d'un bolus
+    /// précédent peut conduire à un surdosage (la nouvelle dose
+    /// s'additionne à l'IOB sur les premières 1-2h). `nil` quand
+    /// l'info n'a pas été calculée (legacy ou pas de bolus récent).
+    var iobAuDebut: Double? = nil
 
     var totalGlucides: Int {
         aliments.reduce(0) { $0 + $1.glucides }

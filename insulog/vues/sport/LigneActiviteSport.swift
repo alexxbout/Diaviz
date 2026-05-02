@@ -14,9 +14,9 @@ import SwiftUI
 // 1. infos texte — type avec emoji + sous-ligne (heure · durée · intensité)
 // 2. mini-courbe glycémique pendant la session (largeur fixe 90pt)
 //
-// La row est tappable (ouvre une sheet de détail à terme — pour
-// l'instant juste un placeholder dans le parent). Le swipe gauche
-// expose une action "Supprimer" via `.swipeActions`.
+// La row est tappable : un `NavigationLink` enveloppe l'ensemble pour
+// pousser la `DetailActiviteVue`. Le swipe gauche reste géré par le
+// parent (`.swipeActions` côté `ListeActivitesSport`).
 struct LigneActiviteSport: View {
 
     let activite: ActiviteSportive
@@ -26,15 +26,40 @@ struct LigneActiviteSport: View {
     let etatCourbe: EtatMiniCourbeSport
 
     var body: some View {
-        HStack(spacing: 12) {
-            zoneInfos
-            Spacer(minLength: 8)
-            zoneCourbe
+        NavigationLink {
+            DetailActiviteVue(
+                activite: activite,
+                reponse: reponseDepuisEtat,
+                minutesAttenteRestantes: minutesAttenteDepuisEtat
+            )
+        } label: {
+            HStack(spacing: 12) {
+                zoneInfos
+                Spacer(minLength: 8)
+                zoneCourbe
+            }
+            // Accessibilité : on regroupe la row pour que VoiceOver lise un
+            // seul élément ("Course, 7h15, 45 minutes, modérée, glycémie
+            // stable") au lieu d'énumérer les sous-vues.
+            .accessibilityElement(children: .combine)
         }
-        // Accessibilité : on regroupe la row pour que VoiceOver lise un
-        // seul élément ("Course, 7h15, 45 minutes, modérée, glycémie
-        // stable") au lieu d'énumérer les sous-vues.
-        .accessibilityElement(children: .combine)
+    }
+
+    // MARK: - Extraction depuis l'état de la mini-courbe
+    //
+    // La page détail attend une `ReponseGlycemiqueSport?` + un délai
+    // optionnel — alors que la row ne connaît qu'un `EtatMiniCourbeSport`.
+    // On déballe ici pour ne pas faire transiter l'enum jusqu'au détail
+    // (qui aurait alors deux représentations parallèles du même état).
+
+    private var reponseDepuisEtat: ReponseGlycemiqueSport? {
+        if case .disponible(let r) = etatCourbe { return r }
+        return nil
+    }
+
+    private var minutesAttenteDepuisEtat: Int? {
+        if case .enAttente(let m) = etatCourbe { return m }
+        return nil
     }
 
     // MARK: - Zone 1 — Infos texte

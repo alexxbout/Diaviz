@@ -192,14 +192,15 @@ struct SportVue: View {
     /// Section liste — pas de header (le libellé du jour est déjà
     /// porté par l'en-tête du graphe juste au-dessus). Les rows sont
     /// déléguées à `ListeActivitesSport`.
+    ///
+    /// Le tap sur une row pousse `DetailActiviteVue` via le `NavigationLink`
+    /// interne à `LigneActiviteSport` — l'édition se fait depuis ce détail
+    /// (menu ⋯), donc plus aucun `onTap` à cabler ici.
     private var sectionListe: some View {
         Section {
             ListeActivitesSport(
                 activites: activitesDuJour,
                 etatsCourbes: etatsCourbes,
-                onTap: { activite in
-                    sheetActive = .edition(activite)
-                },
                 onSupprimer: { activite in
                     service.supprimer(activite)
                 }
@@ -214,16 +215,6 @@ struct SportVue: View {
         switch sheet {
         case .creation:
             SheetNouvelleActivite(onValider: { service.ajouter($0) })
-        case .edition(let activite):
-            SheetNouvelleActivite(
-                activiteExistante: activite,
-                onValider: { nouvelleVersion in
-                    // Mock : on supprime puis on rajoute. Sur le backend
-                    // réel ce sera un PATCH avec l'id existant.
-                    service.supprimer(activite)
-                    service.ajouter(nouvelleVersion)
-                }
-            )
         case .importHealthKit:
             SheetImportApplehealth(service: importService)
                 .presentationDetents([.large])
@@ -234,18 +225,16 @@ struct SportVue: View {
 
 // MARK: - Routage de la sheet
 
-/// Discrimine création, édition et import HealthKit au niveau d'un
-/// seul `.sheet(item:)`, pour éviter les conflits de présentation
-/// avec plusieurs modificateurs `.sheet` parallèles.
+/// Discrimine création et import HealthKit au niveau d'un seul
+/// `.sheet(item:)`. L'édition d'une activité existante se fait
+/// désormais depuis sa page détail (push) — plus depuis cette page.
 private enum SheetSport: Identifiable {
     case creation
-    case edition(ActiviteSportive)
     case importHealthKit
 
     var id: String {
         switch self {
         case .creation:                "creation"
-        case .edition(let a):          "edition-\(a.id.uuidString)"
         case .importHealthKit:         "import-healthkit"
         }
     }

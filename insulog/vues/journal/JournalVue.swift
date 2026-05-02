@@ -97,6 +97,13 @@ private func makeDate(hour: Int, minute: Int, daysAgo: Int = 0) -> Date {
 // le type-checker SwiftUI met sinon plusieurs secondes à inférer les tuples
 // imbriqués `(titre: String, repas: [Repas])`.
 
+// IOB renseigné de manière narrativement cohérente :
+// - Petit-déj : 0u (premier repas de la journée, pas de bolus récent)
+// - Collation 9h : 1.5u (résidu du petit-déj qui agit encore)
+// - Déjeuner : 0.6u (résidu de la collation matinale)
+// - En-cas 16h : 2.2u (résidu du bolus du déjeuner ~3h plus tôt)
+// - Bolus surdosé sandwich : 0u (premier bolus après nuit)
+//   — l'hypo vient d'une dose excessive, pas d'IOB cumulé.
 private let _previewPetitDejeuner: [Repas] = [
     // Aujourd'hui — courbe verte (verdict bon)
     Repas(
@@ -106,15 +113,18 @@ private let _previewPetitDejeuner: [Repas] = [
             Aliment(emoji: "🍌", nom: "Banane", quantite: 120, glucides: 27, insuline: 1.5),
             Aliment(emoji: "🥛", nom: "Lait demi-écrémé", quantite: 200, glucides: 10, insuline: 0.5),
         ],
-        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.bon)
+        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.bon),
+        iobAuDebut: nil
     ),
-    // Aujourd'hui — collation sans injection (tiret)
+    // Aujourd'hui — collation sans injection (tiret). IOB modéré
+    // (1.5u du petit-déj) → exerce le badge orange « Élevé ».
     Repas(
         heure: makeDate(hour: 9, minute: 0),
         aliments: [
             Aliment(emoji: "🍎", nom: "Pomme", quantite: 150, glucides: 19, insuline: 0.0),
         ],
-        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.sansInjection)
+        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.sansInjection),
+        iobAuDebut: 1.5
     ),
     // Hier — petit déj pris en hyper : la courbe démarre déjà haut
     Repas(
@@ -123,7 +133,8 @@ private let _previewPetitDejeuner: [Repas] = [
             Aliment(emoji: "🥐", nom: "Croissant", quantite: 60, glucides: 30, insuline: 2.0),
             Aliment(emoji: "☕", nom: "Café au lait", quantite: 200, glucides: 9, insuline: 0.5),
         ],
-        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.departHyper)
+        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.departHyper),
+        iobAuDebut: nil
     ),
 ]
 
@@ -136,7 +147,8 @@ private let _previewDejeuner: [Repas] = [
             Aliment(emoji: "🍗", nom: "Poulet grillé", quantite: 150, glucides: 0, insuline: 0.0),
             Aliment(emoji: "🥦", nom: "Brocolis vapeur", quantite: 200, glucides: 8, insuline: 0.0),
         ],
-        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.moyen)
+        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.moyen),
+        iobAuDebut: 0.6
     ),
     // Aujourd'hui — repas mixte gras/glucides : double pic
     Repas(
@@ -144,7 +156,8 @@ private let _previewDejeuner: [Repas] = [
         aliments: [
             Aliment(emoji: "🍔", nom: "Burger frites", quantite: 350, glucides: 75, insuline: 4.5),
         ],
-        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.doublePic)
+        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.doublePic),
+        iobAuDebut: nil
     ),
     // Hier — déjeuner pris en hyper avec correction réussie (retour en cible)
     Repas(
@@ -153,7 +166,8 @@ private let _previewDejeuner: [Repas] = [
             Aliment(emoji: "🥗", nom: "Salade César", quantite: 250, glucides: 18, insuline: 1.0),
             Aliment(emoji: "🍞", nom: "Pain complet", quantite: 60, glucides: 28, insuline: 1.5),
         ],
-        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.correctionReussie)
+        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.correctionReussie),
+        iobAuDebut: nil
     ),
 ]
 
@@ -164,23 +178,30 @@ private let _previewEnCas: [Repas] = [
         aliments: [
             Aliment(emoji: "🍎", nom: "Pomme", quantite: 150, glucides: 19, insuline: 0.0),
         ],
-        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.enAttente)
+        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.enAttente),
+        iobAuDebut: 0.8
     ),
-    // Aujourd'hui — goûter sans injection
+    // Aujourd'hui — goûter sans injection. IOB élevé (résidu du
+    // déjeuner) → exerce le badge rouge « Très élevé », explique
+    // pourquoi pas de bolus sur ce goûter.
     Repas(
         heure: makeDate(hour: 16, minute: 0),
         aliments: [
             Aliment(emoji: "🍪", nom: "Cookie", quantite: 30, glucides: 18, insuline: 0.0),
         ],
-        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.sansInjection)
+        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.sansInjection),
+        iobAuDebut: 2.2
     ),
-    // Hier — bolus surdosé : pic puis hypo (courbe rouge plongeante)
+    // Hier — bolus surdosé : pic puis hypo (courbe rouge plongeante).
+    // Pas d'IOB au démarrage : le surdosage vient de la dose initiale,
+    // l'hypo permet de tester le marqueur sur le graphique détail.
     Repas(
         heure: makeDate(hour: 11, minute: 0, daysAgo: 1),
         aliments: [
             Aliment(emoji: "🥪", nom: "Sandwich jambon-beurre", quantite: 180, glucides: 45, insuline: 4.0),
         ],
-        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.hypoApresPic)
+        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.hypoApresPic),
+        iobAuDebut: nil
     ),
     // Hier — montagne russe : gros pic, hypo, rebond hyper après resucrage
     Repas(
@@ -188,12 +209,14 @@ private let _previewEnCas: [Repas] = [
         aliments: [
             Aliment(emoji: "🥨", nom: "Bretzel salé", quantite: 70, glucides: 45, insuline: 3.0),
         ],
-        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.montagneRusse)
+        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.montagneRusse),
+        iobAuDebut: 1.2
     ),
 ]
 
 private let _previewDiner: [Repas] = [
-    // Aujourd'hui — données CGM manquantes (icône warning)
+    // Aujourd'hui — données CGM manquantes (icône warning).
+    // IOB modéré (résidu du goûter de 16h).
     Repas(
         heure: makeDate(hour: 19, minute: 45),
         aliments: [
@@ -201,7 +224,8 @@ private let _previewDiner: [Repas] = [
             Aliment(emoji: "🐟", nom: "Saumon grillé", quantite: 130, glucides: 0, insuline: 0.0),
             Aliment(emoji: "🥗", nom: "Salade verte", quantite: 80, glucides: 2, insuline: 0.0),
         ],
-        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.donneesManquantes)
+        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.donneesManquantes),
+        iobAuDebut: 0.4
     ),
     // Hier — pizza : courbe rouge à plateau haut prolongé (graisses qui ralentissent)
     Repas(
@@ -209,7 +233,8 @@ private let _previewDiner: [Repas] = [
         aliments: [
             Aliment(emoji: "🍕", nom: "Pizza margherita", quantite: 300, glucides: 90, insuline: 5.0),
         ],
-        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.plateauHaut)
+        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.plateauHaut),
+        iobAuDebut: nil
     ),
     // Avant-hier — repas léger mais dose excessive : descente vers hypo tardive
     Repas(
@@ -217,7 +242,8 @@ private let _previewDiner: [Repas] = [
         aliments: [
             Aliment(emoji: "🥗", nom: "Salade composée", quantite: 200, glucides: 12, insuline: 2.0),
         ],
-        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.hypoTardive)
+        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.hypoTardive),
+        iobAuDebut: nil
     ),
     // Avant-hier — départ en hyper marquée + correction insuffisante
     Repas(
@@ -225,7 +251,8 @@ private let _previewDiner: [Repas] = [
         aliments: [
             Aliment(emoji: "🍜", nom: "Ramen porc", quantite: 400, glucides: 70, insuline: 3.5),
         ],
-        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.correctionEchouee)
+        etatAnalyse: ReponseGlycemiqueServiceMock.cas(.correctionEchouee),
+        iobAuDebut: 0.7
     ),
 ]
 

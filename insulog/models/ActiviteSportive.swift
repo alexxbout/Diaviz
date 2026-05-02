@@ -34,6 +34,13 @@ struct ActiviteSportive: Identifiable, Codable, Sendable, Hashable {
     /// Snapshot des métriques HealthKit conservées à l'import. `nil`
     /// pour toute activité dont `source` n'est pas `.healthKit`.
     let healthKitData: HealthKitWorkoutData?
+    /// Insuline rapide encore active (« on board ») au démarrage de
+    /// l'activité, en unités. Information critique pour un diabétique :
+    /// commencer une séance avec beaucoup d'IOB augmente fortement le
+    /// risque d'hypoglycémie pendant l'effort. `nil` quand l'info n'a
+    /// pas été calculée (legacy ou import sans corrélation avec les
+    /// bolus récents).
+    let iobAuDebut: Double?
 
     init(
         id: UUID = UUID(),
@@ -44,7 +51,8 @@ struct ActiviteSportive: Identifiable, Codable, Sendable, Hashable {
         glucidesPreSport: Double? = nil,
         note: String? = nil,
         source: SourceActivite = .manuel,
-        healthKitData: HealthKitWorkoutData? = nil
+        healthKitData: HealthKitWorkoutData? = nil,
+        iobAuDebut: Double? = nil
     ) {
         self.id = id
         self.type = type
@@ -55,6 +63,7 @@ struct ActiviteSportive: Identifiable, Codable, Sendable, Hashable {
         self.note = note
         self.source = source
         self.healthKitData = healthKitData
+        self.iobAuDebut = iobAuDebut
     }
 }
 

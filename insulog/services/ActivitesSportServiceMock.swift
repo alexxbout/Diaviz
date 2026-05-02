@@ -86,6 +86,12 @@ final class ActivitesSportServiceMock {
             return cal.date(bySettingHour: h, minute: m, second: 0, of: jourBase) ?? Date()
         }
 
+        // IOB calibré pour exercer les 3 niveaux du badge sur la page
+        // détail (modéré 0–1u, élevé 1–2u, très élevé > 2u). On garde
+        // une cohérence narrative : course du matin avec IOB modéré
+        // (petit-déj récent), vélo de fin d'aprem avec IOB élevé
+        // (déjeuner pas si loin), yoga sans IOB (mid-day, à distance
+        // des bolus), muscu avec IOB faible.
         return [
             // MARK: Aujourd'hui — 1 course matin + 1 yoga midi
             ActiviteSportive(
@@ -94,7 +100,8 @@ final class ActivitesSportServiceMock {
                 dureeMinutes: 45,
                 intensite: .moderee,
                 glucidesPreSport: 15,
-                note: "Footing matinal au parc"
+                note: "Footing matinal au parc",
+                iobAuDebut: 1.2
             ),
             ActiviteSportive(
                 type: .yoga,
@@ -102,7 +109,24 @@ final class ActivitesSportServiceMock {
                 dureeMinutes: 30,
                 intensite: .faible,
                 glucidesPreSport: nil,
-                note: nil
+                note: nil,
+                iobAuDebut: nil
+            ),
+            // MARK: Aujourd'hui — course intense fin d'aprem avec IOB
+            // élevé. Cas pédagogique : c'est le scénario qui produit
+            // une hypoglycémie en fin d'effort (combinaison effort
+            // soutenu + IOB important + pas de glucides pré-sport)
+            // et qui exerce donc le marqueur rouge d'hypo sur les
+            // graphiques. Sans cette ligne, aucune des activités
+            // mockées ne descendrait sous 70 mg/dL.
+            ActiviteSportive(
+                type: .course,
+                dateDebut: dateA(17, 0),
+                dureeMinutes: 50,
+                intensite: .intense,
+                glucidesPreSport: nil,
+                note: "Sortie longue sans collation pré-sport",
+                iobAuDebut: 2.5
             ),
 
             // MARK: Hier — vélo de fin d'après-midi
@@ -111,7 +135,8 @@ final class ActivitesSportServiceMock {
                 dateDebut: dateA(17, 30, ilYA: 1),
                 dureeMinutes: 60,
                 intensite: .moderee,
-                glucidesPreSport: 20
+                glucidesPreSport: 20,
+                iobAuDebut: 2.5
             ),
 
             // MARK: J-2 — séance de muscu en fin de journée
@@ -120,7 +145,8 @@ final class ActivitesSportServiceMock {
                 dateDebut: dateA(18, 45, ilYA: 2),
                 dureeMinutes: 50,
                 intensite: .intense,
-                glucidesPreSport: nil
+                glucidesPreSport: nil,
+                iobAuDebut: 0.5
             ),
 
             // MARK: J-3 — marche longue en milieu de journée
@@ -129,7 +155,8 @@ final class ActivitesSportServiceMock {
                 dateDebut: dateA(11, 30, ilYA: 3),
                 dureeMinutes: 75,
                 intensite: .faible,
-                glucidesPreSport: nil
+                glucidesPreSport: nil,
+                iobAuDebut: nil
             ),
 
             // MARK: J-4 — course intense + yoga en récupération
@@ -138,13 +165,15 @@ final class ActivitesSportServiceMock {
                 dateDebut: dateA(7, 30, ilYA: 4),
                 dureeMinutes: 30,
                 intensite: .intense,
-                glucidesPreSport: 10
+                glucidesPreSport: 10,
+                iobAuDebut: 0.8
             ),
             ActiviteSportive(
                 type: .yoga,
                 dateDebut: dateA(19, 0, ilYA: 4),
                 dureeMinutes: 45,
-                intensite: .faible
+                intensite: .faible,
+                iobAuDebut: nil
             ),
 
             // MARK: J-5 — sport collectif (foot)
@@ -154,7 +183,8 @@ final class ActivitesSportServiceMock {
                 dureeMinutes: 90,
                 intensite: .intense,
                 glucidesPreSport: 30,
-                note: "Match du jeudi"
+                note: "Match du jeudi",
+                iobAuDebut: 1.7
             ),
 
             // MARK: J-6 — natation
@@ -163,7 +193,8 @@ final class ActivitesSportServiceMock {
                 dateDebut: dateA(8, 0, ilYA: 6),
                 dureeMinutes: 40,
                 intensite: .moderee,
-                glucidesPreSport: 15
+                glucidesPreSport: 15,
+                iobAuDebut: 1.0
             ),
         ]
     }
@@ -276,8 +307,17 @@ final class ActivitesSportServiceMock {
     }
 
     /// Variation glycémique attendue **pendant** la session, selon
-    /// type × intensité. Cardio = descente, muscu = stable à légère
-    /// montée puis descente, yoga = quasi stable.
+    /// type × intensité × IOB. Cardio = descente, muscu = stable à
+    /// légère montée puis descente, yoga = quasi stable.
+    ///
+    /// Le facteur IOB amplifie la chute : commencer une séance avec
+    /// 2u d'insuline encore active double quasiment l'amplitude de
+    /// descente — c'est physiologiquement vrai (l'IOB continue
+    /// d'agir pendant l'effort, pendant que les muscles consomment
+    /// déjà du glucose). Sans ce facteur, le générateur ne produit
+    /// jamais d'hypoglycémie sur les mocks réalistes — donc le
+    /// marqueur d'hypo des graphiques ne se déclenche jamais à
+    /// l'usage.
     ///
     /// Ces valeurs sont une approximation de patterns observés ; le
     /// vrai modèle viendra de la couche ML quand le backend sera
@@ -299,7 +339,16 @@ final class ActivitesSportServiceMock {
             }
         }()
 
-        return deltaBase * amplitudeIntensite
+        // Facteur IOB : 1u IOB ajoute ~20% d'amplitude. Capé à +60%
+        // pour rester sous une chute physiologiquement plausible —
+        // au-delà la formule produirait des hypos sévères (< 30 mg/dL)
+        // qu'on ne veut pas avoir dans le mock par défaut.
+        let facteurIOB: Double = {
+            guard let iob = activite.iobAuDebut, iob > 0 else { return 1.0 }
+            return 1.0 + min(0.6, iob * 0.25)
+        }()
+
+        return deltaBase * amplitudeIntensite * facteurIOB
     }
 
     /// Dérive **après** la session, sur les 30min post-effort. Pour la

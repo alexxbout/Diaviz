@@ -13,26 +13,31 @@ import SwiftUI
 // 1. infos texte — label + sous-ligne (heure · glucides · insuline) (flexible)
 // 2. mini-courbe glycémique (largeur fixe 90pt)
 //
-// La row est purement informative : pas d'interaction au tap. L'édition
-// d'un aliment passe par le swipe sur sa `CarteAliment`.
+// La row est tappable : un `NavigationLink` enveloppe l'ensemble pour
+// pousser la `DetailRepasVue` au tap. La `List` parente fournit
+// automatiquement le chevron de navigation à droite.
 struct LigneRepasJournal: View {
 
     let repas: Repas
     /// Titre de la section parente ("Petit déjeuner", "Déjeuner", …) — sert
-    /// de label principal de la row (le `Repas` lui-même n'embarque pas son
-    /// libellé de section).
+    /// de label principal de la row ET de titre de la nav bar de la page
+    /// détail (le `Repas` lui-même n'embarque pas son libellé de section).
     let titreSection: String
 
     var body: some View {
-        HStack(spacing: 12) {
-            zoneInfos
-            Spacer(minLength: 8)
-            zoneCourbe
+        NavigationLink {
+            DetailRepasVue(repas: repas, titreSection: titreSection)
+        } label: {
+            HStack(spacing: 12) {
+                zoneInfos
+                Spacer(minLength: 8)
+                zoneCourbe
+            }
+            // Accessibilité : on regroupe la row pour que VoiceOver lise un seul
+            // élément ("Petit déjeuner, 8h30, 45 grammes, 4 unités, réponse bonne")
+            // au lieu d'énumérer les sous-vues.
+            .accessibilityElement(children: .combine)
         }
-        // Accessibilité : on regroupe la row pour que VoiceOver lise un seul
-        // élément ("Petit déjeuner, 8h30, 45 grammes, 4 unités, réponse bonne")
-        // au lieu d'énumérer les sous-vues.
-        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Zone 1 — Infos texte

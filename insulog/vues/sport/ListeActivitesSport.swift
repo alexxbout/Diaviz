@@ -10,8 +10,11 @@ import SwiftUI
 /// Liste des activités sportives d'un jour. Wrapper autour de la
 /// `LigneActiviteSport` qui ajoute :
 /// - le swipe gauche "Supprimer" via `.swipeActions`
-/// - le tap sur la row (callback `onTap`)
 /// - l'état vide quand le jour n'a pas d'activité
+///
+/// La navigation au tap est portée par la `LigneActiviteSport` elle-même
+/// (`NavigationLink` interne vers `DetailActiviteVue`) — on n'envelopppe
+/// donc plus dans un `Button` ici.
 ///
 /// Pas de `List` ici — la vue est consommée à l'intérieur d'une
 /// `List` parente (la `SportVue`) pour partager le même style
@@ -26,7 +29,6 @@ struct ListeActivitesSport: View {
     /// `nil` = données manquantes (la row affichera l'icône warning).
     let etatsCourbes: [UUID: EtatMiniCourbeSport]
 
-    var onTap: (ActiviteSportive) -> Void
     var onSupprimer: (ActiviteSportive) -> Void
 
     var body: some View {
@@ -34,15 +36,10 @@ struct ListeActivitesSport: View {
             etatVide
         } else {
             ForEach(activites) { activite in
-                Button {
-                    onTap(activite)
-                } label: {
-                    LigneActiviteSport(
-                        activite: activite,
-                        etatCourbe: etatsCourbes[activite.id] ?? .donneesManquantes
-                    )
-                }
-                .buttonStyle(.plain)
+                LigneActiviteSport(
+                    activite: activite,
+                    etatCourbe: etatsCourbes[activite.id] ?? .donneesManquantes
+                )
                 .id(activite.id)
                 // Swipe gauche : suppression native iOS, role .destructive
                 // pour la couleur rouge système et le retour haptique.
