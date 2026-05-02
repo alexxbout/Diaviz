@@ -10,14 +10,18 @@ import SwiftUI
 struct AnalysesVue: View {
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {}
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(.systemGroupedBackground))
-                .navigationTitle("Analyses")
+            VStack(spacing: 0) {
+                EnTetePageProfil(titre: "Analyses")
+
+                VStack(spacing: 0) { }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .background(Color(.systemGroupedBackground))
         }
     }
 }
 
 #Preview {
     AnalysesVue()
+        .environment(ProfilService.mockComplet())
 }

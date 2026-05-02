@@ -1,0 +1,104 @@
+//
+//  ProfilUtilisateur.swift
+//  insulog
+//
+//  Created by Alexandre on 03/05/2026.
+//
+
+import Foundation
+
+/// Profil utilisateur — agrège l'ensemble des paramètres médicaux et
+/// préférences éditables depuis la page Profil (sheet).
+///
+/// Toutes les valeurs proviennent de saisies utilisateur (typiquement
+/// dictées par son médecin) ; l'app ne les modifie jamais
+/// automatiquement et ne calcule jamais de dose à partir de ces
+/// valeurs — elle peut uniquement les analyser pour faire émerger
+/// des observations.
+///
+/// La forme `Codable` permet la persistance brute en JSON via
+/// `UserDefaults` (cf. `ProfilService`) ; pas de versioning explicite
+/// pour l'instant — le profil est suffisamment plat pour qu'un ajout
+/// de champ optionnel reste rétrocompatible.
+struct ProfilUtilisateur: Codable, Equatable, Sendable {
+
+    // MARK: - Informations de base
+
+    var prenom: String
+    var poidsKg: Double?
+
+    // MARK: - Insuline
+
+    var insulineRapide: InsulineRapide
+    var insulineLente: InsulineLente
+
+    /// Durée d'action (DIA) de l'insuline rapide, en heures. Sert au
+    /// calcul de l'IOB (Insulin On Board) — pas d'usage clinique direct.
+    /// Range UI : 3–6h, pas 0,5h.
+    var dureeActionInsulineHeures: Double
+
+    // MARK: - Ratios glucides / insuline
+
+    var modeRatio: ModeRatio
+
+    /// Utilisé uniquement si `modeRatio == .unique`. Optionnel pour
+    /// permettre l'état « non encore défini » au premier démarrage.
+    var ratioUnique: Double?
+
+    /// Utilisé uniquement si `modeRatio == .parMoment`. Chaque champ
+    /// reste optionnel jusqu'à saisie explicite.
+    var ratiosParMoment: RatiosParMoment
+
+    /// ISF (Insulin Sensitivity Factor) — combien 1u baisse la
+    /// glycémie en mg/dL. Optionnel : un nombre de patients ne le
+    /// connaissent pas et l'app reste utile sans.
+    var ratioCorrection: Double?
+
+    // MARK: - Reste
+
+    var horairesRepas: HorairesRepas
+    var seuilsGlycemiques: SeuilsGlycemiques
+    var preferencesAvancees: PreferencesAvancees
+
+    // MARK: - Validation
+
+    /// `true` si tous les champs requis sont renseignés. La sheet
+    /// laisse l'utilisateur fermer même si invalide ; cette propriété
+    /// servira au démarrage de l'app pour rediriger vers le profil
+    /// (à câbler plus tard).
+    var estValide: Bool {
+        guard !prenom.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return false
+        }
+        switch modeRatio {
+        case .unique:
+            return ratioUnique != nil
+        case .parMoment:
+            return ratiosParMoment.estComplete
+        }
+    }
+
+    // MARK: - Valeur par défaut
+
+    /// Profil neuf — utilisé au tout premier démarrage avant que
+    /// l'utilisateur n'ouvre la page Profil. Tous les champs « libres »
+    /// (prénom, poids, ratios) sont vides ; les champs avec contraintes
+    /// dures (DIA, horaires, seuils) reçoivent des valeurs raisonnables
+    /// pour que l'UI ait toujours quelque chose à afficher.
+    static func parDefaut() -> ProfilUtilisateur {
+        ProfilUtilisateur(
+            prenom: "",
+            poidsKg: nil,
+            insulineRapide: .novorapid,
+            insulineLente: .lantus,
+            dureeActionInsulineHeures: 4,
+            modeRatio: .unique,
+            ratioUnique: nil,
+            ratiosParMoment: RatiosParMoment(),
+            ratioCorrection: nil,
+            horairesRepas: HorairesRepas.defaut(),
+            seuilsGlycemiques: SeuilsGlycemiques(),
+            preferencesAvancees: PreferencesAvancees()
+        )
+    }
+}

@@ -26,6 +26,11 @@ struct AppTabVues: View {
     /// de la `JournalVue` et le bouton d'import de la `SportVue`.
     @State private var importService = HealthKitImportService.shared
 
+    /// Service de profil — partagé entre l'accueil (avatar) et la
+    /// sheet `ProfilVue`. Injecté via `.environment` ; les vues le
+    /// récupèrent par `@Environment(ProfilService.self)`.
+    @State private var profilService = ProfilService.shared
+
     /// Pilote la sheet d'import. Mis à `true` automatiquement à
     /// l'apparition si `importService.aDesImportsEnAttente`, ou par
     /// l'utilisateur via les boutons d'accès dédiés.
@@ -61,6 +66,7 @@ struct AppTabVues: View {
         // même service via `@Environment(HealthKitImportService.self)`,
         // ce qui rend les previews capable de fournir un mock isolé.
         .environment(importService)
+        .environment(profilService)
         .onAppear { ouvrirSheetSiBesoin() }
         .sheet(isPresented: $afficherSheetImport) {
             SheetImportApplehealth(service: importService)

@@ -1,5 +1,5 @@
 //
-//  ChatView.swift
+//  AccueilVue.swift
 //  insulog
 //
 //  Created by Alexandre on 19/04/2026.
@@ -7,44 +7,32 @@
 
 import SwiftUI
 
+/// Page d'accueil — pour l'instant essentiellement vide, sert
+/// d'enveloppe à `EnTetePageProfil`.
+///
+/// Header App Store style (titre + avatar sur la même ligne) géré par
+/// le composant partagé `EnTetePageProfil`, présent à l'identique sur
+/// les quatre onglets racines.
 struct AccueilVue: View {
+
     var body: some View {
-            NavigationStack {
-                VStack(spacing: 0) {
-                    
-                    // Header custom
-                    HStack {
-                        Text("Accueil")
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
-                        
-                        Spacer()
-                        
-                        Button {
-                            print("Profil cliqué")
-                        } label: {
-                            Circle()
-                                .fill(.blue)
-                                .frame(width: 36, height: 36)
-                                .overlay {
-                                    Text("AB")
-                                        .font(.caption)
-                                        .foregroundStyle(.white)
-                                }
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-                    
-                    // Contenu
-                    Spacer()
-                }
-                .navigationBarHidden(false)
+        NavigationStack {
+            VStack(spacing: 0) {
+                EnTetePageProfil(titre: "Accueil")
+
+                // MARK: Contenu (vide pour l'instant)
+                Spacer()
             }
         }
+    }
 }
 
-#Preview {
+#Preview("Avec profil complet") {
     AccueilVue()
+        .environment(ProfilService.mockComplet())
+}
+
+#Preview("Profil neuf") {
+    AccueilVue()
+        .environment(ProfilService.mockVide())
 }

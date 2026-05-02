@@ -19,45 +19,48 @@ struct JournalVue: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                // `.buttonStyle(.plain)` empêche le `NavigationLink` d'appliquer
-                // sa teinte par défaut, qui surchargerait le blanc/coloré de
-                // notre carte plein fond.
-                NavigationLink(destination: RepasDetailVue(sections: sections)) {
-                    CarteSection(
-                        icone: "fork.knife",
-                        titre: "Repas",
-                        sousTitre: "\(nombreRepas) repas enregistré\(nombreRepas > 1 ? "s" : "") aujourd'hui",
-                        couleur: .blue
-                    )
-                }
-                .buttonStyle(.plain)
+            VStack(spacing: 0) {
+                EnTetePageProfil(titre: "Journal")
 
-                NavigationLink(destination: MedicationsVue()) {
-                    CarteSection(
-                        icone: "syringe",
-                        titre: "Médications",
-                        sousTitre: "Aucune médication aujourd'hui",
-                        couleur: .green
-                    )
-                }
-                .buttonStyle(.plain)
+                VStack(alignment: .leading, spacing: 16) {
+                    // `.buttonStyle(.plain)` empêche le `NavigationLink` d'appliquer
+                    // sa teinte par défaut, qui surchargerait le blanc/coloré de
+                    // notre carte plein fond.
+                    NavigationLink(destination: RepasDetailVue(sections: sections)) {
+                        CarteSection(
+                            icone: "fork.knife",
+                            titre: "Repas",
+                            sousTitre: "\(nombreRepas) repas enregistré\(nombreRepas > 1 ? "s" : "") aujourd'hui",
+                            couleur: .blue
+                        )
+                    }
+                    .buttonStyle(.plain)
 
-                NavigationLink(destination: SportVue()) {
-                    CarteSection(
-                        icone: "figure.run",
-                        titre: "Activités sportives",
-                        sousTitre: "Aucune activité aujourd'hui",
-                        couleur: .orange
-                    )
-                    .overlay(alignment: .topTrailing) { badgeImport }
+                    NavigationLink(destination: MedicationsVue()) {
+                        CarteSection(
+                            icone: "syringe",
+                            titre: "Médications",
+                            sousTitre: "Aucune médication aujourd'hui",
+                            couleur: .green
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    NavigationLink(destination: SportVue()) {
+                        CarteSection(
+                            icone: "figure.run",
+                            titre: "Activités sportives",
+                            sousTitre: "Aucune activité aujourd'hui",
+                            couleur: .orange
+                        )
+                        .overlay(alignment: .topTrailing) { badgeImport }
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+                .padding()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .padding()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(.systemGroupedBackground))
-            .navigationTitle("Journal")
         }
     }
 
@@ -266,6 +269,7 @@ private let previewRepas: [(titre: String, repas: [Repas])] = [
 #Preview("Journal") {
     JournalVue(nombreRepas: previewRepas.count, sections: previewRepas)
         .environment(HealthKitImportService.mockVide())
+        .environment(ProfilService.mockComplet())
 }
 
 #Preview("Journal - Avec badge") {
@@ -273,6 +277,7 @@ private let previewRepas: [(titre: String, repas: [Repas])] = [
         .environment(HealthKitImportService.mockAvecActivites([
             .mockCourse, .mockYoga
         ]))
+        .environment(ProfilService.mockComplet())
 }
 
 #Preview("Détail repas") {
