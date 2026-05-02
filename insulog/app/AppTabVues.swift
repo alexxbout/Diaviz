@@ -56,6 +56,7 @@ struct AppTabVues: View {
                 RecercheVue()
             }
         }
+        .tabBarMinimizeBehavior(.onScrollDown)
         // Injection de la racine — toutes les vues filles consomment le
         // même service via `@Environment(HealthKitImportService.self)`,
         // ce qui rend les previews capable de fournir un mock isolé.

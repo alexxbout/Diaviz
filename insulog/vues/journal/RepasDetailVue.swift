@@ -52,7 +52,6 @@ struct RepasDetailVue: View {
             }
         }
         .listStyle(.insetGrouped)
-        .toolbar(.hidden, for: .tabBar)
         .navigationTitle("Repas")
         .navigationBarTitleDisplayMode(.large)
         .toolbar {

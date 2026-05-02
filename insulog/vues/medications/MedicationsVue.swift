@@ -102,7 +102,6 @@ struct MedicationsVue: View {
             }
         }
         .listStyle(.insetGrouped)
-        .toolbar(.hidden, for: .tabBar)
         .navigationTitle("Médications")
         .navigationBarTitleDisplayMode(.large)
         .toolbar { menuAjouter }

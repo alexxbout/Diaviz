@@ -69,7 +69,6 @@ struct AjouterRepasVue: View {
         // (le passage `aliments vide` ↔ `aliments non vide`), pas chaque
         // ajout d'aliment individuel.
         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: alimentsRepas.isEmpty)
-        .toolbar(.hidden, for: .tabBar)
         .toolbar { menuToolbar }
         .navigationTitle("Nouveau repas")
         .navigationBarTitleDisplayMode(.inline)

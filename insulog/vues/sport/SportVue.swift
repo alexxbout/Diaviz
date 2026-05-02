@@ -62,7 +62,6 @@ struct SportVue: View {
                 sectionListe
             }
             .listStyle(.insetGrouped)
-            .toolbar(.hidden, for: .tabBar)
             .navigationTitle("Activités sportives")
             .navigationBarTitleDisplayMode(.large)
             .toolbar { boutonAjouter }
