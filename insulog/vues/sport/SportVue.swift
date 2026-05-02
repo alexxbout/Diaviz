@@ -215,7 +215,7 @@ struct SportVue: View {
         case .creation:
             SheetNouvelleActivite(onValider: { service.ajouter($0) })
         case .importHealthKit:
-            SheetImportApplehealth(service: importService)
+            SheetImportAppleHealth(service: importService)
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }

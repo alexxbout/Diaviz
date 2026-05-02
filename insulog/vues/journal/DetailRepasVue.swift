@@ -214,7 +214,7 @@ struct DetailRepasVue: View {
     @ViewBuilder
     private var sectionMetriques: some View {
         if case .disponible(let reponse) = etatAnalyseEffectif {
-            CardListe {
+            CarteRegroupee {
                 LigneMetrique(
                     libelle: "Pic glycémique",
                     valeur: "\(Int(reponse.valeurPic)) mg/dL",
@@ -241,7 +241,7 @@ struct DetailRepasVue: View {
     //
     // Header « ALIMENTS » en `.caption.bold()` aligné iOS Form. Liste des
     // aliments du repas via `CarteAliment` (composant existant utilisé
-    // déjà dans `RepasDetailVue`). En lecture seule — pas de swipe ici,
+    // déjà dans `ListeRepasParSection`). En lecture seule — pas de swipe ici,
     // l'édition se fait via le menu ⋯ → Modifier.
 
     private var sectionAliments: some View {
@@ -251,7 +251,7 @@ struct DetailRepasVue: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 32)
 
-            CardListe {
+            CarteRegroupee {
                 ForEach(Array(repas.aliments.enumerated()), id: \.element.id) { index, aliment in
                     CarteAliment(
                         emoji: aliment.emoji,
@@ -279,7 +279,7 @@ struct DetailRepasVue: View {
     // mais avec « — » sur les valeurs absentes.
 
     private var sectionInjection: some View {
-        CardListe {
+        CarteRegroupee {
             LigneMetrique(
                 libelle: "Insuline totale",
                 valeur: formaterInsuline(repas.totalInsuline),
@@ -373,64 +373,6 @@ private extension String {
     var capitalizedFirstLetter: String {
         guard let premiere = first else { return self }
         return String(premiere).uppercased() + dropFirst()
-    }
-}
-
-// MARK: - LigneMetrique
-//
-// Row standardisée pour les sections « métriques » et « récap injection ».
-// Libellé à gauche en `.body`, valeur principale à droite en `.body.bold()`,
-// sous-valeur optionnelle en dessous (utilisée pour « À T+1h15 » sous le
-// pic glycémique).
-private struct LigneMetrique: View {
-    let libelle: String
-    let valeur: String
-    let sousValeur: String?
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(libelle)
-                .font(.body)
-                .foregroundStyle(.primary)
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(valeur)
-                    .font(.body.bold())
-                    .foregroundStyle(.primary)
-                    .monospacedDigit()
-                if let sousValeur {
-                    Text(sousValeur)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(libelle) : \(valeur)\(sousValeur.map { ", \($0)" } ?? "")")
-    }
-}
-
-// MARK: - CardListe
-//
-// Conteneur réutilisé par les sections « métriques », « aliments » et
-// « récap injection ». Card avec fond `secondarySystemGroupedBackground`,
-// cornerRadius 16, sans padding interne (les enfants se placent eux-mêmes
-// pour pouvoir afficher des séparateurs pleine largeur).
-private struct CardListe<Content: View>: View {
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        VStack(spacing: 0) {
-            content
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
     }
 }
 

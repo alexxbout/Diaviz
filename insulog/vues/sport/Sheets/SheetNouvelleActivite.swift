@@ -115,7 +115,7 @@ struct SheetNouvelleActivite: View {
                 spacing: 12
             ) {
                 ForEach(TypeSport.allCases, id: \.self) { type in
-                    BoutonType(
+                    BoutonTypeSport(
                         type: type,
                         selectionne: typeSelectionne == type
                     ) {
@@ -204,7 +204,7 @@ struct SheetNouvelleActivite: View {
         Section("Intensité") {
             VStack(spacing: 8) {
                 ForEach(IntensiteSport.allCases, id: \.self) { niveau in
-                    CardRadioIntensite(
+                    CarteRadioIntensite(
                         intensite: niveau,
                         selectionnee: intensite == niveau
                     ) {
@@ -276,103 +276,6 @@ struct SheetNouvelleActivite: View {
             }
         }
         saisieDureeTexte = ""
-    }
-}
-
-// MARK: - BoutonType
-//
-// Case tappable de la grille de types de sport. Carré ~80pt avec
-// emoji + libellé centrés ; bordure et fond accent en sélection.
-private struct BoutonType: View {
-    let type: TypeSport
-    let selectionne: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 6) {
-                Text(type.emoji)
-                    .font(.system(size: 30))
-                Text(type.rawValue)
-                    .font(.caption2)
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 80)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(selectionne
-                        ? Color.accentColor.opacity(0.15)
-                        : Color(.secondarySystemBackground))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(
-                        selectionne ? Color.accentColor : .clear,
-                        lineWidth: 1.5
-                    )
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(type.rawValue)
-        .accessibilityAddTraits(selectionne ? [.isSelected] : [])
-    }
-}
-
-// MARK: - CardRadioIntensite
-//
-// Card empilée verticalement — radio button + titre + description.
-// Le tap sur n'importe quelle zone de la card sélectionne, pas
-// uniquement le radio (cible plus large, conforme HIG 44pt).
-private struct CardRadioIntensite: View {
-    let intensite: IntensiteSport
-    let selectionnee: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(alignment: .center, spacing: 12) {
-                Image(systemName: selectionnee
-                    ? "largecircle.fill.circle"
-                    : "circle"
-                )
-                .font(.title3)
-                .foregroundStyle(selectionnee ? Color.accentColor : .secondary)
-                .symbolRenderingMode(.hierarchical)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(intensite.rawValue)
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(.primary)
-                    Text(intensite.description)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer(minLength: 0)
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(selectionnee
-                        ? Color.accentColor.opacity(0.10)
-                        : Color(.secondarySystemBackground))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(
-                        selectionnee ? Color.accentColor : .clear,
-                        lineWidth: 1
-                    )
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(intensite.rawValue), \(intensite.description)")
-        .accessibilityAddTraits(selectionnee ? [.isSelected] : [])
     }
 }
 

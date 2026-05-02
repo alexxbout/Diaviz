@@ -33,13 +33,13 @@ final class AppRouter {
     /// Onglet racine actif. Bindé à la sélection de la TabView.
     var selectedTab: TabId = .journal
 
-    /// `true` quand `JournalDetailVue` est sur l'écran. Utilisé pour
+    /// `true` quand `JournalConteneurVue` est sur l'écran. Utilisé pour
     /// activer/désactiver l'accessoire de tab bar via le paramètre
     /// `isEnabled` de `tabViewBottomAccessory`.
     var inJournalDetail: Bool = false
 
-    /// Section actuellement affichée dans `JournalDetailVue`. Tap sur
-    /// un segment de l'accessoire écrit ici ; `JournalDetailVue`
+    /// Section actuellement affichée dans `JournalConteneurVue`. Tap sur
+    /// un segment de l'accessoire écrit ici ; `JournalConteneurVue`
     /// observe la valeur et bascule son contenu en conséquence.
     var journalSection: SectionJournal = .repas
 }

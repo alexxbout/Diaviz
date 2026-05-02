@@ -1,5 +1,5 @@
 //
-//  EnTetePageProfil.swift
+//  EnTetePage.swift
 //  insulog
 //
 //  Created by Alexandre on 03/05/2026.
@@ -16,11 +16,11 @@ import SwiftUI
 /// depuis n'importe où dans l'app.
 ///
 /// Le composant gère aussi son propre `@State` d'ouverture de la sheet
-/// — chaque onglet n'a qu'à insérer `EnTetePageProfil(titre: "X")` en
+/// — chaque onglet n'a qu'à insérer `EnTetePage(titre: "X")` en
 /// haut de son contenu, sans avoir à câbler manuellement le binding ni
 /// le `.sheet`. La duplication d'état entre onglets est sans conséquence
 /// (chaque tab héberge sa propre instance).
-struct EnTetePageProfil: View {
+struct EnTetePage: View {
 
     let titre: String
 
@@ -56,7 +56,7 @@ struct EnTetePageProfil: View {
 
 #Preview("Accueil") {
     VStack(spacing: 0) {
-        EnTetePageProfil(titre: "Accueil")
+        EnTetePage(titre: "Accueil")
         Spacer()
     }
     .environment(ProfilService.mockComplet())
@@ -64,7 +64,7 @@ struct EnTetePageProfil: View {
 
 #Preview("Profil neuf") {
     VStack(spacing: 0) {
-        EnTetePageProfil(titre: "Journal")
+        EnTetePage(titre: "Journal")
         Spacer()
     }
     .environment(ProfilService.mockVide())

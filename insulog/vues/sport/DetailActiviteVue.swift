@@ -223,20 +223,20 @@ struct DetailActiviteVue: View {
     @ViewBuilder
     private var sectionMetriquesGlycemiques: some View {
         if let reponse {
-            CardListe {
-                LigneMetriqueDetail(
+            CarteRegroupee {
+                LigneMetrique(
                     libelle: "Glycémie début",
                     valeur: "\(Int(reponse.glycemieDebut)) mg/dL",
                     couleur: nil
                 )
                 Divider().padding(.leading, 16)
-                LigneMetriqueDetail(
+                LigneMetrique(
                     libelle: "Glycémie fin",
                     valeur: "\(Int(reponse.glycemieFin)) mg/dL",
                     couleur: nil
                 )
                 Divider().padding(.leading, 16)
-                LigneMetriqueDetail(
+                LigneMetrique(
                     libelle: "Variation",
                     valeur: variationFormatee(reponse.deltaMgDl),
                     couleur: couleurVariation(reponse: reponse)
@@ -274,9 +274,9 @@ struct DetailActiviteVue: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 32)
 
-                CardListe {
+                CarteRegroupee {
                     if let fc = hk.fcMoyenne {
-                        LigneMetriqueDetail(
+                        LigneMetrique(
                             libelle: "FC moyenne",
                             valeur: "\(Int(fc)) bpm",
                             couleur: nil
@@ -284,7 +284,7 @@ struct DetailActiviteVue: View {
                         Divider().padding(.leading, 16)
                     }
                     if let fcMax = hk.fcMax {
-                        LigneMetriqueDetail(
+                        LigneMetrique(
                             libelle: "FC max",
                             valeur: "\(Int(fcMax)) bpm",
                             couleur: nil
@@ -292,7 +292,7 @@ struct DetailActiviteVue: View {
                         Divider().padding(.leading, 16)
                     }
                     if let cal = hk.caloriesActives {
-                        LigneMetriqueDetail(
+                        LigneMetrique(
                             libelle: "Calories actives",
                             valeur: "\(Int(cal)) kcal",
                             couleur: nil
@@ -300,7 +300,7 @@ struct DetailActiviteVue: View {
                     }
                     if let dist = hk.distanceMetres {
                         Divider().padding(.leading, 16)
-                        LigneMetriqueDetail(
+                        LigneMetrique(
                             libelle: "Distance",
                             valeur: distanceFormatee(dist),
                             couleur: nil
@@ -337,14 +337,14 @@ struct DetailActiviteVue: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 32)
 
-            CardListe {
-                LigneMetriqueDetail(
+            CarteRegroupee {
+                LigneMetrique(
                     libelle: "Glucides pré-sport",
                     valeur: glucidesFormate,
                     couleur: nil
                 )
                 Divider().padding(.leading, 16)
-                LigneMetriqueDetail(
+                LigneMetrique(
                     libelle: "Intensité",
                     valeur: activite.intensite.rawValue,
                     couleur: nil
@@ -358,7 +358,7 @@ struct DetailActiviteVue: View {
 
     /// Ligne note avec rendu spécial : si vide on affiche « Pas de note »
     /// en `.secondary`. Différent des autres lignes, donc inline plutôt
-    /// que `LigneMetriqueDetail`.
+    /// que `LigneMetrique`.
     private var ligneNote: some View {
         HStack(alignment: .firstTextBaseline) {
             Text("Note")
@@ -457,55 +457,6 @@ private enum SheetEdition: Identifiable {
         case .editionManuelle:    "manuelle"
         case .editionHealthKit:   "healthkit"
         }
-    }
-}
-
-// MARK: - LigneMetriqueDetail
-//
-// Variante de la ligne métrique pour la page Activité — supporte une
-// couleur de valeur (utilisée pour la variation glycémique). Distincte
-// de `LigneMetrique` (page Repas) parce que celle-ci porte une sous-
-// valeur sur deux lignes, ce dont on n'a pas besoin ici.
-private struct LigneMetriqueDetail: View {
-    let libelle: String
-    let valeur: String
-    let couleur: Color?
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(libelle)
-                .font(.body)
-                .foregroundStyle(.primary)
-            Spacer()
-            Text(valeur)
-                .font(.body.bold())
-                .foregroundStyle(couleur ?? .primary)
-                .monospacedDigit()
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(libelle) : \(valeur)")
-    }
-}
-
-// MARK: - CardListe (réplique légère)
-//
-// Dupliquée localement (privée) pour ne pas dépendre du `private struct
-// CardListe` de `DetailRepasVue`. Garder les deux pages indépendantes
-// limite les couplages — si l'une évolue, l'autre n'est pas impactée.
-private struct CardListe<Content: View>: View {
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        VStack(spacing: 0) {
-            content
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
     }
 }
 

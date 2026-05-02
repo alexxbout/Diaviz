@@ -1,5 +1,5 @@
 //
-//  RepasDetailVue.swift
+//  ListeRepasParSection.swift
 //  insulog
 //
 //  Created by Alexandre on 19/04/2026.
@@ -7,10 +7,10 @@
 
 import SwiftUI
 
-struct RepasDetailVue: View {
+struct ListeRepasParSection: View {
     @State private var sections: [(titre: String, repas: [Repas])]
 
-    /// Date sélectionnée par le `GraphRepasJournee` via swipe horizontal.
+    /// Date sélectionnée par le `GrapheJourneeRepas` via swipe horizontal.
     /// Sert à filtrer les sections affichées en dessous.
     @State private var selectedDate: Date = Calendar.current.startOfDay(for: Date())
 
@@ -39,7 +39,7 @@ struct RepasDetailVue: View {
             // automatiquement la hauteur de cette cellule comme pour
             // n'importe quelle autre row de la List.
             Section {
-                GraphRepasJournee(repas: repasGraph, selectedDate: $selectedDate)
+                GrapheJourneeRepas(repas: repasGraph, selectedDate: $selectedDate)
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
@@ -197,12 +197,12 @@ private let _previewSections: [(titre: String, repas: [Repas])] = [
 
 #Preview("Avec repas") {
     NavigationStack {
-        RepasDetailVue(sections: _previewSections)
+        ListeRepasParSection(sections: _previewSections)
     }
 }
 
 #Preview("Journée vide") {
     NavigationStack {
-        RepasDetailVue(sections: [])
+        ListeRepasParSection(sections: [])
     }
 }

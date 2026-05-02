@@ -20,13 +20,13 @@ struct JournalVue: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                EnTetePageProfil(titre: "Journal")
+                EnTetePage(titre: "Journal")
 
                 VStack(alignment: .leading, spacing: 16) {
                     // `.buttonStyle(.plain)` empêche le `NavigationLink` d'appliquer
                     // sa teinte par défaut, qui surchargerait le blanc/coloré de
                     // notre carte plein fond.
-                    NavigationLink(destination: RepasDetailVue(sections: sections)) {
+                    NavigationLink(destination: ListeRepasParSection(sections: sections)) {
                         CarteSection(
                             icone: "fork.knife",
                             titre: "Repas",
@@ -282,7 +282,7 @@ private let previewRepas: [(titre: String, repas: [Repas])] = [
 
 #Preview("Détail repas") {
     NavigationStack {
-        RepasDetailVue(sections: previewRepas)
+        ListeRepasParSection(sections: previewRepas)
     }
 }
 

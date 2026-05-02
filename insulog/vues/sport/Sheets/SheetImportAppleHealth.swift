@@ -1,5 +1,5 @@
 //
-//  SheetImportApplehealth.swift
+//  SheetImportAppleHealth.swift
 //  insulog
 //
 //  Created by Alexandre on 02/05/2026.
@@ -21,7 +21,7 @@ import SwiftUI
 ///
 /// L'intensité de chaque carte est pré-remplie à partir de la FC moyenne
 /// du workout via `intensiteDepuisFC(_:)` — l'utilisateur peut ajuster.
-struct SheetImportApplehealth: View {
+struct SheetImportAppleHealth: View {
 
     // MARK: - Paramètres
 
@@ -264,17 +264,17 @@ struct SheetImportApplehealth: View {
 // MARK: - Aperçu
 
 #Preview("Aucune activité") {
-    SheetImportApplehealth(service: .mockVide())
+    SheetImportAppleHealth(service: .mockVide())
 }
 
 #Preview("1 activité") {
-    SheetImportApplehealth(
+    SheetImportAppleHealth(
         service: .mockAvecActivites([.mockCourse])
     )
 }
 
 #Preview("3 activités") {
-    SheetImportApplehealth(
+    SheetImportAppleHealth(
         service: .mockAvecActivites([.mockCourse, .mockYoga, .mockMusculation])
     )
 }

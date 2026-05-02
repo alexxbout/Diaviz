@@ -8,17 +8,17 @@
 import SwiftUI
 
 /// Page d'accueil — pour l'instant essentiellement vide, sert
-/// d'enveloppe à `EnTetePageProfil`.
+/// d'enveloppe à `EnTetePage`.
 ///
 /// Header App Store style (titre + avatar sur la même ligne) géré par
-/// le composant partagé `EnTetePageProfil`, présent à l'identique sur
+/// le composant partagé `EnTetePage`, présent à l'identique sur
 /// les quatre onglets racines.
 struct AccueilVue: View {
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                EnTetePageProfil(titre: "Accueil")
+                EnTetePage(titre: "Accueil")
 
                 // MARK: Contenu (vide pour l'instant)
                 Spacer()

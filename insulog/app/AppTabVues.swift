@@ -69,7 +69,7 @@ struct AppTabVues: View {
         .environment(profilService)
         .onAppear { ouvrirSheetSiBesoin() }
         .sheet(isPresented: $afficherSheetImport) {
-            SheetImportApplehealth(service: importService)
+            SheetImportAppleHealth(service: importService)
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }

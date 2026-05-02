@@ -8,13 +8,13 @@
 import SwiftUI
 
 /// Onglet « Recherche / Chat » — placeholder pour l'instant. Reçoit
-/// l'en-tête `EnTetePageProfil` comme les trois autres onglets pour
+/// l'en-tête `EnTetePage` comme les trois autres onglets pour
 /// que l'avatar Profil soit accessible depuis n'importe où.
 struct RecercheVue: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                EnTetePageProfil(titre: "Chat")
+                EnTetePage(titre: "Chat")
 
                 Spacer()
             }

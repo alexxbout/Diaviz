@@ -1,5 +1,5 @@
 //
-//  JournalDetailVue.swift
+//  JournalConteneurVue.swift
 //  insulog
 //
 //  Created by Alexandre on 02/05/2026.
@@ -19,10 +19,10 @@ import SwiftUI
 ///   visibilité de l'accessoire) à l'apparition / disparition.
 /// - Observer les changements de `AppRouter.journalSection` (poussés
 ///   par tap sur l'accessoire) pour swap le contenu sans push/pop.
-struct JournalDetailVue: View {
+struct JournalConteneurVue: View {
 
     /// Données des repas — passées par `JournalVue` puisque
-    /// `RepasDetailVue` n'a pas son propre service.
+    /// `ListeRepasParSection` n'a pas son propre service.
     let sections: [(titre: String, repas: [Repas])]
 
     @Environment(AppRouter.self) private var router
@@ -41,7 +41,7 @@ struct JournalDetailVue: View {
         Group {
             switch section {
             case .repas:
-                RepasDetailVue(sections: sections)
+                ListeRepasParSection(sections: sections)
             case .medications:
                 MedicationsVue()
             case .sport:
@@ -77,7 +77,7 @@ private let _previewSectionsVides: [(titre: String, repas: [Repas])] = [
 
 #Preview("Journal détail — Repas") {
     NavigationStack {
-        JournalDetailVue(initialSection: .repas, sections: _previewSectionsVides)
+        JournalConteneurVue(initialSection: .repas, sections: _previewSectionsVides)
     }
     .environment(AppRouter())
     .environment(HealthKitImportService.mockVide())
@@ -85,7 +85,7 @@ private let _previewSectionsVides: [(titre: String, repas: [Repas])] = [
 
 #Preview("Journal détail — Médications") {
     NavigationStack {
-        JournalDetailVue(initialSection: .medications, sections: _previewSectionsVides)
+        JournalConteneurVue(initialSection: .medications, sections: _previewSectionsVides)
     }
     .environment(AppRouter())
     .environment(HealthKitImportService.mockVide())
@@ -93,7 +93,7 @@ private let _previewSectionsVides: [(titre: String, repas: [Repas])] = [
 
 #Preview("Journal détail — Sport") {
     NavigationStack {
-        JournalDetailVue(initialSection: .sport, sections: _previewSectionsVides)
+        JournalConteneurVue(initialSection: .sport, sections: _previewSectionsVides)
     }
     .environment(AppRouter())
     .environment(HealthKitImportService.mockVide())
