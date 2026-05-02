@@ -43,12 +43,26 @@ struct LigneActiviteSport: View {
     // - label avec emoji intégré en .body
     // - sous-ligne (.caption .secondary) heure · durée · intensité
     //   (+ glucides pré-sport si renseignés)
+    // - footer « Source : Apple Santé » si l'activité a été importée
+    //   depuis HealthKit (signal léger pour que l'utilisateur sache
+    //   distinguer une saisie manuelle d'un import automatique)
     private var zoneInfos: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("\(activite.type.emoji) \(activite.type.rawValue)")
                 .font(.body)
                 .lineLimit(1)
             sousLigneInfos
+            footerSource
+        }
+    }
+
+    @ViewBuilder
+    private var footerSource: some View {
+        if activite.source == .healthKit {
+            Text("Source : Apple Santé")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
         }
     }
 
@@ -136,6 +150,29 @@ struct LigneActiviteSport: View {
                     dateDebut: Date(),
                     dureeMinutes: 45,
                     intensite: .intense
+                ),
+                etatCourbe: .donneesManquantes
+            )
+        }
+        Section("Importée depuis Apple Santé") {
+            // Active le rendu du footer `.source == .healthKit` —
+            // sert de garde-fou visuel pour s'assurer que la ligne
+            // grandit proprement avec la nouvelle métadonnée.
+            LigneActiviteSport(
+                activite: ActiviteSportive(
+                    type: .course,
+                    dateDebut: Date(),
+                    dureeMinutes: 45,
+                    intensite: .moderee,
+                    source: .healthKit,
+                    healthKitData: HealthKitWorkoutData(
+                        workoutUUID: UUID(),
+                        fcMoyenne: 145,
+                        fcMax: 168,
+                        caloriesActives: 420,
+                        distanceMetres: 7200,
+                        sourceAppareil: "Apple Watch Series 9"
+                    )
                 ),
                 etatCourbe: .donneesManquantes
             )

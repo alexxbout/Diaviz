@@ -183,6 +183,7 @@ struct GrapheJourneeMedications: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            titre
             entete
             pages
             legende
@@ -212,6 +213,19 @@ struct GrapheJourneeMedications: View {
             @unknown default: break
             }
         }
+    }
+
+    // MARK: - Titre du graphe
+    //
+    // Sous-titre éditorial qui décrit ce que le graphe représente —
+    // hauteur (dose) + couleur (type d'insuline). Marqué comme heading
+    // pour VoiceOver, qui le lira avant le reste du graphe et permettra
+    // à l'utilisateur de comprendre le contexte avant les chiffres.
+    private var titre: some View {
+        Text("Dose et type d'insuline")
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.primary)
+            .accessibilityAddTraits(.isHeader)
     }
 
     // MARK: - En-tête

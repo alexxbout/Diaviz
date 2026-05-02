@@ -131,6 +131,7 @@ struct GraphRepasJournee: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            titre
             entete
             pages
         }
@@ -164,6 +165,25 @@ struct GraphRepasJournee: View {
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
         }
+    }
+
+    // MARK: - Titre du graphe
+    //
+    // Sous-titre éditorial qui décrit ce que le graphe représente —
+    // hauteur (glucides) + couleur (verdict glycémique). Marqué comme
+    // heading pour VoiceOver, qui le lira avant le reste du graphe et
+    // permettra à l'utilisateur de comprendre le contexte avant les
+    // chiffres. Padding horizontal aligné sur l'entête juste en
+    // dessous ; padding bas de 8pt qui prend le pas sur le top de
+    // l'entête (réduit en conséquence).
+    private var titre: some View {
+        Text("Glucides et réponse glycémique")
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.primary)
+            .accessibilityAddTraits(.isHeader)
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 8)
     }
 
     // MARK: - En-tête
@@ -208,7 +228,6 @@ struct GraphRepasJournee: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 16)
         .padding(.bottom, 16)
     }
 
@@ -327,6 +346,20 @@ struct GraphRepasJournee: View {
                 .foregroundStyle(unRepas.verdict.couleur.gradient)
                 .opacity(unRepas.aInjection ? 1.0 : 0.4)
                 .cornerRadius(6)
+                // Annotation au sommet — quantité de glucides du repas.
+                // Mêmes choix typographiques que les graphes Sport
+                // (« 45min ») et Médications (« 1.5u ») : police 9pt
+                // semibold, couleur sémantique de la barre,
+                // `monospacedDigit` pour aligner les chiffres entre
+                // barres voisines. Pas d'espace avant l'unité — format
+                // ultra-compact qui tient au-dessus d'une barre étroite.
+                .annotation(position: .top, spacing: 2) {
+                    Text("\(Int(unRepas.glucides))g")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(unRepas.verdict.couleur)
+                        .monospacedDigit()
+                        .opacity(unRepas.aInjection ? 1.0 : 0.5)
+                }
             }
 
             if let selected = repasSelectionne, isSameDay(selected, jour) {

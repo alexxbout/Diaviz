@@ -11,6 +11,12 @@ struct JournalVue: View {
     let nombreRepas: Int
     let sections: [(titre: String, repas: [Repas])]
 
+    /// Service d'import HealthKit — injecté depuis la racine de l'app
+    /// via `@Environment`. Alimente le badge rouge superposé à la
+    /// carte « Activités sportives » quand des workouts sont en attente
+    /// d'import.
+    @Environment(HealthKitImportService.self) private var importService
+
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
@@ -44,6 +50,7 @@ struct JournalVue: View {
                         sousTitre: "Aucune activité aujourd'hui",
                         couleur: .orange
                     )
+                    .overlay(alignment: .topTrailing) { badgeImport }
                 }
                 .buttonStyle(.plain)
             }
@@ -51,6 +58,26 @@ struct JournalVue: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(.systemGroupedBackground))
             .navigationTitle("Journal")
+        }
+    }
+
+    /// Pastille rouge en haut à droite de la carte sport — n'apparaît
+    /// que si le service signale des activités à importer. Animation
+    /// `easeInOut` pour qu'elle apparaisse/disparaisse en douceur quand
+    /// l'utilisateur traite ou ignore depuis la sheet.
+    @ViewBuilder
+    private var badgeImport: some View {
+        if importService.aDesImportsEnAttente {
+            Text("\(importService.nombreEnAttente)")
+                .font(.caption2.bold())
+                .foregroundStyle(.white)
+                .monospacedDigit()
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Color.red, in: Capsule())
+                .padding(12)
+                .accessibilityLabel("\(importService.nombreEnAttente) activités Apple Santé à importer")
+                .transition(.scale.combined(with: .opacity))
         }
     }
 }
@@ -211,7 +238,16 @@ private let previewRepas: [(titre: String, repas: [Repas])] = [
 
 #Preview("Journal") {
     JournalVue(nombreRepas: previewRepas.count, sections: previewRepas)
+        .environment(HealthKitImportService.mockVide())
 }
+
+#Preview("Journal - Avec badge") {
+    JournalVue(nombreRepas: previewRepas.count, sections: previewRepas)
+        .environment(HealthKitImportService.mockAvecActivites([
+            .mockCourse, .mockYoga
+        ]))
+}
+
 #Preview("Détail repas") {
     NavigationStack {
         RepasDetailVue(sections: previewRepas)

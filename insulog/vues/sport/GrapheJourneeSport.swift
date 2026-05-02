@@ -130,6 +130,7 @@ struct GrapheJourneeSport: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            titre
             entete
             pages
             legende
@@ -162,6 +163,19 @@ struct GrapheJourneeSport: View {
             @unknown default: break
             }
         }
+    }
+
+    // MARK: - Titre du graphe
+    //
+    // Sous-titre éditorial qui décrit ce que le graphe représente —
+    // hauteur (durée) + couleur (catégorie). Marqué comme heading pour
+    // VoiceOver, qui le lira avant le reste du graphe et permettra à
+    // l'utilisateur de comprendre le contexte avant les chiffres.
+    private var titre: some View {
+        Text("Durée et type d'activité")
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.primary)
+            .accessibilityAddTraits(.isHeader)
     }
 
     // MARK: - En-tête

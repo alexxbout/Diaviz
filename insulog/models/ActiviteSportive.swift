@@ -27,6 +27,13 @@ struct ActiviteSportive: Identifiable, Codable, Sendable, Hashable {
     /// rien de spécifique pris — distingué de la valeur 0.
     let glucidesPreSport: Double?
     let note: String?
+    /// Provenance de la saisie. Défaut `.manuel` pour conserver la
+    /// compatibilité avec toutes les activités créées avant l'arrivée
+    /// du flux d'import HealthKit.
+    let source: SourceActivite
+    /// Snapshot des métriques HealthKit conservées à l'import. `nil`
+    /// pour toute activité dont `source` n'est pas `.healthKit`.
+    let healthKitData: HealthKitWorkoutData?
 
     init(
         id: UUID = UUID(),
@@ -35,7 +42,9 @@ struct ActiviteSportive: Identifiable, Codable, Sendable, Hashable {
         dureeMinutes: Int,
         intensite: IntensiteSport,
         glucidesPreSport: Double? = nil,
-        note: String? = nil
+        note: String? = nil,
+        source: SourceActivite = .manuel,
+        healthKitData: HealthKitWorkoutData? = nil
     ) {
         self.id = id
         self.type = type
@@ -44,6 +53,8 @@ struct ActiviteSportive: Identifiable, Codable, Sendable, Hashable {
         self.intensite = intensite
         self.glucidesPreSport = glucidesPreSport
         self.note = note
+        self.source = source
+        self.healthKitData = healthKitData
     }
 }
 

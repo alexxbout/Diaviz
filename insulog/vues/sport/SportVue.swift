@@ -21,12 +21,17 @@ struct SportVue: View {
 
     @State private var service = ActivitesSportServiceMock.shared
 
+    /// Service d'import HealthKit — injecté depuis la racine de l'app
+    /// via `@Environment`. Observé pour afficher la bannière d'accès
+    /// à la sheet d'import en tête de page.
+    @Environment(HealthKitImportService.self) private var importService
+
     /// Date affichée — pilotée par le scroll du graphe et utilisée
     /// pour filtrer la liste en dessous. Représente le début de la
     /// journée (00:00 local).
     @State private var selectedDate: Date = Calendar.current.startOfDay(for: Date())
 
-    /// Sheet active (création ou édition).
+    /// Sheet active (création, édition, ou import HealthKit).
     @State private var sheetActive: SheetSport?
 
     /// Cible du scroll de la liste — alimentée par le tap sur une
@@ -53,6 +58,7 @@ struct SportVue: View {
         ScrollViewReader { proxy in
             List {
                 sectionGraphe
+                sectionImportHealthKit
                 sectionListe
             }
             .listStyle(.insetGrouped)
@@ -111,6 +117,78 @@ struct SportVue: View {
         }
     }
 
+    /// Bannière d'accès à la sheet d'import HealthKit. Insérée entre le
+    /// graphe et la liste — visible immédiatement, mais pas si proéminente
+    /// qu'elle masquerait le graphe ou la liste. Présente uniquement quand
+    /// le service signale au moins une activité en attente.
+    ///
+    /// `listSectionSpacing(8)` resserre l'inter-section au-dessus et
+    /// au-dessous du bandeau — sans ça, la `List.insetGrouped` ajoute
+    /// par défaut ~35pt de respiration qui font flotter la carte loin
+    /// du graphe et de la liste qui l'entourent.
+    @ViewBuilder
+    private var sectionImportHealthKit: some View {
+        if importService.aDesImportsEnAttente {
+            Section {
+                Button {
+                    sheetActive = .importHealthKit
+                } label: {
+                    bandeauImportHealthKit
+                }
+                .buttonStyle(.plain)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
+            .listSectionSpacing(8)
+        }
+    }
+
+    /// Contenu visuel du bandeau — icône cœur Apple Santé + texte +
+    /// chevron. Fond `systemBackground` (blanc en clair, noir en sombre)
+    /// pour ressortir nettement du `systemGroupedBackground` de la List.
+    ///
+    /// Titre fixe « Nouveauté Apple Santé » qui ne dépend pas du
+    /// compteur — un titre commençant par un chiffre (« 1 activité… »)
+    /// se lisait mal et donnait l'impression d'une simple statistique.
+    /// Le compte exact descend en sous-titre, où il joue son rôle
+    /// d'information secondaire.
+    private var bandeauImportHealthKit: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "heart.text.square.fill")
+                .font(.system(size: 28))
+                .foregroundStyle(.red)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Nouveauté Apple Santé")
+                    .font(.subheadline.bold())
+                    .foregroundStyle(.primary)
+                Text(sousTitreBandeau)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.footnote)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.vertical, 14)
+        .padding(.horizontal, 18)
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Ouvre la sheet d'import Apple Santé")
+    }
+
+    private var sousTitreBandeau: String {
+        let n = importService.nombreEnAttente
+        if n == 1 { return "Une activité à importer" }
+        return "\(n) activités à importer"
+    }
+
     /// Section liste — pas de header (le libellé du jour est déjà
     /// porté par l'en-tête du graphe juste au-dessus). Les rows sont
     /// déléguées à `ListeActivitesSport`.
@@ -146,31 +224,51 @@ struct SportVue: View {
                     service.ajouter(nouvelleVersion)
                 }
             )
+        case .importHealthKit:
+            SheetImportApplehealth(service: importService)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
     }
 }
 
 // MARK: - Routage de la sheet
 
-/// Discrimine création et édition au niveau d'un seul `.sheet(item:)`,
-/// pour éviter les conflits de présentation avec deux modificateurs
-/// `.sheet` parallèles.
+/// Discrimine création, édition et import HealthKit au niveau d'un
+/// seul `.sheet(item:)`, pour éviter les conflits de présentation
+/// avec plusieurs modificateurs `.sheet` parallèles.
 private enum SheetSport: Identifiable {
     case creation
     case edition(ActiviteSportive)
+    case importHealthKit
 
     var id: String {
         switch self {
         case .creation:                "creation"
         case .edition(let a):          "edition-\(a.id.uuidString)"
+        case .importHealthKit:         "import-healthkit"
         }
     }
 }
 
 // MARK: - Aperçu
 
-#Preview {
+// Preview par défaut — montre la bannière d'import « Nouveauté Apple
+// Santé » avec deux activités mockées. Mis en premier pour que Xcode
+// sélectionne ce rendu à l'ouverture du fichier (l'autre variante,
+// sans imports, sert juste à vérifier la dégradation gracieuse).
+#Preview("Sport - Avec imports") {
     NavigationStack {
         SportVue()
     }
+    .environment(HealthKitImportService.mockAvecActivites([
+        .mockCourse, .mockYoga
+    ]))
+}
+
+#Preview("Sport - Sans imports") {
+    NavigationStack {
+        SportVue()
+    }
+    .environment(HealthKitImportService.mockVide())
 }
