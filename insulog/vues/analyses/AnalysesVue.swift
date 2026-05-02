@@ -9,9 +9,11 @@ import SwiftUI
 
 struct AnalysesVue: View {
     var body: some View {
-        NavigationStack() {
+        NavigationStack {
             VStack(spacing: 0) {}
-            .navigationTitle("Analyses")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.systemGroupedBackground))
+                .navigationTitle("Analyses")
         }
     }
 }

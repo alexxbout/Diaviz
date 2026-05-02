@@ -14,7 +14,7 @@ struct AccueilVue: View {
                     
                     // Header custom
                     HStack {
-                        Text("Chat")
+                        Text("Accueil")
                             .font(.largeTitle)
                             .fontWeight(.bold)
                         

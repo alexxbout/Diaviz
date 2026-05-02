@@ -52,7 +52,7 @@ struct AppTabVues: View {
                 AnalysesVue()
             }
 
-            Tab("Recherche", systemImage: "magnifyingglass", role: TabRole.search) {
+            Tab("Recherche", systemImage: "bubble.left.and.text.bubble.right", role: TabRole.search) {
                 RecercheVue()
             }
         }
