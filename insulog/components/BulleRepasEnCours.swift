@@ -125,8 +125,10 @@ struct BulleRepasEnCours: View {
         .glassEffect(in: RoundedRectangle(cornerRadius: 100, style: .continuous))
         .shadow(color: .black.opacity(0.15), radius: 16, x: 0, y: 4)
         // Padding externe pour que la capsule ne touche pas les bords
-        // de la sheet et conserve son identité visuelle.
+        // de la sheet et conserve son identité visuelle. Le padding
+        // bas dégage la capsule au-dessus de la tab bar Liquid Glass.
         .padding(.horizontal, 16)
+        .padding(.bottom, 8)
         .contentShape(Rectangle())
     }
 
