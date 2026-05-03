@@ -19,6 +19,20 @@ import SwiftUI
 ///    inaperçues (et n'avoir pas à les chercher dans la page Sport).
 struct AppTabVues: View {
 
+    /// Sections de repas affichées dans l'onglet Journal. Vide par
+    /// défaut tant qu'aucun service de repas n'est branché ; les
+    /// previews injectent des exemples pour exercer le rendu.
+    let nombreRepas: Int
+    let sectionsJournal: [(titre: String, repas: [Repas])]
+
+    init(
+        nombreRepas: Int = 0,
+        sectionsJournal: [(titre: String, repas: [Repas])] = []
+    ) {
+        self.nombreRepas = nombreRepas
+        self.sectionsJournal = sectionsJournal
+    }
+
     @State private var showingSearch = false
 
     /// Service d'import — pris depuis le singleton plutôt qu'instancié
@@ -49,7 +63,7 @@ struct AppTabVues: View {
             }
 
             Tab("Journal", systemImage: "long.text.page.and.pencil") {
-                JournalVue(nombreRepas: 0, sections: [])
+                JournalVue(nombreRepas: nombreRepas, sections: sectionsJournal)
             }
             .badge(importService.nombreEnAttente)
 
@@ -89,6 +103,68 @@ struct AppTabVues: View {
     }
 }
 
+private func _previewDate(hour: Int, minute: Int, daysAgo: Int = 0) -> Date {
+    let cal = Calendar.current
+    let jour = cal.date(byAdding: .day, value: -daysAgo, to: Date()) ?? Date()
+    return cal.date(bySettingHour: hour, minute: minute, second: 0, of: jour) ?? Date()
+}
+
+private let _previewSections: [(titre: String, repas: [Repas])] = [
+    (titre: "Petit déjeuner", repas: [
+        Repas(
+            heure: _previewDate(hour: 7, minute: 30),
+            aliments: [
+                Aliment(emoji: "🥣", nom: "Flocons d'avoine", quantite: 80, glucides: 54, insuline: 3.0),
+                Aliment(emoji: "🍌", nom: "Banane", quantite: 120, glucides: 27, insuline: 1.5),
+                Aliment(emoji: "🥛", nom: "Lait demi-écrémé", quantite: 200, glucides: 10, insuline: 0.5),
+            ],
+            etatAnalyse: nil,
+            iobAuDebut: nil
+        )
+    ]),
+    (titre: "Déjeuner", repas: [
+        Repas(
+            heure: _previewDate(hour: 12, minute: 30),
+            aliments: [
+                Aliment(emoji: "🍝", nom: "Pâtes complètes", quantite: 90, glucides: 60, insuline: 3.5),
+                Aliment(emoji: "🍗", nom: "Poulet grillé", quantite: 150, glucides: 0, insuline: 0.0),
+                Aliment(emoji: "🥦", nom: "Brocolis vapeur", quantite: 200, glucides: 8, insuline: 0.0),
+            ],
+            etatAnalyse: nil,
+            iobAuDebut: 0.6
+        )
+    ]),
+    (titre: "En-cas", repas: [
+        Repas(
+            heure: _previewDate(hour: 16, minute: 0),
+            aliments: [
+                Aliment(emoji: "🍪", nom: "Cookie", quantite: 30, glucides: 18, insuline: 0.0),
+            ],
+            etatAnalyse: nil,
+            iobAuDebut: 2.2
+        )
+    ]),
+    (titre: "Dîner", repas: [
+        Repas(
+            heure: _previewDate(hour: 19, minute: 45),
+            aliments: [
+                Aliment(emoji: "🍚", nom: "Riz basmati", quantite: 70, glucides: 56, insuline: 3.0),
+                Aliment(emoji: "🐟", nom: "Saumon grillé", quantite: 130, glucides: 0, insuline: 0.0),
+                Aliment(emoji: "🥗", nom: "Salade verte", quantite: 80, glucides: 2, insuline: 0.0),
+            ],
+            etatAnalyse: nil,
+            iobAuDebut: 0.4
+        )
+    ]),
+]
+
+private var _previewNombreRepas: Int {
+    _previewSections.reduce(0) { $0 + $1.repas.count }
+}
+
 #Preview {
-    AppTabVues()
+    AppTabVues(
+        nombreRepas: _previewNombreRepas,
+        sectionsJournal: _previewSections
+    )
 }
