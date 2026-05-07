@@ -158,6 +158,10 @@ final class NarrationViewModel {
     /// Si vrai, `demarrer(faits:)` ne fait rien. Utilisé par les previews pour
     /// figer un état visuel sans déclencher d'appel à Foundation Models.
     var figePreview: Bool
+    /// Conservé pour API symétrique mais n'est plus utilisé dans le VM :
+    /// l'animation de hauteur du conteneur est maintenant pilotée côté View
+    /// via un `@Binding<Bool>` exposé au parent.
+    var animerTransitions: Bool = true
 
     init(etatInitial: Etat = .chargement, figePreview: Bool = false) {
         self.etat = etatInitial
@@ -420,27 +424,56 @@ struct NarrationJourVue: View {
 
     let faits: FaitsJour
 
+    /// Binding exposé au parent pour qu'il puisse animer ses propres modifiers
+    /// (background de carte, glow effect…) à la transition « dots → texte ».
+    /// `withAnimation` à l'intérieur du VM ne propage pas toujours sa
+    /// transaction aux modifiers du parent ; passer par un binding observable
+    /// au niveau parent permet d'y appliquer un `.animation(_, value: ...)`
+    /// qui couvre toute sa chaîne.
+    @Binding private var contenuVisible: Bool
+
     @State private var modele: NarrationViewModel
-    /// Emoji tiré aléatoirement à la création de la View. Stocker en `@State`
-    /// garantit qu'il reste stable pendant tout le streaming (sinon body
-    /// ré-évaluerait et tirerait un nouvel emoji à chaque frame). Renouvelé
-    /// quand `faits` change via `.task(id: faits)`.
     @State private var emojiChoisi: String
+    @State private var typewriterStart: Date?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(faits: FaitsJour) {
+    init(faits: FaitsJour, contenuVisible: Binding<Bool> = .constant(false)) {
         self.faits = faits
+        _contenuVisible = contenuVisible
         _modele = State(initialValue: NarrationViewModel())
         _emojiChoisi = State(initialValue: EmojisHumeur.tirage(faits: faits))
+        _typewriterStart = State(initialValue: nil)
     }
 
-    /// Init de preview : permet d'injecter un état figé sans déclencher d'appel
-    /// à Foundation Models (impossible dans la canvas Xcode).
-    fileprivate init(faits: FaitsJour, modelePreview: NarrationViewModel) {
+    /// Init de preview : pour une preview figée en `.termine`, on laisse
+    /// `typewriterStart` à `nil` → le rendu affiche tout immédiatement.
+    fileprivate init(
+        faits: FaitsJour,
+        modelePreview: NarrationViewModel,
+        contenuVisible: Binding<Bool> = .constant(false)
+    ) {
         self.faits = faits
+        _contenuVisible = contenuVisible
         _modele = State(initialValue: modelePreview)
         _emojiChoisi = State(initialValue: EmojisHumeur.tirage(faits: faits))
+        _typewriterStart = State(initialValue: nil)
     }
+
+    private var afficheTexte: Bool {
+        switch modele.etat {
+        case .termine, .fallback: return true
+        case .chargement, .streaming: return false
+        }
+    }
+
+    /// Vitesse du typewriter en caractères par seconde.
+    private static let vitesseTypewriter: Double = 24
+
+    /// Durée du fade-in de chaque lettre, exprimée en multiples de
+    /// « char-time » (1 / vitesseTypewriter). 2 ≈ 83 ms à 24 cps.
+    /// Plusieurs lettres sont donc partiellement visibles à un instant
+    /// donné, ce qui donne une cascade visible.
+    private static let largeurFondu: Double = 2
 
     var body: some View {
         contenu
@@ -450,62 +483,132 @@ struct NarrationJourVue: View {
             .accessibilityElement(children: .combine)
             .accessibilityLabel(libelleAccessibilite)
             .task(id: faits) {
-                // Re-tire un emoji si `faits` change (jour différent / nouveau
-                // contexte). Lors d'un clic « Régénérer » via .id(compteur),
-                // c'est l'init qui fait le tirage, pas cette branche.
                 emojiChoisi = EmojisHumeur.tirage(faits: faits)
+                typewriterStart = nil
+                modele.animerTransitions = !reduceMotion
+                contenuVisible = afficheTexte
                 await modele.demarrer(faits: faits)
+            }
+            .onChange(of: afficheTexte) { _, nouveau in
+                contenuVisible = nouveau
+            }
+            // Démarre le typewriter à la transition `.streaming` → `.termine`.
+            // En reduceMotion on laisse `typewriterStart = nil` → tout
+            // s'affiche d'un coup sans animation.
+            .onChange(of: modele.etat) { _, nouveau in
+                if case .termine = nouveau, !reduceMotion {
+                    typewriterStart = .now
+                }
             }
     }
 
     @ViewBuilder
     private var contenu: some View {
         switch modele.etat {
-        case .chargement:
+        case .chargement, .streaming:
             IndicateurChargement(reduceMotion: reduceMotion)
 
-        case .streaming(let segments):
-            phraseAttribuee(segments: segments, avecCurseur: true, finalise: false)
-
         case .termine(let segments):
-            phraseAttribuee(segments: segments, avecCurseur: false, finalise: true)
+            if let start = typewriterStart {
+                // TimelineView(.animation) garantit une re-évaluation au
+                // refresh rate (60–120 Hz) — ce qui permet à `progressChars`
+                // d'évoluer en continu et à `phraseRenduTypewriter` de
+                // recalculer l'opacité de chaque caractère à chaque frame.
+                TimelineView(.animation) { contexte in
+                    let elapsed = contexte.date.timeIntervalSince(start)
+                    let progressChars = elapsed * Self.vitesseTypewriter
+                    let total = segments.reduce(0) { $0 + $1.text.count }
+                    let fini = progressChars >= Double(total)
+
+                    Text(phraseRenduTypewriter(
+                        segments: segments,
+                        progressChars: progressChars,
+                        finalise: fini
+                    ))
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+            } else {
+                // typewriterStart == nil → reduceMotion ou preview figée :
+                // on affiche tout d'un coup, sans animation.
+                Text(phraseRendu(segments: segments, finalise: true))
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
         case .fallback(let texte):
-            // Même traitement que le rendu LLM : on retire le point final
-            // du template et on colle l'emoji au bout.
             Text("\(nettoyerFin(texte)) \(emojiChoisi)")
                 .font(.body)
                 .foregroundStyle(.primary)
         }
     }
 
-    @ViewBuilder
-    private func phraseAttribuee(
+    /// Construit l'`AttributedString` pendant le typewriter : chaque caractère
+    /// reçoit une opacité dérivée de `progressChars - position` (clamp 0…1),
+    /// étalée sur `largeurFondu` char-times → plusieurs lettres partielles
+    /// simultanément, cascade visible. Un `baselineOffset` négatif additionnel
+    /// fait remonter chaque lettre depuis ~4 pt en dessous de sa position
+    /// finale au fur et à mesure de son apparition (slide-in).
+    private func phraseRenduTypewriter(
         segments: [SegmentNarration],
-        avecCurseur: Bool,
+        progressChars: Double,
         finalise: Bool
-    ) -> some View {
-        // Le curseur est concaténé inline à l'AttributedString (pas en overlay)
-        // pour qu'il suive la position réelle de fin du texte après wrap.
-        // TimelineView re-évalue la closure 2 fois par seconde pour faire
-        // clignoter le caractère « ▎ » via opacité.
-        if avecCurseur {
-            TimelineView(.periodic(from: .now, by: 0.5)) { contexte in
-                let visible = reduceMotion
-                    || Int(contexte.date.timeIntervalSince1970 * 2) % 2 == 0
-                Text(phraseAvecCurseur(
-                    segments: segments,
-                    curseurVisible: visible,
-                    finalise: finalise
-                ))
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
+    ) -> AttributedString {
+        let segmentsTraites = finalise ? segmentsSansPointFinal(segments) : segments
+
+        var resultat = AttributedString("")
+        resultat.font = .body
+
+        // On n'append un caractère qu'une fois son fade démarré (progresLocal > 0).
+        // Conséquence : l'AttributedString grandit avec le typewriter, donc la
+        // hauteur du Text et celle de la carte parente grandissent en lockstep.
+        // Le saccadement précédent venait du baselineOffset (qui faisait varier
+        // l'ascent/descent à chaque frame) — sans lui, l'opacité pure suffit à
+        // faire apparaître les lettres en douceur.
+        var position = 0
+        var precedent: SegmentNarration?
+        for segment in segmentsTraites {
+            if besoinSeparateur(precedent: precedent, suivant: segment) {
+                let progresLocal = clamp01(
+                    (progressChars - Double(position)) / Self.largeurFondu
+                )
+                if progresLocal > 0 {
+                    var sep = AttributedString(" ")
+                    sep.font = .body
+                    sep.foregroundColor = Color.primary.opacity(progresLocal)
+                    resultat.append(sep)
+                }
+                position += 1
             }
-        } else {
-            Text(phraseRendu(segments: segments, finalise: finalise))
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
+            let estNeutre = segment.kind == "neutral"
+            let baseColor = couleur(pourType: segment.kind, faits: faits)
+            let weight: Font.Weight = estNeutre ? .regular : .bold
+            for char in segment.text {
+                let progresLocal = clamp01(
+                    (progressChars - Double(position)) / Self.largeurFondu
+                )
+                if progresLocal > 0 {
+                    var charAttr = AttributedString(String(char))
+                    charAttr.font = .body.weight(weight)
+                    charAttr.foregroundColor = baseColor.opacity(progresLocal)
+                    resultat.append(charAttr)
+                }
+                position += 1
+            }
+            precedent = segment
         }
+
+        if finalise {
+            var emojiAttr = AttributedString(" \(emojiChoisi)")
+            emojiAttr.font = .body
+            resultat.append(emojiAttr)
+        }
+
+        return resultat
+    }
+
+    private func clamp01(_ x: Double) -> Double {
+        max(0, min(1, x))
     }
 
     /// Concatène les segments dans un `Text` unique pour préserver le wrap.
@@ -600,18 +703,6 @@ struct NarrationJourVue: View {
         return true
     }
 
-    private func phraseAvecCurseur(
-        segments: [SegmentNarration],
-        curseurVisible: Bool,
-        finalise: Bool
-    ) -> AttributedString {
-        var resultat = phraseRendu(segments: segments, finalise: finalise)
-        var curseur = AttributedString("▎")
-        curseur.font = .body
-        curseur.foregroundColor = Color.primary.opacity(curseurVisible ? 1 : 0)
-        resultat.append(curseur)
-        return resultat
-    }
 
     private var libelleAccessibilite: String {
         switch modele.etat {
@@ -804,6 +895,10 @@ extension FaitsJour {
 private struct PreviewBoutonGenerer: View {
     let faits: FaitsJour
     @State private var compteur = 0
+    /// Reflète l'état d'affichage du contenu de NarrationJourVue. Sert de
+    /// déclencheur pour `.animation(_, value:)` posé sur la chaîne parent —
+    /// c'est à ce niveau que vivent `.background` et `.glowIntelligence`.
+    @State private var contenuVisible = false
 
     /// Forme partagée entre le `.background` (remplissage de carte) et le
     /// `.glowIntelligence` (contour stroké) : essentielle pour que le glow
@@ -814,11 +909,12 @@ private struct PreviewBoutonGenerer: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            NarrationJourVue(faits: faits)
+            NarrationJourVue(faits: faits, contenuVisible: $contenuVisible)
                 .id(compteur)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(formeCarte.fill(Color(.secondarySystemGroupedBackground)))
                 .glowIntelligence(in: formeCarte)
+                .animation(.smooth(duration: 0.4), value: contenuVisible)
 
             Button {
                 compteur += 1
