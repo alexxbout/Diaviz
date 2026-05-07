@@ -322,7 +322,12 @@ extension GraphiqueGlycemique.Configuration {
 
     /// Format français pour l'axe X côté repas : « T-30min », « T0 »,
     /// « T+1h », « T+2h ».
-    private static func libelleTempsRepas(_ secondes: TimeInterval) -> String {
+    ///
+    /// `nonisolated` parce que la fonction est purement calculatoire et
+    /// référencée comme valeur dans `formatLabelTemps` (un closure
+    /// non-isolé) : sans `nonisolated`, l'isolation `@MainActor` héritée
+    /// de la `View` parente bloquerait l'assignation en Swift 6.
+    nonisolated private static func libelleTempsRepas(_ secondes: TimeInterval) -> String {
         let minutes = Int(secondes / 60)
         if minutes == 0 { return "T0" }
         let signe = minutes > 0 ? "+" : "-"
@@ -481,7 +486,7 @@ extension GraphiqueGlycemique.Configuration {
     /// « +20min », « +1h ». Différent du repas (pas de « T » devant
     /// les valeurs positives) pour rester compact dans la fenêtre
     /// asymétrique [-30min, +durée+30min].
-    private static func libelleTempsSport(_ secondes: TimeInterval) -> String {
+    nonisolated private static func libelleTempsSport(_ secondes: TimeInterval) -> String {
         let minutes = Int(secondes / 60)
         if minutes == 0 { return "T0" }
         let signe = minutes > 0 ? "+" : "-"

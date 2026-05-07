@@ -30,8 +30,12 @@ struct SheetImportAppleHealth: View {
     /// sans contaminer le state global.
     let service: HealthKitImportService
 
-    init(service: HealthKitImportService = .shared) {
-        self.service = service
+    /// Le default `nil` + résolution dans le corps évite que l'expression
+    /// `.shared` (isolée `@MainActor`) ne soit évaluée dans le contexte
+    /// non-isolé d'un argument par défaut, ce qui déclencherait une erreur
+    /// en Swift 6 strict.
+    init(service: HealthKitImportService? = nil) {
+        self.service = service ?? .shared
     }
 
     // MARK: - Environnement
