@@ -105,20 +105,37 @@ private func seuil(valeur: Double, bonAuDessusDe: Double, mauvaisEnDessousDe: Do
 
 // MARK: - Emoji d'humeur
 
-/// Sélection d'emoji déterministe à partir du score. Mêmes paliers que
-/// `CarteScoreQuotidien` (un seul emoji par palier ici, sans randomisation,
-/// pour qu'un même score donne toujours le même emoji et reste prévisible
-/// pendant le streaming). Si une hypo sévère est présente, on bascule sur
-/// un emoji d'inquiétude indépendamment du score.
-private func emojiHumeur(faits: FaitsJour) -> String {
-    if faits.severeHypoCount > 0 { return "😟" }
-    switch faits.score {
-    case 90...:    return "🤩"
-    case 75...89:  return "😊"
-    case 60...74:  return "🙂"
-    case 45...59:  return "😐"
-    case 30...44:  return "😕"
-    default:       return "😩"
+/// Sets d'emojis par humeur. Plusieurs candidats par palier — la View
+/// tire aléatoirement à la création (puis stocke en `@State`), pour que
+/// le composant garde le MÊME emoji pendant tout le streaming et que
+/// chaque clic « Régénérer » donne potentiellement un emoji différent.
+///
+/// Une hypo sévère force le set `hypoSevere` indépendamment du score :
+/// un score « bon » avec une hypo sévère ne doit pas afficher 😎.
+private enum EmojisHumeur {
+    static let hypoSevere = ["😟", "😬", "🫤", "😣"]
+    static let excellent  = ["🤩", "😄", "😎", "🥳"]            // 90+
+    static let bon        = ["😊", "🙂", "😌", "😄"]            // 75–89
+    static let correct    = ["🙂", "😌", "😏", "🙃"]            // 60–74
+    static let moyen      = ["😐", "😶", "🤔", "😶‍🌫️"]         // 45–59
+    static let faible     = ["😕", "😟", "🫤", "😬"]            // 30–44
+    static let mauvais    = ["😩", "😣", "😖", "😞"]            // 0–29
+
+    static func tirage(faits: FaitsJour) -> String {
+        let candidats: [String]
+        if faits.severeHypoCount > 0 {
+            candidats = hypoSevere
+        } else {
+            switch faits.score {
+            case 90...:    candidats = excellent
+            case 75...89:  candidats = bon
+            case 60...74:  candidats = correct
+            case 45...59:  candidats = moyen
+            case 30...44:  candidats = faible
+            default:       candidats = mauvais
+            }
+        }
+        return candidats.randomElement() ?? "🙂"
     }
 }
 
@@ -260,6 +277,14 @@ private enum PromptNarration {
     UNE SEULE PHRASE de 18 à 28 mots, terminée par UN SEUL POINT (le \
     dernier caractère). Réponds exclusivement en français.
 
+    Le ton est sobre et factuel. Le patient lit cette phrase tous les \
+    matins : pas de félicitations excessives, pas d'exclamations, pas \
+    de coaching, pas de mots comme « bravo », « excellent », « belle », \
+    « formidable ». Énonce les faits avec mesure.
+
+    N'utilise PAS d'emoji dans la phrase. Le code en ajoutera un \
+    automatiquement à la fin de l'affichage.
+
     INTERDIT :
     - Plusieurs phrases ou plusieurs points dans la sortie. Si tu sens \
     le besoin de couper, utilise une virgule ou « avec ».
@@ -296,13 +321,13 @@ private enum PromptNarration {
     4. Maximum 9 segments au total.
 
     Exemple bonne journée (score=85, TIR=78 %, 0 hypo, hyper=11 %) :
-    [{"text":"Hier, belle journée avec un ","kind":"neutral"},\
+    [{"text":"Hier, journée correcte avec un ","kind":"neutral"},\
     {"text":"score 85","kind":"score"},{"text":" et ","kind":"neutral"},\
     {"text":"aucune hypoglycémie","kind":"hypos"},{"text":".","kind":"neutral"}]
 
     Exemple journée difficile (score=35, TIR=42 %, 4 hypos dont 1 sévère, \
     hyper=50 %, pic=312 mg/dL) — on garde les 3 plus marquantes :
-    [{"text":"Hier, journée compliquée avec un ","kind":"neutral"},\
+    [{"text":"Hier, ","kind":"neutral"},\
     {"text":"score 35","kind":"score"},{"text":", ","kind":"neutral"},\
     {"text":"4 hypoglycémies dont 1 sévère","kind":"hypos"},\
     {"text":" et ","kind":"neutral"},{"text":"50 % en hyper","kind":"tar"},\
@@ -339,11 +364,15 @@ private enum PromptNarration {
     }
 
     private static func consigneTon(score: Int) -> String {
+        // Volontairement sobre quel que soit le score : pas de superlatif
+        // sur les bons jours (« bravo », « excellent »), pas de patronage
+        // sur les mauvais (« courage », « tu vas y arriver »). Juste les
+        // chiffres avec un mot d'ouverture neutre.
         switch score {
-        case 86...:    return "Ton : félicitations brèves."
-        case 70...85:  return "Ton : encourageant."
+        case 86...:    return "Ton : neutre. Énonce les chiffres sans aucun superlatif."
+        case 70...85:  return "Ton : neutre, observationnel."
         case 50...69:  return "Ton : factuel."
-        default:       return "Ton : empathique, sans jugement."
+        default:       return "Ton : factuel, sobre. Pas de patronage ni de message d'espoir."
         }
     }
 
@@ -392,11 +421,17 @@ struct NarrationJourVue: View {
     let faits: FaitsJour
 
     @State private var modele: NarrationViewModel
+    /// Emoji tiré aléatoirement à la création de la View. Stocker en `@State`
+    /// garantit qu'il reste stable pendant tout le streaming (sinon body
+    /// ré-évaluerait et tirerait un nouvel emoji à chaque frame). Renouvelé
+    /// quand `faits` change via `.task(id: faits)`.
+    @State private var emojiChoisi: String
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(faits: FaitsJour) {
         self.faits = faits
         _modele = State(initialValue: NarrationViewModel())
+        _emojiChoisi = State(initialValue: EmojisHumeur.tirage(faits: faits))
     }
 
     /// Init de preview : permet d'injecter un état figé sans déclencher d'appel
@@ -404,6 +439,7 @@ struct NarrationJourVue: View {
     fileprivate init(faits: FaitsJour, modelePreview: NarrationViewModel) {
         self.faits = faits
         _modele = State(initialValue: modelePreview)
+        _emojiChoisi = State(initialValue: EmojisHumeur.tirage(faits: faits))
     }
 
     var body: some View {
@@ -414,6 +450,10 @@ struct NarrationJourVue: View {
             .accessibilityElement(children: .combine)
             .accessibilityLabel(libelleAccessibilite)
             .task(id: faits) {
+                // Re-tire un emoji si `faits` change (jour différent / nouveau
+                // contexte). Lors d'un clic « Régénérer » via .id(compteur),
+                // c'est l'init qui fait le tirage, pas cette branche.
+                emojiChoisi = EmojisHumeur.tirage(faits: faits)
                 await modele.demarrer(faits: faits)
             }
     }
@@ -425,36 +465,44 @@ struct NarrationJourVue: View {
             IndicateurChargement(reduceMotion: reduceMotion)
 
         case .streaming(let segments):
-            phraseAttribuee(segments: segments, avecCurseur: true)
+            phraseAttribuee(segments: segments, avecCurseur: true, finalise: false)
 
         case .termine(let segments):
-            phraseAttribuee(segments: segments, avecCurseur: false)
+            phraseAttribuee(segments: segments, avecCurseur: false, finalise: true)
 
         case .fallback(let texte):
-            Text("\(emojiHumeur(faits: faits)) \(texte)")
+            // Même traitement que le rendu LLM : on retire le point final
+            // du template et on colle l'emoji au bout.
+            Text("\(nettoyerFin(texte)) \(emojiChoisi)")
                 .font(.body)
                 .foregroundStyle(.primary)
         }
     }
 
     @ViewBuilder
-    private func phraseAttribuee(segments: [SegmentNarration], avecCurseur: Bool) -> some View {
-        // Le curseur est concaténé inline au Text (pas en overlay) pour qu'il
-        // suive la position réelle de fin du texte après wrap. TimelineView
-        // re-évalue la closure 2 fois par seconde pour faire clignoter le
-        // caractère « ▎ » via opacité.
+    private func phraseAttribuee(
+        segments: [SegmentNarration],
+        avecCurseur: Bool,
+        finalise: Bool
+    ) -> some View {
+        // Le curseur est concaténé inline à l'AttributedString (pas en overlay)
+        // pour qu'il suive la position réelle de fin du texte après wrap.
+        // TimelineView re-évalue la closure 2 fois par seconde pour faire
+        // clignoter le caractère « ▎ » via opacité.
         if avecCurseur {
             TimelineView(.periodic(from: .now, by: 0.5)) { contexte in
-                phraseAvecCurseur(
+                let visible = reduceMotion
+                    || Int(contexte.date.timeIntervalSince1970 * 2) % 2 == 0
+                Text(phraseAvecCurseur(
                     segments: segments,
-                    curseurVisible: reduceMotion
-                        || Int(contexte.date.timeIntervalSince1970 * 2) % 2 == 0
-                )
+                    curseurVisible: visible,
+                    finalise: finalise
+                ))
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
             }
         } else {
-            phraseRendu(segments: segments)
+            Text(phraseRendu(segments: segments, finalise: finalise))
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -464,21 +512,77 @@ struct NarrationJourVue: View {
     /// Insère un espace entre deux segments si ni la fin du précédent ni le
     /// début du suivant n'en contient un — filet de sécurité pour les cas où
     /// le LLM oublie l'espace de séparation malgré la consigne du prompt.
-    /// Préfixé par un emoji d'humeur dérivé du score (déterministe).
-    private func phraseRendu(segments: [SegmentNarration]) -> Text {
-        var resultat = Text("\(emojiHumeur(faits: faits)) ")
+    ///
+    /// Emoji : le LLM doit placer le marqueur `{emoji}` à un endroit naturel.
+    /// - Si le placeholder est présent : on le substitue par l'emoji déterministe.
+    /// - Si absent ET stream pas encore terminé : on n'affiche AUCUN emoji
+    ///   (évite que l'emoji apparaisse au début pendant le streaming puis
+    ///   « saute » à sa position finale quand le LLM l'émet plus tard).
+    /// - Si absent ET stream terminé : fallback préfixe.
+    /// Construit l'`AttributedString` complète (sans curseur) à partir des
+    /// segments. Migration iOS 26 : `Text + Text` est déprécié au profit
+    /// d'AttributedString ou de l'interpolation, on choisit AttributedString
+    /// car c'est plus naturel pour empiler des segments à attributs variables.
+    ///
+    /// Quand `finalise == true` (état `.termine`), on retire le point final
+    /// du dernier segment et on append l'emoji à la fin de la phrase.
+    private func phraseRendu(segments: [SegmentNarration], finalise: Bool) -> AttributedString {
+        let segmentsTraites = finalise ? segmentsSansPointFinal(segments) : segments
+
+        var resultat = AttributedString("")
+        resultat.font = .body
+
         var precedent: SegmentNarration?
-        for segment in segments {
+        for segment in segmentsTraites {
             if besoinSeparateur(precedent: precedent, suivant: segment) {
-                resultat = resultat + Text(" ")
+                var sep = AttributedString(" ")
+                sep.font = .body
+                resultat.append(sep)
             }
             let estNeutre = segment.kind == "neutral"
-            resultat = resultat + Text(segment.text)
-                .foregroundColor(couleur(pourType: segment.kind, faits: faits))
-                .fontWeight(estNeutre ? .regular : .bold)
+            var segAttr = AttributedString(segment.text)
+            segAttr.foregroundColor = couleur(pourType: segment.kind, faits: faits)
+            segAttr.font = .body.weight(estNeutre ? .regular : .bold)
+            resultat.append(segAttr)
             precedent = segment
         }
-        return resultat.font(.body)
+
+        if finalise {
+            var emojiAttr = AttributedString(" \(emojiChoisi)")
+            emojiAttr.font = .body
+            resultat.append(emojiAttr)
+        }
+
+        return resultat
+    }
+
+    /// Retire en cascade les `.` et espaces de fin sur les derniers segments —
+    /// supprime aussi un dernier segment qui ne contiendrait QUE le point.
+    private func segmentsSansPointFinal(_ segments: [SegmentNarration]) -> [SegmentNarration] {
+        var resultat = segments
+        while let dernier = resultat.last {
+            let nettoye = nettoyerFin(dernier.text)
+            if nettoye.isEmpty {
+                resultat.removeLast()
+                continue
+            }
+            if nettoye != dernier.text {
+                resultat[resultat.count - 1] = SegmentNarration(
+                    text: nettoye, kind: dernier.kind
+                )
+            }
+            break
+        }
+        return resultat
+    }
+
+    /// Strip itératif des `.` et caractères blancs de fin de chaîne.
+    private func nettoyerFin(_ texte: String) -> String {
+        var resultat = texte
+        while let dernier = resultat.last, dernier == "." || dernier.isWhitespace {
+            resultat.removeLast()
+        }
+        return resultat
     }
 
     private func besoinSeparateur(
@@ -496,11 +600,17 @@ struct NarrationJourVue: View {
         return true
     }
 
-    private func phraseAvecCurseur(segments: [SegmentNarration], curseurVisible: Bool) -> Text {
-        phraseRendu(segments: segments)
-            + Text("▎")
-                .font(.body)
-                .foregroundColor(.primary.opacity(curseurVisible ? 1 : 0))
+    private func phraseAvecCurseur(
+        segments: [SegmentNarration],
+        curseurVisible: Bool,
+        finalise: Bool
+    ) -> AttributedString {
+        var resultat = phraseRendu(segments: segments, finalise: finalise)
+        var curseur = AttributedString("▎")
+        curseur.font = .body
+        curseur.foregroundColor = Color.primary.opacity(curseurVisible ? 1 : 0)
+        resultat.append(curseur)
+        return resultat
     }
 
     private var libelleAccessibilite: String {
@@ -508,7 +618,11 @@ struct NarrationJourVue: View {
         case .chargement:
             return "Résumé de la journée en cours de génération."
         case .streaming(let s), .termine(let s):
-            return "Résumé de la journée : " + s.map(\.text).joined()
+            // Retire le placeholder `{emoji}` du label VoiceOver — il serait
+            // sinon lu littéralement comme « accolade ouvrante e m o j i ... ».
+            let texte = s.map(\.text).joined()
+                .replacingOccurrences(of: "{emoji}", with: "")
+            return "Résumé de la journée : " + texte
         case .fallback(let texte):
             return texte
         }
@@ -691,15 +805,20 @@ private struct PreviewBoutonGenerer: View {
     let faits: FaitsJour
     @State private var compteur = 0
 
+    /// Forme partagée entre le `.background` (remplissage de carte) et le
+    /// `.glowIntelligence` (contour stroké) : essentielle pour que le glow
+    /// épouse exactement les bords de la carte.
+    private var formeCarte: some InsettableShape {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             NarrationJourVue(faits: faits)
                 .id(compteur)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color(.secondarySystemGroupedBackground))
-                )
+                .background(formeCarte.fill(Color(.secondarySystemGroupedBackground)))
+                .glowIntelligence(in: formeCarte)
 
             Button {
                 compteur += 1
@@ -710,7 +829,9 @@ private struct PreviewBoutonGenerer: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
         }
-        .padding()
+        // Padding bumpé à 32pt pour que les couches floues du glow (jusqu'à
+        // ~32pt de blur) ne soient pas rognées par les bords du fond.
+        .padding(32)
         .background(Color(.systemGroupedBackground))
     }
 }
