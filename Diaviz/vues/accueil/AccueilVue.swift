@@ -27,9 +27,11 @@ struct AccueilVue: View {
                         // Carte score quotidien — données mockées en
                         // attendant la couche d'analyses.
                         CarteScoreQuotidien(
-                            score: 82,
-                            date: hier,
-                            historique: [65, 78, 71, 55, 88, 73, 82],
+                            contenu: ContenuCarteScore(
+                                score: 82,
+                                date: hier,
+                                historique: [65, 78, 71, 55, 88, 73, 82]
+                            ),
                             onTap: { sheetScoreOuverte = true }
                         )
                     }
