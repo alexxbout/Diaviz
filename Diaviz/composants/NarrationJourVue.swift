@@ -292,8 +292,9 @@ private enum PromptNarration {
     /// Volontairement courtes et concrètes — les listes longues dégradent la
     /// performance du modèle on-device.
     static let instructions: String = """
-    Tu rédiges un résumé de la journée d'hier pour un patient diabétique \
-    de type 1 qui lit cette phrase tous les matins. Réponds en français.
+    Tu rédiges un résumé chaleureux et personnel de la journée d'hier \
+    pour un patient diabétique de type 1 qui lit cette phrase tous les \
+    matins. Réponds en français.
 
     LONGUEUR : EXACTEMENT 3 phrases. 60 à 90 mots au total. Termine par \
     un point final. Si tu dépasses 90 mots, tu as échoué : sois concis.
@@ -301,12 +302,16 @@ private enum PromptNarration {
     ADRESSE : impersonnelle ou tutoiement. JAMAIS « le patient », \
     JAMAIS « il/elle », JAMAIS de formulation médicale en 3ᵉ personne.
 
-    TON : sobre, factuel, bienveillant. Tu peux ajouter une note humaine \
-    discrète (rassurante les jours difficiles, positive les bons jours) — \
-    mais courte, jamais plus d'une demi-phrase.
+    TON : narratif et personnel plutôt que strictement clinique. Tu \
+    peux décrire un moment, situer un événement (« autour de midi », \
+    « après le déjeuner », « dans l'après-midi »), évoquer une \
+    sensation possible (« une journée plus stable », « un coup de \
+    fatigue probable »). Bienveillant sans patronage. Tu PEUX et \
+    DOIS ajouter une vraie note humaine — encourageante les bons \
+    jours, rassurante les mauvais — pas juste un constat factuel.
 
-    INTERDIT (le texte est immédiatement à refuser s'il contient une de \
-    ces formules creuses) :
+    INTERDIT (le texte est à refuser s'il contient une de ces \
+    formules creuses) :
     - « la vigilance continue est recommandée »
     - « les résultats sont encourageants »
     - « un suivi régulier est essentiel »
@@ -322,11 +327,14 @@ private enum PromptNarration {
     Commence toujours par « Hier » ou « Hier soir ».
 
     STRUCTURE OBLIGATOIRE (3 phrases, chacune apporte une info NOUVELLE) :
-    - Phrase 1 (~25 mots) : score + 1 ou 2 métriques marquantes.
-    - Phrase 2 (~25 mots) : détail concret d'un événement précis \
-    (pic à telle heure, hypo dans tel contexte, période instable…).
-    - Phrase 3 (~20 mots, facultative seulement si rien à dire) : \
-    une mise en perspective concrète OU une note humaine courte.
+    - Phrase 1 (~25 mots) : ouverture avec le score et les métriques \
+    marquantes, sur un ton qui campe l'ambiance de la journée.
+    - Phrase 2 (~25 mots) : détail concret et situé d'un événement \
+    précis — un pic à telle heure, une hypo dans tel contexte, une \
+    période instable. Sois descriptif, pas juste statistique.
+    - Phrase 3 (~20 mots) : mise en perspective humaine — note \
+    rassurante, encouragement discret, ou observation qui invite à \
+    une légère piste d'amélioration. Cette phrase apporte la chaleur.
 
     PRIORISATION des métriques (dans cet ordre, ignore les zones \
     normales) :
@@ -355,20 +363,23 @@ private enum PromptNarration {
     4. Maximum 20 segments au total.
 
     Exemple bonne journée (score=85, TIR=78 %, 0 hypo, hyper=11 %) :
-    [{"text":"Hier, journée correcte avec un ","kind":"neutral"},\
+    [{"text":"Hier, journée plutôt stable avec un ","kind":"neutral"},\
     {"text":"score 85","kind":"score"},{"text":" et ","kind":"neutral"},\
     {"text":"aucune hypoglycémie","kind":"hypos"},\
-    {"text":". Le temps en cible reste stable depuis plusieurs jours.","kind":"neutral"}]
+    {"text":" sur l'ensemble de la journée. ","kind":"neutral"},\
+    {"text":"Les glycémies sont restées dans la cible la majorité du temps, avec juste un léger passage en hyper en début d'après-midi. ","kind":"neutral"},\
+    {"text":"Une journée comme celle-ci montre que le rythme actuel te convient bien, continue sur cette lancée.","kind":"neutral"}]
 
     Exemple journée difficile (score=35, TIR=42 %, 4 hypos dont 1 sévère, \
     hyper=50 %, pic=312 mg/dL) :
-    [{"text":"Hier, ","kind":"neutral"},\
-    {"text":"score 35","kind":"score"},{"text":" avec ","kind":"neutral"},\
+    [{"text":"Hier soir, journée plus compliquée avec un ","kind":"neutral"},\
+    {"text":"score 35","kind":"score"},{"text":", ","kind":"neutral"},\
     {"text":"4 hypoglycémies dont 1 sévère","kind":"hypos"},\
     {"text":" et ","kind":"neutral"},{"text":"50 % en hyper","kind":"tar"},\
     {"text":". Le pic à ","kind":"neutral"},\
     {"text":"312 mg/dL","kind":"peak"},\
-    {"text":" autour du déjeuner mérite un coup d'œil sur le ratio.","kind":"neutral"}]
+    {"text":" est survenu autour du déjeuner, peut-être un repas plus chargé en glucides que prévu. ","kind":"neutral"},\
+    {"text":"Pas d'inquiétude, ces journées arrivent — un coup d'œil au ratio du midi pourrait suffire à éviter la prochaine fois.","kind":"neutral"}]
     """
 
     /// Prompt par-tour : strictement les données + une consigne de ton brève.

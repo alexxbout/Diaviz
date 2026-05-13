@@ -49,9 +49,8 @@ struct SheetScoreMatin: View {
         VStack(spacing: 24) {
             titre
 
-            Spacer(minLength: 0)
-
             cercleScore
+                .padding(.top, 10)
 
             // Libellé qualitatif + date — bloc texte central.
             VStack(spacing: 6) {
@@ -65,19 +64,24 @@ struct SheetScoreMatin: View {
             }
 
             Divider()
-                .padding(.horizontal, 24)
+                .padding(.horizontal, 28)
 
             // Paragraphe d'analyse — rendu simple, sans couleur ni emoji.
             paragrapheAnalyse
-                .padding(.horizontal, 24)
+                .padding(.horizontal, 28)
 
-            Spacer(minLength: 0)
-
-            boutonDetails
-                .padding(.horizontal, 24)
-                .padding(.bottom, 24)
+            Spacer(minLength: 16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Bouton ancré en safe area bottom → toujours entièrement
+        // visible sans risque de chevauchement avec la home indicator
+        // ni de troncature en bas de sheet.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            boutonDetails
+                .padding(.horizontal, 28)
+                .padding(.top, 16)
+                .padding(.bottom, 12)
+        }
         .task(id: faits) {
             await modele.demarrer(faits: faits)
         }
@@ -106,12 +110,12 @@ struct SheetScoreMatin: View {
             .font(.title3.bold())
             .foregroundStyle(.primary)
             .frame(maxWidth: .infinity)
-            .padding(.top, 20)
+            .padding(.top, 24)
     }
 
-    /// Grand cercle 170pt avec mesh gradient continu (rouge → vert selon
-    /// le score) et chiffre du score en blanc 64pt bold centré. Ombre
-    /// douce dans la teinte dominante. Animations à l'apparition :
+    /// Cercle 140pt avec mesh gradient continu (rouge → vert selon le
+    /// score) et chiffre du score en blanc 52pt bold centré. Ombre douce
+    /// dans la teinte dominante. Animations à l'apparition :
     ///   - Scale 0.5 → 1.0 avec spring (réagit à `cercleApparu`).
     ///   - Opacity 0 → 1 (même transition).
     ///   - Chiffre interpolé de 0 au score final via `ChiffreAnime`.
@@ -119,18 +123,18 @@ struct SheetScoreMatin: View {
         ZStack {
             MeshScore.gradient(pour: faits.score)
                 .clipShape(Circle())
-                .frame(width: 170, height: 170)
+                .frame(width: 140, height: 140)
                 .shadow(
                     color: couleurAccent.opacity(0.40),
-                    radius: 18,
+                    radius: 14,
                     x: 0,
-                    y: 8
+                    y: 7
                 )
 
             ChiffreAnime(cible: faits.score, duree: 1.8)
-                .font(.system(size: 64, weight: .bold, design: .rounded))
+                .font(.system(size: 52, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.18), radius: 3, x: 0, y: 2)
+                .shadow(color: .black.opacity(0.18), radius: 2, x: 0, y: 1)
         }
         .scaleEffect(cercleApparu ? 1.0 : 0.5)
         .opacity(cercleApparu ? 1.0 : 0.0)
