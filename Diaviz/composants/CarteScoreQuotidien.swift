@@ -197,64 +197,79 @@ private enum CouleurScore {
 /// usages — si on retouche les couleurs ou les points, les deux suivent.
 private enum MeshScore {
 
-    /// Mesh 4×4. Les 4 coins sont fixés ; les 8 points de bord glissent
-    /// légèrement le long de leur axe contraint ; les 4 points intérieurs
-    /// sont librement jitterisés. Jitter constant pour ne pas rejouer
-    /// la position à chaque re-render.
+    /// Mesh 3×3 (9 points) — chaque point couvre une zone plus large
+    /// qu'en 4×4, donc les transitions sont intrinsèquement plus
+    /// douces et le hue jitter ne crée plus de sauts visibles entre
+    /// stops adjacents. Centre légèrement décalé (0.55, 0.45) pour un
+    /// halo asymétrique plutôt que parfaitement centré, et bords
+    /// microscopiquement off-grid pour un rendu organique.
     static let points: [SIMD2<Float>] = [
         // Ligne 0 — bord supérieur (y = 0)
-        SIMD2(0.00, 0.00), SIMD2(0.31, 0.00), SIMD2(0.68, 0.00), SIMD2(1.00, 0.00),
-        // Ligne 1 — intérieur haut
-        SIMD2(0.00, 0.28), SIMD2(0.37, 0.30), SIMD2(0.64, 0.26), SIMD2(1.00, 0.34),
-        // Ligne 2 — intérieur bas
-        SIMD2(0.00, 0.68), SIMD2(0.29, 0.66), SIMD2(0.71, 0.72), SIMD2(1.00, 0.64),
-        // Ligne 3 — bord inférieur (y = 1)
-        SIMD2(0.00, 1.00), SIMD2(0.33, 1.00), SIMD2(0.67, 1.00), SIMD2(1.00, 1.00),
+        SIMD2(0.00, 0.00), SIMD2(0.48, 0.00), SIMD2(1.00, 0.00),
+        // Ligne 1 — milieu (centre décalé en haut-droite)
+        SIMD2(0.00, 0.52), SIMD2(0.55, 0.45), SIMD2(1.00, 0.48),
+        // Ligne 2 — bord inférieur (y = 1)
+        SIMD2(0.00, 1.00), SIMD2(0.52, 1.00), SIMD2(1.00, 1.00),
     ]
 
     static func gradient(pour score: Int?) -> MeshGradient {
         guard let score else {
             return MeshGradient(
-                width: 4,
-                height: 4,
+                width: 3,
+                height: 3,
                 points: points,
-                colors: nuancesGrises
+                colors: nuancesGrises,
+                colorSpace: .perceptual
             )
         }
         let teinte = CouleurScore.hue(pour: score)
         return MeshGradient(
-            width: 4,
-            height: 4,
+            width: 3,
+            height: 3,
             points: points,
-            colors: colors(hue: teinte)
+            colors: colors(hue: teinte),
+            colorSpace: .perceptual
         )
     }
 
-    /// 16 stops avec micro-variations resserrées :
-    ///   - **hue** : jitter ±0.015 autour de `h`.
-    ///   - **saturation** : plage [0.78, 0.92].
-    ///   - **brightness** : plage [0.74, 0.92], décroît subtilement
-    ///     du haut vers le bas pour un léger effet de relief sphérique.
+    /// 9 stops organisés pour faire émerger **deux courants chromatiques
+    /// qui se croisent au centre** :
+    ///
+    ///   - **Diagonale principale (TL ↔ BR)** : teintes chaudes
+    ///     (`dh > 0`) — l'œil suit une "vague" chaude qui traverse
+    ///     d'angle haut-gauche à angle bas-droite.
+    ///   - **Anti-diagonale (TR ↔ BL)** : teintes froides (`dh < 0`)
+    ///     qui croisent la diagonale chaude au centre.
+    ///   - **Centre** : highlight pastel (saturation 0.78, brightness
+    ///     0.95) légèrement décalé en position pour casser la symétrie.
+    ///
+    /// Hue jitter modéré (±0.022) : assez visible pour que les courants
+    /// chaud/froid soient perceptibles, mais sans sauts entre voisins.
     private static func colors(hue h: Double) -> [Color] {
+        // Damier chaud/froid en croix :
+        //   - Coins TL, BR (indices 0, 8) → chaud
+        //   - Coins TR, BL (indices 2, 6) → froid
+        //   - Bords correspondants suivent leur coin adjacent
         let dh: [Double] = [
-            -0.015,  0.010, -0.005,  0.012,
-             0.008, -0.015,  0.015, -0.010,
-            -0.012,  0.015, -0.008,  0.005,
-             0.010, -0.005,  0.012, -0.015,
+            +0.022, -0.012, -0.022,   // TL chaud, top froid, TR froid
+            +0.012,  0.000, -0.014,   // left chaud, centre neutre, right froid
+            -0.020, +0.014, +0.024,   // BL froid, bottom chaud, BR chaud
         ]
+        // Saturation : coins très saturés (couleurs profondes), bords
+        // mid, centre pastel (pour le highlight).
         let saturations: [Double] = [
-            0.78, 0.82, 0.80, 0.82,
-            0.84, 0.90, 0.86, 0.88,
-            0.88, 0.86, 0.92, 0.88,
-            0.90, 0.88, 0.90, 0.92,
+            0.92, 0.85, 0.94,
+            0.85, 0.78, 0.88,
+            0.94, 0.85, 0.92,
         ]
+        // Brightness : centre max (highlight asymétrique), corners min,
+        // edges intermédiaires.
         let brightnesses: [Double] = [
-            0.92, 0.90, 0.91, 0.89,
-            0.86, 0.84, 0.85, 0.84,
-            0.80, 0.78, 0.79, 0.81,
-            0.76, 0.74, 0.75, 0.77,
+            0.68, 0.84, 0.66,
+            0.85, 0.95, 0.84,
+            0.66, 0.85, 0.68,
         ]
-        return (0..<16).map { i in
+        return (0..<9).map { i in
             Color(
                 hue: hueWrap(h + dh[i]),
                 saturation: saturations[i],
@@ -270,12 +285,12 @@ private enum MeshScore {
     }
 
     /// Variantes de gris pour le cas `score == nil` — même structure
-    /// (clair-haut / sombre-bas) mais sans saturation.
+    /// que `colors(hue:)` : highlight central, coins sombres, bords
+    /// intermédiaires. 9 stops pour le mesh 3×3.
     private static let nuancesGrises: [Color] = [
-        Color(white: 0.85), Color(white: 0.82), Color(white: 0.84), Color(white: 0.81),
-        Color(white: 0.74), Color(white: 0.71), Color(white: 0.72), Color(white: 0.73),
-        Color(white: 0.62), Color(white: 0.59), Color(white: 0.60), Color(white: 0.61),
-        Color(white: 0.52), Color(white: 0.49), Color(white: 0.50), Color(white: 0.51),
+        Color(white: 0.55), Color(white: 0.78), Color(white: 0.55),
+        Color(white: 0.78), Color(white: 0.94), Color(white: 0.78),
+        Color(white: 0.55), Color(white: 0.78), Color(white: 0.55),
     ]
 }
 
