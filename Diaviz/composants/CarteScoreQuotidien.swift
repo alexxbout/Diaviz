@@ -174,7 +174,11 @@ struct CarteScoreQuotidien: View {
 /// linéairement de 0 (rouge, score 0) à 0.33 (vert, score 100). Le titre,
 /// la dernière barre de l'historique et l'ombre du cercle (variante
 /// sobre) utilisent tous cette même teinte pour rester raccord.
-private enum CouleurScore {
+///
+/// Internal (pas private) parce que d'autres composants du module
+/// (ex. `SheetScoreMatin`) en dépendent pour rester visuellement
+/// cohérents avec la carte.
+enum CouleurScore {
     static func hue(pour score: Int) -> Double {
         let borne = Double(min(100, max(0, score)))
         return (borne / 100.0) * 0.33
@@ -195,7 +199,10 @@ private enum CouleurScore {
 ///
 /// Centralisé ici pour garantir une cohérence parfaite entre les deux
 /// usages — si on retouche les couleurs ou les points, les deux suivent.
-private enum MeshScore {
+///
+/// Internal (pas private) parce que `SheetScoreMatin` réutilise le
+/// même gradient pour son grand cercle 120pt.
+enum MeshScore {
 
     /// Mesh 3×3 (9 points) — chaque point couvre une zone plus large
     /// qu'en 4×4, donc les transitions sont intrinsèquement plus

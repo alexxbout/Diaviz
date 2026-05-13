@@ -38,8 +38,8 @@ struct FaitsJour: Sendable, Equatable, Hashable {
 @Generable
 struct NarrationColoree: Equatable, Sendable {
     @Guide(
-        description: "Liste de segments composant la phrase narrative complète, dans l'ordre de lecture",
-        .maximumCount(9)
+        description: "Liste de segments composant la narration complète, dans l'ordre de lecture",
+        .maximumCount(20)
     )
     let segments: [SegmentNarration]
 }
@@ -171,6 +171,11 @@ final class NarrationViewModel {
 
     enum Etat: Equatable {
         case chargement
+        /// Génération en cours — segments partiels reçus jusqu'ici.
+        /// Consommé par `SheetScoreMatin` pour afficher le texte qui
+        /// "pousse" au fur et à mesure ; ignoré (= loader) par
+        /// `NarrationJourVue` qui n'affiche que le résultat final.
+        case streaming(segments: [SegmentNarration])
         case termine(segments: [SegmentNarration])
         case fallback(texte: String)
     }
@@ -216,8 +221,8 @@ final class NarrationViewModel {
             let session = LanguageModelSession(instructions: PromptNarration.instructions)
             let prompt = PromptNarration.donneesPourPrompt(faits: faits)
             let options = GenerationOptions(
-                temperature: 0.4,
-                maximumResponseTokens: 200
+                temperature: 0.35,
+                maximumResponseTokens: 250
             )
             let stream = session.streamResponse(
                 to: prompt,
@@ -225,19 +230,28 @@ final class NarrationViewModel {
                 options: options
             )
 
-            // On consomme le stream sans publier les états intermédiaires :
-            // l'UI reste en `.chargement` (3 points) jusqu'à la phrase finale.
+            // On consomme le stream et publie l'état `.streaming` à chaque
+            // snapshot non-vide → les consommateurs intéressés (la sheet
+            // « Score du matin ») peuvent afficher le texte qui pousse en
+            // direct ; `NarrationJourVue` ignore `.streaming` et garde le
+            // loader jusqu'au `.termine` final.
             for try await snapshot in stream {
                 if Task.isCancelled { return }
                 let partiel = snapshot.content
-                dernierRecu = (partiel.segments ?? []).compactMap { brut -> SegmentNarration? in
+                let pretsAffichage = (partiel.segments ?? []).compactMap { brut -> SegmentNarration? in
                     guard let texte = brut.text, let type = brut.kind else { return nil }
                     return SegmentNarration(text: texte, kind: type)
+                }
+                if pretsAffichage != dernierRecu {
+                    dernierRecu = pretsAffichage
+                    if !pretsAffichage.isEmpty {
+                        etat = .streaming(segments: pretsAffichage)
+                    }
                 }
                 // Garde-fou côté client : si le modèle continue à émettre des
                 // segments au-delà du `.maximumCount` (rare mais possible), on
                 // coupe explicitement le stream.
-                if dernierRecu.count >= 9 { break }
+                if dernierRecu.count >= 20 { break }
             }
         } catch is CancellationError {
             // Annulation propre (vue détruite, faits changés) : ne touche pas
@@ -278,44 +292,59 @@ private enum PromptNarration {
     /// Volontairement courtes et concrètes — les listes longues dégradent la
     /// performance du modèle on-device.
     static let instructions: String = """
-    Tu résumes la journée d'hier d'un patient diabétique de type 1 en \
-    UNE SEULE PHRASE de 18 à 28 mots, terminée par UN SEUL POINT (le \
-    dernier caractère). Réponds exclusivement en français.
+    Tu rédiges un résumé de la journée d'hier pour un patient diabétique \
+    de type 1 qui lit cette phrase tous les matins. Réponds en français.
 
-    Le ton est sobre et factuel. Le patient lit cette phrase tous les \
-    matins : pas de félicitations excessives, pas d'exclamations, pas \
-    de coaching, pas de mots comme « bravo », « excellent », « belle », \
-    « formidable ». Énonce les faits avec mesure.
+    LONGUEUR : EXACTEMENT 3 phrases. 60 à 90 mots au total. Termine par \
+    un point final. Si tu dépasses 90 mots, tu as échoué : sois concis.
 
-    N'utilise PAS d'emoji dans la phrase. Le code en ajoutera un \
-    automatiquement à la fin de l'affichage.
+    ADRESSE : impersonnelle ou tutoiement. JAMAIS « le patient », \
+    JAMAIS « il/elle », JAMAIS de formulation médicale en 3ᵉ personne.
 
-    INTERDIT :
-    - Plusieurs phrases ou plusieurs points dans la sortie. Si tu sens \
-    le besoin de couper, utilise une virgule ou « avec ».
-    - Tirets ou traits d'union (-, –, —).
-    - L'expression « hyperglycémie de X % » : utilise plutôt \
-    « X % du temps en hyper » ou « X % en hyper ».
-    - L'expression « hypoglycémie de X % » : même règle, dis « X % en hypo ».
+    TON : sobre, factuel, bienveillant. Tu peux ajouter une note humaine \
+    discrète (rassurante les jours difficiles, positive les bons jours) — \
+    mais courte, jamais plus d'une demi-phrase.
+
+    INTERDIT (le texte est immédiatement à refuser s'il contient une de \
+    ces formules creuses) :
+    - « la vigilance continue est recommandée »
+    - « les résultats sont encourageants »
+    - « un suivi régulier est essentiel »
+    - « bien gérer son diabète », « gérer son diabète »
+    - « les ajustements alimentaires et les injections »
+    - « le patient » / « la patiente »
+    - « bravo », « formidable », « excellent », « belle »
+    - exclamations (!), emojis, tirets (-, –, —)
+    - répéter la même information dans deux phrases différentes
+    - « hyperglycémie de X % » → dis « X % en hyper »
+    - « hypoglycémie de X % » → dis « X % en hypo »
 
     Commence toujours par « Hier » ou « Hier soir ».
 
-    PRIORISATION — mentionne 2 à 4 métriques au plus, dans cet ordre :
+    STRUCTURE OBLIGATOIRE (3 phrases, chacune apporte une info NOUVELLE) :
+    - Phrase 1 (~25 mots) : score + 1 ou 2 métriques marquantes.
+    - Phrase 2 (~25 mots) : détail concret d'un événement précis \
+    (pic à telle heure, hypo dans tel contexte, période instable…).
+    - Phrase 3 (~20 mots, facultative seulement si rien à dire) : \
+    une mise en perspective concrète OU une note humaine courte.
+
+    PRIORISATION des métriques (dans cet ordre, ignore les zones \
+    normales) :
     1. Le score (toujours)
-    2. Les hypoglycémies si > 0 (toujours important)
+    2. Les hypoglycémies si > 0
     3. Un pic glycémique > 250 mg/dL
     4. Le temps en hyper si > 25 %
     5. Le TIR si < 70 %
-    Ignore systématiquement les métriques dans la zone normale.
 
-    Découpe la phrase en segments JSON typés (champ `kind`) :
+    Découpe le texte en segments JSON typés (champ `kind`) :
     - score : la mention du score (ex : "score 85")
     - tir : la mention du % en cible (ex : "78 % en cible")
     - hypos : la mention des hypoglycémies (ex : "4 hypoglycémies dont 1 sévère")
     - tar : la mention du temps en hyper (ex : "50 % en hyper")
     - peak : la mention d'un pic (ex : "pic à 312 mg/dL")
     - neutral : TOUT le reste — connecteurs (et, avec, malgré, dont, à), \
-    ponctuation, espaces, formules d'introduction et de conclusion.
+    ponctuation, espaces, formules d'introduction et de conclusion, \
+    phrases d'observation complémentaires.
 
     Règles strictes :
     1. Un segment non-neutral contient UNIQUEMENT le chiffre et son libellé \
@@ -323,20 +352,23 @@ private enum PromptNarration {
     2. Les mots « et », « avec », « malgré », « dont », « à », « de », ainsi \
     que la ponctuation, sont TOUJOURS dans un segment neutral.
     3. Inclus les espaces de séparation dans le `text` des segments neutral.
-    4. Maximum 9 segments au total.
+    4. Maximum 20 segments au total.
 
     Exemple bonne journée (score=85, TIR=78 %, 0 hypo, hyper=11 %) :
     [{"text":"Hier, journée correcte avec un ","kind":"neutral"},\
     {"text":"score 85","kind":"score"},{"text":" et ","kind":"neutral"},\
-    {"text":"aucune hypoglycémie","kind":"hypos"},{"text":".","kind":"neutral"}]
+    {"text":"aucune hypoglycémie","kind":"hypos"},\
+    {"text":". Le temps en cible reste stable depuis plusieurs jours.","kind":"neutral"}]
 
     Exemple journée difficile (score=35, TIR=42 %, 4 hypos dont 1 sévère, \
-    hyper=50 %, pic=312 mg/dL) — on garde les 3 plus marquantes :
+    hyper=50 %, pic=312 mg/dL) :
     [{"text":"Hier, ","kind":"neutral"},\
-    {"text":"score 35","kind":"score"},{"text":", ","kind":"neutral"},\
+    {"text":"score 35","kind":"score"},{"text":" avec ","kind":"neutral"},\
     {"text":"4 hypoglycémies dont 1 sévère","kind":"hypos"},\
     {"text":" et ","kind":"neutral"},{"text":"50 % en hyper","kind":"tar"},\
-    {"text":".","kind":"neutral"}]
+    {"text":". Le pic à ","kind":"neutral"},\
+    {"text":"312 mg/dL","kind":"peak"},\
+    {"text":" autour du déjeuner mérite un coup d'œil sur le ratio.","kind":"neutral"}]
     """
 
     /// Prompt par-tour : strictement les données + une consigne de ton brève.
@@ -364,7 +396,7 @@ private enum PromptNarration {
         }
         lignes.append("")
         lignes.append(consigneTon(score: faits.score))
-        lignes.append("Génère UNE SEULE phrase JSON, 18 à 28 mots, un seul point final. Commence par « Hier ».")
+        lignes.append("Génère EXACTEMENT 3 phrases (60 à 90 mots), terminé par un point final. Commence par « Hier ». Pas de formules creuses, jamais « le patient ».")
         return lignes.joined(separator: "\n")
     }
 
@@ -460,7 +492,11 @@ struct NarrationJourVue: View {
     @ViewBuilder
     private var contenu: some View {
         switch modele.etat {
-        case .chargement:
+        case .chargement, .streaming:
+            // `.streaming` ignoré ici : on ne montre le texte qu'une
+            // fois la génération terminée pour rester sobre dans ce
+            // contexte (carte). La sheet « Score du matin » utilise
+            // un rendu différent qui consomme `.streaming`.
             IndicateurChargement()
 
         case .termine(let segments):
@@ -556,7 +592,7 @@ struct NarrationJourVue: View {
 
     private var libelleAccessibilite: String {
         switch modele.etat {
-        case .chargement:
+        case .chargement, .streaming:
             return "Résumé de la journée en cours de génération."
         case .termine(let s):
             return "Résumé de la journée : " + s.map(\.text).joined()

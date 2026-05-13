@@ -14,6 +14,9 @@ import SwiftUI
 /// workouts Apple Santé en attente d'import. L'import lui-même se fait
 /// depuis la page Sport (sheet déclenchée par bouton dédié) — pas
 /// d'ouverture automatique au lancement.
+///
+/// Présente automatiquement la sheet `SheetScoreMatin` au lancement de
+/// l'app — résumé visuel mis en avant du score de la veille.
 struct AppTabVues: View {
 
     /// Sections de repas affichées dans l'onglet Journal. Vide par
@@ -42,6 +45,13 @@ struct AppTabVues: View {
     /// récupèrent par `@Environment(ProfilService.self)`.
     @State private var profilService = ProfilService.shared
 
+    /// Pilote la sheet « Score du matin ». Forcé à `true` à
+    /// l'initialisation → auto-open à chaque lancement de l'app
+    /// (l'utilisateur peut la dismisser ; elle reviendra au prochain
+    /// cold start). Les previews héritent automatiquement de ce
+    /// comportement, pas besoin de hack supplémentaire.
+    @State private var afficherScoreMatin = true
+
     var body: some View {
         TabView {
             Tab("Accueil", systemImage: "house") {
@@ -67,6 +77,38 @@ struct AppTabVues: View {
         // ce qui rend les previews capable de fournir un mock isolé.
         .environment(importService)
         .environment(profilService)
+        .sheet(isPresented: $afficherScoreMatin) {
+            SheetScoreMatin(faits: faitsScoreMatin, date: hier)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
+    }
+
+    /// Date d'hier — utilisée comme date affichée par la sheet score du
+    /// matin (le score résume toujours la journée précédente).
+    private var hier: Date {
+        Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+    }
+
+    /// Mock de `FaitsJour` pour la sheet score du matin — score 82 pour
+    /// rester aligné visuellement avec la carte score affichée sur
+    /// l'accueil. Sera remplacé par les vraies métriques quand la
+    /// couche d'analyses sera branchée.
+    private var faitsScoreMatin: FaitsJour {
+        FaitsJour(
+            score: 82,
+            tir: 79,
+            tbrLevel1: 1,
+            tbrLevel2: 0,
+            tarLevel1: 17,
+            tarLevel2: 3,
+            hypoCount: 1,
+            severeHypoCount: 0,
+            peakTime: "13:30",
+            peakValue: 232,
+            mealContext: nil,
+            sportContext: nil
+        )
     }
 }
 
