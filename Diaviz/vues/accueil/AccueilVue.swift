@@ -32,6 +32,7 @@ struct AccueilVue: View {
                                 date: hier,
                                 historique: [65, 78, 71, 55, 88, 73, 82]
                             ),
+                            style: .gradient,
                             onTap: { sheetScoreOuverte = true }
                         )
                     }
