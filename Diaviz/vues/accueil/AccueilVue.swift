@@ -26,8 +26,6 @@ struct AccueilVue: View {
     /// vue est instanciée sans binding (previews).
     @Binding var jourDetailScore: Date?
 
-    @Environment(ProfilService.self) private var profilService
-
     init(jourDetailScore: Binding<Date?> = .constant(nil)) {
         self._jourDetailScore = jourDetailScore
     }
@@ -38,15 +36,7 @@ struct AccueilVue: View {
                 EnTetePage(titre: "Accueil")
 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text(salutation)
-                            .font(.title)
-                            .fontWeight(.bold)
-                            .foregroundStyle(Color.primary.opacity(0.78))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 24)
-                            .accessibilityAddTraits(.isHeader)
-
+                    VStack(spacing: 16) {
                         // Carte score quotidien — données mockées en
                         // attendant la couche d'analyses.
                         CarteScoreQuotidien(
@@ -71,22 +61,6 @@ struct AccueilVue: View {
 
     private var hier: Date {
         Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
-    }
-
-    /// Salutation contextuelle selon l'heure locale, terminée par un
-    /// emoji qui suit la même progression jour → nuit.
-    private var salutation: String {
-        let saisi = profilService.profil.prenom
-        let prenom = saisi.isEmpty ? "Camille" : saisi
-        let heure = Calendar.current.component(.hour, from: Date())
-
-        switch heure {
-        case 5..<12:  return "Bonjour \(prenom) 👋"
-        case 12..<18: return "Bonjour \(prenom) ☀️"
-        case 18..<22: return "Bonsoir \(prenom) 🌅"
-        case 22..<24: return "Bonne nuit \(prenom) 🌙"
-        default:      return "Bonne nuit \(prenom) 😴"
-        }
     }
 }
 
