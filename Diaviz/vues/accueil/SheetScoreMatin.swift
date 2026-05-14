@@ -33,6 +33,15 @@ struct SheetScoreMatin: View {
     /// Date affichée sous le libellé qualitatif.
     let date: Date
 
+    /// Callback invoqué quand l'utilisateur tape « Voir les détails ».
+    /// La sheet se contente de `dismiss()` et délègue la suite (push
+    /// de `DetailScoreVue`) à l'appelant — typiquement `AppTabVues`
+    /// qui écrit dans le binding `jourDetailScore` d'`AccueilVue`.
+    ///
+    /// Optionnel : si `nil`, le bouton ferme la sheet sans push (cas
+    /// previews / contexte sans navigation hôte).
+    var onAfficherDetails: (() -> Void)? = nil
+
     /// VM partagé avec `NarrationJourVue` — même prompt, même pipeline
     /// Foundation Models. On consomme `etat` pour rendre le texte, en
     /// ignorant la coloration sémantique des segments.
@@ -240,11 +249,22 @@ struct SheetScoreMatin: View {
     }
 
     /// Bouton « Voir les détails » — pleine largeur, fond dans la teinte
-    /// du score, coin 14pt. Ferme la sheet au tap (les détails ne sont
-    /// pas encore implémentés ; à brancher quand la vue détails existera).
+    /// du score, coin 14pt. Ferme la sheet puis délègue à
+    /// `onAfficherDetails` (push de `DetailScoreVue` par l'hôte).
     private var boutonDetails: some View {
         Button {
             dismiss()
+            // Petit délai pour laisser la sheet finir sa transition
+            // de fermeture avant d'enchaîner sur la push de navigation.
+            // Sans ça, sur certains devices la push se déclenche
+            // pendant que la sheet est encore en train de glisser,
+            // et l'animation paraît saccadée.
+            if let onAfficherDetails {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(250))
+                    onAfficherDetails()
+                }
+            }
         } label: {
             Text("Voir les détails")
                 .font(.headline)

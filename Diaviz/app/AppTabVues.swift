@@ -52,10 +52,16 @@ struct AppTabVues: View {
     /// comportement, pas besoin de hack supplémentaire.
     @State private var afficherScoreMatin = true
 
+    /// Jour pour lequel on souhaite pousser `DetailScoreVue` dans
+    /// l'onglet Accueil. Écrit par le bouton « Voir les détails » de
+    /// `SheetScoreMatin` ; observé par `AccueilVue` via binding qui
+    /// déclenche la push via `navigationDestination(item:)`.
+    @State private var jourDetailScore: Date?
+
     var body: some View {
         TabView {
             Tab("Accueil", systemImage: "house") {
-                AccueilVue()
+                AccueilVue(jourDetailScore: $jourDetailScore)
             }
 
             Tab("Journal", systemImage: "long.text.page.and.pencil") {
@@ -78,9 +84,19 @@ struct AppTabVues: View {
         .environment(importService)
         .environment(profilService)
         .sheet(isPresented: $afficherScoreMatin) {
-            SheetScoreMatin(faits: faitsScoreMatin, date: hier)
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
+            SheetScoreMatin(
+                faits: faitsScoreMatin,
+                date: hier,
+                onAfficherDetails: {
+                    // L'utilisateur a tapé « Voir les détails » : la
+                    // sheet vient de `dismiss()` côté enfant, on
+                    // enchaîne sur la push de `DetailScoreVue` dans
+                    // l'onglet Accueil via le binding.
+                    jourDetailScore = hier
+                }
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
     }
 
