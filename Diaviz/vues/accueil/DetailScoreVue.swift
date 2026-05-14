@@ -54,37 +54,14 @@ struct DetailScoreVue: View {
 
     var body: some View {
         ScrollView(.vertical) {
-            VStack(alignment: .leading, spacing: 28) {
-                enTeteJour
-
-                BarresSemaine(
-                    jourConsulte: jourConsulte,
-                    scorePourJour: { jour in service.score(pour: jour)?.score },
-                    onChangerJour: { jourCible in
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                            jourConsulte = jourCible
-                        }
-                    },
-                    onSemainePrecedente: { naviguerSemaine(delta: -1) },
-                    onSemaineSuivante: { naviguerSemaine(delta: 1) },
-                    semainePrecedenteDisponible: candidatSemaine(delta: -1) != nil,
-                    semaineSuivanteDisponible: candidatSemaine(delta: 1) != nil
-                )
-
-                messageLLM
-
-                if let faits = scoreCourant?.faits {
-                    BarreAGP(faits: faits)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 8)
-                }
-
-                sectionDecomposition
-                sectionAPropos
+            VStack(spacing: 12) {
+                carteResume
+                carteAnalyse
+                carteAPropos
             }
-            .padding(.top, 8)
-            .padding(.bottom, 32)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
         }
         .scrollIndicators(.hidden)
         .background(Color(.systemGroupedBackground))
@@ -104,35 +81,7 @@ struct DetailScoreVue: View {
         service.score(pour: jourConsulte)
     }
 
-    // MARK: Navigation hebdomadaire
-
-    /// Tente de sauter à la même journée de la semaine cible (±7 j).
-    /// Si ce jour précis n'est pas navigable (ex : futur, > J-30),
-    /// fallback sur la journée navigable la plus proche **dans cette
-    /// semaine cible** — pour ne jamais quitter la semaine attendue.
-    private func naviguerSemaine(delta: Int) {
-        guard let nouveau = candidatSemaine(delta: delta) else { return }
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-            jourConsulte = nouveau
-        }
-    }
-
-    /// Calcule le candidat « même jour de semaine ±7 jours » avec
-    /// fallback au jour navigable le plus proche dans la semaine cible.
-    /// Renvoie `nil` si aucune journée de la semaine cible n'est
-    /// navigable (utile pour griser le bouton de navigation).
-    private func candidatSemaine(delta: Int) -> Date? {
-        let cal = calendrierFrancais
-        guard let cibleSouhaitee = cal.date(byAdding: .day, value: 7 * delta, to: jourConsulte) else {
-            return nil
-        }
-        let lundi = lundiDeLaSemaine(cibleSouhaitee)
-        let joursCibles = (0..<7).compactMap { cal.date(byAdding: .day, value: $0, to: lundi) }
-        let candidatsAvecDonnees = joursCibles.filter { service.score(pour: $0) != nil }
-        return candidatsAvecDonnees.min(by: {
-            abs($0.timeIntervalSince(cibleSouhaitee)) < abs($1.timeIntervalSince(cibleSouhaitee))
-        })
-    }
+    // MARK: Navigation jour
 
     /// Jour le plus proche de `cible` parmi la plage navigable.
     /// Fallback sur `cible` lui-même si la plage est vide (cas dégénéré).
@@ -144,31 +93,51 @@ struct DetailScoreVue: View {
         }) ?? cibleStart
     }
 
-    // MARK: - Sous-vues
+    // MARK: - Cartes
 
-    /// En-tête : date longue centrée + cercle gradient 120 pt + libellé
-    /// qualitatif. Animé en `.spring` sur `jourConsulte` pour adoucir
-    /// la transition lors d'un changement de jour.
-    private var enTeteJour: some View {
-        VStack(spacing: 16) {
-            Text(libelleDate)
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .contentTransition(.numericText())
+    /// Carte 1 — Résumé : date centrée, layout horizontal cercle 100pt +
+    /// barres semaine (avec navigation < > en interne), puis texte LLM
+    /// narratif et disclaimer IA. Animée en `.spring` sur `jourConsulte`
+    /// pour adoucir les transitions de changement de jour.
+    private var carteResume: some View {
+        CartePage {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(libelleDate)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .contentTransition(.numericText())
 
-            CercleScoreDetail(score: scoreCourant?.score)
-                .frame(width: 120, height: 120)
+                HStack(alignment: .top, spacing: 16) {
+                    VStack(spacing: 10) {
+                        CercleScoreDetail(score: scoreCourant?.score)
+                            .frame(width: 88, height: 88)
 
-            Text(libelleQualitatif)
-                .font(.title2.bold())
-                .foregroundStyle(.primary)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .contentTransition(.numericText())
+                        Text(libelleQualitatif)
+                            .font(.headline.bold())
+                            .foregroundStyle(.primary)
+                            .frame(maxWidth: 100)
+                            .multilineTextAlignment(.center)
+                            .contentTransition(.numericText())
+                    }
+
+                    BarresSemaine(
+                        jourConsulte: jourConsulte,
+                        scorePourJour: { jour in service.score(pour: jour)?.score },
+                        onChangerJour: { jourCible in
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                jourConsulte = jourCible
+                            }
+                        }
+                    )
+                    .frame(maxWidth: .infinity)
+                }
+
+                messageLLM
+                    .padding(.top, 4)
+            }
+            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: jourConsulte)
         }
-        .padding(.top, 8)
-        .padding(.horizontal, 16)
-        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: jourConsulte)
     }
 
     /// Date formatée selon la proximité avec aujourd'hui :
@@ -200,52 +169,62 @@ struct DetailScoreVue: View {
         }
     }
 
-    // MARK: Message LLM
-
-    /// Padding horizontal : 16 (parent) + 8 (ici) = 24 pt depuis le
-    /// bord de l'écran (spec : « Padding horizontal 24pt »).
+    /// Texte narratif Foundation Models (même pipeline que la sheet du
+    /// matin). Fallback texte court si le jour consulté n'a pas de
+    /// faits, ce qui ne devrait pas arriver dans le mock mais protège
+    /// d'un edge case côté backend.
+    @ViewBuilder
     private var messageLLM: some View {
-        Group {
-            if let faits = scoreCourant?.faits {
-                MessageNarratifScore(faits: faits)
-            } else {
-                Text("Pas de résumé disponible pour ce jour.")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-            }
+        if let faits = scoreCourant?.faits {
+            MessageNarratifScore(faits: faits)
+        } else {
+            Text("Pas de résumé disponible pour ce jour.")
+                .font(.body)
+                .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 24)
     }
 
-    // MARK: Décomposition GRI (style Form grouped)
+    // MARK: Carte 2 — Analyse
 
-    private var sectionDecomposition: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("DÉCOMPOSITION")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .padding(.leading, 16)
-                .accessibilityAddTraits(.isHeader)
+    /// Carte 2 — Analyse : barre AGP agrégée (3 zones) en haut, divider,
+    /// puis section DÉCOMPOSITION (4 rows hors-cible + row TIR mise en
+    /// avant).
+    private var carteAnalyse: some View {
+        CartePage {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("RÉPARTITION")
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
+                    .accessibilityAddTraits(.isHeader)
 
-            CarteRegroupee {
-                ForEach(Array(lignesGRI.enumerated()), id: \.offset) { (index, ligne) in
-                    LigneDecompositionGRI(ligne: ligne)
-                    if index < lignesGRI.count - 1 {
-                        Divider().padding(.leading, 56)
+                if let faits = scoreCourant?.faits {
+                    BarreAGP(faits: faits)
+                }
+
+                Divider()
+                    .padding(.vertical, 8)
+
+                Text("DÉCOMPOSITION")
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
+                    .accessibilityAddTraits(.isHeader)
+
+                LigneDecompositionGRI(ligne: ligneTIR, miseEnAvant: true)
+
+                VStack(spacing: 0) {
+                    ForEach(Array(lignesGRI.enumerated()), id: \.offset) { (index, ligne) in
+                        if index == 0 {
+                            Divider().padding(.leading, 44)
+                        }
+                        LigneDecompositionGRI(ligne: ligne)
+                        if index < lignesGRI.count - 1 {
+                            Divider().padding(.leading, 44)
+                        }
                     }
                 }
             }
-
-            Spacer().frame(height: 8)
-
-            // Row Time in Range mise en avant — séparée pour pouvoir
-            // appliquer un style légèrement plus appuyé que les 4 rows
-            // ci-dessus (font plus grande, padding interne ajusté).
-            CarteRegroupee {
-                LigneDecompositionGRI(ligne: ligneTIR, miseEnAvant: true)
-            }
+            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: jourConsulte)
         }
-        .padding(.horizontal, 16)
     }
 
     /// Les 4 zones hors-cible affichées en ordre clinique (du plus
@@ -300,29 +279,34 @@ struct DetailScoreVue: View {
         )
     }
 
-    // MARK: À propos du score (disclosure)
+    // MARK: Carte 3 — À propos du score (disclosure)
 
-    private var sectionAPropos: some View {
-        CarteRegroupee {
+    /// Carte 3 — DisclosureGroup descriptif sur le GRI. Pas de padding
+    /// interne via `CartePage` ici : on laisse le DisclosureGroup gérer
+    /// son propre padding pour que la zone de tap couvre toute la carte.
+    private var carteAPropos: some View {
+        VStack(alignment: .leading, spacing: 0) {
             DisclosureGroup {
                 Text(texteAPropos)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineSpacing(5)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 14)
                     .padding(.top, 4)
+                    .padding(.bottom, 4)
             } label: {
                 Text("À propos du score")
                     .font(.body)
                     .foregroundStyle(.primary)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
             .tint(.secondary)
         }
-        .padding(.horizontal, 16)
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
     }
 
     /// Bloc d'explication factuel — décrit ce que le score représente
@@ -339,12 +323,33 @@ struct DetailScoreVue: View {
     }
 }
 
-// MARK: - Cercle gradient 120pt
+// MARK: - Conteneur de carte
 
-/// Cercle 120pt portant le score en blanc — réutilise `MeshScore` (le
+/// Conteneur de carte de la page détail — fond
+/// `secondarySystemGroupedBackground`, corner radius 16pt, padding
+/// interne 20pt. Identique à `CarteRegroupee` mais avec padding intégré
+/// pour les pages où chaque carte est un bloc autonome (et non un
+/// agrégat de lignes pleine largeur).
+private struct CartePage<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        content
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color(.secondarySystemGroupedBackground))
+            )
+    }
+}
+
+// MARK: - Cercle gradient 100pt
+
+/// Cercle 100pt portant le score en blanc — réutilise `MeshScore` (le
 /// mesh gradient partagé du module score) et la teinte continue
 /// `CouleurScore.couleur(pour:)` pour l'ombre. Calqué sur le cercle de
-/// `SheetScoreMatin`, à la taille demandée par la spec (120pt).
+/// `SheetScoreMatin` mais à la taille spec'd pour la page détail (100pt).
 private struct CercleScoreDetail: View {
     let score: Int?
 
@@ -358,14 +363,14 @@ private struct CercleScoreDetail: View {
                 .clipShape(Circle())
                 .shadow(
                     color: couleurOmbre.opacity(0.40),
-                    radius: 12,
+                    radius: 10,
                     x: 0,
-                    y: 6
+                    y: 5
                 )
             }
 
             Text(score.map(String.init) ?? "—")
-                .font(.system(size: 44, weight: .bold, design: .rounded))
+                .font(.system(size: 36, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
                 .monospacedDigit()
                 .shadow(color: .black.opacity(0.18), radius: 2, x: 0, y: 1)
@@ -387,7 +392,6 @@ private struct CercleScoreDetail: View {
 // MARK: - Barres semaine fixes (lundi → dimanche)
 
 /// Composant « semaine » de la page détail :
-///   - En-tête : ⟨ « Sem. du 5 mai » ⟩  (chevrons et libellé centré)
 ///   - 7 barres verticales représentant lundi → dimanche de la
 ///     **semaine contenant** `jourConsulte`. Les barres sont
 ///     **toujours en position fixe** ; seule la mise en avant
@@ -395,11 +399,10 @@ private struct CercleScoreDetail: View {
 ///   - Labels « L M M J V S D » sous les barres.
 ///
 /// Tap sur une barre → `onChangerJour(jour)` (les barres restent en
-/// place — c'est la sélection du jour consulté qui bouge).
-///
-/// Boutons ⟨ / ⟩ → `onSemainePrecedente / Suivante` (saut de 7 jours,
-/// avec fallback au jour navigable le plus proche dans la semaine
-/// cible — géré par le parent dans `candidatSemaine(delta:)`).
+/// place — c'est la sélection du jour consulté qui bouge). La
+/// navigation est restreinte à la semaine de `jourInitial` ;
+/// l'utilisateur ne peut pas consulter les semaines précédentes (choix
+/// produit : on évite de mettre en exergue des scores historiques).
 ///
 /// Si une journée de la semaine n'a pas de score (futur, ou jour
 /// pour lequel le calcul n'a pas encore été fait), sa barre est
@@ -411,72 +414,16 @@ private struct BarresSemaine: View {
     /// invoquée uniquement depuis le main actor de la vue.
     let scorePourJour: (Date) -> Int?
     let onChangerJour: (Date) -> Void
-    let onSemainePrecedente: () -> Void
-    let onSemaineSuivante: () -> Void
-    let semainePrecedenteDisponible: Bool
-    let semaineSuivanteDisponible: Bool
 
-    private static let hauteurBarres: CGFloat = 80
-    private static let largeurBarre: CGFloat = 26
-    private static let espacement: CGFloat = 10
+    private static let hauteurBarres: CGFloat = 72
+    private static let largeurBarre: CGFloat = 24
+    private static let espacement: CGFloat = 8
 
     var body: some View {
-        VStack(spacing: 12) {
-            enTeteSemaine
+        VStack(spacing: 10) {
             barresVue
             labelsJours
         }
-        .padding(.horizontal, 16)
-        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: lundiSemaine)
-    }
-
-    // MARK: En-tête semaine
-
-    private var enTeteSemaine: some View {
-        HStack(spacing: 8) {
-            chevron(systemName: "chevron.left",
-                    disponible: semainePrecedenteDisponible,
-                    action: onSemainePrecedente)
-
-            Spacer(minLength: 4)
-
-            Text(libelleSemaine)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.primary)
-                .contentTransition(.numericText())
-                .monospacedDigit()
-                .lineLimit(1)
-
-            Spacer(minLength: 4)
-
-            chevron(systemName: "chevron.right",
-                    disponible: semaineSuivanteDisponible,
-                    action: onSemaineSuivante)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Semaine du \(libelleSemaine.replacingOccurrences(of: "Sem. du ", with: ""))")
-    }
-
-    /// Bouton chevron discret : 44×32 cible tactile (HIG), teinte
-    /// secondaire quand disponible / tertiaire quand grisé.
-    @ViewBuilder
-    private func chevron(systemName: String, disponible: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(disponible ? Color.secondary : Color(.tertiaryLabel))
-                .frame(width: 44, height: 32)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .disabled(!disponible)
-    }
-
-    private var libelleSemaine: String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "fr_FR")
-        formatter.dateFormat = "d MMMM"
-        return "Sem. du \(formatter.string(from: lundiSemaine))"
     }
 
     // MARK: Barres (7 jours, position fixe)
@@ -885,8 +832,7 @@ private struct LigneDecompositionGRI: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, miseEnAvant ? 14 : 12)
+        .padding(.vertical, miseEnAvant ? 10 : 8)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
             "\(ligne.titre) \(ligne.description) : \(formatPourcent(ligne.pourcent)), \(formatDuree(ligne.pourcent)). Objectif \(ligne.objectifClinique)"
