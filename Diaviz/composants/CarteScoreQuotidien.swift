@@ -106,8 +106,13 @@ struct CarteScoreQuotidien: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(Color(.secondarySystemGroupedBackground))
         case .gradient:
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(MeshScore.gradient(pour: contenu.score))
+            TimelineView(.animation) { contexte in
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(MeshScore.gradient(
+                        pour: contenu.score,
+                        phase: MeshScore.phase(date: contexte.date)
+                    ))
+            }
         }
     }
 
@@ -204,38 +209,87 @@ enum CouleurScore {
 /// même gradient pour son grand cercle 120pt.
 enum MeshScore {
 
+    /// Période de la boucle d'animation, en secondes. La motion est
+    /// composée de plusieurs cycles (orbites Lissajous des points + onde
+    /// chromatique traversant le mesh) ; cette période est la base que
+    /// les fréquences individuelles multiplient.
+    static let dureeBoucle: Double = 7.0
+
+    /// Convertit une date en phase angulaire (en radians) pour alimenter
+    /// l'orbite des points intérieurs et l'onde chromatique. À appeler
+    /// depuis un `TimelineView(.animation)` pour rester synchro avec le
+    /// refresh rate de l'écran.
+    ///
+    /// **Pas de wrap** : on laisse la phase croître indéfiniment, les
+    /// fonctions trig gèrent la périodicité d'elles-mêmes. Wrapper à 2π
+    /// créerait des sauts visibles puisque les fréquences (0.5, 0.8, 1.3,
+    /// ...) ne sont pas des multiples entiers de la période de base —
+    /// au moment du wrap, `cos(freq · 2π)` ne vaudrait pas `cos(0)`.
+    /// La précision Double absorbe sans problème les ~10⁹ secondes
+    /// depuis la date de référence.
+    static func phase(date: Date) -> Double {
+        date.timeIntervalSinceReferenceDate / dureeBoucle * 2 * .pi
+    }
+
     /// Mesh 4×4 (16 points). Le passage de 3×3 à 4×4 double la densité
     /// d'interpolation : chaque transition coin↔centre traverse un
     /// point intermédiaire, ce qui élimine les "spots" sombres visibles
     /// dans la grille 3×3 et permet aux courants chaud/froid de dessiner
     /// de vraies courbes plutôt que des transitions rectilignes.
     ///
-    /// Seuls les **4 points intérieurs** (indices 5, 6, 9, 10) sont placés
-    /// hors-grille — c'est suffisant pour faire dessiner des frontières
-    /// courbes au mesh sans déformer la silhouette du rect : le périmètre
-    /// reste strictement sur les bords (y=0/1, x=0/1), garantissant que
-    /// la fill remplit toute la rounded-rect sans bavures aux coins.
+    /// **Périmètre figé / intérieur animé** : les 12 points du périmètre
+    /// (indices 0-3, 4, 7, 8, 11, 12-15) restent strictement sur les
+    /// bords (y=0/1, x=0/1) — c'est ce qui garantit que la silhouette
+    /// de la rounded-rect / du cercle ne se déforme pas. Seuls les
+    /// **4 points intérieurs** (indices 5, 6, 9, 10) bougent.
     ///
-    /// Les deux rangées intérieures sont placées en **phase opposée**
-    /// (rangée 1 bombe vers le bas-droite, rangée 2 vers le haut-droite),
-    /// ce qui produit la "courbe en S" visible dans le mesh fini.
-    static let points: [SIMD2<Float>] = [
-        // Rangée 0 (haut) — y = 0 strict
-        SIMD2(0.00, 0.00), SIMD2(0.33, 0.00), SIMD2(0.67, 0.00), SIMD2(1.00, 0.00),
-        // Rangée 1 — bord gauche/droit sur x=0/1, intérieurs courbés bas-droite
-        SIMD2(0.00, 0.32), SIMD2(0.40, 0.42), SIMD2(0.60, 0.30), SIMD2(1.00, 0.36),
-        // Rangée 2 — bord gauche/droit sur x=0/1, intérieurs courbés haut-droite
-        SIMD2(0.00, 0.64), SIMD2(0.30, 0.62), SIMD2(0.70, 0.72), SIMD2(1.00, 0.68),
-        // Rangée 3 (bas) — y = 1 strict
-        SIMD2(0.00, 1.00), SIMD2(0.33, 1.00), SIMD2(0.67, 1.00), SIMD2(1.00, 1.00),
-    ]
+    /// Chaque point intérieur trace une **Lissajous** : fréquences X et Y
+    /// distinctes (et différentes d'un point à l'autre) → les orbites ne
+    /// se referment pas sur elles-mêmes et les 4 points dérivent en/hors
+    /// de phase indéfiniment. Plus de symétrie rotationnelle perceptible,
+    /// la motion paraît organique au lieu de "roue qui tourne".
+    static func points(phase p: Double = 0) -> [SIMD2<Float>] {
+        // Amplitudes serrées sur l'horizontal (motion visible) et la
+        // verticale (gap minimal 0.08 entre rangées 1/2 garanti).
+        let ampX: Float = 0.09
+        let ampY: Float = 0.05
+        let t = Float(p)
+        func lissajous(
+            _ base: SIMD2<Float>,
+            _ freqX: Float,
+            _ freqY: Float,
+            _ dephasage: Float
+        ) -> SIMD2<Float> {
+            SIMD2(
+                base.x + ampX * cos(freqX * t + dephasage),
+                base.y + ampY * sin(freqY * t + dephasage)
+            )
+        }
+        return [
+            // Rangée 0 (haut) — y = 0 strict
+            SIMD2(0.00, 0.00), SIMD2(0.33, 0.00), SIMD2(0.67, 0.00), SIMD2(1.00, 0.00),
+            // Rangée 1 — bords figés, intérieurs en Lissajous distinctes
+            SIMD2(0.00, 0.32),
+                lissajous(SIMD2(0.40, 0.42), 1.0, 1.3, 0),
+                lissajous(SIMD2(0.60, 0.30), 0.8, 1.1, .pi / 2),
+                SIMD2(1.00, 0.36),
+            // Rangée 2 — bords figés, intérieurs en Lissajous distinctes
+            SIMD2(0.00, 0.64),
+                lissajous(SIMD2(0.30, 0.62), 1.2, 0.9, .pi),
+                lissajous(SIMD2(0.70, 0.72), 0.9, 1.4, 3 * .pi / 2),
+                SIMD2(1.00, 0.68),
+            // Rangée 3 (bas) — y = 1 strict
+            SIMD2(0.00, 1.00), SIMD2(0.33, 1.00), SIMD2(0.67, 1.00), SIMD2(1.00, 1.00),
+        ]
+    }
 
-    static func gradient(pour score: Int?) -> MeshGradient {
+    static func gradient(pour score: Int?, phase: Double = 0) -> MeshGradient {
+        let pts = points(phase: phase)
         guard let score else {
             return MeshGradient(
                 width: 4,
                 height: 4,
-                points: points,
+                points: pts,
                 colors: nuancesGrises,
                 colorSpace: .perceptual
             )
@@ -244,35 +298,47 @@ enum MeshScore {
         return MeshGradient(
             width: 4,
             height: 4,
-            points: points,
-            colors: colors(hue: teinte),
+            points: pts,
+            colors: colors(hue: teinte, phase: phase),
             colorSpace: .perceptual
         )
     }
 
-    /// 16 stops organisés en **X chaud/froid** :
+    /// 16 stops organisés en **X chaud/froid** + **onde diagonale animée** :
     ///
-    ///   - **Diagonale TL ↔ BR** : teintes chaudes (`dh > 0`) qui forment
-    ///     un courant chaud diagonal traversant le mesh.
-    ///   - **Anti-diagonale TR ↔ BL** : teintes froides (`dh < 0`) qui
-    ///     croisent la diagonale chaude au centre.
-    ///   - **Brightness resserrée** dans [0.80, 0.88] — Δ0.08 au lieu du
-    ///     Δ0.29 de la version 3×3, qui plaquait des taches sombres aux
-    ///     coins. Le texte blanc reste lisible grâce à la saturation
-    ///     élevée + ombre portée.
+    ///   - **Base statique** : coins TL/BR chauds (`+0.028`), coins TR/BL
+    ///     froids (`-0.028`). Les intérieurs ont un offset réduit (`±0.003`)
+    ///     pour éviter la "boundary" nette qui apparaissait avec ±0.014 :
+    ///     le centre n'est plus polarisé, seuls les coins portent une
+    ///     signature chromatique forte.
+    ///   - **Onde traveling** : une sinusoïde traverse le mesh en
+    ///     diagonale TL→BR avec une période deux fois plus lente que les
+    ///     orbites des points. Chaque stop voit sa hue glisser dans le
+    ///     temps — les courants chaud/froid coulent au lieu de tourner
+    ///     en rond.
     ///
-    /// Hue jitter ±0.022 conservé : les courants chaud/froid restent
-    /// perceptibles, et le maillage 4×4 absorbe l'écart sans créer de
-    /// bandes visibles entre voisins.
-    private static func colors(hue h: Double) -> [Color] {
-        // Hue jitter — X pattern : coins TL/BR chauds (+), TR/BL froids (-).
-        // Les valeurs intérieures s'interpolent en douceur entre les coins.
-        let dh: [Double] = [
-            +0.022, +0.010, -0.010, -0.022,
-            +0.012, +0.006, -0.006, -0.012,
-            -0.012, -0.006, +0.006, +0.012,
-            -0.022, -0.010, +0.010, +0.022,
+    /// **Brightness resserrée** dans [0.80, 0.88] — Δ0.08 au lieu du
+    /// Δ0.29 de la version 3×3, qui plaquait des taches sombres aux
+    /// coins. Le texte blanc reste lisible grâce à la saturation
+    /// élevée + ombre portée.
+    private static func colors(hue h: Double, phase p: Double = 0) -> [Color] {
+        // Base statique : coins fortement marqués, intérieurs presque
+        // neutres → le X chaud/froid n'a plus de frontière nette au centre.
+        let dhStatic: [Double] = [
+            +0.028, +0.006, -0.006, -0.028,
+            +0.018, +0.003, -0.003, -0.018,
+            -0.018, -0.003, +0.003, +0.018,
+            -0.028, -0.006, +0.006, +0.028,
         ]
+        // Onde diagonale animée — fréquence 0.5× les orbites des points
+        // pour créer des cycles de drift décorrélés de la motion géométrique.
+        let dhWaveAmp: Double = 0.012
+        let dhWave: [Double] = (0..<16).map { i in
+            let col = Double(i % 4) / 3.0
+            let row = Double(i / 4) / 3.0
+            return dhWaveAmp * sin(0.5 * p + (col + row) * .pi)
+        }
+        let dh: [Double] = (0..<16).map { dhStatic[$0] + dhWave[$0] }
         // Saturation — coins légèrement plus saturés que le centre pour
         // garder de la profondeur chromatique sans noircir.
         let saturations: [Double] = [
@@ -342,7 +408,11 @@ private struct CercleScore: View {
     private func contenu(score: Int) -> some View {
         switch style {
         case .sobre:
-            MeshScore.gradient(pour: score)
+            TimelineView(.animation) { contexte in
+                MeshScore.gradient(
+                    pour: score,
+                    phase: MeshScore.phase(date: contexte.date)
+                )
                 .clipShape(Circle())
                 .shadow(
                     color: CouleurScore.couleur(pour: score).opacity(0.35),
@@ -350,6 +420,7 @@ private struct CercleScore: View {
                     x: 0,
                     y: 3
                 )
+            }
 
             texteScore(score)
                 .shadow(color: .black.opacity(0.15), radius: 1, x: 0, y: 1)

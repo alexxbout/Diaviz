@@ -130,7 +130,11 @@ struct SheetScoreMatin: View {
     ///   - Chiffre interpolé de 0 au score final via `ChiffreAnime`.
     private var cercleScore: some View {
         ZStack {
-            MeshScore.gradient(pour: faits.score)
+            TimelineView(.animation) { contexte in
+                MeshScore.gradient(
+                    pour: faits.score,
+                    phase: MeshScore.phase(date: contexte.date)
+                )
                 .clipShape(Circle())
                 .frame(width: 140, height: 140)
                 .shadow(
@@ -139,6 +143,7 @@ struct SheetScoreMatin: View {
                     x: 0,
                     y: 7
                 )
+            }
 
             ChiffreAnime(cible: faits.score, duree: 1.8)
                 .font(.system(size: 52, weight: .bold, design: .rounded))

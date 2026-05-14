@@ -350,7 +350,11 @@ private struct CercleScoreDetail: View {
 
     var body: some View {
         ZStack {
-            MeshScore.gradient(pour: score)
+            TimelineView(.animation) { contexte in
+                MeshScore.gradient(
+                    pour: score,
+                    phase: MeshScore.phase(date: contexte.date)
+                )
                 .clipShape(Circle())
                 .shadow(
                     color: couleurOmbre.opacity(0.40),
@@ -358,6 +362,7 @@ private struct CercleScoreDetail: View {
                     x: 0,
                     y: 6
                 )
+            }
 
             Text(score.map(String.init) ?? "—")
                 .font(.system(size: 44, weight: .bold, design: .rounded))
