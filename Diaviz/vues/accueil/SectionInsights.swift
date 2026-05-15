@@ -7,14 +7,12 @@
 
 import SwiftUI
 
-/// Section « observations » de l'accueil — titre + TabView paginé
-/// avec les cartes d'insights produits par la couche ML. Les dots
-/// natifs du `.page` TabView sont désactivés au profit d'un
-/// `IndicateurPages` custom rendu juste en dessous, qui adapte ses
-/// couleurs au color scheme (`Color.primary` pour l'actif,
-/// `Color.secondary.opacity(...)` pour les inactifs) — sinon le
-/// `UIPageControl` natif rend les dots en blanc translucide,
-/// illisibles sur fond clair.
+/// Section « observations » de l'accueil — titre + pile verticale
+/// des cartes d'insights produits par la couche ML. La carte du
+/// dessus est interactive (swipe vertical), les cartes derrière
+/// pointent dessous. Un `IndicateurPages` custom placé à droite de
+/// la pile, en colonne verticale, affiche la position courante en
+/// adaptant ses couleurs au color scheme.
 ///
 /// La section se masque entièrement quand le tableau est vide pour ne
 /// pas laisser une coquille vide sur la page.
@@ -25,18 +23,16 @@ struct SectionInsights: View {
 
     let insights: [Insight]
 
-    /// Index de la carte actuellement visible. Bindé sur le `TabView`
-    /// pour piloter l'indicateur custom et suivre les swipes user.
+    /// Index de la carte actuellement au sommet de la pile. Bindé sur
+    /// `PileVerticaleInsights` qui l'incrémente à chaque swipe validé.
     @State private var pageActive: Int = 0
-
-    /// Hauteur fixe du TabView — réservée aux cartes uniquement (les
-    /// indicateurs sont externes maintenant). Calé pour qu'un message
-    /// de 2 lignes tienne même avec un micro-visuel de 30pt.
-    private let hauteurTabView: CGFloat = 180
 
     var body: some View {
         if !insights.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
+            // Spacing 4 (vs 8 par défaut) : le titre est déjà sur sa
+            // ligne, on veut juste un petit air avant la première
+            // carte, pas un saut entier.
+            VStack(alignment: .leading, spacing: 4) {
 
                 // MARK: Titre de section — compte d'observations
                 // Style aligné sur « Aperçu du jour » dans `AccueilVue`
@@ -52,25 +48,23 @@ struct SectionInsights: View {
                 .accessibilityElement(children: .combine)
                 .accessibilityAddTraits(.isHeader)
 
-                // MARK: TabView paginé — dots natifs OFF, swipe ON
-                // Padding horizontal léger (8pt par côté) pour créer
-                // un écart visible entre cartes pendant le swipe ;
-                // sinon, les cartes adjacentes paraissent collées.
-                // Reste fin pour que la carte ne soit pas sensiblement
-                // plus étroite que la carte score du dessus.
-                TabView(selection: $pageActive) {
-                    ForEach(Array(insights.enumerated()), id: \.element.id) { index, insight in
-                        CarteInsight(insight: insight)
-                            .padding(.horizontal, 8)
-                            .tag(index)
-                    }
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .frame(height: hauteurTabView)
+                // MARK: Pile + indicateur vertical
+                // HStack : cartes prennent la largeur restante, dots
+                // alignés en colonne sur la droite et centrés
+                // verticalement par rapport à la pile.
+                // Padding bottom pour décoller la pile de la section
+                // suivante (« Aperçu du jour ») qui sinon colle.
+                HStack(alignment: .center, spacing: 12) {
+                    PileVerticaleInsights(insights: insights, indexActif: $pageActive)
+                        .frame(maxWidth: .infinity)
 
-                // MARK: Indicateur de pages custom — color scheme aware
-                IndicateurPages(nombre: insights.count, actif: pageActive)
-                    .padding(.top, 4)
+                    IndicateurPages(
+                        nombre: insights.count,
+                        actif: pageActive,
+                        axe: .vertical
+                    )
+                }
+                .padding(.bottom, 12)
             }
         }
     }
@@ -84,29 +78,47 @@ struct SectionInsights: View {
 
 // MARK: - Indicateur custom
 
-/// Suite de dots centrés horizontalement, dot actif coloré en
-/// `Color.primary` (donc noir en light mode et blanc en dark mode),
-/// dots inactifs en `Color.secondary` semi-transparent — toujours
-/// lisibles quel que soit le mode. Remplace les dots natifs du
-/// `UIPageControl` qui sont blancs et invisibles sur fond clair.
+/// Axe de rendu de l'indicateur de pages.
+enum AxeIndicateur {
+    case horizontal, vertical
+}
+
+/// Suite de dots, dot actif coloré en `Color.primary` (donc noir en
+/// light mode et blanc en dark mode), dots inactifs en
+/// `Color.secondary` semi-transparent — toujours lisibles quel que
+/// soit le mode. Remplace les dots natifs du `UIPageControl` qui sont
+/// blancs et invisibles sur fond clair. Peut s'afficher en ligne
+/// (horizontal) ou en colonne (vertical) selon le contexte.
 private struct IndicateurPages: View {
 
     let nombre: Int
     let actif: Int
+    var axe: AxeIndicateur = .horizontal
 
     var body: some View {
-        HStack(spacing: 7) {
-            ForEach(0..<nombre, id: \.self) { index in
-                Circle()
-                    .fill(index == actif
-                          ? Color.primary
-                          : Color.secondary.opacity(0.35))
-                    .frame(width: 6, height: 6)
+        Group {
+            switch axe {
+            case .horizontal:
+                HStack(spacing: 7) { dots }
+                    .frame(maxWidth: .infinity)
+            case .vertical:
+                VStack(spacing: 7) { dots }
             }
         }
-        .frame(maxWidth: .infinity)
         .animation(.easeOut(duration: 0.18), value: actif)
         .accessibilityHidden(true)
+    }
+
+    /// Suite de cercles partagée par les deux orientations.
+    @ViewBuilder
+    private var dots: some View {
+        ForEach(0..<nombre, id: \.self) { index in
+            Circle()
+                .fill(index == actif
+                      ? Color.primary
+                      : Color.secondary.opacity(0.35))
+                .frame(width: 6, height: 6)
+        }
     }
 }
 

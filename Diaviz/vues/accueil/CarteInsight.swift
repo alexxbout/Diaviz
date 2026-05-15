@@ -7,10 +7,12 @@
 
 import SwiftUI
 
-/// Carte d'observation individuelle affichée dans le TabView paginé
-/// `SectionInsights`. Fond teinté plat à la couleur de la catégorie
-/// (opacity 0.12) — distinct des cartes métriques opaques de la grille
-/// du dessus sans ajouter de relief / shadow visible.
+/// Carte d'observation individuelle affichée dans la pile
+/// `PileInsights`. Fond Liquid Glass (`.glassEffect`) tinté à la
+/// couleur de la catégorie — le matériau **blurre** ce qu'il y a
+/// derrière (= les autres cartes empilées) et reste lisible, ce que
+/// ne permettait pas un fond translucide plat. La drop shadow
+/// naturelle du glass renforce la perception de profondeur de la pile.
 ///
 /// Structure interne VStack(alignment: .leading, spacing: 8) :
 ///   1. Header — icône SF Symbol + titre
@@ -66,8 +68,11 @@ struct CarteInsight: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(
-            insight.categorie.couleur.opacity(0.12),
+        .glassEffect(
+            // `.interactive()` = la surface glass se déforme fluidement
+            // sous le doigt (signature Liquid Glass iOS 26).
+            // Tint à 0.30 pour mieux affirmer la couleur de catégorie.
+            .regular.tint(insight.categorie.couleur.opacity(0.30)).interactive(),
             in: RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
         )
         .accessibilityElement(children: .combine)
