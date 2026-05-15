@@ -44,7 +44,7 @@ struct CarteSection: View {
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(couleur.opacity(0.10))
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(titre), \(sousTitre)")
     }

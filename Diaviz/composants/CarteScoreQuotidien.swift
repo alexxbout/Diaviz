@@ -139,11 +139,11 @@ struct CarteScoreQuotidien: View {
     private var fondCarte: some View {
         switch style {
         case .sobre:
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
                 .fill(Color(.secondarySystemGroupedBackground))
         case .gradient:
             TimelineView(.animation) { contexte in
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
                     .fill(MeshScore.gradient(
                         pour: contenu.score,
                         phase: MeshScore.phase(date: contexte.date)
@@ -156,7 +156,7 @@ struct CarteScoreQuotidien: View {
     private var bordureCarte: some View {
         switch style {
         case .sobre:
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
                 .strokeBorder(Color(.separator).opacity(0.5), lineWidth: 0.5)
         case .gradient:
             // Pas de bordure : le mesh fournit déjà la délimitation visuelle.

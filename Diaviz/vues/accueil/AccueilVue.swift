@@ -37,6 +37,11 @@ struct AccueilVue: View {
     /// (live), plus `historiqueSept` qui inclut la barre du jour.
     @State private var scoreService = ScoreJournalierServiceMock.shared
 
+    /// Observations ML affichées sous la carte score — section masquée
+    /// si le tableau est vide. Service mock pour l'instant ; sera
+    /// remplacé par une vraie source quand la couche ML sera branchée.
+    @State private var insights: [Insight] = InsightsAccueilServiceMock.mockComplet()
+
     init(jourDetailScore: Binding<Date?> = .constant(nil)) {
         self._jourDetailScore = jourDetailScore
     }
@@ -62,6 +67,13 @@ struct AccueilVue: View {
                             onTap: { jourDetailScore = aujourdhui }
                         )
 
+                        // Section observations ML — TabView paginé
+                        // sous la carte score. Auto-masquée quand le
+                        // tableau d'insights est vide pour ne pas
+                        // laisser une coquille vide entre le score
+                        // et la grille des métriques.
+                        SectionInsights(insights: insights)
+
                         // Grille de 4 cartes métriques — aperçu
                         // instantané de l'état courant. Le service
                         // mock est instancié localement le temps que
@@ -70,11 +82,19 @@ struct AccueilVue: View {
                         // (spacing 8) pour qu'il "appartienne" à elle
                         // visuellement plutôt qu'au bloc d'au-dessus.
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Aperçu du jour")
-                                .font(.title2.bold())
-                                .foregroundStyle(.primary)
-                                .padding(.leading, 4)
-                                .accessibilityAddTraits(.isHeader)
+                            // Icône + titre — pattern uniforme avec la
+                            // section observations (sparkles + titre).
+                            // `square.grid.2x2.fill` reprend littéralement
+                            // la disposition 2×2 des cartes du dessous.
+                            HStack(spacing: 6) {
+                                Image(systemName: "square.grid.2x2.fill")
+                                Text("Aperçu du jour")
+                            }
+                            .font(.title2.bold())
+                            .foregroundStyle(.primary)
+                            .padding(.leading, 4)
+                            .accessibilityElement(children: .combine)
+                            .accessibilityAddTraits(.isHeader)
 
                             GrilleMetriquesAccueil(metriques: metriques)
                         }
