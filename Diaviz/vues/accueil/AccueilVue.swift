@@ -26,8 +26,19 @@ struct AccueilVue: View {
     /// vue est instanciée sans binding (previews).
     @Binding var jourDetailScore: Date?
 
+    /// Service mocké pour la grille de métriques. Les vues filles n'en
+    /// ont pas besoin — on consomme `metriques` directement ici.
+    /// Sera remplacé par une lecture `@Environment` quand la couche
+    /// d'analyses sera branchée.
+    @State private var metriquesService = AccueilMetriquesServiceMock.shared
+
     init(jourDetailScore: Binding<Date?> = .constant(nil)) {
         self._jourDetailScore = jourDetailScore
+    }
+
+    /// Accès convenance au snapshot courant.
+    private var metriques: MetriquesAccueil {
+        metriquesService.metriques
     }
 
     var body: some View {
@@ -48,6 +59,23 @@ struct AccueilVue: View {
                             style: .gradient,
                             onTap: { jourDetailScore = hier }
                         )
+
+                        // Grille de 4 cartes métriques — aperçu
+                        // instantané de l'état courant. Le service
+                        // mock est instancié localement le temps que
+                        // la couche d'analyses soit branchée. Le
+                        // titre de section est groupé avec la grille
+                        // (spacing 8) pour qu'il "appartienne" à elle
+                        // visuellement plutôt qu'au bloc d'au-dessus.
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Aperçu du jour")
+                                .font(.title2.bold())
+                                .foregroundStyle(.primary)
+                                .padding(.leading, 4)
+                                .accessibilityAddTraits(.isHeader)
+
+                            GrilleMetriquesAccueil(metriques: metriques)
+                        }
                     }
                     .padding(16)
                 }
