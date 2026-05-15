@@ -85,19 +85,11 @@ struct AccueilVue: View {
                         // (spacing 8) pour qu'il "appartienne" à elle
                         // visuellement plutôt qu'au bloc d'au-dessus.
                         VStack(alignment: .leading, spacing: 8) {
-                            // Icône + titre — pattern uniforme avec la
-                            // section observations (sparkles + titre).
-                            // `square.grid.2x2.fill` reprend littéralement
-                            // la disposition 2×2 des cartes du dessous.
-                            HStack(spacing: 6) {
-                                Image(systemName: "square.grid.2x2.fill")
-                                Text("Aperçu du jour")
-                            }
-                            .font(.title2.bold())
-                            .foregroundStyle(.primary)
-                            .padding(.leading, 4)
-                            .accessibilityElement(children: .combine)
-                            .accessibilityAddTraits(.isHeader)
+                            Text("Aperçu du jour")
+                                .font(.title2.bold())
+                                .foregroundStyle(.primary)
+                                .padding(.leading, 4)
+                                .accessibilityAddTraits(.isHeader)
 
                             GrilleMetriquesAccueil(metriques: metriques)
                         }

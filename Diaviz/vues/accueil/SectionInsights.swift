@@ -10,9 +10,7 @@ import SwiftUI
 /// Section « observations » de l'accueil — titre + pile verticale
 /// des cartes d'insights produits par la couche ML. La carte du
 /// dessus est interactive (swipe vertical), les cartes derrière
-/// pointent dessous. Un `IndicateurPages` custom placé à droite de
-/// la pile, en colonne verticale, affiche la position courante en
-/// adaptant ses couleurs au color scheme.
+/// pointent dessous.
 ///
 /// La section se masque entièrement quand le tableau est vide pour ne
 /// pas laisser une coquille vide sur la page.
@@ -40,30 +38,15 @@ struct SectionInsights: View {
                 // Style aligné sur « Aperçu du jour » dans `AccueilVue`
                 // (title2.bold, .primary) pour homogénéiser les en-têtes
                 // de section sur l'accueil.
-                HStack(spacing: 6) {
-                    Image(systemName: "eye.trianglebadge.exclamationmark.fill")
-                    Text(libelleTendances)
-                }
-                .font(.title2.bold())
-                .foregroundStyle(.primary)
-                .padding(.leading, 4)
-                .accessibilityElement(children: .combine)
-                .accessibilityAddTraits(.isHeader)
+                Text(libelleTendances)
+                    .font(.title2.bold())
+                    .foregroundStyle(.primary)
+                    .padding(.leading, 4)
+                    .accessibilityAddTraits(.isHeader)
 
-                // MARK: Pile + indicateur vertical
-                // HStack : cartes prennent la largeur restante, dots
-                // alignés en colonne sur la droite et centrés
-                // verticalement par rapport à la pile.
-                HStack(alignment: .center, spacing: 12) {
-                    PileVerticaleInsights(insights: insights, indexActif: $pageActive)
-                        .frame(maxWidth: .infinity)
-
-                    IndicateurPages(
-                        nombre: insights.count,
-                        actif: pageActive,
-                        axe: .vertical
-                    )
-                }
+                // MARK: Pile
+                PileVerticaleInsights(insights: insights, indexActif: $pageActive)
+                    .frame(maxWidth: .infinity)
             }
         }
     }
@@ -73,52 +56,6 @@ struct SectionInsights: View {
     private var libelleTendances: String {
         let pluriel = insights.count > 1 ? "s" : ""
         return "Nouvelle\(pluriel) tendance\(pluriel) (\(insights.count))"
-    }
-}
-
-// MARK: - Indicateur custom
-
-/// Axe de rendu de l'indicateur de pages.
-enum AxeIndicateur {
-    case horizontal, vertical
-}
-
-/// Suite de dots, dot actif coloré en `Color.primary` (donc noir en
-/// light mode et blanc en dark mode), dots inactifs en
-/// `Color.secondary` semi-transparent — toujours lisibles quel que
-/// soit le mode. Remplace les dots natifs du `UIPageControl` qui sont
-/// blancs et invisibles sur fond clair. Peut s'afficher en ligne
-/// (horizontal) ou en colonne (vertical) selon le contexte.
-private struct IndicateurPages: View {
-
-    let nombre: Int
-    let actif: Int
-    var axe: AxeIndicateur = .horizontal
-
-    var body: some View {
-        Group {
-            switch axe {
-            case .horizontal:
-                HStack(spacing: 7) { dots }
-                    .frame(maxWidth: .infinity)
-            case .vertical:
-                VStack(spacing: 7) { dots }
-            }
-        }
-        .animation(.easeOut(duration: 0.18), value: actif)
-        .accessibilityHidden(true)
-    }
-
-    /// Suite de cercles partagée par les deux orientations.
-    @ViewBuilder
-    private var dots: some View {
-        ForEach(0..<nombre, id: \.self) { index in
-            Circle()
-                .fill(index == actif
-                      ? Color.primary
-                      : Color.secondary.opacity(0.35))
-                .frame(width: 6, height: 6)
-        }
     }
 }
 
