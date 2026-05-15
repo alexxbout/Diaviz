@@ -51,22 +51,30 @@ enum CategorieInsight: String, CaseIterable, Sendable {
 
 // MARK: - Micro-visuel
 
-/// Petit visuel optionnel placé entre le header et le message d'une
-/// carte d'observation. Hauteur fixe ~30pt pour garder l'alignement
-/// vertical des cartes au sein du TabView paginé (160pt).
+/// **Donnée clé** d'une carte d'observation — l'élément dominant visuel,
+/// centré dans la carte, à la couleur de la catégorie. Hauteur cible
+/// 40pt pour ancrer la hiérarchie (titre `.caption` au-dessus, message
+/// `.callout` en dessous).
 ///
 /// Chaque cas est rendu par `MicroVisuelInsight` ; ajouter un nouveau
 /// type de visuel consiste à étendre cet enum + son rendu.
 enum MicroVisuelType: Sendable {
-    /// Affiche `label → valeur` sur une ligne, valeur en .title3.bold().
-    case pourcentage(label: String, valeur: String)
-    /// Mini bar chart maison : barres verticales colorées dépassant
-    /// une ligne horizontale grise (symbolise un seuil).
-    case miniBarres(hauteurs: [CGFloat])
-    /// Texte prefix + flèche SF Symbol + texte label coloré.
-    case fleche(prefix: String, direction: String, label: String)
-    /// Aucun visuel — le message prend plus d'espace vertical.
-    case aucun
+    /// Grand chiffre seul — 40pt bold à la couleur de la catégorie.
+    /// Pour les insights où la donnée clé est une valeur unique
+    /// (« -25% », « +12 », « x2 »…).
+    case grandNombre(valeur: String)
+    /// Grand chiffre + flèche directionnelle SF Symbol — pour exprimer
+    /// une tendance chiffrée (« 3 nuits ↘ »). Chiffre 40pt bold,
+    /// flèche `.title`, tous deux à la couleur de la catégorie.
+    case grandNombreAvecFleche(valeur: String, direction: String)
+    /// Mini bar chart — 4 barres verticales 12pt × hauteur, dans un
+    /// conteneur 40pt, traversées par une ligne horizontale grise à
+    /// mi-hauteur (seuil ~200 mg/dL). Hauteurs > 20 dépassent le seuil.
+    case barres(hauteurs: [CGFloat])
+    /// Grande icône SF Symbol — 36pt à la couleur de la catégorie.
+    /// Pour les insights sans donnée chiffrée (ex : nouvelle analyse
+    /// disponible) où l'icône résume à elle seule le sujet.
+    case grandeIcone(systemName: String)
 }
 
 // MARK: - Modèle
@@ -94,47 +102,51 @@ struct Insight: Identifiable, Sendable {
 extension Insight {
 
     /// Insight 1 — Impact du sport sur les ratios (informatif bleu).
+    /// Donnée clé : « -25% » en grand chiffre bleu.
     static let mockImpactSport = Insight(
         id: UUID(),
         categorie: .informatif,
-        titre: "Impact sport sur tes ratios",
-        message: "Tes ratios sont impactés de -25% après tes séances de musculation cette semaine.",
-        microVisuel: .pourcentage(label: "Ratio", valeur: "-25%"),
+        titre: "Impact sport",
+        message: "Impact sur tes ratios après musculation",
+        microVisuel: .grandNombre(valeur: "-25%"),
         lienAnalyse: "impact-sport"
     )
 
     /// Insight 2 — Pics récurrents au déjeuner malgré ratio habituel
-    /// (attention orange). Le mini bar chart symbolise 4 déjeuners de
-    /// la semaine et le seuil 200 mg/dL en ligne grise. Hauteurs
-    /// calibrées pour tenir dans une frame de 30pt (max 28pt = peek
-    /// de 10pt au-dessus du seuil tracé à y:-18).
+    /// (attention orange). Mini bar chart : 4 déjeuners de la semaine,
+    /// ligne horizontale grise à mi-hauteur (20pt sur 40pt) symbolise
+    /// le seuil 200 mg/dL. Hauteurs [20, 28, 35, 24] → 3 barres
+    /// dépassent strictement le seuil (cohérent avec le message).
     static let mockRatioMidi = Insight(
         id: UUID(),
         categorie: .attention,
         titre: "Ratios du midi",
-        message: "3 déjeuners cette semaine ont généré un pic malgré le ratio habituel.",
-        microVisuel: .miniBarres(hauteurs: [24, 18, 28, 22]),
+        message: "3 pics > 200 cette semaine",
+        microVisuel: .barres(hauteurs: [20, 28, 35, 24]),
         lienAnalyse: "ratios-midi"
     )
 
     /// Insight 3 — Nouvelle analyse cardio disponible (action violet).
-    /// Pas de micro-visuel : le message prend toute la place.
+    /// Donnée clé : grande icône `figure.run` violette — pas de chiffre
+    /// à mettre en avant, l'icône résume le sujet.
     static let mockAnalyseCardio = Insight(
         id: UUID(),
         categorie: .action,
         titre: "Analyse cardio",
-        message: "Nouvelle analyse disponible : ta réponse glycémique au cardio a évolué depuis 2 semaines.",
-        microVisuel: .aucun,
+        message: "Nouvelle analyse disponible pour le cardio",
+        microVisuel: .grandeIcone(systemName: "figure.run"),
         lienAnalyse: "analyse-cardio"
     )
 
     /// Insight 4 — Tendance nocturne à la baisse (attention orange).
+    /// Donnée clé : « 3 nuits » en grand chiffre orange + flèche
+    /// `arrow.down.right` indiquant la baisse.
     static let mockBasale = Insight(
         id: UUID(),
         categorie: .attention,
         titre: "Tendance nocturne",
-        message: "Tendance à la baisse détectée sur 3 nuits. Ta basale pourrait être trop élevée.",
-        microVisuel: .fleche(prefix: "3 nuits", direction: "arrow.down.right", label: "↘ tendance basse"),
+        message: "Basale potentiellement trop élevée",
+        microVisuel: .grandNombreAvecFleche(valeur: "3 nuits", direction: "arrow.down.right"),
         lienAnalyse: "tendance-nocturne"
     )
 }

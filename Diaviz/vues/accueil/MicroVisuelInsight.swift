@@ -7,109 +7,117 @@
 
 import SwiftUI
 
-/// Petit visuel placé entre le header et le message d'une `CarteInsight`.
-/// Hauteur cible ~30pt — calée pour que les 4 variantes occupent une
-/// même bande horizontale, ce qui aligne visuellement les cartes au
-/// sein du TabView paginé (160pt fixes).
+/// Rendu de la **donnée clé** d'une carte d'observation — c'est
+/// l'élément dominant visuel de la carte, centré horizontalement et
+/// dimensionné autour de 40pt pour ancrer la hiérarchie.
 ///
-/// Le rendu est piloté par `MicroVisuelType` ; ajouter un type consiste
-/// à étendre l'enum + une branche du switch ici.
+/// Toujours rendu dans une frame `maxWidth: .infinity` pour permettre
+/// le centrage horizontal quel que soit l'alignement du `VStack`
+/// parent (typiquement `.leading` dans `CarteInsight`).
+///
+/// Le rendu est piloté par `MicroVisuelType` ; ajouter une variante
+/// consiste à étendre l'enum + une branche du switch ici.
 struct MicroVisuelInsight: View {
 
     let type: MicroVisuelType
     /// Couleur d'accent — héritée de la catégorie de la carte parente,
-    /// appliquée aux valeurs en avant et aux barres du mini-chart.
+    /// appliquée à la donnée clé (chiffre, flèche, barres, icône).
     let couleur: Color
 
     var body: some View {
-        switch type {
+        Group {
+            switch type {
 
-        // MARK: Pourcentage : « Ratio → -25% »
-        case .pourcentage(let label, let valeur):
-            HStack(spacing: 6) {
-                Text(label)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Image(systemName: "arrow.right")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            // MARK: Grand chiffre seul — ex : « -25% »
+            case .grandNombre(let valeur):
                 Text(valeur)
-                    .font(.title3.bold())
+                    .font(.system(size: 40, weight: .bold))
                     .foregroundStyle(couleur)
                     .monospacedDigit()
-            }
-            .frame(height: 30)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(label) : \(valeur)")
+                    .accessibilityLabel(valeur)
 
-        // MARK: Mini bar chart — barres verticales + seuil horizontal
-        case .miniBarres(let hauteurs):
-            HStack(alignment: .bottom, spacing: 6) {
-                ForEach(Array(hauteurs.enumerated()), id: \.offset) { _, h in
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(couleur)
-                        .frame(width: 8, height: h)
+            // MARK: Grand chiffre + flèche directionnelle — ex : « 3 nuits ↘ »
+            case .grandNombreAvecFleche(let valeur, let direction):
+                HStack(spacing: 8) {
+                    Text(valeur)
+                        .font(.system(size: 40, weight: .bold))
+                        .foregroundStyle(couleur)
+                        .monospacedDigit()
+                    Image(systemName: direction)
+                        .font(.title)
+                        .foregroundStyle(couleur)
                 }
-            }
-            .frame(height: 30)
-            .overlay(alignment: .bottom) {
-                // Trait fin gris symbolisant le seuil glycémique à
-                // 200 mg/dL — dépassé par les barres pour visualiser
-                // les pics. Offset négatif pour le placer ~2/3 haut.
-                Rectangle()
-                    .fill(Color.secondary.opacity(0.3))
-                    .frame(height: 0.5)
-                    .offset(y: -18)
-            }
-            .accessibilityElement()
-            .accessibilityLabel("\(hauteurs.count) repas, plusieurs ont dépassé le seuil")
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(valeur), tendance")
 
-        // MARK: Préfixe + flèche directionnelle + label coloré
-        case .fleche(let prefix, let direction, let label):
-            HStack(spacing: 8) {
-                Text(prefix)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Image(systemName: direction)
-                    .font(.title3)
-                    .foregroundStyle(couleur)
-                Text(label)
-                    .font(.caption)
-                    .foregroundStyle(couleur)
-            }
-            .frame(height: 30)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(prefix), \(label)")
+            // MARK: Mini bar chart — 4 barres 12pt × hauteur, ligne seuil
+            // grise à mi-hauteur du conteneur 40pt.
+            case .barres(let hauteurs):
+                HStack(alignment: .bottom, spacing: 6) {
+                    ForEach(Array(hauteurs.enumerated()), id: \.offset) { _, h in
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(couleur)
+                            .frame(width: 12, height: h)
+                    }
+                }
+                .frame(height: 40)
+                .overlay(alignment: .bottom) {
+                    // Trait fin gris symbolisant le seuil ~200 mg/dL,
+                    // placé à mi-hauteur du conteneur (20pt du bas).
+                    // Les barres > 20pt le dépassent visuellement.
+                    Rectangle()
+                        .fill(Color.secondary.opacity(0.35))
+                        .frame(height: 0.5)
+                        .offset(y: -20)
+                }
+                .accessibilityElement()
+                .accessibilityLabel("\(hauteurs.count) repas, plusieurs ont dépassé le seuil")
 
-        // MARK: Aucun visuel — le message du dessus prend la place
-        case .aucun:
-            EmptyView()
+            // MARK: Grande icône SF Symbol — ex : `figure.run`
+            case .grandeIcone(let systemName):
+                Image(systemName: systemName)
+                    .font(.system(size: 36))
+                    .foregroundStyle(couleur)
+                    .accessibilityHidden(true)
+            }
         }
+        // Centrage horizontal de la donnée clé dans la carte — le
+        // VStack parent est `.leading`, on étire ici pour permettre
+        // au contenu de se centrer.
+        .frame(maxWidth: .infinity)
     }
 }
 
 // MARK: - Aperçus
 
-#Preview("Pourcentage bleu") {
+#Preview("Grand nombre — bleu") {
     MicroVisuelInsight(
-        type: .pourcentage(label: "Ratio", valeur: "-25%"),
+        type: .grandNombre(valeur: "-25%"),
         couleur: .blue
     )
     .padding()
 }
 
-#Preview("Mini barres orange") {
+#Preview("Nombre + flèche — orange") {
     MicroVisuelInsight(
-        type: .miniBarres(hauteurs: [28, 22, 32, 25]),
+        type: .grandNombreAvecFleche(valeur: "3 nuits", direction: "arrow.down.right"),
         couleur: .orange
     )
     .padding()
 }
 
-#Preview("Flèche descendante orange") {
+#Preview("Mini barres — orange") {
     MicroVisuelInsight(
-        type: .fleche(prefix: "3 nuits", direction: "arrow.down.right", label: "↘ tendance basse"),
+        type: .barres(hauteurs: [20, 28, 35, 24]),
         couleur: .orange
+    )
+    .padding()
+}
+
+#Preview("Grande icône — violet") {
+    MicroVisuelInsight(
+        type: .grandeIcone(systemName: "figure.run"),
+        couleur: .purple
     )
     .padding()
 }
