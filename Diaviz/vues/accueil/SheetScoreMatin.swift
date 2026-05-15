@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Charts
 
 /// Sheet « Score du matin » — résumé visuel détaillé du score de la
 /// veille, présentée automatiquement au lancement de l'app (cf.
@@ -42,6 +43,16 @@ struct SheetScoreMatin: View {
     /// previews / contexte sans navigation hôte).
     var onAfficherDetails: (() -> Void)? = nil
 
+    /// Override des 6 jours précédant `date` pour le graphique
+    /// d'évolution, du plus ancien (J-6) au plus récent (J-2). Le
+    /// dernier point (jour affiché) reste toujours `faits.score` pour
+    /// rester cohérent avec le cercle. `nil` → on lit
+    /// `ScoreJournalierServiceMock` (chemin production).
+    ///
+    /// Existe pour que les previews puissent piloter une courbe
+    /// expressive sans dépendre des aléas du mock service.
+    var historiquePrecedent: [Int?]? = nil
+
     /// VM partagé avec `NarrationJourVue` — même prompt, même pipeline
     /// Foundation Models. On consomme `etat` pour rendre le texte, en
     /// ignorant la coloration sémantique des segments.
@@ -51,6 +62,13 @@ struct SheetScoreMatin: View {
     /// `true` au `.onAppear` pour déclencher le scale-in + fondu du
     /// cercle. Une seule transition par session de sheet.
     @State private var cercleApparu = false
+
+    /// `false` au premier frame, `true` une fois que la courbe doit
+    /// apparaître. Pilote un fade-in + léger slide vers le haut sur
+    /// `graphiqueEvolution`. Décale de ~200 ms après `cercleApparu`
+    /// pour cascader proprement : le cercle gagne d'abord l'attention,
+    /// la courbe arrive en second plan.
+    @State private var graphiqueApparu = false
 
     @Environment(\.dismiss) private var dismiss
 
@@ -71,6 +89,14 @@ struct SheetScoreMatin: View {
                     .font(.body)
                     .foregroundStyle(.secondary)
             }
+
+            // Mini-courbe d'évolution sur 7 jours — situe le score
+            // affiché dans la tendance récente (voir `graphiqueEvolution`).
+            // Fade-in + slide-up de 8pt orchestré par `graphiqueApparu`,
+            // cascadé après l'animation du cercle.
+            graphiqueEvolution
+                .opacity(graphiqueApparu ? 1 : 0)
+                .offset(y: graphiqueApparu ? 0 : 8)
 
             Divider()
                 .padding(.horizontal, 28)
@@ -104,6 +130,15 @@ struct SheetScoreMatin: View {
             try? await Task.sleep(for: .milliseconds(250))
             withAnimation(.spring(response: 0.85, dampingFraction: 0.65)) {
                 cercleApparu = true
+            }
+            // Cascade : on attend que le cercle ait bien commencé sa
+            // course (≈ 350 ms après le départ) avant de faire monter
+            // la courbe. Ça évite que les deux animations s'écrasent,
+            // et le regard a le temps d'enregistrer le score avant de
+            // descendre sur la tendance.
+            try? await Task.sleep(for: .milliseconds(350))
+            withAnimation(.easeOut(duration: 0.55)) {
+                graphiqueApparu = true
             }
         }
     }
@@ -282,6 +317,190 @@ struct SheetScoreMatin: View {
                 )
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: - Évolution sur 7 jours
+
+    /// Graphique Swift Charts montrant l'évolution du score sur les 7
+    /// derniers jours menant au jour affiché (inclus). Le dernier point
+    /// — celui du score présenté par la sheet — est rendu plus gros et
+    /// dans la teinte du score, les 6 précédents en gris discret : on
+    /// veut situer le score du jour dans la tendance, pas faire
+    /// concurrence aux autres éléments visuels de la sheet.
+    ///
+    /// Composé de 2 marks par jour disponible :
+    ///   1. **LineMark** — courbe `.catmullRom` 1.5pt en gris à 40 %,
+    ///      relie les scores connus de bout en bout.
+    ///   2. **PointMark** — symbol 20pt² gris pour J-6…J-2, 50pt²
+    ///      coloré pour le dernier (le score qui motive la sheet).
+    ///      Chaque point porte une annotation `.top` avec la valeur
+    ///      numérique : `.caption2 .secondary` pour les jours passés,
+    ///      `.caption2 .bold` dans la teinte du score pour le dernier.
+    ///
+    /// Échelle Y figée à 0–100 — les variations sont rendues
+    /// proportionnelles à la pleine plage du score (un 80 occupe
+    /// visuellement 80 % de la hauteur). Axe Y caché : on cherche
+    /// la tendance, pas la valeur précise (les annotations donnent
+    /// la valeur exacte si nécessaire). Axe X : initiale du jour
+    /// en `.caption2` `.secondary`, le dernier en `.bold` pour
+    /// ancrer le regard sur "ce jour-ci".
+    ///
+    /// Hauteur 100pt — calée pour laisser de l'air au-dessus du point
+    /// le plus haut (annotation `position: .top`) sans rogner la
+    /// valeur, et sous l'axe X.
+    ///
+    /// Trous de données : un jour à `score == nil` ne dessine aucun
+    /// mark — la courbe enjambe le trou via l'interpolation entre les
+    /// points adjacents. C'est volontaire : on préfère une tendance
+    /// continue à un effet "puzzle" pour un graphique aussi petit.
+    private var graphiqueEvolution: some View {
+        let donnees = donneesGraphique
+        return Chart {
+            ForEach(donnees) { entree in
+                if let valeur = entree.score {
+                    LineMark(
+                        x: .value("Jour", entree.jour, unit: .day),
+                        y: .value("Score", valeur)
+                    )
+                    .foregroundStyle(Color.secondary.opacity(0.4))
+                    .lineStyle(StrokeStyle(lineWidth: 1.5))
+                    .interpolationMethod(.catmullRom)
+
+                    PointMark(
+                        x: .value("Jour", entree.jour, unit: .day),
+                        y: .value("Score", valeur)
+                    )
+                    .symbolSize(entree.estDernier ? 50 : 20)
+                    .foregroundStyle(
+                        entree.estDernier
+                            ? couleurAccent
+                            : Color.secondary.opacity(0.4)
+                    )
+                    .annotation(position: .top, spacing: 4) {
+                        Text("\(valeur)")
+                            .font(.caption2)
+                            .fontWeight(entree.estDernier ? .bold : .regular)
+                            .foregroundStyle(
+                                entree.estDernier
+                                    ? couleurAccent
+                                    : Color.secondary
+                            )
+                            .monospacedDigit()
+                    }
+                }
+            }
+        }
+        .chartYScale(domain: 0...100)
+        .chartYAxis(.hidden)
+        .chartXAxis {
+            // Une marque par jour de donnée — values explicites pour
+            // garantir l'alignement label/point (sinon Charts choisit
+            // ses propres tickmarks et peut décaler ou en omettre).
+            AxisMarks(values: donnees.map(\.jour)) { value in
+                if let jour = value.as(Date.self) {
+                    AxisValueLabel(centered: true) {
+                        Text(initialeJour(jour))
+                            .font(.caption2)
+                            .fontWeight(estJourAffiche(jour) ? .bold : .regular)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .frame(height: 100)
+        .padding(.horizontal, 24)
+        // Air supplémentaire au-dessus de la courbe : la date juste
+        // au-dessus est déjà séparée par les 24pt du `VStack` parent,
+        // mais avec les annotations qui posent les valeurs en haut des
+        // points, on veut un peu plus de respiration visuelle.
+        .padding(.top, 12)
+        .accessibilityLabel("Évolution du score sur 7 jours")
+        .accessibilityValue(libelleAccessibiliteCourbe)
+    }
+
+    /// Données de la courbe : 7 jours menant au jour affiché. Le
+    /// dernier point est toujours `faits.score` — il doit coïncider
+    /// avec le chiffre affiché dans le cercle.
+    ///
+    /// Source des 6 premiers points :
+    ///   - `historiquePrecedent` si fourni (cas previews) ;
+    ///   - sinon `ScoreJournalierServiceMock` (chemin production).
+    private var donneesGraphique: [EntreeGraphique] {
+        let cal = Calendar.current
+        let base = cal.startOfDay(for: date)
+
+        // Source pour J-6…J-2 : override preview ou service mock.
+        let scoresPrecedents: [Int?] = {
+            if let override = historiquePrecedent {
+                // Sécurise la taille à exactement 6, complète par
+                // `nil` si on en reçoit moins (les previews respectent
+                // la contrainte, mais on ne crash pas si elle saute).
+                let pad = max(0, 6 - override.count)
+                return Array(override.prefix(6)) + Array(repeating: nil, count: pad)
+            }
+            let historique = ScoreJournalierServiceMock.shared
+                .historiqueSept(jusquA: date)
+            // `historiqueSept` renvoie 7 valeurs (J-6 → jour affiché).
+            // On ne garde que les 6 premières — le 7ᵉ point vient
+            // toujours de `faits.score`.
+            return Array(historique.prefix(6)).map(\.score)
+        }()
+
+        return (0..<7).map { offset in
+            let decalage = 6 - offset
+            let jour = cal.date(byAdding: .day, value: -decalage, to: base) ?? base
+            let estDernier = (offset == 6)
+            let score = estDernier
+                ? faits.score
+                : scoresPrecedents[offset]
+            return EntreeGraphique(
+                jour: jour,
+                score: score,
+                estDernier: estDernier
+            )
+        }
+    }
+
+    /// `true` si `jour` correspond au jour affiché par la sheet —
+    /// utilisé pour mettre l'initiale du dernier label en gras.
+    private func estJourAffiche(_ jour: Date) -> Bool {
+        Calendar.current.isDate(jour, inSameDayAs: date)
+    }
+
+    /// Initiale du jour de la semaine en français (L, M, M, J, V, S,
+    /// D). `EEEEE` = forme "narrow" du weekday — locale `fr_FR` forcée
+    /// pour ne pas dépendre des préférences système.
+    private func initialeJour(_ jour: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "fr_FR")
+        formatter.dateFormat = "EEEEE"
+        return formatter.string(from: jour)
+    }
+
+    /// Résumé textuel de la courbe pour VoiceOver — liste compacte
+    /// "lundi : 78, mardi : 82, …". Les jours sans donnée sont signalés.
+    private var libelleAccessibiliteCourbe: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "fr_FR")
+        formatter.dateFormat = "EEEE"
+        return donneesGraphique.map { entree in
+            let nom = formatter.string(from: entree.jour)
+            if let v = entree.score {
+                return "\(nom) : \(v)"
+            }
+            return "\(nom) : non disponible"
+        }.joined(separator: ", ")
+    }
+
+    /// Un point du graphique d'évolution — `jour` sert d'identité,
+    /// `score` à `nil` pour les jours sans donnée, `estDernier` pour
+    /// distinguer visuellement le point qui correspond au score
+    /// présenté par la sheet.
+    private struct EntreeGraphique: Identifiable {
+        let jour: Date
+        let score: Int?
+        let estDernier: Bool
+        var id: Date { jour }
     }
 
     // MARK: - Helpers dérivés du score
@@ -475,10 +694,20 @@ private let _faitsScore22 = FaitsJour(
     sportContext: nil
 )
 
+// Historique synthétique partagé par les previews — 6 valeurs pour
+// J-6…J-2 (du plus ancien au plus récent), avec un creux dimanche et
+// un pic mardi pour que la courbe ait du grain à voir. Le 7ᵉ point
+// (jour affiché) est toujours `faits.score`, géré côté vue.
+private let _historiquePreview: [Int?] = [65, 78, 55, 82, 90, 72]
+
 #Preview("Score 92 — Très bonne") {
     Color.clear
         .sheet(isPresented: .constant(true)) {
-            SheetScoreMatin(faits: _faitsScore92, date: Date())
+            SheetScoreMatin(
+                faits: _faitsScore92,
+                date: Date(),
+                historiquePrecedent: _historiquePreview
+            )
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
@@ -487,7 +716,11 @@ private let _faitsScore22 = FaitsJour(
 #Preview("Score 78 — Bonne") {
     Color.clear
         .sheet(isPresented: .constant(true)) {
-            SheetScoreMatin(faits: _faitsScore78, date: Date())
+            SheetScoreMatin(
+                faits: _faitsScore78,
+                date: Date(),
+                historiquePrecedent: _historiquePreview
+            )
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
@@ -496,7 +729,11 @@ private let _faitsScore22 = FaitsJour(
 #Preview("Score 58 — Moyenne") {
     Color.clear
         .sheet(isPresented: .constant(true)) {
-            SheetScoreMatin(faits: _faitsScore58, date: Date())
+            SheetScoreMatin(
+                faits: _faitsScore58,
+                date: Date(),
+                historiquePrecedent: _historiquePreview
+            )
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
@@ -505,7 +742,11 @@ private let _faitsScore22 = FaitsJour(
 #Preview("Score 38 — Difficile") {
     Color.clear
         .sheet(isPresented: .constant(true)) {
-            SheetScoreMatin(faits: _faitsScore38, date: Date())
+            SheetScoreMatin(
+                faits: _faitsScore38,
+                date: Date(),
+                historiquePrecedent: _historiquePreview
+            )
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
@@ -514,7 +755,11 @@ private let _faitsScore22 = FaitsJour(
 #Preview("Score 22 — Très difficile") {
     Color.clear
         .sheet(isPresented: .constant(true)) {
-            SheetScoreMatin(faits: _faitsScore22, date: Date())
+            SheetScoreMatin(
+                faits: _faitsScore22,
+                date: Date(),
+                historiquePrecedent: _historiquePreview
+            )
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
