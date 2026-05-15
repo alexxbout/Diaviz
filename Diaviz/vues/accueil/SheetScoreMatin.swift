@@ -73,41 +73,44 @@ struct SheetScoreMatin: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(spacing: 24) {
-            titre
+        ScrollView {
+            VStack(spacing: 24) {
+                titre
 
-            cercleScore
-                .padding(.top, 10)
+                cercleScore
+                    .padding(.top, 10)
 
-            // Libellé qualitatif + date — bloc texte central.
-            VStack(spacing: 6) {
-                Text(libelleQualitatif)
-                    .font(.title2.bold())
-                    .foregroundStyle(.primary)
+                // Libellé qualitatif + date — bloc texte central.
+                VStack(spacing: 6) {
+                    Text(libelleQualitatif)
+                        .font(.title2.bold())
+                        .foregroundStyle(.primary)
 
-                Text(dateFormatee)
-                    .font(.body)
-                    .foregroundStyle(.secondary)
+                    Text(dateFormatee)
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                }
+
+                // Mini-courbe d'évolution sur 7 jours — situe le score
+                // affiché dans la tendance récente (voir `graphiqueEvolution`).
+                // Fade-in + slide-up de 8pt orchestré par `graphiqueApparu`,
+                // cascadé après l'animation du cercle.
+                graphiqueEvolution
+                    .opacity(graphiqueApparu ? 1 : 0)
+                    .offset(y: graphiqueApparu ? 0 : 8)
+
+                Divider()
+                    .padding(.horizontal, 28)
+
+                // Paragraphe d'analyse — rendu simple, sans couleur ni emoji.
+                // S'étend librement en hauteur : le ScrollView parent
+                // prend le relais quand le texte dépasse l'écran.
+                paragrapheAnalyse
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, 16)
             }
-
-            // Mini-courbe d'évolution sur 7 jours — situe le score
-            // affiché dans la tendance récente (voir `graphiqueEvolution`).
-            // Fade-in + slide-up de 8pt orchestré par `graphiqueApparu`,
-            // cascadé après l'animation du cercle.
-            graphiqueEvolution
-                .opacity(graphiqueApparu ? 1 : 0)
-                .offset(y: graphiqueApparu ? 0 : 8)
-
-            Divider()
-                .padding(.horizontal, 28)
-
-            // Paragraphe d'analyse — rendu simple, sans couleur ni emoji.
-            paragrapheAnalyse
-                .padding(.horizontal, 28)
-
-            Spacer(minLength: 16)
+            .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         // Bouton ancré en safe area bottom → toujours entièrement
         // visible sans risque de chevauchement avec la home indicator
         // ni de troncature en bas de sheet.
@@ -157,8 +160,8 @@ struct SheetScoreMatin: View {
             .padding(.top, 24)
     }
 
-    /// Cercle 140pt avec mesh gradient continu (rouge → vert selon le
-    /// score) et chiffre du score en blanc 52pt bold centré. Ombre douce
+    /// Cercle 110pt avec mesh gradient continu (rouge → vert selon le
+    /// score) et chiffre du score en blanc 42pt bold centré. Ombre douce
     /// dans la teinte dominante. Animations à l'apparition :
     ///   - Scale 0.5 → 1.0 avec spring (réagit à `cercleApparu`).
     ///   - Opacity 0 → 1 (même transition).
@@ -171,17 +174,17 @@ struct SheetScoreMatin: View {
                     phase: MeshScore.phase(date: contexte.date)
                 )
                 .clipShape(Circle())
-                .frame(width: 140, height: 140)
+                .frame(width: 110, height: 110)
                 .shadow(
                     color: couleurAccent.opacity(0.40),
-                    radius: 14,
+                    radius: 12,
                     x: 0,
-                    y: 7
+                    y: 6
                 )
             }
 
             ChiffreAnime(cible: faits.score, duree: 1.8)
-                .font(.system(size: 52, weight: .bold, design: .rounded))
+                .font(.system(size: 42, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
                 .shadow(color: .black.opacity(0.18), radius: 2, x: 0, y: 1)
         }
