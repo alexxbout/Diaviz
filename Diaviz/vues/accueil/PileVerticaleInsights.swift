@@ -130,8 +130,10 @@ struct PileVerticaleInsights: View {
     private var swipeGesture: some Gesture {
         DragGesture()
             .onChanged { value in
-                // Pendant l'animation de dismiss, on ignore les
-                // updates : la carte est déjà partie.
+                // Pendant qu'un dismiss est en cours (doigt toujours
+                // posé sur l'écran), on ignore les updates pour que
+                // la nouvelle carte top ne se mette pas à suivre le
+                // doigt et ne soit pas re-dismissée en chaîne.
                 guard !enCoursDeDismiss else { return }
 
                 // Filtre directionnel — on n'absorbe le drag que s'il
@@ -145,18 +147,33 @@ struct PileVerticaleInsights: View {
                 // Auto-dismiss au-delà du gros seuil — pendant le
                 // drag, sans attendre le release. Plafonne de fait
                 // la distance de drag visible (au lieu d'aller à
-                // l'infini, la carte file en dessous).
+                // l'infini, la carte file en dessous). Le verrou est
+                // posé ici et ne sera libéré qu'au `.onEnded` (release
+                // du doigt) — c'est ce qui empêche le re-déclenchement
+                // en chaîne sur la nouvelle carte top.
                 if abs(value.translation.height) > seuilAutoDismiss {
+                    enCoursDeDismiss = true
                     declenchementDismiss()
                 }
             }
             .onEnded { value in
-                guard !enCoursDeDismiss else { return }
+                // Cas 1 : auto-dismiss déjà déclenché pendant le drag.
+                // On se contente de libérer le verrou — le release
+                // arrive après la fin (probable) de l'animation, le
+                // doigt est enfin levé, la mécanique peut reprendre.
+                if enCoursDeDismiss {
+                    enCoursDeDismiss = false
+                    return
+                }
 
+                // Cas 2 : release au-delà du seuil "intentionnel" mais
+                // sans avoir atteint l'auto-dismiss → dismiss classique.
+                // Pas besoin de verrou : le gesture est en train de se
+                // terminer, aucun `.onChanged` ne suivra.
                 if abs(value.translation.height) > seuilSwipe {
                     declenchementDismiss()
                 } else {
-                    // Pas assez loin → snap back élastique.
+                    // Cas 3 : pas assez loin → snap back élastique.
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
                         glissementY = 0
                     }
@@ -165,15 +182,12 @@ struct PileVerticaleInsights: View {
     }
 
     /// Anime le passage de la carte du dessus en dessous de la pile.
-    /// Pose le verrou `enCoursDeDismiss` pour bloquer les ré-entrées
-    /// du gesture pendant l'animation, libère le verrou au complétion.
+    /// La gestion du verrou `enCoursDeDismiss` (pose / libération)
+    /// est faite par les call-sites — ici on ne fait que l'animation.
     private func declenchementDismiss() {
-        enCoursDeDismiss = true
         withAnimation(.spring(response: 0.4, dampingFraction: 0.82)) {
             indexActif = (indexActif + 1) % insights.count
             glissementY = 0
-        } completion: {
-            enCoursDeDismiss = false
         }
     }
 }

@@ -71,8 +71,10 @@ struct CarteInsight: View {
         .glassEffect(
             // `.interactive()` = la surface glass se déforme fluidement
             // sous le doigt (signature Liquid Glass iOS 26).
-            // Tint à 0.30 pour mieux affirmer la couleur de catégorie.
-            .regular.tint(insight.categorie.couleur.opacity(0.30)).interactive(),
+            // Tint à 0.15 : assez bas pour laisser passer la refraction
+            // et le blur naturels de la glass (= sensation "liquide"),
+            // assez présent pour conserver le repère catégorie.
+            .regular.tint(insight.categorie.couleur.opacity(0.15)).interactive(),
             in: RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
         )
         .accessibilityElement(children: .combine)
