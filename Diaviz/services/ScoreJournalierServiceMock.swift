@@ -74,12 +74,23 @@ final class ScoreJournalierServiceMock {
     /// 7 jours menant jusqu'au jour donné inclus, du plus ancien (J-6)
     /// au plus récent (jour). Les jours sans donnée (hors plage)
     /// retournent `nil` — la bar chart les rend en barres atténuées.
+    ///
+    /// Cas particulier : si `jour` est le jour courant, on substitue
+    /// le score partiel `scoreDuJour` (calculé en temps réel) au lieu
+    /// du `nil` qui résulterait du fait qu'aujourd'hui n'est pas
+    /// dans la liste consolidée.
     func historiqueSept(jusquA jour: Date) -> [(jour: Date, score: Int?)] {
         let cal = Calendar.current
         let base = cal.startOfDay(for: jour)
+        let aujourdhui = cal.startOfDay(for: Date())
         return (0..<7).reversed().compactMap { decalage in
             guard let j = cal.date(byAdding: .day, value: -decalage, to: base) else {
                 return nil
+            }
+            // Aujourd'hui n'est pas dans `scores` (consolidé J-30…J-1).
+            // On exposes le score partiel calculé en temps réel.
+            if cal.isDate(j, inSameDayAs: aujourdhui) {
+                return (j, scoreDuJour)
             }
             return (j, score(pour: j)?.score)
         }
@@ -89,6 +100,70 @@ final class ScoreJournalierServiceMock {
     /// hier (J-1). Aujourd'hui exclu (pas de score consolidé).
     var joursNavigables: [Date] {
         scores.map(\.jour).sorted()
+    }
+
+    // MARK: - Jour en cours (convention 06h-06h)
+
+    /// Heure de début du **jour métabolique** courant (06h locale).
+    /// Avant 06h, on est encore dans le jour métabolique précédent —
+    /// la nuit appartient à la journée qui vient de s'écouler.
+    ///
+    /// Convention partagée avec la couche d'analyses : les pics
+    /// nocturnes (00h-06h) sont attribués à la journée précédente,
+    /// pas à la journée qui démarre.
+    static func debutJourMetabolique(pour date: Date = Date()) -> Date {
+        let cal = Calendar.current
+        let sixHeures = cal.date(
+            bySettingHour: 6, minute: 0, second: 0, of: date
+        ) ?? date
+        if date < sixHeures {
+            return cal.date(byAdding: .day, value: -1, to: sixHeures) ?? sixHeures
+        }
+        return sixHeures
+    }
+
+    /// Heures écoulées depuis le début du jour métabolique courant.
+    /// Bornées à [0, 24] — à 06h pile c'est 0, juste avant 06h c'est
+    /// très proche de 24 (la journée précédente touche à sa fin).
+    var heuresDataDuJour: Double {
+        let now = Date()
+        let debut = Self.debutJourMetabolique(pour: now)
+        return max(0, min(24, now.timeIntervalSince(debut) / 3600))
+    }
+
+    /// Score partiel du jour en cours, recalculé à chaque accès. Mock
+    /// déterministe : décroît progressivement à mesure que la journée
+    /// avance (modèle volontairement simpliste — la couche d'analyses
+    /// produira un vrai score à partir des données CGM).
+    ///
+    /// Calage des paliers — cohérent avec le brief :
+    ///   - 0h..<8h   : 90 → 78 (haut le matin, peu d'évènements)
+    ///   - 8h..<16h  : 78 → 72 (déjeuner + après-midi : ça se dégrade)
+    ///   - 16h..24h  : 72       (plateau soirée)
+    var scoreDuJour: Int {
+        let h = heuresDataDuJour
+        switch h {
+        case ..<8:  return Int((90 - h * 1.5).rounded())
+        case ..<16: return Int((78 - (h - 8) * 0.75).rounded())
+        default:    return 72
+        }
+    }
+
+    /// `ScoreJournalier` partiel pour aujourd'hui — assemble le score
+    /// en cours (`scoreDuJour`) avec des faits dérivés du même
+    /// algorithme que les jours consolidés. Utilisé par `DetailScoreVue`
+    /// pour rendre la répartition / décomposition même quand la
+    /// journée n'est pas terminée.
+    ///
+    /// `jitter: 0` → répartition hypo / hyper figée pour aujourd'hui
+    /// (pas d'aléa entre deux accès dans la même journée).
+    var partielDuJour: ScoreJournalier {
+        let cal = Calendar.current
+        let aujourdhui = cal.startOfDay(for: Date())
+        return ScoreJournalier(
+            jour: aujourdhui,
+            faits: Self.faits(pourScore: scoreDuJour, jitter: 0)
+        )
     }
 
     // MARK: Génération mockée

@@ -7,8 +7,8 @@
 
 import SwiftUI
 
-/// Page d'accueil — carte score quotidien (résumé de la veille) et
-/// futures cartes d'analyses.
+/// Page d'accueil — carte score du jour (en temps réel, convention
+/// 06h-06h) et grille d'aperçu instantané sur l'état courant.
 ///
 /// Header App Store style (titre + avatar sur la même ligne) géré par
 /// le composant partagé `EnTetePage`, présent à l'identique sur
@@ -32,6 +32,11 @@ struct AccueilVue: View {
     /// d'analyses sera branchée.
     @State private var metriquesService = AccueilMetriquesServiceMock.shared
 
+    /// Service mocké pour le score du jour et son historique. Expose
+    /// `scoreDuJour` et `heuresDataDuJour` recalculés à chaque accès
+    /// (live), plus `historiqueSept` qui inclut la barre du jour.
+    @State private var scoreService = ScoreJournalierServiceMock.shared
+
     init(jourDetailScore: Binding<Date?> = .constant(nil)) {
         self._jourDetailScore = jourDetailScore
     }
@@ -48,16 +53,13 @@ struct AccueilVue: View {
 
                 ScrollView {
                     VStack(spacing: 16) {
-                        // Carte score quotidien — données mockées en
-                        // attendant la couche d'analyses.
+                        // Carte score du jour — recalculée en temps
+                        // réel (06h-06h), avec la dernière barre de
+                        // l'historique rendue en mode "en cours".
                         CarteScoreQuotidien(
-                            contenu: ContenuCarteScore(
-                                score: 82,
-                                date: hier,
-                                historique: [65, 78, 71, 55, 88, 73, 82]
-                            ),
+                            contenu: contenuScore,
                             style: .gradient,
-                            onTap: { jourDetailScore = hier }
+                            onTap: { jourDetailScore = aujourdhui }
                         )
 
                         // Grille de 4 cartes métriques — aperçu
@@ -87,8 +89,25 @@ struct AccueilVue: View {
         }
     }
 
-    private var hier: Date {
-        Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+    /// Date du jour calendaire courant (00h locale) — sert d'ancre
+    /// pour la navigation vers `DetailScoreVue` et de pivot pour
+    /// l'historique 7 jours.
+    private var aujourdhui: Date {
+        Calendar.current.startOfDay(for: Date())
+    }
+
+    /// Contenu de la carte score, recalculé à chaque render via les
+    /// computed properties du service — `scoreDuJour` et
+    /// `heuresDataDuJour` sont en temps réel.
+    private var contenuScore: ContenuCarteScore {
+        let historique = scoreService.historiqueSept(jusquA: aujourdhui)
+            .map { $0.score }
+        return ContenuCarteScore(
+            score: scoreService.scoreDuJour,
+            date: aujourdhui,
+            historique: historique,
+            heuresJourEcoulees: scoreService.heuresDataDuJour
+        )
     }
 }
 

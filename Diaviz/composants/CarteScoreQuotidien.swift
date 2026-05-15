@@ -12,14 +12,25 @@ import Charts
 
 /// Données affichées par `CarteScoreQuotidien`. Partagée entre les
 /// variants de style pour garantir une cohérence d'affichage.
+///
+/// Modèle "score du jour" : le `score` représente la journée
+/// **courante** (recalculée en temps réel sur la convention 06h-06h),
+/// et la 7ᵉ barre de l'historique est rendue en mode "en cours" —
+/// partiellement remplie selon `heuresJourEcoulees` et entourée d'une
+/// bordure pointillée pulsante.
 struct ContenuCarteScore: Sendable, Equatable {
     /// Score sur 100 — `nil` quand la couverture CGM est insuffisante.
     let score: Int?
-    /// Date du score affiché (le dernier élément d'`historique`).
+    /// Date du jour affiché (le dernier élément d'`historique`).
     let date: Date
     /// 7 derniers scores, du plus ancien au plus récent. Les valeurs
-    /// `nil` sont rendues en barres atténuées.
+    /// `nil` sont rendues en barres atténuées. Le dernier élément est
+    /// le score partiel du jour courant.
     let historique: [Int?]
+    /// Heures écoulées depuis 06h ce matin (0 à 24). Pilote le
+    /// remplissage partiel de la 7ᵉ barre et le sous-texte
+    /// "Xh de données".
+    let heuresJourEcoulees: Double
 }
 
 /// Style visuel de la carte. La variante `.gradient` reprend la teinte
@@ -32,10 +43,12 @@ enum StyleCarteScore: Sendable, CaseIterable {
 
 // MARK: - Vue principale
 
-/// Carte « score quotidien » — résumé glycémique de la veille, style
-/// Apple Santé : barre de titre avec icône + chevron, puis cercle
-/// dégradé portant le chiffre, qualificatif court, et mini-graphique
-/// en barres des 7 derniers jours. Existe en deux variants visuels
+/// Carte « score du jour » — résumé glycémique de la journée en
+/// cours (convention 06h-06h, recalculé en temps réel), style Apple
+/// Santé : barre de titre avec icône + chevron, puis cercle dégradé
+/// portant le chiffre, qualificatif court + heures de données, et
+/// mini-graphique en barres des 7 derniers jours dont la dernière
+/// est rendue en mode "en cours". Existe en deux variants visuels
 /// (voir `StyleCarteScore`).
 struct CarteScoreQuotidien: View {
 
@@ -66,7 +79,7 @@ struct CarteScoreQuotidien: View {
             Image(systemName: "target")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(couleurTitre)
-            Text("Score de la veille")
+            Text("Score du jour")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(couleurTitre)
             Spacer(minLength: 8)
@@ -80,20 +93,43 @@ struct CarteScoreQuotidien: View {
         HStack(spacing: 14) {
             CercleScore(score: contenu.score, style: style)
 
-            Text(libelleQualitatif)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(couleurTexte)
-                .lineLimit(2)
-                .minimumScaleFactor(0.85)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(libelleQualitatif)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(couleurTexte)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+
+                Text(libelleHeuresDonnees)
+                    .font(.caption)
+                    .foregroundStyle(couleurSubtext)
+            }
 
             Spacer(minLength: 8)
 
-            HistoriqueBarChart(
+            BarresHistorique(
                 historique: contenu.historique,
                 scoreActuel: contenu.score,
+                pourcentageJourActuel: contenu.heuresJourEcoulees / 24,
                 style: style
             )
             .accessibilityHidden(true)
+        }
+    }
+
+    /// Sous-texte « Xh de données » — heures écoulées depuis 06h ce
+    /// matin, arrondies à l'entier inférieur (8.5h → "8h").
+    private var libelleHeuresDonnees: String {
+        let heures = Int(contenu.heuresJourEcoulees.rounded(.down))
+        return "\(heures)h de données"
+    }
+
+    /// Couleur du sous-texte : blanc à 70 % d'opacité en gradient,
+    /// `.secondary` standard en sobre.
+    private var couleurSubtext: Color {
+        switch style {
+        case .sobre:    return .secondary
+        case .gradient: return Color.white.opacity(0.7)
         }
     }
 
@@ -166,10 +202,11 @@ struct CarteScoreQuotidien: View {
     }
 
     private var libelleAccessibilite: String {
+        let heures = Int(contenu.heuresJourEcoulees.rounded(.down))
         if let score = contenu.score {
-            return "Score d'hier : \(score) sur 100, journée \(libelleQualitatif.lowercased())"
+            return "Score du jour : \(score) sur 100, \(heures) heures de données, journée \(libelleQualitatif.lowercased())"
         }
-        return "Score d'hier indisponible"
+        return "Score du jour indisponible, \(heures) heures de données"
     }
 }
 
@@ -461,79 +498,183 @@ private struct CercleScore: View {
     }
 }
 
-// MARK: - Mini-graphique 7 jours (Swift Charts)
+// MARK: - Mini-histogramme 7 jours (composé à la main)
 
-/// Mini bar chart des 7 derniers scores, axes masqués. La dernière
-/// barre (jour courant) est mise en avant : couleur du score en variante
-/// sobre, blanc plein en variante gradient. Les autres barres sont en
-/// gris atténué (sobre) ou blanc translucide (gradient — pour simuler
-/// l'effet glass à l'échelle d'une barre de 5pt).
-private struct HistoriqueBarChart: View {
+/// Mini bar chart maison — 6 barres consolidées + 1 barre "en cours"
+/// pour le jour courant. Composé à la main (HStack de rectangles)
+/// plutôt que via Swift Charts parce que la barre du jour nécessite :
+///   - un remplissage partiel proportionnel au % de la journée écoulée
+///   - une bordure pointillée pulsante
+///   - une animation continue de l'opacité de la bordure
+///
+/// Trois éléments que `BarMark` ne sait pas composer directement.
+private struct BarresHistorique: View {
     let historique: [Int?]
     let scoreActuel: Int?
+    /// 0…1, % de la journée écoulée depuis 06h (pilote le remplissage
+    /// partiel de la 7ᵉ barre). À midi : ~0.25. À minuit : 0.75.
+    let pourcentageJourActuel: Double
     let style: StyleCarteScore
 
+    /// Largeur d'une barre, partagée par toutes (régulières et en cours).
+    private static let largeurBarre: CGFloat = 5
+
+    /// Spacing entre barres dans le HStack — calé pour qu'un total
+    /// de 7 barres × 5pt + 6 gaps × 4pt = 59pt rentre confortablement
+    /// dans la largeur historique de ~64pt.
+    private static let spacing: CGFloat = 4
+
     var body: some View {
-        Chart {
-            ForEach(Array(historique.enumerated()), id: \.offset) { index, valeur in
-                BarMark(
-                    x: .value("Jour", index),
-                    y: .value("Score", hauteur(valeur)),
-                    width: .fixed(5)
-                )
-                .foregroundStyle(couleurBarre(index: index, valeur: valeur))
-                .cornerRadius(1.5)
+        HStack(alignment: .bottom, spacing: Self.spacing) {
+            ForEach(0..<historique.count, id: \.self) { index in
+                barre(at: index)
+                    .frame(width: Self.largeurBarre)
             }
         }
-        .chartXAxis(.hidden)
-        .chartYAxis(.hidden)
-        .chartYScale(domain: 0...100)
         .frame(width: 64, height: 44)
     }
 
-    /// Plancher visuel : un score très bas (1–2) doit rester perceptible.
-    /// Les valeurs `nil` occupent toute la hauteur (style « fantôme »).
-    private func hauteur(_ valeur: Int?) -> Int {
-        guard let valeur else { return 100 }
-        return max(3, min(100, valeur))
+    @ViewBuilder
+    private func barre(at index: Int) -> some View {
+        if estJourCourant(index) {
+            BarreEnCours(
+                valeur: historique[index],
+                pourcentageJour: pourcentageJourActuel,
+                style: style
+            )
+        } else {
+            BarreHistorique(valeur: historique[index], style: style)
+        }
     }
 
-    private func couleurBarre(index: Int, valeur: Int?) -> AnyShapeStyle {
-        let estActuelle = index == historique.count - 1
+    private func estJourCourant(_ index: Int) -> Bool {
+        index == historique.count - 1
+    }
+}
+
+// MARK: - Barre régulière (jours J-6 … J-1)
+
+/// Barre consolidée d'un jour passé — simple rectangle arrondi à la
+/// couleur de la palette, hauteur proportionnelle au score. Valeur
+/// `nil` → barre pleine hauteur, opacité réduite (« fantôme »).
+private struct BarreHistorique: View {
+    let valeur: Int?
+    let style: StyleCarteScore
+
+    var body: some View {
+        GeometryReader { geo in
+            let fraction = Self.fractionHauteur(valeur)
+            let hauteur = geo.size.height * fraction
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(couleur)
+                    .frame(height: hauteur)
+            }
+        }
+    }
+
+    /// Plancher visuel à 3 % — un score très bas (1–2) doit rester
+    /// perceptible. `nil` (pas de donnée) → barre pleine hauteur en
+    /// teinte fantôme.
+    private static func fractionHauteur(_ v: Int?) -> Double {
+        guard let v else { return 1.0 }
+        return Double(max(3, min(100, v))) / 100.0
+    }
+
+    private var couleur: Color {
         switch style {
         case .sobre:
-            if valeur == nil {
-                return AnyShapeStyle(Color.secondary.opacity(0.18))
-            }
-            if estActuelle, let scoreActuel {
-                return AnyShapeStyle(CouleurScore.couleur(pour: scoreActuel))
-            }
-            return AnyShapeStyle(Color.secondary.opacity(0.5))
+            return valeur == nil
+                ? Color.secondary.opacity(0.18)
+                : Color.secondary.opacity(0.5)
         case .gradient:
-            if valeur == nil {
-                return AnyShapeStyle(Color.white.opacity(0.15))
+            return valeur == nil
+                ? Color.white.opacity(0.15)
+                : Color.white.opacity(0.45)
+        }
+    }
+}
+
+// MARK: - Barre du jour en cours
+
+/// 7ᵉ barre — même apparence générale que les barres consolidées
+/// (couleur du score sur fond fantôme), avec **un seul** indice
+/// visuel pour signaler "en construction" :
+///
+///   - hauteur totale identique aux autres barres (= celle qui
+///     correspondrait au score actuel)
+///   - **fond fantôme** sur toute cette hauteur (opacité 0.3) —
+///     matérialise la cible que la barre va atteindre
+///   - **remplissage plein** depuis le bas, proportionnel au % de
+///     la journée écoulée (à midi, ~25 % rempli ; à minuit, ~75 %)
+///
+/// Pas de bordure ni d'animation pulse — le seul fait que la barre
+/// "monte" au fil de la journée suffit à la différencier des autres.
+private struct BarreEnCours: View {
+    let valeur: Int?
+    /// 0…1, fraction de la barre remplie depuis le bas.
+    let pourcentageJour: Double
+    let style: StyleCarteScore
+
+    var body: some View {
+        GeometryReader { geo in
+            let fraction = Self.fractionHauteur(valeur)
+            let hauteurBarre = geo.size.height * fraction
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                ZStack(alignment: .bottom) {
+                    // Fond fantôme — opacité 0.3 sur toute la hauteur
+                    RoundedRectangle(cornerRadius: 1.5)
+                        .fill(couleurAccent.opacity(0.3))
+
+                    // Remplissage proportionnel au % journée écoulée
+                    RoundedRectangle(cornerRadius: 1.5)
+                        .fill(couleurAccent)
+                        .frame(height: hauteurBarre * pourcentageJour)
+                }
+                .frame(height: hauteurBarre)
             }
-            if estActuelle {
-                return AnyShapeStyle(Color.white)
-            }
-            return AnyShapeStyle(Color.white.opacity(0.45))
+        }
+    }
+
+    /// Même règle que `BarreHistorique` — plancher à 3 % pour rester
+    /// visible, `nil` → pleine hauteur.
+    private static func fractionHauteur(_ v: Int?) -> Double {
+        guard let v else { return 1.0 }
+        return Double(max(3, min(100, v))) / 100.0
+    }
+
+    /// Teinte du jour : palette score (sobre) ou blanc (gradient).
+    /// Pour `nil`, on tombe en gris neutre — la pulsation reste mais
+    /// la barre n'a pas de couleur propre.
+    private var couleurAccent: Color {
+        switch style {
+        case .sobre:
+            guard let v = valeur else { return Color.secondary.opacity(0.5) }
+            return CouleurScore.couleur(pour: v)
+        case .gradient:
+            return .white
         }
     }
 }
 
 // MARK: - Aperçus
 
-/// Wrapper de preview avec slider pour balayer toute la plage 0–100 et
-/// observer simultanément les deux variants sur la même donnée. Le 7ᵉ
-/// point de l'historique reflète le score courant.
+/// Wrapper de preview avec deux sliders : score (0–100) et heures de
+/// la journée (0–24). Permet d'observer le rendu pour différents
+/// moments de la journée — matin (peu de remplissage de la 7ᵉ barre),
+/// midi (1/4), soir (3/4).
 private struct ApercuAvecSlider: View {
-    @State private var score: Double = 82
+    @State private var score: Double = 78
+    @State private var heures: Double = 8
 
     var body: some View {
         let contenu = ContenuCarteScore(
             score: Int(score),
             date: Date(),
-            historique: [65, 78, 71, 55, 88, 73, Int(score)]
+            historique: [65, 78, 71, 55, 88, 73, Int(score)],
+            heuresJourEcoulees: heures
         )
         VStack(spacing: 20) {
             Spacer()
@@ -541,7 +682,7 @@ private struct ApercuAvecSlider: View {
             CarteScoreQuotidien(contenu: contenu, style: .sobre, onTap: {})
             CarteScoreQuotidien(contenu: contenu, style: .gradient, onTap: {})
 
-            VStack(spacing: 4) {
+            VStack(spacing: 6) {
                 Slider(value: $score, in: 0...100, step: 1)
                 HStack {
                     Text("0")
@@ -551,6 +692,19 @@ private struct ApercuAvecSlider: View {
                         .foregroundStyle(.primary)
                     Spacer()
                     Text("100")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                Slider(value: $heures, in: 0...24, step: 0.5)
+                HStack {
+                    Text("0h")
+                    Spacer()
+                    Text("\(heures, specifier: "%.1f")h depuis 06h")
+                        .font(.headline.monospacedDigit())
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    Text("24h")
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -573,11 +727,66 @@ private struct ApercuAvecSlider: View {
         .preferredColorScheme(.dark)
 }
 
+#Preview("Score du jour - Matin 8h") {
+    let contenu = ContenuCarteScore(
+        score: 85,
+        date: Date(),
+        historique: [65, 78, 71, 55, 88, 73, 85],
+        heuresJourEcoulees: 2
+    )
+    VStack(spacing: 16) {
+        Spacer()
+        CarteScoreQuotidien(contenu: contenu, style: .sobre, onTap: {})
+        CarteScoreQuotidien(contenu: contenu, style: .gradient, onTap: {})
+        Spacer()
+    }
+    .padding()
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .background(Color(.systemGroupedBackground))
+}
+
+#Preview("Score du jour - Midi") {
+    let contenu = ContenuCarteScore(
+        score: 78,
+        date: Date(),
+        historique: [65, 78, 71, 55, 88, 73, 78],
+        heuresJourEcoulees: 8
+    )
+    VStack(spacing: 16) {
+        Spacer()
+        CarteScoreQuotidien(contenu: contenu, style: .sobre, onTap: {})
+        CarteScoreQuotidien(contenu: contenu, style: .gradient, onTap: {})
+        Spacer()
+    }
+    .padding()
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .background(Color(.systemGroupedBackground))
+}
+
+#Preview("Score du jour - Soir") {
+    let contenu = ContenuCarteScore(
+        score: 72,
+        date: Date(),
+        historique: [65, 78, 71, 55, 88, 73, 72],
+        heuresJourEcoulees: 16
+    )
+    VStack(spacing: 16) {
+        Spacer()
+        CarteScoreQuotidien(contenu: contenu, style: .sobre, onTap: {})
+        CarteScoreQuotidien(contenu: contenu, style: .gradient, onTap: {})
+        Spacer()
+    }
+    .padding()
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .background(Color(.systemGroupedBackground))
+}
+
 #Preview("Score indisponible") {
     let contenu = ContenuCarteScore(
         score: nil,
         date: Date(),
-        historique: [60, nil, 72, 58, nil, 65, nil]
+        historique: [60, nil, 72, 58, nil, 65, nil],
+        heuresJourEcoulees: 2
     )
     VStack(spacing: 16) {
         Spacer()

@@ -133,13 +133,15 @@ struct CarteHypos: View {
 
     // MARK: - Apparence dérivée du compte
 
-    /// Vert "tout va bien" (#1D9E75) à zéro hypo, rouge "alerte"
-    /// (#E24B4A) dès la première. Les deux teintes sont reprises de la
-    /// charte de l'app pour rester raccord avec les visualisations
-    /// glycémiques.
+    /// Vert "score parfait" à zéro hypo, rouge "alerte" (#E24B4A)
+    /// dès la première. On réutilise `CouleurScore.couleur(pour: 100)`
+    /// — le vert canonique du module score, plus vif que l'ancien
+    /// `#1D9E75` qui tirait vers le teal et paraissait sombre — pour
+    /// que "0 hypo" et "score 100" partagent la même teinte (même
+    /// idée : tout va bien).
     private var couleurAccent: Color {
         count == 0
-            ? Color(red: 0x1D / 255, green: 0x9E / 255, blue: 0x75 / 255)
+            ? CouleurScore.couleur(pour: 100)
             : Color(red: 0xE2 / 255, green: 0x4B / 255, blue: 0x4A / 255)
     }
 

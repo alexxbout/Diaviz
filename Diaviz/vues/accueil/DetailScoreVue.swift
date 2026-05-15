@@ -77,17 +77,36 @@ struct DetailScoreVue: View {
 
     // MARK: Données dérivées
 
+    /// Score du jour consulté. Cas particulier pour aujourd'hui : on
+    /// retourne le `partielDuJour` (assemblé à partir du score en cours)
+    /// plutôt que de chercher dans la liste consolidée — la journée
+    /// n'est pas clôturée à 06h donc elle n'y figure pas.
     private var scoreCourant: ScoreJournalier? {
-        service.score(pour: jourConsulte)
+        if calendrierFrancais.isDate(jourConsulte, inSameDayAs: Date()) {
+            return service.partielDuJour
+        }
+        return service.score(pour: jourConsulte)
+    }
+
+    /// Est-on en train de consulter aujourd'hui (journée pas encore
+    /// clôturée à 06h) ?
+    private var estJourEnCours: Bool {
+        calendrierFrancais.isDate(jourConsulte, inSameDayAs: Date())
     }
 
     // MARK: Navigation jour
 
     /// Jour le plus proche de `cible` parmi la plage navigable.
-    /// Fallback sur `cible` lui-même si la plage est vide (cas dégénéré).
+    /// Aujourd'hui est traité comme navigable même s'il n'est pas dans
+    /// `service.joursNavigables` (qui ne liste que les jours consolidés
+    /// J-30…J-1) — la page sait afficher le score partiel en mode
+    /// "journée en cours".
     private func jourPlusProche(de cible: Date) -> Date {
         let cal = calendrierFrancais
         let cibleStart = cal.startOfDay(for: cible)
+        if cal.isDate(cibleStart, inSameDayAs: Date()) {
+            return cibleStart
+        }
         return service.joursNavigables.min(by: {
             abs($0.timeIntervalSince(cibleStart)) < abs($1.timeIntervalSince(cibleStart))
         }) ?? cibleStart
@@ -123,7 +142,15 @@ struct DetailScoreVue: View {
 
                     BarresSemaine(
                         jourConsulte: jourConsulte,
-                        scorePourJour: { jour in service.score(pour: jour)?.score },
+                        scorePourJour: { jour in
+                            // Aujourd'hui n'est pas dans la liste
+                            // consolidée — on lit le score partiel
+                            // calculé en temps réel.
+                            if calendrierFrancais.isDate(jour, inSameDayAs: Date()) {
+                                return service.scoreDuJour
+                            }
+                            return service.score(pour: jour)?.score
+                        },
                         onChangerJour: { jourCible in
                             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                                 jourConsulte = jourCible
@@ -170,18 +197,33 @@ struct DetailScoreVue: View {
     }
 
     /// Texte narratif Foundation Models (même pipeline que la sheet du
-    /// matin). Fallback texte court si le jour consulté n'a pas de
-    /// faits, ce qui ne devrait pas arriver dans le mock mais protège
-    /// d'un edge case côté backend.
+    /// matin). Trois branches :
+    ///   - **Jour en cours** : pas de résumé LLM (la journée n'est pas
+    ///     clôturée), juste un message neutre "Journée en cours · Xh
+    ///     de données" — pas de disclaimer IA car pas d'IA invoquée.
+    ///   - **Jour clôturé avec faits** : pipeline LLM standard.
+    ///   - **Aucun fait disponible** (cas dégénéré, edge backend) :
+    ///     texte court de repli.
     @ViewBuilder
     private var messageLLM: some View {
-        if let faits = scoreCourant?.faits {
+        if estJourEnCours {
+            Text("Journée en cours · \(heuresDataDuJour)h de données")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .center)
+        } else if let faits = scoreCourant?.faits {
             MessageNarratifScore(faits: faits)
         } else {
             Text("Pas de résumé disponible pour ce jour.")
                 .font(.body)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    /// Heures écoulées depuis 06h ce matin (arrondi inférieur) — utilisé
+    /// par le message "Journée en cours · Xh de données".
+    private var heuresDataDuJour: Int {
+        Int(service.heuresDataDuJour.rounded(.down))
     }
 
     // MARK: Carte 2 — Analyse
@@ -450,6 +492,7 @@ private struct BarresSemaine: View {
     @ViewBuilder
     private func barreJour(jour: Date, score: Int?) -> some View {
         let estActif = calendrierFrancais.isDate(jour, inSameDayAs: jourConsulte)
+        let estJourEnCours = calendrierFrancais.isDateInToday(jour)
         let estVide = (score == nil)
 
         ZStack(alignment: .bottom) {
@@ -461,9 +504,28 @@ private struct BarresSemaine: View {
                 .frame(width: Self.largeurBarre, height: Self.hauteurBarres)
 
             if let score {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(CouleurScore.couleur(pour: score))
+                let couleur = CouleurScore.couleur(pour: score)
+                if estJourEnCours {
+                    // Jour en cours — barre **hachurée** (stripes
+                    // diagonales 45°) sur un fond légèrement teinté.
+                    // Le motif hachuré est universellement reconnu
+                    // comme "en construction / pas définitif" — bien
+                    // plus visible qu'un simple remplissage dilué, et
+                    // sans besoin d'animation (la page détail doit
+                    // rester calme, contrairement à l'accueil).
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(couleur.opacity(0.18))
+                        HachureDiagonale(couleur: couleur)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                     .frame(width: Self.largeurBarre, height: hauteurBarre(score: score))
+                } else {
+                    // Jour clôturé — barre pleine, opaque.
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(couleur)
+                        .frame(width: Self.largeurBarre, height: hauteurBarre(score: score))
+                }
             }
 
             // Bordure de mise en avant sur le jour consulté — posée
@@ -535,6 +597,52 @@ private struct BarresSemaine: View {
             return "\(dateStr), score \(score) sur 100, jour consulté"
         }
         return "\(dateStr), score \(score) sur 100, toucher pour consulter ce jour"
+    }
+}
+
+// MARK: - Motif hachuré (jour en cours)
+
+/// Stripes diagonales à 45° dessinées via `Canvas` — utilisé pour
+/// remplir la barre du jour en cours dans `BarresSemaine` sans avoir
+/// recours à une animation ou à une opacité globale qui rend la barre
+/// peu lisible.
+///
+/// Les lignes vont du coin haut-gauche au coin bas-droit (orientation
+/// "descendante" — la convention la plus courante pour signaler une
+/// zone en travaux ou en attente). Le pas (`espacement + largeurTrait`)
+/// reste constant : le motif a la même densité quelle que soit la
+/// hauteur de la barre.
+///
+/// Le clipping aux coins arrondis est fait par le parent
+/// (`.clipShape(RoundedRectangle…)`), pas ici — `HachureDiagonale`
+/// remplit naturellement son cadre rectangulaire.
+private struct HachureDiagonale: View {
+
+    let couleur: Color
+    var espacement: CGFloat = 4
+    var largeurTrait: CGFloat = 1.5
+
+    var body: some View {
+        Canvas { context, size in
+            let pas = espacement + largeurTrait
+            // `c` est l'abscisse au point haut de chaque ligne. On
+            // sweep de 0 à `size.width + size.height` pour couvrir
+            // tout le rectangle : aux extrémités, la ligne déborde
+            // hors du cadre — c'est le clipping du parent qui ramène
+            // dans la forme arrondie.
+            var c: CGFloat = 0
+            while c <= size.width + size.height {
+                var trace = Path()
+                trace.move(to: CGPoint(x: c, y: 0))
+                trace.addLine(to: CGPoint(x: c - size.height, y: size.height))
+                context.stroke(
+                    trace,
+                    with: .color(couleur),
+                    lineWidth: largeurTrait
+                )
+                c += pas
+            }
+        }
     }
 }
 
