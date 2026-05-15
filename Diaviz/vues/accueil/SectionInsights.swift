@@ -29,18 +29,20 @@ struct SectionInsights: View {
 
     var body: some View {
         if !insights.isEmpty {
-            // Spacing 4 (vs 8 par défaut) : le titre est déjà sur sa
-            // ligne, on veut juste un petit air avant la première
-            // carte, pas un saut entier.
-            VStack(alignment: .leading, spacing: 4) {
+            // Spacing 0 entre le titre et la pile : le titre `.title2`
+            // a déjà une grosse line-height qui crée une respiration
+            // visuelle naturelle, on n'ajoute rien. La séparation
+            // avec les sections voisines (carte score, « Aperçu du
+            // jour ») est gérée par le VStack parent dans `AccueilVue`.
+            VStack(alignment: .leading, spacing: 0) {
 
                 // MARK: Titre de section — compte d'observations
                 // Style aligné sur « Aperçu du jour » dans `AccueilVue`
                 // (title2.bold, .primary) pour homogénéiser les en-têtes
                 // de section sur l'accueil.
                 HStack(spacing: 6) {
-                    Image(systemName: "sparkles")
-                    Text(libelleObservations)
+                    Image(systemName: "eye.trianglebadge.exclamationmark.fill")
+                    Text(libelleTendances)
                 }
                 .font(.title2.bold())
                 .foregroundStyle(.primary)
@@ -52,8 +54,6 @@ struct SectionInsights: View {
                 // HStack : cartes prennent la largeur restante, dots
                 // alignés en colonne sur la droite et centrés
                 // verticalement par rapport à la pile.
-                // Padding bottom pour décoller la pile de la section
-                // suivante (« Aperçu du jour ») qui sinon colle.
                 HStack(alignment: .center, spacing: 12) {
                     PileVerticaleInsights(insights: insights, indexActif: $pageActive)
                         .frame(maxWidth: .infinity)
@@ -64,15 +64,15 @@ struct SectionInsights: View {
                         axe: .vertical
                     )
                 }
-                .padding(.bottom, 12)
             }
         }
     }
 
     /// Libellé du titre — accord singulier/pluriel français.
-    private var libelleObservations: String {
-        let suffixe = insights.count > 1 ? "s" : ""
-        return "\(insights.count) observation\(suffixe)"
+    /// Format : « Nouvelles tendances (4) » ou « Nouvelle tendance (1) ».
+    private var libelleTendances: String {
+        let pluriel = insights.count > 1 ? "s" : ""
+        return "Nouvelle\(pluriel) tendance\(pluriel) (\(insights.count))"
     }
 }
 

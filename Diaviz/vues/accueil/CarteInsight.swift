@@ -8,11 +8,12 @@
 import SwiftUI
 
 /// Carte d'observation individuelle affichée dans la pile
-/// `PileInsights`. Fond Liquid Glass (`.glassEffect`) tinté à la
-/// couleur de la catégorie — le matériau **blurre** ce qu'il y a
-/// derrière (= les autres cartes empilées) et reste lisible, ce que
-/// ne permettait pas un fond translucide plat. La drop shadow
-/// naturelle du glass renforce la perception de profondeur de la pile.
+/// `PileInsights`. Fond Liquid Glass **pur**, sans tint coloré : on
+/// veut sentir la refraction et le morphing de la glass plutôt qu'une
+/// surcouche translucide colorée. La couleur de catégorie reste
+/// portée par l'icône du header, les micro-visuels (barres / flèches)
+/// et le lien « Voir l'analyse → » — ces accents suffisent à
+/// identifier la catégorie sans assombrir toute la carte.
 ///
 /// Structure interne VStack(alignment: .leading, spacing: 8) :
 ///   1. Header — icône SF Symbol + titre
@@ -71,10 +72,11 @@ struct CarteInsight: View {
         .glassEffect(
             // `.interactive()` = la surface glass se déforme fluidement
             // sous le doigt (signature Liquid Glass iOS 26).
-            // Tint à 0.15 : assez bas pour laisser passer la refraction
-            // et le blur naturels de la glass (= sensation "liquide"),
-            // assez présent pour conserver le repère catégorie.
-            .regular.tint(insight.categorie.couleur.opacity(0.15)).interactive(),
+            // Pas de `.tint(...)` : la glass reste claire, on perçoit
+            // mieux la refraction et le morphing. La couleur de
+            // catégorie est portée par l'icône, les micro-visuels et
+            // le lien — ça suffit comme repère sans teinter le fond.
+            .regular.interactive(),
             in: RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
         )
         .accessibilityElement(children: .combine)

@@ -57,7 +57,10 @@ struct AccueilVue: View {
                 EnTetePage(titre: "Accueil")
 
                 ScrollView {
-                    VStack(spacing: 16) {
+                    // Spacing 28pt entre les sections (score, observations,
+                    // aperçu) pour clarifier la hiérarchie : chaque bloc
+                    // respire et se lit comme une unité distincte.
+                    VStack(spacing: 28) {
                         // Carte score du jour — recalculée en temps
                         // réel (06h-06h), avec la dernière barre de
                         // l'historique rendue en mode "en cours".

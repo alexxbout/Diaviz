@@ -93,11 +93,11 @@ struct PileVerticaleInsights: View {
         let echelleBase = 1 - CGFloat(item.position) * echelleParCarte
         let opacite = 1 - Double(item.position) * opaciteParCarte
 
-        // Léger scale-down de la carte du dessus pendant le drag —
-        // donne un feedback tactile "je tiens la carte". Progresse
-        // linéairement avec la distance de drag, capé à -6% à 200pt.
+        // Scale-down de la carte du dessus pendant le drag — donne
+        // un feedback tactile "je tiens la carte". Progresse
+        // linéairement avec la distance de drag, capé à -10% à 200pt.
         let progressionDrag = estTop ? min(1, abs(glissementY) / 200) : 0
-        let echelle = echelleBase * (1 - progressionDrag * 0.06)
+        let echelle = echelleBase * (1 - progressionDrag * 0.10)
 
         CarteInsight(insight: item.insight)
             .frame(height: hauteurCarte)
