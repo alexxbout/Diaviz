@@ -75,7 +75,7 @@ struct CarteDerniereInjection: View {
                 // au bas de la carte.
                 VStack(alignment: .leading, spacing: 6) {
                     TimelineView(.periodic(from: .now, by: 60)) { contexte in
-                        Text(tempsRelatif(maintenant: contexte.date, ancre: ancre))
+                        Text(tempsRelatif(depuis: ancre, maintenant: contexte.date))
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                     }
@@ -91,7 +91,7 @@ struct CarteDerniereInjection: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
-            "Dernière injection : \(doseFormatee) unités \(type.rawValue.lowercased()), \(tempsRelatif(maintenant: .now, ancre: ancre))"
+            "Dernière injection : \(doseFormatee) unités \(type.rawValue.lowercased()), \(tempsRelatif(depuis: ancre))"
         )
     }
 
@@ -124,27 +124,6 @@ struct CarteDerniereInjection: View {
         return String(format: "%.1f", rounded)
     }
 
-    /// Format compact "il y a 1h05" / "il y a 45 min" / "à l'instant".
-    /// On ne descend pas sous la minute (résolution de la donnée),
-    /// et au-dessus de 24h on bascule en jours.
-    private func tempsRelatif(maintenant: Date, ancre: Date) -> String {
-        let secondes = max(0, maintenant.timeIntervalSince(ancre))
-        let minutes = Int(secondes / 60)
-        let heures = minutes / 60
-        let minutesRestantes = minutes % 60
-        let jours = heures / 24
-
-        if minutes < 1 {
-            return "à l'instant"
-        }
-        if heures < 1 {
-            return "il y a \(minutes) min"
-        }
-        if jours < 1 {
-            return "il y a \(heures)h\(String(format: "%02d", minutesRestantes))"
-        }
-        return "il y a \(jours) j"
-    }
 }
 
 // MARK: - Aperçus

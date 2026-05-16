@@ -346,7 +346,7 @@ struct DetailScoreVue: View {
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.medium, style: .continuous)
                 .fill(Color(.secondarySystemGroupedBackground))
         )
     }
@@ -368,7 +368,7 @@ struct DetailScoreVue: View {
 // MARK: - Conteneur de carte
 
 /// Conteneur de carte de la page détail — fond
-/// `secondarySystemGroupedBackground`, corner radius 16pt, padding
+/// `secondarySystemGroupedBackground`, radius `Radius.medium`, padding
 /// interne 20pt. Identique à `CarteRegroupee` mais avec padding intégré
 /// pour les pages où chaque carte est un bloc autonome (et non un
 /// agrégat de lignes pleine largeur).
@@ -380,7 +380,7 @@ private struct CartePage<Content: View>: View {
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.medium, style: .continuous)
                     .fill(Color(.secondarySystemGroupedBackground))
             )
     }

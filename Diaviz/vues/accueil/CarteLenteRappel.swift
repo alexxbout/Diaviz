@@ -154,13 +154,8 @@ struct CarteLenteRappel: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            // `Radius.medium` (18pt) — token unique pour les cartes
-            // standard. Le spec parlait de 16pt en dur, mais l'app
-            // homogénéise via les tokens pour éviter la dérive visuelle.
-            RoundedRectangle(cornerRadius: Radius.medium, style: .continuous)
-                .fill(couleurFond)
-        }
+        // Surface standard des cartes de l'accueil — voir `surfaceCarte()`.
+        .surfaceCarte()
         .accessibilityElement(children: .contain)
     }
 
@@ -192,7 +187,7 @@ struct CarteLenteRappel: View {
                 .monospacedDigit()
 
             // MARK: Ligne 4 — dernière prise
-            Text("Dernière prise \(libelleIlYA(depuis: contexte.dernierePrise))")
+            Text("Dernière prise \(tempsRelatif(depuis: contexte.dernierePrise))")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
 
@@ -257,16 +252,6 @@ struct CarteLenteRappel: View {
         }
     }
 
-    /// Fond de la carte — **neutre dans tous les états** pour préserver
-    /// le contraste texte/fond (accessibilité). L'urgence est portée
-    /// par la couleur d'accent (icône, titre, bouton `+`), pas par un
-    /// wash teinté qui dégradait la lisibilité en mode sombre comme en
-    /// Increase Contrast. Cohérent avec les cartes « Repas à revoir »
-    /// et les cartes d'insights de l'accueil.
-    private var couleurFond: Color {
-        Color(.secondarySystemGroupedBackground)
-    }
-
     // MARK: - Calculs dynamiques
 
     /// Sous-titre horaire : « Prévue à 22:00 » en état doux quand
@@ -280,7 +265,7 @@ struct CarteLenteRappel: View {
             // on n'affiche pas de « il y a … » qui n'aurait pas de sens.
             return "Prévue à \(heureLib)"
         }
-        return "Prévue à \(heureLib) · \(libelleIlYA(secondes: diff))"
+        return "Prévue à \(heureLib) · \(tempsRelatif(depuis: contexte.heureHabituelle))"
     }
 
     /// Libellé VoiceOver synthétique reprenant l'ensemble des infos
@@ -288,7 +273,7 @@ struct CarteLenteRappel: View {
     private var libelleAccessibleInfo: String {
         var parts: [String] = [titre, sousTitre]
         parts.append("Dose habituelle \(formate(contexte.doseHabituelle)) unités de \(contexte.nomInsuline)")
-        parts.append("Dernière prise \(libelleIlYA(depuis: contexte.dernierePrise))")
+        parts.append("Dernière prise \(tempsRelatif(depuis: contexte.dernierePrise))")
         parts.append("Dernier site \(contexte.dernierSite)")
         return parts.joined(separator: ". ")
     }
@@ -303,22 +288,6 @@ struct CarteLenteRappel: View {
             : String(format: "%.1f", valeur)
     }
 
-    /// « il y a 45 min », « il y a 2h30 », « il y a 23h ».
-    /// Variante prenant des secondes directes — évite un recalcul quand
-    /// l'appelant a déjà la différence sous la main.
-    private func libelleIlYA(secondes: TimeInterval) -> String {
-        let sec = Int(secondes)
-        guard sec > 60 else { return "il y a quelques instants" }
-        let heures = sec / 3600
-        let minutes = (sec % 3600) / 60
-        if heures == 0 { return "il y a \(minutes) min" }
-        if minutes == 0 { return "il y a \(heures)h" }
-        return "il y a \(heures)h\(String(format: "%02d", minutes))"
-    }
-
-    private func libelleIlYA(depuis: Date) -> String {
-        libelleIlYA(secondes: Date.now.timeIntervalSince(depuis))
-    }
 }
 
 // MARK: - Aperçus

@@ -83,13 +83,8 @@ struct CarteInsight: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        // Fond opaque neutre — même surface que les cartes « Repas à
-        // revoir » juste en dessous, via `Radius.medium` (token unique
-        // pour les cartes standard de l'accueil). Pas d'ombre : la
-        // séparation avec le fond `systemGroupedBackground` du scroll
-        // suffit à détacher la carte sans surcharge visuelle.
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
+        // Surface standard des cartes de l'accueil — voir `surfaceCarte()`.
+        .surfaceCarte()
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(insight.titre). \(insight.message)")
         .accessibilityHint("Voir l'analyse détaillée")

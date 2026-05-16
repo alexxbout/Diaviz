@@ -19,9 +19,9 @@ import SwiftUI
 ///   4. Info pic — triangle directionnel + libellé compact.
 ///   5. Glucides déclarés — fourchette min–max.
 ///
-/// La carte est délibérément opaque (pas de glassEffect) — la section
-/// vit dans la grille « cartes standard » et non dans la hiérarchie
-/// hero des cartes score / insights.
+/// Fond opaque `secondarySystemGroupedBackground` — même surface que
+/// les autres cartes standard de l'accueil (insights, lente, grille
+/// des métriques) pour homogénéiser le langage visuel de la page.
 struct CarteRepasARevoir: View {
 
     let repas: RepasARevoir
@@ -85,8 +85,7 @@ struct CarteRepasARevoir: View {
         }
         .padding(14)
         .frame(width: 200, height: 200, alignment: .topLeading)
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
+        .surfaceCarte()
         .accessibilityElement(children: .combine)
         .accessibilityLabel(libelleAccessibilite)
     }

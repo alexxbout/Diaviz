@@ -67,7 +67,7 @@ struct CarteDernierRepas: View {
                 // bas de la carte (pendant visuel du badge Injection).
                 VStack(alignment: .leading, spacing: 6) {
                     TimelineView(.periodic(from: .now, by: 60)) { contexte in
-                        Text(tempsRelatif(maintenant: contexte.date, ancre: ancre))
+                        Text(tempsRelatif(depuis: ancre, maintenant: contexte.date))
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                     }
@@ -86,7 +86,7 @@ struct CarteDernierRepas: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
-            "Dernier repas : \(Int(glucides.rounded())) grammes de glucides, \(tempsRelatif(maintenant: .now, ancre: ancre))"
+            "Dernier repas : \(Int(glucides.rounded())) grammes de glucides, \(tempsRelatif(depuis: ancre))"
         )
     }
 
@@ -98,31 +98,6 @@ struct CarteDernierRepas: View {
         Color(red: 0x63 / 255, green: 0x99 / 255, blue: 0x22 / 255)
     }
 
-    // MARK: - Formatage
-
-    /// Format compact "il y a 1h08" / "il y a 45 min" / "à l'instant".
-    /// Dupliqué (avec `CarteDerniereInjection`) parce que les deux
-    /// cartes en ont besoin et que la fonction est suffisamment
-    /// petite et stable pour ne pas justifier un fichier utilitaire
-    /// partagé.
-    private func tempsRelatif(maintenant: Date, ancre: Date) -> String {
-        let secondes = max(0, maintenant.timeIntervalSince(ancre))
-        let minutes = Int(secondes / 60)
-        let heures = minutes / 60
-        let minutesRestantes = minutes % 60
-        let jours = heures / 24
-
-        if minutes < 1 {
-            return "à l'instant"
-        }
-        if heures < 1 {
-            return "il y a \(minutes) min"
-        }
-        if jours < 1 {
-            return "il y a \(heures)h\(String(format: "%02d", minutesRestantes))"
-        }
-        return "il y a \(jours) j"
-    }
 }
 
 // MARK: - Aperçus

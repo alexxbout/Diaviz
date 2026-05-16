@@ -151,7 +151,7 @@ struct CarteInsulineLente: View {
                 .font(.body)
                 .foregroundStyle(.secondary)
 
-            Text(libelleIlYA(depuis: injection.heure))
+            Text(tempsRelatif(depuis: injection.heure))
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .monospacedDigit()
@@ -243,16 +243,6 @@ struct CarteInsulineLente: View {
         return "\(heure) · \(injection.libelleSite)"
     }
 
-    /// « il y a 4h », « il y a 32 min », « il y a 16h06 ».
-    private func libelleIlYA(depuis: Date) -> String {
-        let secondes = Int(Date.now.timeIntervalSince(depuis))
-        guard secondes > 60 else { return "il y a quelques instants" }
-        let heures = secondes / 3600
-        let minutes = (secondes % 3600) / 60
-        if heures == 0 { return "il y a \(minutes) min" }
-        if minutes == 0 { return "il y a \(heures)h" }
-        return "il y a \(heures)h\(String(format: "%02d", minutes))"
-    }
 }
 
 // MARK: - Aperçu

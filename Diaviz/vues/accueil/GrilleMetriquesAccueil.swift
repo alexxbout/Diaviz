@@ -32,8 +32,8 @@ struct CarteMetriqueShell<Content: View>: View {
         content()
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(16)
-            .background(Color(.secondarySystemGroupedBackground))
-            .clipShape(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
+            // Surface standard des cartes de l'accueil — voir `surfaceCarte()`.
+            .surfaceCarte()
     }
 }
 
