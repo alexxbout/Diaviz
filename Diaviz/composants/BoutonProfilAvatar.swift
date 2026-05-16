@@ -26,12 +26,12 @@ struct BoutonProfilAvatar: View {
     var body: some View {
         Button(action: action) {
             Circle()
-                .fill(Color.accentColor)
+                .fill(Color.white)
                 .frame(width: 32, height: 32)
                 .overlay {
                     Text(initiale)
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.secondary)
                 }
         }
         .buttonStyle(.plain)
