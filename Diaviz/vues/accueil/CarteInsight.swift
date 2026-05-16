@@ -8,15 +8,22 @@
 import SwiftUI
 
 /// Carte d'observation individuelle affichée dans
-/// `PileVerticaleInsights`. Fond Liquid Glass pur, sans tint coloré :
-/// on veut sentir la refraction et le morphing de la glass plutôt
-/// qu'une surcouche translucide colorée. La couleur de catégorie
-/// reste portée par l'icône du titre, la donnée clé et le lien.
+/// `PileVerticaleInsights`. Fond opaque neutre
+/// (`secondarySystemGroupedBackground`) — même langage visuel que les
+/// cartes « Repas à revoir » juste en dessous, pour homogénéiser la
+/// surface des composants standard de l'accueil.
+///
+/// La couleur de catégorie est **réservée aux éléments clés** : icône
+/// d'en-tête, donnée centrale (`MicroVisuelInsight`) et lien « Voir
+/// l'analyse → ». Le titre passe en `.primary` et le message reste en
+/// `.secondary` — la palette neutre laisse la couleur signaler ce qui
+/// mérite l'attention, plutôt que de wash la surface entière.
 ///
 /// **Hiérarchie visuelle** (du plus discret au plus visible) :
-///   1. Barre de titre — icône + libellé 15pt semibold à gauche
-///      (aligné sur `CarteScoreQuotidien`), lien « Voir l'analyse → »
-///      `.subheadline.bold()` à droite. Tout à la couleur de la catégorie.
+///   1. Barre de titre — icône (catégorie) + libellé `.primary`
+///      15pt semibold à gauche (aligné sur `CarteScoreQuotidien`),
+///      lien « Voir l'analyse → » `.subheadline.bold()` à droite,
+///      teinté à la couleur de catégorie.
 ///   2. Donnée clé — **dominante** (40pt), centrée, couleur de la catégorie
 ///   3. Message — moyen (`.callout .secondary`), 2 lignes max
 ///
@@ -44,7 +51,7 @@ struct CarteInsight: View {
                     .accessibilityHidden(true)
                 Text(insight.titre)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(insight.categorie.couleur)
+                    .foregroundStyle(.primary)
 
                 Spacer(minLength: 8)
 
@@ -76,16 +83,13 @@ struct CarteInsight: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .glassEffect(
-            // `.interactive()` = la surface glass se déforme fluidement
-            // sous le doigt (signature Liquid Glass iOS 26).
-            // Pas de `.tint(...)` : la glass reste claire, on perçoit
-            // mieux la refraction et le morphing. La couleur de
-            // catégorie est portée par l'icône du titre, la donnée
-            // clé et le lien — ça suffit comme repère.
-            .regular.interactive(),
-            in: RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
-        )
+        // Fond opaque neutre — même surface que les cartes « Repas à
+        // revoir » juste en dessous, via `Radius.medium` (token unique
+        // pour les cartes standard de l'accueil). Pas d'ombre : la
+        // séparation avec le fond `systemGroupedBackground` du scroll
+        // suffit à détacher la carte sans surcharge visuelle.
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(insight.titre). \(insight.message)")
         .accessibilityHint("Voir l'analyse détaillée")
