@@ -47,6 +47,19 @@ struct AccueilVue: View {
     /// le temps que la couche ML produise la vraie liste.
     @State private var repasARevoir: [RepasARevoir] = RepasAReevoirServiceMock.mock()
 
+    /// Contexte de la carte « Insuline lente » — mocké en état urgent
+    /// pour démontrer le rappel sur l'accueil. Sera dérivé du
+    /// `ProfilService` et du service d'injections quand la couche
+    /// médication sera branchée sur l'accueil.
+    @State private var contexteLente: ContexteLente = .mockUrgent
+
+    /// Pilote l'ouverture de la sheet d'enregistrement de la lente.
+    @State private var sheetLenteOuverte: Bool = false
+
+    /// Respecte « Réduire les animations » système — l'`.animation`
+    /// d'apparition/disparition de la carte lente la désactive alors.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     init(jourDetailScore: Binding<Date?> = .constant(nil)) {
         self._jourDetailScore = jourDetailScore
     }
@@ -74,6 +87,27 @@ struct AccueilVue: View {
                             style: .gradient,
                             onTap: { jourDetailScore = aujourdhui }
                         )
+
+                        // Carte contextuelle « Insuline lente » —
+                        // visible uniquement si l'utilisateur entre
+                        // dans la fenêtre de rappel (≥ heure habituelle
+                        // − 1h) sans avoir encore pris sa lente. Le
+                        // calcul de visibilité vit dans
+                        // `EtatRappelLente.calculer(...)`. La carte
+                        // entre et sort en spring avec une transition
+                        // depuis le haut, désactivée quand l'utilisateur
+                        // a activé « Réduire les animations ».
+                        if let etatLente {
+                            CarteLenteRappel(
+                                etat: etatLente,
+                                contexte: contexteLente,
+                                onTapAjouter: { sheetLenteOuverte = true }
+                            )
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .top).combined(with: .opacity),
+                                removal: .move(edge: .top).combined(with: .opacity)
+                            ))
+                        }
 
                         // Section observations ML — TabView paginé
                         // sous la carte score. Auto-masquée quand le
@@ -107,13 +141,50 @@ struct AccueilVue: View {
                         }
                     }
                     .padding(16)
+                    // Anime l'insertion/suppression de la carte lente
+                    // (et toute future entrée/sortie de section) en
+                    // fonction de l'état calculé. La valeur observée
+                    // est l'`etatLente` directement : tout passage
+                    // entre `nil`, `.doux`, `.urgent`, `.alerte`
+                    // déclenche la même spring. Désactivée si l'
+                    // utilisateur a activé « Réduire les animations ».
+                    .animation(
+                        reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.8),
+                        value: etatLente
+                    )
                 }
             }
             .background(Color(.systemGroupedBackground))
             .navigationDestination(item: $jourDetailScore) { jour in
                 DetailScoreVue(jourInitial: jour)
             }
+            .sheet(isPresented: $sheetLenteOuverte) {
+                // Sheet existante d'enregistrement de la lente. Les
+                // valeurs par défaut (`dose = 18`, `heure = now`)
+                // suffisent au pré-remplissage du mock ; le binding
+                // bascule `priseAujourdhui` à `true` côté
+                // `onValider` → la carte disparaît avec animation.
+                SheetInsulineLente(
+                    derniereZoneLente: nil,
+                    onValider: { _ in
+                        contexteLente = ContexteLente(
+                            heureHabituelle: contexteLente.heureHabituelle,
+                            nomInsuline: contexteLente.nomInsuline,
+                            doseHabituelle: contexteLente.doseHabituelle,
+                            dernierePrise: Date(),
+                            dernierSite: contexteLente.dernierSite,
+                            priseAujourdhui: true
+                        )
+                    }
+                )
+            }
         }
+    }
+
+    /// État courant du rappel lente — `nil` quand la carte doit être
+    /// masquée (trop tôt, ou lente déjà prise aujourd'hui).
+    private var etatLente: EtatRappelLente? {
+        EtatRappelLente.calculer(contexte: contexteLente)
     }
 
     /// Date du jour calendaire courant (00h locale) — sert d'ancre
