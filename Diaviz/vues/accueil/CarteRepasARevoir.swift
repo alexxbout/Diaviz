@@ -1,0 +1,218 @@
+//
+//  CarteRepasARevoir.swift
+//  diaviz
+//
+//  Created by Alexandre on 16/05/2026.
+//
+
+import Charts
+import SwiftUI
+
+/// Carte unitaire de la section « Repas à revoir » — 200×200pt, affichée
+/// dans un scroll horizontal sous les insights de l'accueil.
+///
+/// Structure verticale :
+///   1. Titre — emoji + nom de l'aliment principal.
+///   2. Sous-titre — nombre d'occurrences enregistrées.
+///   3. Mini-graphique Swift Charts — **nuage** des courbes passées
+///      en gris + courbe « dernière fois » colorée selon la sévérité.
+///   4. Info pic — triangle directionnel + libellé compact.
+///   5. Glucides déclarés — fourchette min–max.
+///
+/// La carte est délibérément opaque (pas de glassEffect) — la section
+/// vit dans la grille « cartes standard » et non dans la hiérarchie
+/// hero des cartes score / insights.
+struct CarteRepasARevoir: View {
+
+    let repas: RepasARevoir
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+
+            // MARK: Titre
+            // Une seule ligne — emoji + nom du plat principal. On ne
+            // mentionne plus le compte d'aliments supplémentaires :
+            // l'info utile sur la carte est le repas lui-même et son
+            // pattern glycémique, pas la liste d'ingrédients.
+            if let principal = repas.alimentPrincipal {
+                HStack(spacing: 4) {
+                    Text(principal.emoji)
+                        .font(.subheadline)
+                        .accessibilityHidden(true)
+                    Text(principal.nom)
+                        .font(.subheadline.bold())
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                }
+            }
+
+            // MARK: Sous-titre occurrences
+            Text("\(repas.nombreOccurrences) fois enregistré")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+
+            // MARK: Mini-graphique
+            // 12pt d'air au-dessus pour que les annotations du pic ne
+            // touchent jamais le bloc texte au-dessus, même quand le
+            // pic tombe près du bord supérieur du chart.
+            mini
+                .padding(.top, 12)
+
+            // Spacer flexible : pousse le bloc info pic + glucides au
+            // bas de la carte pour éviter une bande de vide en bas
+            // (le contenu était aligné `.topLeading` sur 200pt fixe).
+            // Résultat : 3 zones — header (titre + occurrences),
+            // chart, footer (info pic + glucides).
+            Spacer(minLength: 0)
+
+            // MARK: Info pic
+            HStack(spacing: 4) {
+                Text(repas.symboleEvenement)
+                    .font(.caption.bold())
+                    .foregroundStyle(repas.couleurSeverite)
+                Text(repas.libelleEvenement)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+            }
+
+            // MARK: Glucides déclarés
+            Text("Glucides : \(repas.glucidesMin)–\(repas.glucidesMax)g")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(14)
+        .frame(width: 200, height: 200, alignment: .topLeading)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(libelleAccessibilite)
+    }
+
+    // MARK: - Mini-graphique
+
+    /// Mini-chart 50pt — **nuage** des courbes passées en gris discret
+    /// + courbe « dernière fois » colorée selon la sévérité, PointMark
+    /// au pic + valeur, RuleMark au seuil 180 et — uniquement quand
+    /// une courbe descend en hypo — au seuil 70.
+    ///
+    /// Plus les courbes grises sont regroupées, plus le repas est
+    /// prévisible. Plus elles s'étalent, plus la réponse est chaotique.
+    ///
+    /// Domaine X figé à `0…180` minutes pour que toutes les cartes
+    /// partagent la même largeur temporelle. Domaine Y figé à
+    /// `50…300` mg/dL — fenêtre large qui couvre hypo profonde et
+    /// hyper sévère, et qui garantit que l'annotation du pic ne sort
+    /// jamais du cadre du graphe.
+    private var mini: some View {
+        Chart {
+            // Nuage gris : chaque occurrence passée tracée
+            // individuellement. `series` distinct par index pour que
+            // SwiftCharts ne les relie pas en une seule ligne.
+            ForEach(Array(repas.pointsOccurrencesPassees.enumerated()), id: \.offset) { idx, courbe in
+                ForEach(courbe) { point in
+                    LineMark(
+                        x: .value("T", point.minutes),
+                        y: .value("G", point.glycemie),
+                        series: .value("Occurrence", "passee-\(idx)")
+                    )
+                    .foregroundStyle(Color.secondary.opacity(0.2))
+                    .lineStyle(StrokeStyle(lineWidth: 1))
+                    .interpolationMethod(.catmullRom)
+                }
+            }
+
+            // Courbe dernière fois — plein, colorée selon la sévérité.
+            ForEach(repas.pointsDerniereFois) { point in
+                LineMark(
+                    x: .value("T", point.minutes),
+                    y: .value("G", point.glycemie),
+                    series: .value("Occurrence", "derniere")
+                )
+                .foregroundStyle(repas.couleurSeverite)
+                .lineStyle(StrokeStyle(lineWidth: 1.5))
+                .interpolationMethod(.catmullRom)
+            }
+
+            // Marqueur de l'événement principal (pic ou min en hypo).
+            PointMark(
+                x: .value("T", repas.evenementMinutes),
+                y: .value("G", repas.evenementValeur)
+            )
+            .foregroundStyle(repas.couleurSeverite)
+            .symbolSize(25)
+            .annotation(position: .top, spacing: 2) {
+                Text("\(Int(repas.evenementValeur.rounded()))")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(repas.couleurSeverite)
+            }
+
+            // Seuil 180 mg/dL — repère discret cible / hyper.
+            RuleMark(y: .value("Seuil hyper", 180))
+                .foregroundStyle(Color.secondary.opacity(0.15))
+                .lineStyle(StrokeStyle(lineWidth: 0.5, dash: [2, 2]))
+
+            // Seuil 70 mg/dL — affiché **uniquement** quand au moins
+            // une courbe descend en hypo. Évite d'encombrer les cartes
+            // dont aucune réponse n'approche du seuil hypo.
+            if repas.aHypoDansCourbes {
+                RuleMark(y: .value("Seuil hypo", 70))
+                    .foregroundStyle(Color.red.opacity(0.15))
+                    .lineStyle(StrokeStyle(lineWidth: 0.5, dash: [2, 2]))
+            }
+        }
+        .chartXAxis(.hidden)
+        .chartYAxis(.hidden)
+        .chartLegend(.hidden)
+        .chartXScale(domain: 0...180)
+        .chartYScale(domain: 50...300)
+        .frame(height: 50)
+        .accessibilityHidden(true)
+    }
+
+    // MARK: - Accessibilité
+
+    /// Synthèse VoiceOver — nom du repas, sévérité, valeur du pic
+    /// et fourchette de glucides. Évite de naviguer les sous-éléments.
+    private var libelleAccessibilite: String {
+        let nom = repas.alimentPrincipal?.nom ?? "Repas"
+        return "\(nom). \(repas.nombreOccurrences) fois enregistré. "
+            + "\(repas.libelleEvenement). Glucides déclarés "
+            + "\(repas.glucidesMin) à \(repas.glucidesMax) grammes."
+    }
+}
+
+// MARK: - Aperçus
+
+#Preview("Carte - Big Mac hyper") {
+    CarteRepasARevoir(repas: .mockBigMac)
+        .padding()
+        .background(Color(.systemGroupedBackground))
+}
+
+#Preview("Carte - Pizza hyper sévère") {
+    CarteRepasARevoir(repas: .mockPizza)
+        .padding()
+        .background(Color(.systemGroupedBackground))
+}
+
+#Preview("Carte - Sushi en cible") {
+    CarteRepasARevoir(repas: .mockSushi)
+        .padding()
+        .background(Color(.systemGroupedBackground))
+}
+
+#Preview("Carte - Pad Thaï hypo") {
+    CarteRepasARevoir(repas: .mockPadThai)
+        .padding()
+        .background(Color(.systemGroupedBackground))
+}
+
+#Preview("Carte - Sombre") {
+    CarteRepasARevoir(repas: .mockBigMac)
+        .padding()
+        .background(Color(.systemGroupedBackground))
+        .preferredColorScheme(.dark)
+}

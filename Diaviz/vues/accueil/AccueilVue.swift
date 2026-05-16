@@ -42,6 +42,11 @@ struct AccueilVue: View {
     /// remplacé par une vraie source quand la couche ML sera branchée.
     @State private var insights: [Insight] = InsightsAccueilServiceMock.mockComplet()
 
+    /// Repas signalés « à revoir » (sortis de cible, contenant au
+    /// moins un aliment estimé, hors fenêtre de sport). Service mock
+    /// le temps que la couche ML produise la vraie liste.
+    @State private var repasARevoir: [RepasARevoir] = RepasAReevoirServiceMock.mock()
+
     init(jourDetailScore: Binding<Date?> = .constant(nil)) {
         self._jourDetailScore = jourDetailScore
     }
@@ -76,6 +81,13 @@ struct AccueilVue: View {
                         // laisser une coquille vide entre le score
                         // et la grille des métriques.
                         SectionInsights(insights: insights)
+
+                        // Section « Repas à revoir » — scroll horizontal
+                        // des repas sortis de cible avec aliments
+                        // estimés. Auto-masquée quand le tableau est
+                        // vide. Le scroll déborde edge-to-edge en
+                        // annulant le padding 16pt du VStack parent.
+                        SectionRepasARevoir(repas: repasARevoir)
 
                         // Grille de 4 cartes métriques — aperçu
                         // instantané de l'état courant. Le service
