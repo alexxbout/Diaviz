@@ -102,7 +102,12 @@ struct CarteAnalyseBasale: View {
 
     var body: some View {
         NavigationLink {
-            DetailAnalyseBasaleVue()
+            // Charge le snapshot détaillé qui correspond au verdict du
+            // résumé. La page de détail travaille toujours sur la fenêtre
+            // clinique standard 14 nuits (cf. `kFenetreNuits`).
+            DetailAnalyseBasaleVue(
+                analyse: AnalyseBasaleServiceMock.charger(verdict: resume.verdict)
+            )
         } label: {
             contenu
         }
