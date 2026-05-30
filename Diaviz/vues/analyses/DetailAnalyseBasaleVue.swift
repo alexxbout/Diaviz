@@ -7,29 +7,34 @@
 
 import SwiftUI
 
-/// Page dédiée de l'analyse basale — V3, 6 cartes verticales :
+/// Page « Analyse du coucher » — hub fusionné des trois sous-analyses du
+/// coucher, présentées en **accordéon** (`EnTeteSectionCoucher` + contenu) :
 ///
-///   1. `CarteVerdictBasale`        — constat (sufficient / recentChange / noData)
-///   2. `CourbesNocturnesChart`     — graphique avec picker Toutes / Par nuit
-///   3. `TimelineNuitsVue`          — périodes analysées (tap → bascule Par nuit)
-///   4. `RepartitionNuitsVue`       — répartition zones analysées
-///   5. `DoseHistoryCard`           — historique de dose
-///   6. `CarteResumeIA`             — texte LLM (masqué si données insuffisantes)
+///   1. **Tendance basale** (B1)      — contenu existant (verdict, courbes,
+///      timeline, répartition, historique de dose, résumé IA)
+///   2. **Endormissement** (B2)       — hypos à l'endormissement (placeholder)
+///   3. **Corrections du soir** (B3)  — corrections au coucher (placeholder)
 ///
-/// L'état `mode` et `indexSelectionne` du chart vit ici pour que le
-/// callback de la timeline puisse :
-///   - basculer le picker du chart sur « Par nuit »
-///   - aligner `indexSelectionne` sur la date tappée
+/// Toutes les sections sont **fermées par défaut** : seuls les en-têtes
+/// (titre + statut glance + ⓘ) sont visibles, donnant un panorama des trois
+/// analyses sans scroll. Le détail se déplie à la demande.
 ///
-/// L'analyse reste toujours calculée sur la fenêtre clinique standard
-/// de 14 nuits (`kFenetreNuits`).
+/// L'état `mode` / `indexSelectionne` du chart B1 vit ici pour que le tap
+/// timeline puisse basculer le picker sur « Par nuit » et aligner la nuit.
+/// L'analyse basale reste calculée sur la fenêtre clinique de 14 nuits.
 struct DetailAnalyseBasaleVue: View {
 
     let analyse: AnalyseBasaleDetail
 
-    @State private var afficherSheetInfo: Bool = false
+    // Sections ouvertes — vide = toutes fermées (défaut).
+    @State private var sectionsOuvertes: Set<SousAnalyseCoucher> = []
 
-    // État du chart lifté ici pour que le tap timeline puisse y agir.
+    // Sheets explicatives Pourquoi / Quoi / Comment (B2/B3 = placeholders).
+    @State private var afficherInfoBasale: Bool = false
+    @State private var afficherInfoEndormissement: Bool = false
+    @State private var afficherInfoCorrections: Bool = false
+
+    // État du chart B1 lifté ici pour que le tap timeline puisse y agir.
     @State private var mode: ModeAffichageGraphiqueBasale = .toutes
     @State private var indexSelectionne: Int = 0
 
@@ -39,55 +44,142 @@ struct DetailAnalyseBasaleVue: View {
 
     var body: some View {
         ScrollView(.vertical) {
-            VStack(spacing: 12) {
-                CarteVerdictBasale(analyse: analyse)
-                CourbesNocturnesChart(
-                    nights: analyse.nightChartData,
-                    mode: $mode,
-                    indexSelectionne: $indexSelectionne
-                )
-                TimelineNuitsVue(
-                    timeline: analyse.timeline,
-                    onNightSelected: { date in basculerSurNuit(date: date) }
-                )
-                RepartitionNuitsVue(analyse: analyse)
-                DoseHistoryCard(changes: analyse.doseHistory)
-
-                if analyse.verdict != .donneesInsuffisantes,
-                   let resume = analyse.resumeIA {
-                    CarteResumeIA(texte: resume)
-                }
+            VStack(spacing: 0) {
+                sectionBasale
+                sectionEndormissement
+                sectionCorrections
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 16)
-            .frame(maxWidth: .infinity)
         }
         .scrollIndicators(.hidden)
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Analyse du coucher")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    afficherSheetInfo = true
-                } label: {
-                    Image(systemName: "info.circle")
-                        .accessibilityLabel("Comment fonctionne cette analyse")
-                }
-            }
-        }
-        .sheet(isPresented: $afficherSheetInfo) {
+        .sheet(isPresented: $afficherInfoBasale) {
             SheetExplicativeBasale()
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $afficherInfoEndormissement) {
+            SheetExplicativePlaceholder(titre: "Endormissement")
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $afficherInfoCorrections) {
+            SheetExplicativePlaceholder(titre: "Corrections du soir")
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
         }
     }
 
-    // MARK: - Tap timeline → bascule sur la nuit
+    // MARK: - Section B1 — Tendance basale
 
-    /// Cherche la nuit dans `nightChartData` qui matche le jour
-    /// calendaire de la date tappée, bascule le chart sur « Par nuit »
-    /// et positionne `indexSelectionne` dessus.
+    private var sectionBasale: some View {
+        VStack(spacing: 0) {
+            EnTeteSectionCoucher(
+                titre: "Tendance basale",
+                etat: etatBasale,
+                ouverte: sectionsOuvertes.contains(.basale),
+                onInfo: { afficherInfoBasale = true },
+                onToggle: { basculer(.basale) }
+            )
+            if sectionsOuvertes.contains(.basale) {
+                VStack(spacing: 12) {
+                    CarteVerdictBasale(analyse: analyse)
+                    CourbesNocturnesChart(
+                        nights: analyse.nightChartData,
+                        mode: $mode,
+                        indexSelectionne: $indexSelectionne
+                    )
+                    TimelineNuitsVue(
+                        timeline: analyse.timeline,
+                        onNightSelected: { date in basculerSurNuit(date: date) }
+                    )
+                    RepartitionNuitsVue(analyse: analyse)
+                    DoseHistoryCard(changes: analyse.doseHistory)
+
+                    if analyse.verdict != .donneesInsuffisantes,
+                       let resume = analyse.resumeIA {
+                        CarteResumeIA(texte: resume)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 18)
+            }
+        }
+    }
+
+    // MARK: - Section B2 — Endormissement (placeholder)
+
+    private var sectionEndormissement: some View {
+        VStack(spacing: 0) {
+            EnTeteSectionCoucher(
+                titre: "Endormissement",
+                etat: .resultat(libelle: "2 hypos", ton: .attention),
+                ouverte: sectionsOuvertes.contains(.glycemie),
+                onInfo: { afficherInfoEndormissement = true },
+                onToggle: { basculer(.glycemie) }
+            )
+            if sectionsOuvertes.contains(.glycemie) {
+                PlaceholderSection(
+                    texte: "Tableau des nuits couché bas et hypos à l'endormissement — à venir (B2)."
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 18)
+            }
+        }
+    }
+
+    // MARK: - Section B3 — Corrections du soir (placeholder)
+
+    private var sectionCorrections: some View {
+        VStack(spacing: 0) {
+            EnTeteSectionCoucher(
+                titre: "Corrections du soir",
+                etat: .enAttente,
+                ouverte: sectionsOuvertes.contains(.corrections),
+                onInfo: { afficherInfoCorrections = true },
+                onToggle: { basculer(.corrections) }
+            )
+            if sectionsOuvertes.contains(.corrections) {
+                PlaceholderSection(
+                    texte: "Analyse des doses de correction au coucher — à venir (B3)."
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 18)
+            }
+        }
+    }
+
+    // MARK: - Helpers
+
+    /// Plie/déplie une section avec une animation de hauteur simple
+    /// (pas de glissement vertical).
+    private func basculer(_ sous: SousAnalyseCoucher) {
+        withAnimation(.easeInOut(duration: 0.22)) {
+            if sectionsOuvertes.contains(sous) { sectionsOuvertes.remove(sous) }
+            else { sectionsOuvertes.insert(sous) }
+        }
+    }
+
+    /// Statut glance de la section B1, dérivé du verdict basale — même
+    /// vocabulaire que la carte sommaire.
+    private var etatBasale: EtatSousAnalyse {
+        switch analyse.verdict {
+        case .adaptee:
+            return .resultat(libelle: "Adaptée", ton: .positif)
+        case .tropHaute, .tropBasse:
+            return .resultat(libelle: "À revoir", ton: .attention)
+        case .donneesInsuffisantes:
+            return .enAttente
+        }
+    }
+
+    /// Cherche la nuit dans `nightChartData` qui matche le jour calendaire
+    /// de la date tappée, bascule le chart sur « Par nuit » et positionne
+    /// `indexSelectionne` dessus.
     private func basculerSurNuit(date: Date) {
         let cal = Calendar.current
         let jourTape = cal.startOfDay(for: date)
@@ -130,6 +222,44 @@ private struct CarteResumeIA: View {
         .clipShape(RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Résumé généré par IA. \(texte). Contenu généré par IA, à vérifier.")
+    }
+}
+
+// MARK: - Placeholders (B2 / B3 en attente d'implémentation)
+
+/// Contenu provisoire d'une section non encore implémentée.
+private struct PlaceholderSection: View {
+
+    let texte: String
+
+    var body: some View {
+        Text(texte)
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(20)
+            .background(Color(.secondarySystemGroupedBackground))
+            .clipShape(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
+    }
+}
+
+/// Sheet explicative provisoire (Pourquoi / Quoi / Comment) pour B2 / B3,
+/// en attendant la généralisation de `SheetExplicativeBasale`.
+private struct SheetExplicativePlaceholder: View {
+
+    let titre: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(titre)
+                .font(.title2.bold())
+            Text("Pourquoi / Quoi / Comment — contenu explicatif à rédiger.")
+                .font(.body)
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(24)
     }
 }
 

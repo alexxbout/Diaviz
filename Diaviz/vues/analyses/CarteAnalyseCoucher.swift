@@ -192,46 +192,9 @@ struct CarteAnalyseCoucher: View {
 
             Spacer(minLength: 8)
 
-            statut(section.etat)
+            StatutSousAnalyseVue(etat: section.etat)
         }
         .padding(.vertical, 10)
-    }
-
-    // MARK: Rendu de l'état (pill résultat / compteur collecte / en attente)
-
-    @ViewBuilder
-    private func statut(_ etat: EtatSousAnalyse) -> some View {
-        switch etat {
-        case let .resultat(libelle, ton):
-            Text(libelle)
-                .font(.caption.weight(.semibold))
-                .monospacedDigit()
-                .foregroundStyle(couleur(ton))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(couleur(ton).opacity(0.15))
-                .clipShape(Capsule(style: .continuous))
-
-        case let .collecte(actuel, requis):
-            Label("\(actuel)/\(requis)", systemImage: "hourglass")
-                .font(.caption.weight(.medium))
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
-                .labelStyle(.titleAndIcon)
-
-        case .enAttente:
-            Text("En attente")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-        }
-    }
-
-    private func couleur(_ ton: TonResultat) -> Color {
-        switch ton {
-        case .positif:   return .green
-        case .attention: return .orange
-        case .neutre:    return .secondary
-        }
     }
 
     // MARK: Accessibilité
