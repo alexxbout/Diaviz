@@ -20,7 +20,7 @@ enum SousAnalyseCoucher: String, CaseIterable, Sendable {
     var titre: String {
         switch self {
         case .basale:       return "Tendance basale"
-        case .glycemie:     return "Glycémie au coucher"
+        case .glycemie:     return "Endormissement"
         case .corrections:  return "Corrections du soir"
         }
     }
@@ -47,11 +47,11 @@ enum TonResultat: Sendable, Equatable {
 
 /// État d'une sous-analyse tel qu'affiché en glance sur la carte sommaire.
 ///
-/// `collecte` est un état de **première classe**, pas un fallback : B2 et B3
-/// passent des semaines à accumuler des nuits (B2 : 10 min, B3 : 15 min) avant
-/// de produire un verdict. La carte assume ces compteurs au lieu de paraître
-/// cassée. Conformément au cadrage, seul le *verdict* est gaté — le contenu
-/// rétrospectif V1 de B2 (listing, events) reste accessible dans la page détail.
+/// `collecte` est un état de **première classe**, pas un fallback : B3 passe
+/// des semaines à accumuler des soirées (15 min) avant de produire un verdict,
+/// et B1 attend ses premières nuits valides. La carte assume ces compteurs au
+/// lieu de paraître cassée. B2, lui, ne se gate pas : il remonte des faits
+/// (hypos à l'endormissement) dès qu'ils surviennent, sans seuil amont.
 enum EtatSousAnalyse: Equatable, Sendable {
 
     /// Résultat disponible (verdict B1, tranche optimale B2, pattern B3).
@@ -255,8 +255,8 @@ struct CarteAnalyseCoucher: View {
 
 extension ResumeAnalyseCoucher {
 
-    /// État courant typique : basale à revoir (nouveau verdict), B2 en collecte,
-    /// B3 pas encore démarrée. Reflète l'usage réel à quelques semaines.
+    /// État courant typique : basale à revoir (nouveau verdict), hypos repérées
+    /// à l'endormissement, B3 pas encore démarrée. Usage réel à quelques semaines.
     static var mockDefault: ResumeAnalyseCoucher {
         ResumeAnalyseCoucher(
             verdictBasale: .tropHaute,
@@ -265,7 +265,7 @@ extension ResumeAnalyseCoucher {
                                   etat: .resultat(libelle: "À revoir", ton: .attention),
                                   aDuNouveau: true),
                 ResumeSousAnalyse(sousAnalyse: .glycemie,
-                                  etat: .collecte(actuel: 7, requis: 10),
+                                  etat: .resultat(libelle: "2 hypos", ton: .attention),
                                   aDuNouveau: false),
                 ResumeSousAnalyse(sousAnalyse: .corrections,
                                   etat: .enAttente,
@@ -283,8 +283,8 @@ extension ResumeAnalyseCoucher {
                                   etat: .resultat(libelle: "Adaptée", ton: .positif),
                                   aDuNouveau: false),
                 ResumeSousAnalyse(sousAnalyse: .glycemie,
-                                  etat: .resultat(libelle: "130–160", ton: .positif),
-                                  aDuNouveau: true),
+                                  etat: .resultat(libelle: "Aucune récente", ton: .neutre),
+                                  aDuNouveau: false),
                 ResumeSousAnalyse(sousAnalyse: .corrections,
                                   etat: .collecte(actuel: 12, requis: 15),
                                   aDuNouveau: false),
