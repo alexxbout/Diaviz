@@ -64,7 +64,7 @@ struct DetailAnalyseBasaleVue: View {
         }
         .scrollIndicators(.hidden)
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Analyse basale")
+        .navigationTitle("Analyse du coucher")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
