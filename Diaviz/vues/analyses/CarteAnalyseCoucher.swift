@@ -189,7 +189,6 @@ struct CarteAnalyseCoucher: View {
                 .font(.subheadline)
                 .foregroundStyle(.primary)
                 .lineLimit(1)
-                .minimumScaleFactor(0.9)
 
             Spacer(minLength: 8)
 
