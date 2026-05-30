@@ -7,24 +7,41 @@
 
 import SwiftUI
 
-/// Carte 1 — verdict synthétique de l'analyse basale, pente moyenne,
-/// contexte « nuits valides / exclues » et dose actuelle.
+/// Carte 1 — **constat** basale, piloté par `BasalVerdict`. Trois
+/// rendus distincts selon l'état :
 ///
-/// La carte ne propose plus de picker 7/14/30 jours : l'analyse
-/// travaille toujours sur la **fenêtre clinique standard de 14 nuits**
-/// glissantes (cf. `kFenetreNuits`). Les nuits valides et leur raison
-/// d'exclusion sont visualisées par la `TimelineNuitsVue` juste en
-/// dessous.
+///   - `.sufficient` — verdict formel basé sur la tendance détectée
+///     (descendante / ascendante / stable), avec pente moyenne et
+///     volume de nuits analysées.
+///   - `.recentChange` — pas encore assez de nuits depuis le dernier
+///     changement de dose (1-2 sur 3 nécessaires). Affiche une barre
+///     de progression.
+///   - `.noData` — aucune nuit valide. Carte minimaliste « En attente
+///     de données ».
+///
+/// Le composant consomme directement `AnalyseBasaleDetail.basalVerdict`
+/// — le calcul des seuils et de la tendance vit côté service.
 struct CarteVerdictBasale: View {
 
-    let analyse: AnalyseBasaleDetail
+    let verdict: BasalVerdict
+
+    /// Wrapper d'initialisation depuis `AnalyseBasaleDetail` — pratique
+    /// pour le câblage depuis `DetailAnalyseBasaleVue`.
+    init(analyse: AnalyseBasaleDetail) {
+        self.verdict = analyse.basalVerdict
+    }
+
+    init(verdict: BasalVerdict) {
+        self.verdict = verdict
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            verdictPrincipal
-            ligneTendance
-            contexte
-            doseActuelle
+            switch verdict.state {
+            case .sufficient:    contenuSufficient
+            case .recentChange:  contenuRecentChange
+            case .noData:        contenuNoData
+            }
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -32,178 +49,240 @@ struct CarteVerdictBasale: View {
         .clipShape(RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
     }
 
-    // MARK: - Verdict principal
+    // MARK: - État 1 : verdict possible
 
-    private var verdictPrincipal: some View {
-        HStack(spacing: 8) {
-            Image(systemName: iconeVerdict)
-                .font(.title3)
-                .foregroundStyle(couleurVerdict)
-                .accessibilityHidden(true)
+    private var contenuSufficient: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Text(iconeTendance)
+                    .font(.title3)
+                    .accessibilityHidden(true)
+                Text(libelleTendance)
+                    .font(.title3.weight(.medium))
+                    .foregroundStyle(couleurTendance)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
 
-            Text(libelleVerdict)
-                .font(.title3.bold())
-                .foregroundStyle(couleurVerdict)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
-    }
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Text("Pente moy. : \(libellePente)")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                    Image(systemName: iconeFlechePente)
+                        .font(.system(size: 14))
+                        .foregroundStyle(couleurFlechePente)
+                        .accessibilityHidden(true)
+                }
 
-    // MARK: - Ligne 2 — pente moyenne + flèche
-
-    private var ligneTendance: some View {
-        HStack(spacing: 6) {
-            Text("Pente moy. : \(libellePente) mg/dL/h")
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .monospacedDigit()
-
-            Image(systemName: iconeFleche)
-                .font(.body)
-                .foregroundStyle(couleurFleche)
-                .accessibilityHidden(true)
-        }
-    }
-
-    // MARK: - Contexte (avec ou sans changement de dose récent)
-
-    /// Deux variantes selon `changementDoseRecent` :
-    ///   - Aucun changement → une seule ligne « N valides · M exclues sur 14 jours »
-    ///   - Changement récent → deux lignes « Depuis le changement de dose » +
-    ///     « N analysées · M exclues »
-    @ViewBuilder
-    private var contexte: some View {
-        if let dateChangement = analyse.changementDoseRecent {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Depuis le changement de dose \(libelleDepuis(dateChangement))")
-                    .font(.caption)
+                Text("\(verdict.validNights) nuits analysées · \(verdict.excludedNights) exclues sur \(verdict.totalNights) jours")
+                    .font(.system(size: 14))
                     .foregroundStyle(.secondary)
-                Text("\(analyse.nuitsAnalysees) nuits analysées · \(analyse.nuitsExclues) exclues")
-                    .font(.caption)
+
+                Text("Dose actuelle : \(libelleDose(verdict.currentDose))u")
+                    .font(.system(size: 14))
                     .foregroundStyle(.secondary)
             }
-        } else {
-            Text("\(analyse.nuitsAnalysees) nuits valides · \(analyse.nuitsExclues) exclues sur \(kFenetreNuits) jours")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
     }
 
-    // MARK: - Dose actuelle
+    // MARK: - État 2 : nouvelle dose en observation
 
-    private var doseActuelle: some View {
-        Text("Dose actuelle : \(libelleDose)u")
-            .font(.caption)
-            .foregroundStyle(.tertiary)
-            .monospacedDigit()
-    }
+    private var contenuRecentChange: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Text("⏳")
+                    .font(.title3)
+                    .accessibilityHidden(true)
+                Text("Nouvelle dose en observation")
+                    .font(.title3.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
 
-    // MARK: - Dérivés du verdict
+            VStack(alignment: .leading, spacing: 6) {
+                Text(libelleDoseAvecDate)
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
 
-    private var iconeVerdict: String {
-        switch analyse.verdict {
-        case .adaptee:                return "checkmark.circle.fill"
-        case .tropHaute, .tropBasse:  return "exclamationmark.triangle.fill"
-        case .donneesInsuffisantes:   return "clock.fill"
+                Text(libelleProgression)
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+
+                BarreProgressionFine(
+                    value: Double(verdict.validNights),
+                    total: 3
+                )
+                .padding(.top, 4)
+            }
         }
     }
 
-    private var libelleVerdict: String {
-        switch analyse.verdict {
-        case .adaptee:                return "Basale adaptée"
-        case .tropHaute:              return "Basale potentiellement trop élevée"
-        case .tropBasse:              return "Basale potentiellement trop basse"
-        case .donneesInsuffisantes:   return "Données insuffisantes"
+    // MARK: - État 3 : aucune donnée
+
+    private var contenuNoData: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Text("⏳")
+                    .font(.title3)
+                    .accessibilityHidden(true)
+                Text("En attente de données")
+                    .font(.title3.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Dose actuelle : \(libelleDose(verdict.currentDose))u")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+                Text("Aucune nuit analysée")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
-    private var couleurVerdict: Color {
-        switch analyse.verdict {
-        case .adaptee:                return .green
-        case .tropHaute, .tropBasse:  return .orange
-        case .donneesInsuffisantes:   return .secondary
+    // MARK: - Dérivés tendance
+
+    private var iconeTendance: String {
+        switch verdict.trend {
+        case .descending, .ascending:  return "⚠️"
+        case .stable:                  return "✅"
+        case .none:                    return "⏳"
         }
     }
 
-    // MARK: - Flèche de pente
-
-    /// `< -0.3` = descente nette, `> +0.3` = montée nette, sinon stable.
-    /// Seuils volontairement étroits — au-delà de ±0.3 mg/dL/h sur 6h
-    /// le glucose dérive d'environ 10 mg/dL, ce qui mérite un signal.
-    private var iconeFleche: String {
-        switch analyse.penteMoyenne {
-        case ..<(-0.3):  return "arrow.down.right"
-        case 0.3...:     return "arrow.up.right"
-        default:         return "arrow.right"
+    private var libelleTendance: String {
+        switch verdict.trend {
+        case .descending:  return "Tendance descendante"
+        case .ascending:   return "Tendance ascendante"
+        case .stable:      return "Tendance stable"
+        case .none:        return ""
         }
     }
 
-    private var couleurFleche: Color {
-        switch analyse.penteMoyenne {
-        case ..<(-0.3), 0.3...:  return .orange
-        default:                 return .green
+    private var couleurTendance: Color {
+        switch verdict.trend {
+        case .descending, .ascending:  return .orange
+        case .stable:                  return .green
+        case .none:                    return .primary
+        }
+    }
+
+    // MARK: - Dérivés flèche pente
+
+    private var iconeFlechePente: String {
+        switch verdict.trend {
+        case .descending:  return "arrow.down.right"
+        case .ascending:   return "arrow.up.right"
+        case .stable:      return "arrow.right"
+        case .none:        return "arrow.right"
+        }
+    }
+
+    /// Code couleur : ambre quand on descend (signal d'attention sur
+    /// une basale potentiellement trop élevée), rouge quand on monte
+    /// (basale potentiellement trop faible), vert quand on est stable.
+    private var couleurFlechePente: Color {
+        switch verdict.trend {
+        case .descending:  return Color(red: 186/255, green: 117/255, blue: 23/255) // ambre
+        case .ascending:   return .red
+        case .stable:      return .green
+        case .none:        return .secondary
         }
     }
 
     // MARK: - Formatage
 
-    /// Pente signée avec 1 décimale (« -2.1 », « +0.0 », « +1.8 »).
     private var libellePente: String {
-        let signe = analyse.penteMoyenne >= 0 ? "+" : ""
-        return signe + String(format: "%.1f", analyse.penteMoyenne)
+        guard let s = verdict.slope else { return "—" }
+        let signe = s >= 0 ? "+" : ""
+        return signe + String(format: "%.1f", s) + " mg/dL/h"
     }
 
-    /// « 18 » pour les entiers, « 18.5 » sinon — aligné sur le format
-    /// utilisé par les sheets d'enregistrement de lente.
-    private var libelleDose: String {
-        analyse.doseActuelle == floor(analyse.doseActuelle)
-            ? String(format: "%.0f", analyse.doseActuelle)
-            : String(format: "%.1f", analyse.doseActuelle)
+    private func libelleDose(_ d: Double) -> String {
+        d == floor(d) ? String(format: "%.0f", d) : String(format: "%.1f", d)
     }
 
-    /// Formatage relatif court pour la date de changement de dose :
-    /// « hier », « depuis mardi » (< 7 jours), « depuis le 3 mai »
-    /// (> 7 jours). Locale forcée à fr_FR pour rester stable.
-    private func libelleDepuis(_ date: Date) -> String {
-        let now = Date.now
-        let cal = Calendar.current
-        let days = cal.dateComponents([.day], from: cal.startOfDay(for: date), to: cal.startOfDay(for: now)).day ?? 0
-        switch days {
-        case 0:        return "aujourd'hui"
-        case 1:        return "hier"
-        case 2..<7:
-            let jour = date.formatted(.dateTime.weekday(.wide).locale(Locale(identifier: "fr_FR")))
-            return "\(jour) (il y a \(days) jours)"
-        default:
-            let lib = date.formatted(.dateTime.day().month(.wide).locale(Locale(identifier: "fr_FR")))
-            return "le \(lib)"
+    /// « Dose actuelle : 17u (depuis le 15 mai) ».
+    private var libelleDoseAvecDate: String {
+        let dose = "Dose actuelle : \(libelleDose(verdict.currentDose))u"
+        guard let date = verdict.doseChangedDate else { return dose }
+        return "\(dose) (depuis le \(libelleDateCourte(date)))"
+    }
+
+    private func libelleDateCourte(_ date: Date) -> String {
+        date.formatted(.dateTime.day().month(.wide).locale(Locale(identifier: "fr_FR")))
+    }
+
+    /// « 2 nuits analysées · encore 1 nuit nécessaire ».
+    private var libelleProgression: String {
+        let n = verdict.validNights
+        let manquant = verdict.nightsNeeded
+        let nuitsLib = manquant == 1 ? "1 nuit nécessaire" : "\(manquant) nuits nécessaires"
+        return "\(n) nuits analysées · encore \(nuitsLib)"
+    }
+}
+
+// MARK: - Barre de progression fine
+
+/// Barre 4 pt de haut, coins arrondis 2 pt — sans label, le texte
+/// au-dessus suffit (cf. spec « Pas de label sur la barre »).
+private struct BarreProgressionFine: View {
+
+    let value: Double
+    let total: Double
+
+    private var progression: Double {
+        guard total > 0 else { return 0 }
+        return min(1, max(0, value / total))
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(Color.secondary.opacity(0.18))
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(Color.accentColor)
+                    .frame(width: geo.size.width * progression)
+            }
         }
+        .frame(height: 4)
+        .accessibilityElement()
+        .accessibilityLabel("Progression \(Int(value)) sur \(Int(total)) nuits")
     }
 }
 
 // MARK: - Aperçus
 
-#Preview("Verdict - Standard 14j") {
+#Preview("Verdict - Sufficient (trop élevée)") {
     CarteVerdictBasale(analyse: .mockStandard14j)
         .padding(16)
         .background(Color(.systemGroupedBackground))
 }
 
-#Preview("Verdict - Changement de dose") {
-    CarteVerdictBasale(analyse: .mockChangementDose)
-        .padding(16)
-        .background(Color(.systemGroupedBackground))
-}
-
-#Preview("Verdict - Adaptée") {
+#Preview("Verdict - Sufficient (adaptée)") {
     CarteVerdictBasale(analyse: .mockAdaptee)
         .padding(16)
         .background(Color(.systemGroupedBackground))
 }
 
-#Preview("Verdict - Données insuffisantes") {
-    CarteVerdictBasale(analyse: .mockInsuffisant)
+#Preview("Verdict - Recent change") {
+    CarteVerdictBasale(analyse: .mockRecentChange)
+        .padding(16)
+        .background(Color(.systemGroupedBackground))
+}
+
+#Preview("Verdict - No data") {
+    CarteVerdictBasale(analyse: .mockNoData)
         .padding(16)
         .background(Color(.systemGroupedBackground))
 }

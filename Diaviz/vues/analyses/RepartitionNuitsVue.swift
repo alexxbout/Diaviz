@@ -7,21 +7,67 @@
 
 import SwiftUI
 
-/// Carte 3 — barre horizontale segmentée (vert/orange/rouge) résumant
-/// la **répartition** des nuits analysées par catégorie, suivie d'une
-/// liste de métriques détaillées.
+/// Carte 3 — répartition des **zones analysées** (zones 2 + 3 — seules
+/// concernées par le calcul de pente basale).
 ///
-/// Même langage visuel que la `BarreAGP` du score (segments accolés,
-/// pourcentage en blanc centré si ≥ 15 %, hauteur 32 pt, coin 8 pt) —
-/// l'utilisateur retrouve un pattern qu'il connaît déjà.
+/// V3 : pivot des nuits aux zones. Chaque zone exploitable est
+/// classée dans une catégorie selon sa pente :
+///   - stable (`|slope| ≤ 1`) → vert
+///   - descendante (`slope < -1`) → ambre
+///   - ascendante (`slope > 1`) → rouge
+/// Les zones exclues sont comptées séparément. Les zones 1
+/// (pré-endormissement) et 4 (dawn) ne participent jamais à la
+/// répartition.
+/// Périodes proposées par le picker en tête de la carte. 14 j est la
+/// fenêtre clinique standard utilisée par le verdict de la page —
+/// c'est aussi la valeur par défaut. 3 j zoome sur les toutes
+/// dernières nuits, 7 j montre la semaine récente.
+enum PeriodeRepartition: Int, CaseIterable, Identifiable, Sendable {
+    case trois = 3
+    case sept = 7
+    case quatorze = 14
+    var id: Int { rawValue }
+    var label: String {
+        switch self {
+        case .trois:     return "3 j"
+        case .sept:      return "7 j"
+        case .quatorze:  return "14 j"
+        }
+    }
+    var labelLong: String {
+        switch self {
+        case .trois:     return "3 derniers jours"
+        case .sept:      return "7 derniers jours"
+        case .quatorze:  return "14 derniers jours"
+        }
+    }
+}
+
 struct RepartitionNuitsVue: View {
 
     let analyse: AnalyseBasaleDetail
 
+    @State private var periode: PeriodeRepartition = .trois
+
+    private var distribution: BasalDistribution {
+        analyse.basalDistribution(daysBack: periode.rawValue)
+    }
+
+    init(analyse: AnalyseBasaleDetail) {
+        self.analyse = analyse
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            titre
-            barreSegmentee
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 6) {
+                titre
+                explainer
+            }
+            pickerPeriode
+            VStack(alignment: .leading, spacing: 6) {
+                libelleBarre
+                barreSegmentee
+            }
             listeMetriques
         }
         .padding(20)
@@ -30,7 +76,22 @@ struct RepartitionNuitsVue: View {
         .clipShape(RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
     }
 
-    // MARK: - Titre de section
+    // MARK: - Picker période
+
+    /// Bascule la fenêtre d'analyse : 7 j (récent) / 14 j (clinique
+    /// standard, default — cohérent avec le verdict de la page) / 30 j
+    /// (lissé). Le changement recalcule `distribution` à la volée.
+    private var pickerPeriode: some View {
+        Picker("Période", selection: $periode) {
+            ForEach(PeriodeRepartition.allCases) { p in
+                Text(p.label).tag(p)
+            }
+        }
+        .pickerStyle(.segmented)
+        .accessibilityLabel("Période d'analyse de la répartition")
+    }
+
+    // MARK: - Titre + explainer
 
     private var titre: some View {
         Text("Répartition")
@@ -39,67 +100,101 @@ struct RepartitionNuitsVue: View {
             .accessibilityAddTraits(.isHeader)
     }
 
-    // MARK: - Barre segmentée
+    /// Explique quelles zones nourrissent l'analyse — sans ce repère,
+    /// l'utilisateur peut penser que la barre est un TIR (alors que
+    /// les phases pré-endormissement et dawn n'entrent pas dans le calcul).
+    private var explainer: some View {
+        Text("Calcul basé sur les zones d'endormissement et de nuit profonde — les phases pré-endormissement et dawn restent contextuelles.")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    // MARK: - Barre segmentée (3 segments — exclus pas dans la barre)
+
+    private var nbZonesAnalysees: Int {
+        distribution.stableZones + distribution.descendingZones + distribution.ascendingZones
+    }
+
+    /// Précise au-dessus de la barre sur quoi elle est calculée — la
+    /// barre montre la part de chaque catégorie sur les zones
+    /// effectivement analysées (zones exclues mises de côté), et sur
+    /// quelle fenêtre temporelle (alignée sur le picker).
+    private var libelleBarre: some View {
+        Text("Sur \(nbZonesAnalysees) zones analysées · \(periode.labelLong)")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+    }
 
     private var barreSegmentee: some View {
-        BarreNuits(
-            stables: analyse.nuitsStables,
-            basses: analyse.nuitsTendanceBasse,
-            hautes: analyse.nuitsTendanceHaute
+        BarreZones(
+            stables: distribution.stableZones,
+            descendantes: distribution.descendingZones,
+            ascendantes: distribution.ascendingZones
         )
     }
 
-    // MARK: - Métriques détaillées
+    // MARK: - Liste métriques
 
     private var listeMetriques: some View {
         VStack(alignment: .leading, spacing: 10) {
-            ligneMetrique(icone: "moon.fill", couleurIcone: .secondary,
-                          label: "Nuits stables",
-                          valeur: "\(analyse.nuitsStables)")
+            ligneMetrique(icone: "arrow.right", couleurIcone: .green,
+                          label: "Zones stables",
+                          valeur: "\(distribution.stableZones)")
             ligneMetrique(icone: "arrow.down.right", couleurIcone: .orange,
-                          label: "Nuits tendance basse",
-                          valeur: "\(analyse.nuitsTendanceBasse)")
+                          label: "Zones tendance basse",
+                          valeur: "\(distribution.descendingZones)")
             ligneMetrique(icone: "arrow.up.right", couleurIcone: .red,
-                          label: "Nuits tendance haute",
-                          valeur: "\(analyse.nuitsTendanceHaute)")
+                          label: "Zones tendance haute",
+                          valeur: "\(distribution.ascendingZones)")
             ligneMetrique(icone: "circle.dashed", couleurIcone: .secondary,
-                          label: "Nuits exclues",
-                          valeur: "\(analyse.nuitsExclues)")
+                          label: "Zones exclues",
+                          valeur: "\(distribution.excludedZones)")
 
             Divider()
 
             ligneMetrique(icone: "exclamationmark.triangle.fill", couleurIcone: .red,
                           label: "Hypos nocturnes",
-                          valeur: "\(analyse.hyposNocturnes)")
-            ligneMetrique(icone: "arrow.triangle.2.circlepath", couleurIcone: .orange,
+                          valeur: "\(distribution.hypoCount)")
+            ligneMetrique(icone: "arrow.triangle.2.circlepath", couleurIcone: .green,
                           label: "Resucrages avec rechute",
-                          valeur: "\(analyse.resucragesAvecRechute)")
+                          valeur: "\(distribution.resucrageCount)")
 
             Divider()
 
-            ligneMetrique(icone: "sunrise.fill", couleurIcone: .blue,
+            ligneMetrique(icone: "sunrise.fill", couleurIcone: .orange,
                           label: "Glycémie moy. réveil",
-                          valeur: "\(analyse.glycemieMoyenneReveil) mg/dL")
+                          valeur: distribution.avgWakeUpGlucose > 0
+                              ? "\(Int(distribution.avgWakeUpGlucose)) mg/dL"
+                              : "—")
         }
-        .padding(.top, 16)
+        .padding(.top, 4)
     }
 
-    private func ligneMetrique(icone: String, couleurIcone: Color, label: String, valeur: String) -> some View {
+    /// Ligne métrique : SF Symbol coloré à gauche (taille uniforme),
+    /// label centre, valeur à droite (`.medium`). Police 14 pt pour
+    /// rester cohérente avec le reste du composant.
+    private func ligneMetrique(
+        icone: String,
+        couleurIcone: Color,
+        label: String,
+        valeur: String
+    ) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icone)
-                .font(.caption)
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(couleurIcone)
-                .frame(width: 18, alignment: .center)
+                .frame(width: 22, alignment: .center)
                 .accessibilityHidden(true)
 
             Text(label)
-                .font(.body)
+                .font(.system(size: 14))
                 .foregroundStyle(.primary)
 
             Spacer()
 
             Text(valeur)
-                .font(.body.bold())
+                .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(.primary)
                 .monospacedDigit()
         }
@@ -108,39 +203,36 @@ struct RepartitionNuitsVue: View {
     }
 }
 
-// MARK: - Barre horizontale segmentée (interne à la carte)
+// MARK: - Barre horizontale 3 segments
 
-/// Barre 32 pt segmentée par les 3 catégories de nuit. Largeur de
-/// chaque segment au prorata du nombre de nuits ; pourcentage affiché
-/// en blanc centré uniquement si ≥ 15 % pour éviter le texte illisible
-/// sur les segments fins.
+/// Reprend le langage de la barre AGP du score : 3 segments accolés,
+/// hauteur 32 pt, coin arrondi 8 pt, pourcentage en blanc centré si ≥ 15 %.
 ///
-/// Couleurs choisies pour rester cohérentes avec la barre AGP du score
-/// (`#1D9E75` vert, `#EF9F27` orange) et avec la sémantique « risque »
-/// utilisée ailleurs dans l'app (`#E24B4A` rouge clair pour les nuits
-/// trop hautes — pattern de basale insuffisante).
-private struct BarreNuits: View {
+/// **Différence avec V2** : on ne montre QUE les zones analysées
+/// (stable / descendante / ascendante). Les zones exclues sortent du
+/// dénominateur — elles sont comptées dans la liste sous la barre.
+private struct BarreZones: View {
 
     let stables: Int
-    let basses: Int
-    let hautes: Int
+    let descendantes: Int
+    let ascendantes: Int
 
     private static let hauteur: CGFloat = 32
     private static let coinArrondi: CGFloat = 8
 
     var body: some View {
         GeometryReader { geo in
-            let total = max(1, stables + basses + hautes)
+            let total = max(1, stables + descendantes + ascendantes)
             HStack(spacing: 0) {
                 Segment(couleur: Color(red: 0.114, green: 0.620, blue: 0.459),
                         pourcent: pourcent(stables, sur: total))
                     .frame(width: largeur(stables, sur: total, total: geo.size.width))
                 Segment(couleur: Color(red: 0.937, green: 0.624, blue: 0.153),
-                        pourcent: pourcent(basses, sur: total))
-                    .frame(width: largeur(basses, sur: total, total: geo.size.width))
+                        pourcent: pourcent(descendantes, sur: total))
+                    .frame(width: largeur(descendantes, sur: total, total: geo.size.width))
                 Segment(couleur: Color(red: 0.886, green: 0.294, blue: 0.290),
-                        pourcent: pourcent(hautes, sur: total))
-                    .frame(width: largeur(hautes, sur: total, total: geo.size.width))
+                        pourcent: pourcent(ascendantes, sur: total))
+                    .frame(width: largeur(ascendantes, sur: total, total: geo.size.width))
             }
         }
         .frame(height: Self.hauteur)
@@ -158,16 +250,12 @@ private struct BarreNuits: View {
     }
 
     private var libelleAccessible: String {
-        let total = stables + basses + hautes
-        return "Répartition sur \(total) nuits : \(stables) stables, \(basses) tendance basse, \(hautes) tendance haute."
+        let total = stables + descendantes + ascendantes
+        return "Répartition sur \(total) zones analysées : \(stables) stables, \(descendantes) descendantes, \(ascendantes) ascendantes."
     }
 }
 
-/// Segment de la `BarreNuits` — remplissage couleur + pourcentage
-/// blanc centré au-dessus de 15 % (en dessous l'espace est trop étroit
-/// pour rester lisible).
 private struct Segment: View {
-
     let couleur: Color
     let pourcent: Double
 
@@ -199,8 +287,8 @@ private struct Segment: View {
         .background(Color(.systemGroupedBackground))
 }
 
-#Preview("Répartition - Données insuffisantes") {
-    RepartitionNuitsVue(analyse: .mockInsuffisant)
+#Preview("Répartition - No data") {
+    RepartitionNuitsVue(analyse: .mockNoData)
         .padding(16)
         .background(Color(.systemGroupedBackground))
 }

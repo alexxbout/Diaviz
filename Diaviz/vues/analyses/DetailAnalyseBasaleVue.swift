@@ -7,37 +7,51 @@
 
 import SwiftUI
 
-/// Page dédiée de l'analyse basale — assemble 5 cartes :
+/// Page dédiée de l'analyse basale — V3, 6 cartes verticales :
 ///
-///   1. `CarteVerdictBasale`        — verdict + pente + contexte + dose
-///   2. `TimelineNuitsVue`          — timeline 14 nuits (incluses / exclues)
-///   3. `CourbesNocturnesChart`     — superposition des nuits + tendance
-///   4. `RepartitionNuitsVue`       — barre segmentée + métriques détaillées
-///   5. `CarteResumeIA`             — texte LLM (masquée si données insuffisantes)
+///   1. `CarteVerdictBasale`        — constat (sufficient / recentChange / noData)
+///   2. `CourbesNocturnesChart`     — graphique avec picker Toutes / Par nuit
+///   3. `TimelineNuitsVue`          — périodes analysées (tap → bascule Par nuit)
+///   4. `RepartitionNuitsVue`       — répartition zones analysées
+///   5. `DoseHistoryCard`           — historique de dose
+///   6. `CarteResumeIA`             — texte LLM (masqué si données insuffisantes)
 ///
-/// Cette structure en cartes (verdict → timeline → graphique →
-/// décomposition → résumé LLM) sert de **template** pour les futures
-/// pages d'analyse (sport, glucides, post-sport…). L'analyse est
-/// toujours calculée sur la fenêtre clinique standard de 14 nuits
-/// (`kFenetreNuits`) — pas de picker de période, mais une timeline
-/// visuelle qui montre lesquelles ont été incluses.
+/// L'état `mode` et `indexSelectionne` du chart vit ici pour que le
+/// callback de la timeline puisse :
+///   - basculer le picker du chart sur « Par nuit »
+///   - aligner `indexSelectionne` sur la date tappée
+///
+/// L'analyse reste toujours calculée sur la fenêtre clinique standard
+/// de 14 nuits (`kFenetreNuits`).
 struct DetailAnalyseBasaleVue: View {
 
     let analyse: AnalyseBasaleDetail
 
     @State private var afficherSheetInfo: Bool = false
 
+    // État du chart lifté ici pour que le tap timeline puisse y agir.
+    @State private var mode: ModeAffichageGraphiqueBasale = .toutes
+    @State private var indexSelectionne: Int = 0
+
     init(analyse: AnalyseBasaleDetail = .mockStandard14j) {
         self.analyse = analyse
     }
 
     var body: some View {
-        ScrollView {
+        ScrollView(.vertical) {
             VStack(spacing: 12) {
                 CarteVerdictBasale(analyse: analyse)
-                TimelineNuitsVue(timeline: analyse.timeline)
-                CourbesNocturnesChart(analyse: analyse)
+                CourbesNocturnesChart(
+                    nights: analyse.nightChartData,
+                    mode: $mode,
+                    indexSelectionne: $indexSelectionne
+                )
+                TimelineNuitsVue(
+                    timeline: analyse.timeline,
+                    onNightSelected: { date in basculerSurNuit(date: date) }
+                )
                 RepartitionNuitsVue(analyse: analyse)
+                DoseHistoryCard(changes: analyse.doseHistory)
 
                 if analyse.verdict != .donneesInsuffisantes,
                    let resume = analyse.resumeIA {
@@ -46,7 +60,9 @@ struct DetailAnalyseBasaleVue: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 16)
+            .frame(maxWidth: .infinity)
         }
+        .scrollIndicators(.hidden)
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Analyse basale")
         .navigationBarTitleDisplayMode(.inline)
@@ -66,17 +82,31 @@ struct DetailAnalyseBasaleVue: View {
                 .presentationDragIndicator(.visible)
         }
     }
+
+    // MARK: - Tap timeline → bascule sur la nuit
+
+    /// Cherche la nuit dans `nightChartData` qui matche le jour
+    /// calendaire de la date tappée, bascule le chart sur « Par nuit »
+    /// et positionne `indexSelectionne` dessus.
+    private func basculerSurNuit(date: Date) {
+        let cal = Calendar.current
+        let jourTape = cal.startOfDay(for: date)
+        guard let idx = analyse.nightChartData.firstIndex(where: {
+            cal.startOfDay(for: $0.date) == jourTape
+        }) else {
+            return
+        }
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            mode = .parNuit
+            indexSelectionne = idx
+        }
+    }
 }
 
-// MARK: - Carte 5 — résumé IA
+// MARK: - Carte résumé IA
 
 /// Carte LLM — texte court (~5 lignes) résumant le verdict en langage
 /// naturel + disclaimer « Contenu généré par IA, à vérifier. ».
-///
-/// Séparée en composant interne plutôt qu'inline parce qu'on s'attend
-/// à la réutiliser sur les futures pages d'analyse (chaque verdict aura
-/// son propre texte LLM, mais le contenant restera identique : texte
-/// body secondary + disclaimer).
 private struct CarteResumeIA: View {
 
     let texte: String
@@ -105,33 +135,27 @@ private struct CarteResumeIA: View {
 
 // MARK: - Aperçus
 
-#Preview("Timeline - 14 jours standard") {
+#Preview("Page - Normal (verdict sufficient)") {
     NavigationStack {
         DetailAnalyseBasaleVue(analyse: .mockStandard14j)
     }
 }
 
-#Preview("Timeline - Après changement de dose") {
+#Preview("Page - Recent change") {
     NavigationStack {
-        DetailAnalyseBasaleVue(analyse: .mockChangementDose)
+        DetailAnalyseBasaleVue(analyse: .mockRecentChange)
     }
 }
 
-#Preview("Basale - Adaptée") {
+#Preview("Page - No data") {
+    NavigationStack {
+        DetailAnalyseBasaleVue(analyse: .mockNoData)
+    }
+}
+
+#Preview("Page - Basale adaptée") {
     NavigationStack {
         DetailAnalyseBasaleVue(analyse: .mockAdaptee)
-    }
-}
-
-#Preview("Basale - Trop basse") {
-    NavigationStack {
-        DetailAnalyseBasaleVue(analyse: .mockTropBasse)
-    }
-}
-
-#Preview("Basale - Données insuffisantes") {
-    NavigationStack {
-        DetailAnalyseBasaleVue(analyse: .mockInsuffisant)
     }
 }
 
