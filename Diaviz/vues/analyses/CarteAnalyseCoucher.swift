@@ -28,7 +28,7 @@ enum SousAnalyseCoucher: String, CaseIterable, Sendable {
     var icone: String {
         switch self {
         case .basale:       return "syringe.fill"
-        case .glycemie:     return "drop.fill"
+        case .glycemie:     return "bed.double.fill"
         case .corrections:  return "plusminus"
         }
     }
