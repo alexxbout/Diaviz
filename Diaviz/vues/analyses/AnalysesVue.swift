@@ -19,13 +19,13 @@ import SwiftUI
 /// à l'identique sur les quatre onglets racines.
 struct AnalysesVue: View {
 
-    /// Résumé alimentant la carte Basale. Mock par défaut le temps que la
-    /// couche d'analyses ML produise les vrais verdicts ; injecté dans
-    /// les previews pour exercer les 4 états visuels.
-    let basale: AnalyseBasaleResume
+    /// Résumé alimentant la carte « Analyse du coucher » (B1 + B2 + B3).
+    /// Mock par défaut le temps que la couche d'analyses produise les vrais
+    /// états ; injecté dans les previews pour exercer les états visuels.
+    let coucher: ResumeAnalyseCoucher
 
-    init(basale: AnalyseBasaleResume = .mockDefault) {
-        self.basale = basale
+    init(coucher: ResumeAnalyseCoucher = .mockDefault) {
+        self.coucher = coucher
     }
 
     var body: some View {
@@ -37,7 +37,7 @@ struct AnalysesVue: View {
                     // Spacing 28pt entre sections — cohérent avec l'accueil,
                     // donne à chaque carte sommaire l'espace de respirer.
                     VStack(spacing: 28) {
-                        CarteAnalyseBasale(resume: basale)
+                        CarteAnalyseCoucher(resume: coucher)
                     }
                     .padding(16)
                 }
@@ -49,17 +49,17 @@ struct AnalysesVue: View {
 
 // MARK: - Aperçus
 
-#Preview("Analyses - Basale adaptée") {
-    AnalysesVue(basale: .mockAdaptee)
+#Preview("Analyses - Coucher défaut") {
+    AnalysesVue(coucher: .mockDefault)
         .environment(ProfilService.mockComplet())
 }
 
-#Preview("Analyses - Basale à revoir") {
-    AnalysesVue(basale: .mockDefault)
+#Preview("Analyses - Coucher mature") {
+    AnalysesVue(coucher: .mockMature)
         .environment(ProfilService.mockComplet())
 }
 
-#Preview("Analyses - Données insuffisantes") {
-    AnalysesVue(basale: .mockDonneesInsuffisantes)
+#Preview("Analyses - Coucher débutant") {
+    AnalysesVue(coucher: .mockDebutant)
         .environment(ProfilService.mockComplet())
 }

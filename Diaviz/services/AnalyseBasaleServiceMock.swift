@@ -339,6 +339,31 @@ extension Array where Element == NightChartData {
     }
 }
 
+// MARK: - Verdict global de l'analyse basale
+
+/// Conclusion synthétique de la sous-analyse basale (B1), telle qu'exposée
+/// par la carte sommaire « Analyse du coucher » et utilisée pour router
+/// vers le bon snapshot de détail (`charger(verdict:)`).
+///
+/// Les deux états « hors cible » (`.tropHaute`, `.tropBasse`) partagent
+/// volontairement le même libellé « À revoir » côté carte pour ne pas
+/// suggérer une direction de correction — l'utilisateur ouvre le détail
+/// pour savoir quoi ajuster.
+enum VerdictBasale: Sendable, Equatable {
+
+    /// Profil glycémique nocturne stable, basale calibrée.
+    case adaptee
+
+    /// Tendance haute sur la fenêtre analysée → ajustement à examiner.
+    case tropHaute
+
+    /// Tendance basse sur la fenêtre analysée → ajustement à examiner.
+    case tropBasse
+
+    /// Pas assez de nuits exploitables (capteur HS, données récentes).
+    case donneesInsuffisantes
+}
+
 // MARK: - Snapshot complet de l'analyse
 
 /// Snapshot prêt-à-afficher pour `DetailAnalyseBasaleVue` — agrège
