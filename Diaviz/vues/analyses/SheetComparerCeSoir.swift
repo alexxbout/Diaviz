@@ -27,6 +27,7 @@ struct SheetComparerCeSoir: View {
 
     @State private var glycemieTexte = ""
     @State private var rechercheLancee = false
+    @FocusState private var champFocus: Bool
 
     // Contexte de « ce soir » — mocké en V0 (sera fourni par l'app).
     private let sportCeSoir = false
@@ -69,6 +70,7 @@ struct SheetComparerCeSoir: View {
                 .foregroundStyle(.secondary)
             TextField("—", text: $glycemieTexte)
                 .keyboardType(.numberPad)
+                .focused($champFocus)
                 .multilineTextAlignment(.center)
                 .font(.system(size: 48, weight: .bold, design: .rounded))
                 .monospacedDigit()
@@ -119,8 +121,7 @@ struct SheetComparerCeSoir: View {
 
     private var boutonRecherche: some View {
         Button {
-            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder),
-                                            to: nil, from: nil, for: nil)
+            champFocus = false
             withAnimation(.easeInOut(duration: 0.2)) { rechercheLancee = true }
         } label: {
             Text("Lancer la recherche")
