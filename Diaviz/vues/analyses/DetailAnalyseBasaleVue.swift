@@ -35,6 +35,9 @@ struct DetailAnalyseBasaleVue: View {
     @State private var afficherInfoEndormissement: Bool = false
     @State private var afficherInfoCorrections: Bool = false
 
+    // Sheet de recherche « Comparer à ce soir » (transverse B2/B3).
+    @State private var afficherComparaison: Bool = false
+
     // État du chart B1 lifté ici pour que le tap timeline puisse y agir.
     @State private var mode: ModeAffichageGraphiqueBasale = .toutes
     @State private var indexSelectionne: Int = 0
@@ -48,6 +51,7 @@ struct DetailAnalyseBasaleVue: View {
     var body: some View {
         ScrollView(.vertical) {
             VStack(spacing: 0) {
+                boutonComparer
                 sectionBasale
                 sectionEndormissement
                 sectionCorrections
@@ -57,6 +61,9 @@ struct DetailAnalyseBasaleVue: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Analyse du coucher")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $afficherComparaison) {
+            SheetComparerCeSoir(analyse: endormissement)
+        }
         .sheet(isPresented: $afficherInfoBasale) {
             SheetExplicativeBasale()
                 .presentationDetents([.medium])
@@ -72,6 +79,33 @@ struct DetailAnalyseBasaleVue: View {
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
         }
+    }
+
+    // MARK: - Bouton « Comparer à ce soir » (niveau page)
+
+    private var boutonComparer: some View {
+        Button {
+            afficherComparaison = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                Text("Comparer à ce soir").fontWeight(.semibold)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.indigo.opacity(0.5))
+            }
+            .foregroundStyle(.indigo)
+            .padding(16)
+            .frame(maxWidth: .infinity)
+            .background(Color.indigo.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+        .padding(.bottom, 4)
+        .accessibilityHint("Recherche les nuits passées proches de ta situation de ce soir")
     }
 
     // MARK: - Section B1 — Tendance basale
