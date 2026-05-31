@@ -12,7 +12,7 @@ import SwiftUI
 ///
 ///   1. **Tendance basale** (B1)      — contenu existant (verdict, courbes,
 ///      timeline, répartition, historique de dose, résumé IA)
-///   2. **Endormissement** (B2)       — hypos à l'endormissement (placeholder)
+///   2. **Endormissement** (B2)       — tableau des hypos à l'endormissement
 ///   3. **Corrections du soir** (B3)  — corrections au coucher (placeholder)
 ///
 /// Toutes les sections sont **fermées par défaut** : seuls les en-têtes
@@ -25,6 +25,7 @@ import SwiftUI
 struct DetailAnalyseBasaleVue: View {
 
     let analyse: AnalyseBasaleDetail
+    let endormissement: AnalyseEndormissement
 
     // Sections ouvertes — vide = toutes fermées (défaut).
     @State private var sectionsOuvertes: Set<SousAnalyseCoucher> = []
@@ -38,8 +39,10 @@ struct DetailAnalyseBasaleVue: View {
     @State private var mode: ModeAffichageGraphiqueBasale = .toutes
     @State private var indexSelectionne: Int = 0
 
-    init(analyse: AnalyseBasaleDetail = .mockStandard14j) {
+    init(analyse: AnalyseBasaleDetail = .mockStandard14j,
+         endormissement: AnalyseEndormissement = .mock) {
         self.analyse = analyse
+        self.endormissement = endormissement
     }
 
     var body: some View {
@@ -109,24 +112,22 @@ struct DetailAnalyseBasaleVue: View {
         }
     }
 
-    // MARK: - Section B2 — Endormissement (placeholder)
+    // MARK: - Section B2 — Endormissement
 
     private var sectionEndormissement: some View {
         VStack(spacing: 0) {
             EnTeteSectionCoucher(
                 titre: "Endormissement",
-                etat: .resultat(libelle: "2 hypos", ton: .attention),
+                etat: etatEndormissement,
                 ouverte: sectionsOuvertes.contains(.glycemie),
                 onInfo: { afficherInfoEndormissement = true },
                 onToggle: { basculer(.glycemie) }
             )
             if sectionsOuvertes.contains(.glycemie) {
-                PlaceholderSection(
-                    texte: "Tableau des nuits couché bas et hypos à l'endormissement — à venir (B2)."
-                )
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
-                .padding(.bottom, 18)
+                TableauEndormissement(analyse: endormissement)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 14)
+                    .padding(.bottom, 18)
             }
         }
     }
@@ -175,6 +176,14 @@ struct DetailAnalyseBasaleVue: View {
         case .donneesInsuffisantes:
             return .enAttente
         }
+    }
+
+    /// Statut glance de la section B2 — compte d'hypos à l'endormissement,
+    /// sinon « Aucune récente ». B2 ne se gate pas : il remonte des faits.
+    private var etatEndormissement: EtatSousAnalyse {
+        let n = endormissement.nombreHypos
+        guard n > 0 else { return .resultat(libelle: "Aucune récente", ton: .neutre) }
+        return .resultat(libelle: n == 1 ? "1 hypo" : "\(n) hypos", ton: .attention)
     }
 
     /// Cherche la nuit dans `nightChartData` qui matche le jour calendaire
