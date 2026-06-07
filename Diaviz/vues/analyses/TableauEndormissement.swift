@@ -55,6 +55,9 @@ struct TableauEndormissement: View {
             }
             .background(Color(.secondarySystemGroupedBackground))
             .clipShape(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
+
+            LegendeCoucher()
+                .padding(.top, 2)
         }
     }
 
@@ -95,20 +98,26 @@ struct TableauEndormissement: View {
     // MARK: - Ligne (badges)
 
     private func ligne(_ nuit: NuitEndormissement) -> some View {
-        HStack(spacing: 10) {
-            badgeGlycemie(nuit.glycemieCoucher)
-            BadgeChargeActivite(charge: nuit.charge)
-
-            if nuit.sport {
-                tag(systeme: "figure.run", texte: nil)
+        VStack(alignment: .leading, spacing: 8) {
+            // Ligne 1 — résultat : glycémie+tendance → issue
+            HStack(spacing: 8) {
+                titreGlycemie(nuit.glycemieCoucher, tendance: nuit.tendance)
+                Spacer(minLength: 8)
+                badgeIssue(nuit.issue)
             }
-            if let iob = nuit.iob {
-                TagIOB(iob: iob)
+            // Ligne 2 — contexte (sous-titre nu)
+            HStack(spacing: 12) {
+                BadgeChargeActivite(charge: nuit.charge, avecLibelle: true)
+                if let s = nuit.sport {
+                    BadgeSport(seance: s)
+                }
+                if let iob = nuit.iob {
+                    tag(systeme: "drop.fill", texte: String(format: "%.1fU", iob))
+                }
+                if let g = nuit.glucides {
+                    tag(systeme: "fork.knife", texte: "\(g.formatted())g")
+                }
             }
-
-            Spacer(minLength: 8)
-
-            badgeIssue(nuit.issue)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -116,20 +125,21 @@ struct TableauEndormissement: View {
         .accessibilityLabel(libelleAccessible(nuit))
     }
 
-    // MARK: Badge glycémie de coucher
+    // MARK: Titre glycémie (gros chiffre + tendance, sans fond)
 
-    private func badgeGlycemie(_ valeur: Int) -> some View {
-        Text("\(valeur)")
-            .font(.subheadline.weight(.semibold))
-            .monospacedDigit()
-            .foregroundStyle(.primary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(Color(.tertiarySystemFill))
-            .clipShape(Capsule(style: .continuous))
+    private func titreGlycemie(_ valeur: Int, tendance: TendanceGlycemie) -> some View {
+        HStack(spacing: 5) {
+            Text("\(valeur)")
+                .font(.title3.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(.primary)
+            Image(systemName: tendance.symbole)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
     }
 
-    // MARK: Tag contextuel (sport — icône seule)
+    // MARK: Item de contexte nu (icône + valeur, sous-titre)
 
     private func tag(systeme: String, texte: String?) -> some View {
         HStack(spacing: 4) {
@@ -140,10 +150,6 @@ struct TableauEndormissement: View {
         }
         .font(.caption.weight(.medium))
         .foregroundStyle(.secondary)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(Color(.tertiarySystemFill))
-        .clipShape(Capsule(style: .continuous))
     }
 
     // MARK: Badge issue (zone 1-2)
@@ -155,15 +161,19 @@ struct TableauEndormissement: View {
             Text("hypo \(delaiRelatif(delai))")
                 .font(.caption.weight(.semibold))
                 .monospacedDigit()
-                .foregroundStyle(.orange)
+                .lineLimit(1)
+                .fixedSize()
+                .foregroundStyle(.red)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
-                .background(Color.orange.opacity(0.15))
+                .background(Color.red.opacity(0.15))
                 .clipShape(Capsule(style: .continuous))
 
         case .stable:
             Text("stable")
                 .font(.caption.weight(.medium))
+                .lineLimit(1)
+                .fixedSize()
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
@@ -209,51 +219,16 @@ struct TableauEndormissement: View {
     // MARK: - Accessibilité
 
     private func libelleAccessible(_ nuit: NuitEndormissement) -> String {
-        var parts = ["Coucher à \(nuit.glycemieCoucher)"]
-        if nuit.sport { parts.append("sport") }
+        var parts = ["Coucher à \(nuit.glycemieCoucher) \(nuit.tendance.libelle)"]
+        if let s = nuit.sport { parts.append("sport \(s.resume)") }
         if let iob = nuit.iob { parts.append(String(format: "%.1f unités d'insuline active", iob)) }
+        if let g = nuit.glucides { parts.append("\(g.formatted()) grammes de glucides") }
         parts.append(nuit.charge.libelle)
         switch nuit.issue {
         case let .hypo(delai): parts.append("hypo \(delaiRelatif(delai)) après la lente")
         case .stable:          parts.append("stable")
         }
         return parts.joined(separator: ", ")
-    }
-}
-
-// MARK: - Tag IOB (icône seule + popover)
-
-/// Badge IOB compact : 💧 seule, la valeur (quantité d'insuline active) vit
-/// dans un popover au tap — pour ne pas surcharger la ligne.
-private struct TagIOB: View {
-
-    let iob: Double
-
-    @State private var afficherInfo = false
-
-    var body: some View {
-        Button {
-            afficherInfo = true
-        } label: {
-            Image(systemName: "drop.fill")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color(.tertiarySystemFill))
-                .clipShape(Capsule(style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(String(format: "%.1f unités d'insuline active au coucher", iob))
-        .popover(isPresented: $afficherInfo) {
-            Text(String(format: "%.1f u d'insuline active au coucher", iob))
-                .font(.footnote)
-                .monospacedDigit()
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .fixedSize()
-                .presentationCompactAdaptation(.popover)
-        }
     }
 }
 

@@ -154,10 +154,10 @@ struct SheetComparerCeSoir: View {
                             .foregroundStyle(.secondary)
 
                         if !hypos.isEmpty {
-                            groupe(titre: "Fini en hypo", n: hypos.count, couleur: .orange, nuits: hypos)
+                            groupe(titre: "Fini en hypo", n: hypos.count, couleur: .red, nuits: hypos)
                         }
                         if !stables.isEmpty {
-                            groupe(titre: "Resté stable", n: stables.count, couleur: .secondary, nuits: stables)
+                            groupe(titre: "Resté stable", n: stables.count, couleur: .green, nuits: stables)
                         }
                     }
                 }
@@ -166,13 +166,21 @@ struct SheetComparerCeSoir: View {
     }
 
     private func groupe(titre: String, n: Int, couleur: Color, nuits: [NuitEndormissement]) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 6) {
-                Text(titre).font(.subheadline.weight(.semibold)).foregroundStyle(couleur)
-                Text("\(n)").font(.subheadline).foregroundStyle(.secondary).monospacedDigit()
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(couleur)
+                    .frame(width: 9, height: 9)
+                Text(titre)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(couleur)
+                Text("·").foregroundStyle(.tertiary)
+                Text("\(n)")
+                    .font(.title3.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
 
             VStack(spacing: 0) {
                 ForEach(Array(nuits.enumerated()), id: \.element.id) { index, nuit in
@@ -186,38 +194,51 @@ struct SheetComparerCeSoir: View {
     }
 
     private func ligneResultat(_ nuit: NuitEndormissement) -> some View {
-        HStack(spacing: 10) {
-            Text("\(nuit.glycemieCoucher)")
-                .font(.subheadline.weight(.semibold))
-                .monospacedDigit()
-                .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(Color(.tertiarySystemFill))
-                .clipShape(Capsule(style: .continuous))
-
-            BadgeChargeActivite(charge: nuit.charge)
-
-            if nuit.sport {
-                Image(systemName: "figure.run").font(.caption).foregroundStyle(.secondary)
-            }
-            if let iob = nuit.iob {
-                HStack(spacing: 3) {
-                    Image(systemName: "drop.fill")
-                    Text(String(format: "%.1fU", iob)).monospacedDigit()
+        VStack(alignment: .leading, spacing: 8) {
+            // Ligne 1 — glycémie (titre) + délai d'hypo éventuel
+            HStack(spacing: 8) {
+                HStack(spacing: 5) {
+                    Text("\(nuit.glycemieCoucher)")
+                        .font(.body.weight(.semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(.primary)
+                    Image(systemName: nuit.tendance.symbole)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
                 }
-                .font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                if case let .hypo(delai) = nuit.issue {
+                    Text(delaiRelatif(delai))
+                        .font(.caption.weight(.semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(.red)
+                }
             }
-
-            Spacer(minLength: 8)
-
-            if case let .hypo(delai) = nuit.issue {
-                Text(delaiRelatif(delai))
-                    .font(.caption.weight(.medium))
-                    .monospacedDigit()
-                    .foregroundStyle(.orange)
+            // Ligne 2 — contexte (sous-titre nu)
+            HStack(spacing: 12) {
+                BadgeChargeActivite(charge: nuit.charge, avecLibelle: true)
+                if let s = nuit.sport {
+                    BadgeSport(seance: s)
+                }
+                if let iob = nuit.iob {
+                    contexteItem(systeme: "drop.fill", texte: String(format: "%.1fU", iob))
+                }
+                if let g = nuit.glucides {
+                    contexteItem(systeme: "fork.knife", texte: "\(g.formatted())g")
+                }
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+    }
+
+    private func contexteItem(systeme: String, texte: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: systeme)
+            Text(texte).monospacedDigit()
+        }
+        .font(.caption.weight(.medium))
+        .foregroundStyle(.secondary)
     }
 
     private func messageInfo(_ texte: String) -> some View {

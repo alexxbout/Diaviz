@@ -17,9 +17,37 @@ struct BadgeChargeActivite: View {
 
     let charge: ChargeActivite
 
+    /// `true` → flamme + niveau écrit, inline, sans tap (lignes des tableaux).
+    /// `false` → flamme seule, détail au tap (usages compacts).
+    var avecLibelle: Bool = false
+
     @State private var afficherInfo = false
 
     var body: some View {
+        if avecLibelle {
+            badgeLibelle
+        } else {
+            badgeCompact
+        }
+    }
+
+    // MARK: Inline (flamme + niveau)
+
+    private var badgeLibelle: some View {
+        HStack(spacing: 4) {
+            Image(systemName: Self.symbole)
+                .foregroundStyle(Self.couleur(charge))
+            Text(charge.libelleCourt)
+                .foregroundStyle(.secondary)
+        }
+        .font(.caption.weight(.medium))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Activité de la semaine : \(charge.libelle)")
+    }
+
+    // MARK: Compact (flamme seule + popover)
+
+    private var badgeCompact: some View {
         Button {
             afficherInfo = true
         } label: {

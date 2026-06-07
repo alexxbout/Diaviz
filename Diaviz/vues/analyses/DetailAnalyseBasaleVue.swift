@@ -13,7 +13,7 @@ import SwiftUI
 ///   1. **Tendance basale** (B1)      — contenu existant (verdict, courbes,
 ///      timeline, répartition, historique de dose, résumé IA)
 ///   2. **Endormissement** (B2)       — tableau des hypos à l'endormissement
-///   3. **Corrections du soir** (B3)  — corrections au coucher (placeholder)
+///   3. **Corrections du soir** (B3)  — tableau des corrections au coucher
 ///
 /// Toutes les sections sont **fermées par défaut** : seuls les en-têtes
 /// (titre + statut glance + ⓘ) sont visibles, donnant un panorama des trois
@@ -26,6 +26,7 @@ struct DetailAnalyseBasaleVue: View {
 
     let analyse: AnalyseBasaleDetail
     let endormissement: AnalyseEndormissement
+    let corrections: AnalyseCorrections
 
     // Sections ouvertes — vide = toutes fermées (défaut).
     @State private var sectionsOuvertes: Set<SousAnalyseCoucher> = []
@@ -43,9 +44,11 @@ struct DetailAnalyseBasaleVue: View {
     @State private var indexSelectionne: Int = 0
 
     init(analyse: AnalyseBasaleDetail = .mockStandard14j,
-         endormissement: AnalyseEndormissement = .mock) {
+         endormissement: AnalyseEndormissement = .mock,
+         corrections: AnalyseCorrections = .mock) {
         self.analyse = analyse
         self.endormissement = endormissement
+        self.corrections = corrections
     }
 
     var body: some View {
@@ -89,7 +92,7 @@ struct DetailAnalyseBasaleVue: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass")
-                Text("Comparer à ce soir").fontWeight(.semibold)
+                Text("Comparer ma glycémie du soir").fontWeight(.semibold)
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.subheadline.weight(.semibold))
@@ -166,24 +169,22 @@ struct DetailAnalyseBasaleVue: View {
         }
     }
 
-    // MARK: - Section B3 — Corrections du soir (placeholder)
+    // MARK: - Section B3 — Corrections du soir
 
     private var sectionCorrections: some View {
         VStack(spacing: 0) {
             EnTeteSectionCoucher(
-                titre: "Corrections du soir",
-                etat: .enAttente,
+                titre: "Corrections",
+                etat: etatCorrections,
                 ouverte: sectionsOuvertes.contains(.corrections),
                 onInfo: { afficherInfoCorrections = true },
                 onToggle: { basculer(.corrections) }
             )
             if sectionsOuvertes.contains(.corrections) {
-                PlaceholderSection(
-                    texte: "Analyse des doses de correction au coucher — à venir (B3)."
-                )
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
-                .padding(.bottom, 18)
+                TableauCorrections(analyse: corrections)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 14)
+                    .padding(.bottom, 18)
             }
         }
     }
@@ -218,6 +219,16 @@ struct DetailAnalyseBasaleVue: View {
         let n = endormissement.nombreHypos
         guard n > 0 else { return .resultat(libelle: "Aucune récente", ton: .neutre) }
         return .resultat(libelle: n == 1 ? "1 hypo" : "\(n) hypos", ton: .attention)
+    }
+
+    /// Statut glance de la section B3 — compte de corrections du soir, neutre
+    /// (B3 expose des faits, ne juge pas).
+    private var etatCorrections: EtatSousAnalyse {
+        let n = corrections.nombre
+        guard n > 0 else { return .enAttente }
+        // Le mot « corrections » serait redondant avec le titre de section :
+        // on n'affiche que le compte.
+        return .resultat(libelle: "\(n)", ton: .neutre)
     }
 
     /// Cherche la nuit dans `nightChartData` qui matche le jour calendaire
@@ -268,23 +279,7 @@ private struct CarteResumeIA: View {
     }
 }
 
-// MARK: - Placeholders (B2 / B3 en attente d'implémentation)
-
-/// Contenu provisoire d'une section non encore implémentée.
-private struct PlaceholderSection: View {
-
-    let texte: String
-
-    var body: some View {
-        Text(texte)
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(20)
-            .background(Color(.secondarySystemGroupedBackground))
-            .clipShape(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
-    }
-}
+// MARK: - Placeholder sheet explicative (B2 / B3)
 
 /// Sheet explicative provisoire (Pourquoi / Quoi / Comment) pour B2 / B3,
 /// en attendant la généralisation de `SheetExplicativeBasale`.

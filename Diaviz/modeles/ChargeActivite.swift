@@ -34,6 +34,16 @@ enum ChargeActivite: String, Sendable, Equatable, CaseIterable {
         }
     }
 
+    /// Forme courte pour affichage inline à côté de la flamme.
+    var libelleCourt: String {
+        switch self {
+        case .aucune:  return "aucune"
+        case .calme:   return "tranquille"
+        case .moderee: return "moyenne"
+        case .intense: return "intense"
+        }
+    }
+
     /// Fait court affiché dans le popover — défini par le nombre de séances sur
     /// 7 jours. Factuel, scannable d'un coup d'œil, aucun conseil.
     var descriptif: String {

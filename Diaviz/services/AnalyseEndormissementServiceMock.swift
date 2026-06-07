@@ -41,8 +41,16 @@ struct NuitEndormissement: Identifiable, Sendable, Equatable {
     /// Glycémie (mg/dL) au moment de la prise de lente.
     let glycemieCoucher: Int
 
-    /// Activité sportive le jour même (présence seule en V1).
-    let sport: Bool
+    /// Tendance de la glycémie au coucher (trajectoire).
+    let tendance: TendanceGlycemie
+
+    /// Glucides ingérés autour du coucher (g) — resucrage / collation.
+    /// `nil` si aucun. Contexte clé : une nuit « stable » peut l'être
+    /// **parce qu'**on a resucré, pas parce que la dose était juste.
+    let glucides: Double?
+
+    /// Séance de sport le jour même (détail au tap). `nil` si aucune.
+    let sport: SportResume?
 
     /// IOB résiduel au coucher (unités). `nil` si nul.
     let iob: Double?
@@ -90,19 +98,19 @@ extension AnalyseEndormissement {
         let nuits: [NuitEndormissement] = [
             // Couché bas mais semaine off → stable. Le contraste avec la nuit
             // 112 (semaine intense → hypo) raconte le rôle de la charge.
-            .init(id: UUID(), date: jour(0),  glycemieCoucher: 100, sport: false, iob: nil, charge: .aucune,  issue: .stable),
-            .init(id: UUID(), date: jour(1),  glycemieCoucher: 105, sport: true,  iob: 1.5, charge: .moderee, issue: .hypo(delaiMinutes: 42)),
-            .init(id: UUID(), date: jour(2),  glycemieCoucher: 112, sport: false, iob: nil, charge: .intense, issue: .hypo(delaiMinutes: 70)),
-            .init(id: UUID(), date: jour(3),  glycemieCoucher: 116, sport: true,  iob: nil, charge: .moderee, issue: .hypo(delaiMinutes: 25)),
-            .init(id: UUID(), date: jour(4),  glycemieCoucher: 121, sport: false, iob: 2.0, charge: .calme,   issue: .stable),
-            .init(id: UUID(), date: jour(5),  glycemieCoucher: 124, sport: false, iob: nil, charge: .aucune,  issue: .stable),
-            .init(id: UUID(), date: jour(6),  glycemieCoucher: 130, sport: true,  iob: nil, charge: .moderee, issue: .stable),
-            .init(id: UUID(), date: jour(7),  glycemieCoucher: 134, sport: false, iob: nil, charge: .aucune,  issue: .stable),
-            .init(id: UUID(), date: jour(8),  glycemieCoucher: 139, sport: false, iob: nil, charge: .calme,   issue: .stable),
-            .init(id: UUID(), date: jour(9),  glycemieCoucher: 145, sport: true,  iob: nil, charge: .moderee, issue: .stable),
-            .init(id: UUID(), date: jour(10), glycemieCoucher: 150, sport: false, iob: nil, charge: .aucune,  issue: .stable),
-            .init(id: UUID(), date: jour(11), glycemieCoucher: 155, sport: false, iob: 1.0, charge: .calme,   issue: .stable),
-            .init(id: UUID(), date: jour(12), glycemieCoucher: 158, sport: false, iob: nil, charge: .aucune,  issue: .stable),
+            .init(id: UUID(), date: jour(0),  glycemieCoucher: 100, tendance: .stable,      glucides: 10,  sport: nil,                                                          iob: nil, charge: .aucune,  issue: .stable),
+            .init(id: UUID(), date: jour(1),  glycemieCoucher: 105, tendance: .baisse,      glucides: 15,  sport: SportResume(type: "Course", intensite: "modéré", dureeMinutes: 45), iob: 1.5, charge: .moderee, issue: .hypo(delaiMinutes: 42)),
+            .init(id: UUID(), date: jour(2),  glycemieCoucher: 112, tendance: .forteBaisse, glucides: 20,  sport: nil,                                                          iob: nil, charge: .intense, issue: .hypo(delaiMinutes: 70)),
+            .init(id: UUID(), date: jour(3),  glycemieCoucher: 116, tendance: .baisse,      glucides: nil, sport: SportResume(type: "Vélo", intensite: "intense", dureeMinutes: 60), iob: nil, charge: .moderee, issue: .hypo(delaiMinutes: 25)),
+            .init(id: UUID(), date: jour(4),  glycemieCoucher: 121, tendance: .stable,      glucides: nil, sport: nil,                                                          iob: 2.0, charge: .calme,   issue: .stable),
+            .init(id: UUID(), date: jour(5),  glycemieCoucher: 124, tendance: .hausse,      glucides: nil, sport: nil,                                                          iob: nil, charge: .aucune,  issue: .stable),
+            .init(id: UUID(), date: jour(6),  glycemieCoucher: 130, tendance: .stable,      glucides: nil, sport: SportResume(type: "Marche", intensite: "léger", dureeMinutes: 30), iob: nil, charge: .moderee, issue: .stable),
+            .init(id: UUID(), date: jour(7),  glycemieCoucher: 134, tendance: .stable,      glucides: nil, sport: nil,                                                          iob: nil, charge: .aucune,  issue: .stable),
+            .init(id: UUID(), date: jour(8),  glycemieCoucher: 139, tendance: .hausse,      glucides: nil, sport: nil,                                                          iob: nil, charge: .calme,   issue: .stable),
+            .init(id: UUID(), date: jour(9),  glycemieCoucher: 145, tendance: .stable,      glucides: nil, sport: SportResume(type: "Course", intensite: "modéré", dureeMinutes: 40), iob: nil, charge: .moderee, issue: .stable),
+            .init(id: UUID(), date: jour(10), glycemieCoucher: 150, tendance: .stable,      glucides: nil, sport: nil,                                                          iob: nil, charge: .aucune,  issue: .stable),
+            .init(id: UUID(), date: jour(11), glycemieCoucher: 155, tendance: .baisse,      glucides: nil, sport: nil,                                                          iob: 1.0, charge: .calme,   issue: .stable),
+            .init(id: UUID(), date: jour(12), glycemieCoucher: 158, tendance: .stable,      glucides: nil, sport: nil,                                                          iob: nil, charge: .aucune,  issue: .stable),
         ]
         return AnalyseEndormissement(seuilCoucher: 160, doseActuelle: 18, nuits: nuits)
     }
@@ -112,6 +120,7 @@ extension AnalyseEndormissement {
         let nuits = mock.nuits.map {
             NuitEndormissement(id: $0.id, date: $0.date,
                                glycemieCoucher: $0.glycemieCoucher,
+                               tendance: $0.tendance, glucides: $0.glucides,
                                sport: $0.sport, iob: $0.iob,
                                charge: $0.charge, issue: .stable)
         }

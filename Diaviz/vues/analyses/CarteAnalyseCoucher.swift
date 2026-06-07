@@ -21,7 +21,7 @@ enum SousAnalyseCoucher: String, CaseIterable, Sendable {
         switch self {
         case .basale:       return "Tendance basale"
         case .glycemie:     return "Endormissement"
-        case .corrections:  return "Corrections du soir"
+        case .corrections:  return "Corrections"
         }
     }
 
