@@ -6,7 +6,7 @@
 //
 
 import Testing
-@testable import diaviz
+@testable import Diaviz
 
 struct DiavizTests {
 

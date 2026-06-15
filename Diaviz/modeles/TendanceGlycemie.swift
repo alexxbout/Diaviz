@@ -13,7 +13,7 @@ import Foundation
 ///
 /// Concept transverse (réutilisable partout où une glycémie est affichée).
 /// Énumération pure : le symbole/flèche vit ici, le rendu dans la vue.
-enum TendanceGlycemie: String, Sendable, Equatable, CaseIterable {
+enum TendanceGlycemie: String, Codable, Sendable, Equatable, CaseIterable {
     case forteHausse
     case hausse
     case stable
