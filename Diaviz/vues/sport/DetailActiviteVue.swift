@@ -39,6 +39,10 @@ struct DetailActiviteVue: View {
     /// elle-même ne calcule pas la fenêtre temporelle.
     var minutesAttenteRestantes: Int? = nil
 
+    /// Persiste une activité éditée (upsert hub). Fourni par le parent qui
+    /// détient le service ; `nil` dans les previews isolées.
+    var onEnregistrer: ((ActiviteSportive) -> Void)? = nil
+
     var onSupprimer: (() -> Void)? = nil
 
     // MARK: - Environnement
@@ -414,11 +418,11 @@ struct DetailActiviteVue: View {
             SheetNouvelleActivite(
                 activiteExistante: activite,
                 onValider: { nouvelle in
-                    // Mock : on délègue au service singleton (suppression
-                    // + ajout) puis on revient en arrière pour que l'utilisateur
-                    // voie la liste rafraîchie.
-                    ActivitesSportServiceMock.shared.supprimer(activite)
-                    ActivitesSportServiceMock.shared.ajouter(nouvelle)
+                    // Upsert hub par `id` : la sheet réémet l'activité avec
+                    // l'`id` d'origine, donc `enregistrer` remplace l'existante
+                    // plutôt que de doublonner. On revient en arrière pour que
+                    // l'utilisateur voie la liste rafraîchie.
+                    onEnregistrer?(nouvelle)
                     dismiss()
                 }
             )
@@ -426,8 +430,7 @@ struct DetailActiviteVue: View {
             SheetEditionActiviteHealthKit(
                 activite: activite,
                 onValider: { nouvelle in
-                    ActivitesSportServiceMock.shared.supprimer(activite)
-                    ActivitesSportServiceMock.shared.ajouter(nouvelle)
+                    onEnregistrer?(nouvelle)
                     dismiss()
                 }
             )
@@ -437,11 +440,7 @@ struct DetailActiviteVue: View {
     // MARK: - Actions
 
     private func confirmerSuppression() {
-        if let onSupprimer {
-            onSupprimer()
-        } else {
-            ActivitesSportServiceMock.shared.supprimer(activite)
-        }
+        onSupprimer?()
         dismiss()
     }
 }
@@ -594,7 +593,7 @@ private extension String {
     NavigationStack {
         DetailActiviteVue(
             activite: .mockManuel,
-            reponse: ActivitesSportServiceMock.genererReponse(pour: .mockManuel)
+            reponse: ActivitesSportService.genererReponse(pour: .mockManuel)
         )
     }
 }
@@ -603,7 +602,7 @@ private extension String {
     NavigationStack {
         DetailActiviteVue(
             activite: .mockHealthKit,
-            reponse: ActivitesSportServiceMock.genererReponse(pour: .mockHealthKit)
+            reponse: ActivitesSportService.genererReponse(pour: .mockHealthKit)
         )
     }
 }
@@ -631,7 +630,7 @@ private extension String {
     NavigationStack {
         DetailActiviteVue(
             activite: .mockAvecIOBModere,
-            reponse: ActivitesSportServiceMock.genererReponse(pour: .mockAvecIOBModere)
+            reponse: ActivitesSportService.genererReponse(pour: .mockAvecIOBModere)
         )
     }
 }
@@ -640,7 +639,7 @@ private extension String {
     NavigationStack {
         DetailActiviteVue(
             activite: .mockAvecIOBEleve,
-            reponse: ActivitesSportServiceMock.genererReponse(pour: .mockAvecIOBEleve)
+            reponse: ActivitesSportService.genererReponse(pour: .mockAvecIOBEleve)
         )
     }
 }
@@ -649,7 +648,7 @@ private extension String {
     NavigationStack {
         DetailActiviteVue(
             activite: .mockSansIOB,
-            reponse: ActivitesSportServiceMock.genererReponse(pour: .mockSansIOB)
+            reponse: ActivitesSportService.genererReponse(pour: .mockSansIOB)
         )
     }
 }

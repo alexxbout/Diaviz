@@ -255,7 +255,7 @@ private struct CourbeDisponible: View {
 // MARK: - Aperçu
 
 #Preview("Tous les états") {
-    let service = ActivitesSportServiceMock.shared
+    let service = ActivitesSportService.apercu()
     let activites = service.activites.prefix(4)
 
     return ScrollView {

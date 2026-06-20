@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 /// Page racine « Activités sportives ». Pushée depuis `JournalVue`
 /// via un `NavigationLink`, donc PAS de `NavigationStack` propre —
@@ -19,7 +20,10 @@ struct SportVue: View {
 
     // MARK: - État
 
-    @State private var service = ActivitesSportServiceMock.shared
+    /// Contexte du hub SwiftData — passé au service au démarrage de la vue.
+    @Environment(\.modelContext) private var modelContext
+
+    @State private var service = ActivitesSportService()
 
     /// Service d'import HealthKit — injecté depuis la racine de l'app
     /// via `@Environment`. Observé pour afficher la bannière d'accès
@@ -74,6 +78,7 @@ struct SportVue: View {
                     proxy.scrollTo(nouvelle, anchor: .center)
                 }
             }
+            .task { service.demarrer(contexte: modelContext) }
         }
     }
 
@@ -200,6 +205,9 @@ struct SportVue: View {
             ListeActivitesSport(
                 activites: activitesDuJour,
                 etatsCourbes: etatsCourbes,
+                onEnregistrer: { activite in
+                    service.enregistrer(activite)
+                },
                 onSupprimer: { activite in
                     service.supprimer(activite)
                 }
@@ -213,11 +221,14 @@ struct SportVue: View {
     private func sheetVue(pour sheet: SheetSport) -> some View {
         switch sheet {
         case .creation:
-            SheetNouvelleActivite(onValider: { service.ajouter($0) })
+            SheetNouvelleActivite(onValider: { service.enregistrer($0) })
         case .importHealthKit:
-            SheetImportAppleHealth(service: importService)
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
+            SheetImportAppleHealth(
+                service: importService,
+                onImporter: { service.enregistrer($0) }
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
     }
 }
@@ -249,6 +260,7 @@ private enum SheetSport: Identifiable {
     NavigationStack {
         SportVue()
     }
+    .modelContainer(ActivitesSportService.conteneurApercu)
     .environment(HealthKitImportService.mockAvecActivites([
         .mockCourse, .mockYoga
     ]))
@@ -258,5 +270,6 @@ private enum SheetSport: Identifiable {
     NavigationStack {
         SportVue()
     }
+    .modelContainer(ActivitesSportService.conteneurApercu)
     .environment(HealthKitImportService.mockVide())
 }

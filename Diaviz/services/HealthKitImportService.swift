@@ -81,19 +81,25 @@ final class HealthKitImportService {
         workoutsEnAttente.removeAll { $0.id == workout.id }
     }
 
-    /// Importe un workout dans le journal Diaviz : crée une nouvelle
-    /// `ActiviteSportive` côté `ActivitesSportServiceMock`, marque le
-    /// workout comme importé, et le retire de la file d'attente.
+    /// Construit l'`ActiviteSportive` (source `.healthKit`) correspondant à
+    /// un workout, marque le workout comme importé et le retire de la file
+    /// d'attente, puis **retourne** l'activité.
+    ///
+    /// La persistance dans le hub n'est PAS faite ici : ce service ne connaît
+    /// pas le `ModelContext`. C'est la vue appelante qui passe l'activité
+    /// retournée à `ActivitesSportService.enregistrer(_:)` — un seul service
+    /// écrit dans le hub, ce service-ci ne fait qu'orchestrer la détection.
     ///
     /// `glucidesPreSport` et `intensite` viennent de l'enrichissement
     /// utilisateur dans la sheet — on ne devine pas l'intensité depuis
     /// la FC ici (c'est le rôle de la vue, pour pouvoir la pré-remplir
     /// puis laisser l'utilisateur ajuster).
+    @discardableResult
     func importer(
         _ workout: WorkoutHealthKitMock,
         glucidesPreSport: Double?,
         intensite: IntensiteSport
-    ) {
+    ) -> ActiviteSportive {
         let donneesHK = HealthKitWorkoutData(
             workoutUUID: workout.id,
             fcMoyenne: workout.fcMoyenne,
@@ -114,10 +120,10 @@ final class HealthKitImportService {
             healthKitData: donneesHK
         )
 
-        ActivitesSportServiceMock.shared.ajouter(activite)
-
         workoutsImportes.insert(workout.id)
         workoutsEnAttente.removeAll { $0.id == workout.id }
+
+        return activite
     }
 
     // MARK: - Fabriques pour previews
