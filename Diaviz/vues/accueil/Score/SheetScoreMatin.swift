@@ -100,13 +100,9 @@ struct SheetScoreMatin: View {
                         .foregroundStyle(.secondary)
                 }
 
-                // Mini-courbe d'évolution sur 7 jours — situe le score
-                // affiché dans la tendance récente (voir `graphiqueEvolution`).
-                // Fade-in + slide-up de 8pt orchestré par `graphiqueApparu`,
-                // cascadé après l'animation du cercle.
-                graphiqueEvolution
-                    .opacity(graphiqueApparu ? 1 : 0)
-                    .offset(y: graphiqueApparu ? 0 : 8)
+                // Courbe d'évolution 7 jours retirée — trop lourde visuellement.
+                // On garde cercle + score + résumé IA. (`graphiqueEvolution`
+                // reste défini si on veut la réactiver un jour.)
 
                 Divider()
                     .padding(.horizontal, 28)

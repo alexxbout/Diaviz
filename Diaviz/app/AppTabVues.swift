@@ -43,6 +43,10 @@ struct AppTabVues: View {
     /// background des glycémies vers le hub.
     @State private var healthKit = HealthKitCGMService()
 
+    /// Service du score — alimente la sheet du matin avec le vrai score de la
+    /// veille (calculé depuis le hub).
+    @State private var scoreService = ScoreService()
+
     /// Contexte SwiftData du hub (pour récupérer le `ModelContainer`).
     @Environment(\.modelContext) private var modelContext
 
@@ -87,6 +91,7 @@ struct AppTabVues: View {
         .environment(repasService)
         .task {
             repasService.demarrer(contexte: modelContext)
+            scoreService.demarrer(contexte: modelContext)
             await healthKit.demanderAcces()
             await healthKit.synchroniser(container: modelContext.container)
             healthKit.demarrerSurveillance(container: modelContext.container)
@@ -114,26 +119,19 @@ struct AppTabVues: View {
         Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
     }
 
-    /// Mock de `FaitsJour` pour la sheet score du matin — score 82 pour
-    /// rester aligné visuellement avec la carte score affichée sur
-    /// l'accueil. Sera remplacé par les vraies métriques quand la
-    /// couche d'analyses sera branchée.
+    /// `FaitsJour` réel de la veille pour la sheet du matin — calculé depuis le
+    /// hub via `ScoreService`. Repli neutre (tout à zéro) tant que la veille
+    /// n'est pas consolidée (avant 06h) ou si la couverture CGM est insuffisante.
     private var faitsScoreMatin: FaitsJour {
-        FaitsJour(
-            score: 82,
-            tir: 79,
-            tbrLevel1: 1,
-            tbrLevel2: 0,
-            tarLevel1: 17,
-            tarLevel2: 3,
-            hypoCount: 1,
-            severeHypoCount: 0,
-            peakTime: "13:30",
-            peakValue: 232,
-            mealContext: nil,
-            sportContext: nil
-        )
+        scoreService.score(pour: hier)?.faits ?? Self.faitsIndisponibles
     }
+
+    /// Repli quand aucun score de la veille n'est disponible.
+    private static let faitsIndisponibles = FaitsJour(
+        score: 0, tir: 0, tbrLevel1: 0, tbrLevel2: 0, tarLevel1: 0, tarLevel2: 0,
+        hypoCount: 0, severeHypoCount: 0, peakTime: nil, peakValue: nil,
+        mealContext: nil, sportContext: nil
+    )
 }
 
 #Preview {
