@@ -22,47 +22,37 @@ struct PointIOB: Sendable, Equatable {
 
 /// Assembleur **IOB** (Insulin On Board) — dérivation pure, non persistée.
 ///
-/// Calcule l'insuline rapide encore active à partir des injections récentes et
-/// de la **DIA** (durée d'action, depuis le profil). « Un hub, des dérivations » :
-/// rien n'est stocké, tout est recalculé à la volée depuis des faits bruts.
+/// Modèle **exponentiel** de référence (Loop / OpenAPS, dérivation Dragan
+/// Maksimović / dm61), à deux paramètres physiologiques :
+/// - `td` = durée d'action totale (DIA), depuis le profil ;
+/// - `tp` = temps du pic d'activité, dérivé du type d'insuline (`InsulineRapide`).
 ///
-/// Modèle de décroissance **bicubique Hermite** (C¹ partout) : deux cubiques
-/// `smoothstep` raccordées au pic d'activité, dérivée nulle aux extrémités. La
-/// somme de plusieurs injections reste lisse (pas de cassure à chaque pic).
-///
-/// Toujours **factuel** : l'IOB est une estimation affichée, jamais un conseil
-/// de dose.
+/// Doc complète (formules, dérivation, sources) : Eraser « Diaviz — Modèle IOB
+/// (insuline active) ». Toujours **factuel** : l'IOB est une estimation
+/// affichée, jamais un conseil de dose.
 enum IOBCalculateur {
 
-    /// Pic d'activité par défaut (min) — calé sur un analogue rapide moderne
-    /// (NovoRapid, Humalog). V2 : dériver du type d'insuline rapide du profil
-    /// (ultra-rapides Fiasp/Lyumjev ≈ 55 min).
-    static let picParDefautMinutes: Double = 75
-
-    /// IOB résiduel d'une **injection unique** `minutesEcoulees` après l'injection.
+    /// **Fraction de dose restante** (0…1) `t` minutes après une injection unique.
     ///
-    /// - `0 → pic` (absorption) : de `dose` à `0.6·dose`, pente nulle à l'origine.
-    /// - `pic → dia` (consommation) : de `0.6·dose` à `0`, pente nulle à la fin.
+    ///   `IOB(t) = 1 − S·(1 − a)·[ (t²/(tau·td·(1−a)) − t/tau − 1)·e^(−t/tau) + 1 ]`
     ///
-    /// Avant l'injection (`minutesEcoulees < 0`) : dose pleine. Au-delà de `dia` : 0.
-    nonisolated static func iobResiduel(
-        dose: Double,
-        minutesEcoulees: Double,
-        diaMinutes: Double,
-        picMinutes: Double = picParDefautMinutes
+    /// avec `tau = tp·(1 − tp/td)/(1 − 2·tp/td)`, `a = 2·tau/td`,
+    /// `S = 1/(1 − a + (1 + a)·e^(−td/tau))`.
+    ///
+    /// Le modèle exige `td > 2·tp` : on **clampe** `tp ≤ 0.45·td` pour rester
+    /// défini quelle que soit la DIA saisie. Hors fenêtre : 1 avant, 0 après.
+    nonisolated static func fractionRestante(
+        minutes t: Double,
+        diaMinutes td: Double,
+        picMinutes picSouhaite: Double
     ) -> Double {
-        guard minutesEcoulees >= 0 else { return dose }
-        guard minutesEcoulees < diaMinutes else { return 0 }
-
-        // `u²(3 - 2u)` : 0 → 1, dérivée nulle aux deux bouts → continuité C¹.
-        func smoothstep(_ u: Double) -> Double { u * u * (3 - 2 * u) }
-
-        if minutesEcoulees <= picMinutes {
-            let u = minutesEcoulees / picMinutes
-            return dose * (1 - 0.4 * smoothstep(u))
-        }
-        let u = (minutesEcoulees - picMinutes) / (diaMinutes - picMinutes)
-        return dose * 0.6 * (1 - smoothstep(u))
+        guard t > 0 else { return 1 }
+        guard t < td else { return 0 }
+        let tp = min(max(picSouhaite, 1), 0.45 * td)
+        let tau = tp * (1 - tp / td) / (1 - 2 * tp / td)
+        let a = 2 * tau / td
+        let S = 1 / (1 - a + (1 + a) * exp(-td / tau))
+        return 1 - S * (1 - a) * ((t * t / (tau * td * (1 - a)) - t / tau - 1) * exp(-t / tau) + 1)
     }
 
     /// IOB **total** à l'instant `instant` — somme des résidus des injections.
@@ -70,17 +60,12 @@ enum IOBCalculateur {
         a instant: Date,
         injections: [InjectionPourIOB],
         diaHeures: Double,
-        picMinutes: Double = picParDefautMinutes
+        picMinutes: Double
     ) -> Double {
-        let dia = diaHeures * 60
+        let td = diaHeures * 60
         return injections.reduce(0.0) { total, injection in
-            let elapsed = instant.timeIntervalSince(injection.heure) / 60
-            return total + iobResiduel(
-                dose: injection.dose,
-                minutesEcoulees: elapsed,
-                diaMinutes: dia,
-                picMinutes: picMinutes
-            )
+            let t = instant.timeIntervalSince(injection.heure) / 60
+            return total + injection.dose * fractionRestante(minutes: t, diaMinutes: td, picMinutes: picMinutes)
         }
     }
 
@@ -91,7 +76,7 @@ enum IOBCalculateur {
         injections: [InjectionPourIOB],
         depuis debut: Date,
         diaHeures: Double,
-        picMinutes: Double = picParDefautMinutes,
+        picMinutes: Double,
         horizonMinutes: Int = 360
     ) -> [PointIOB] {
         var points: [PointIOB] = []
@@ -102,5 +87,21 @@ enum IOBCalculateur {
             if valeur < 0.05 && minutes > 0 { break }
         }
         return points
+    }
+}
+
+// MARK: - Pic d'activité par type d'insuline
+
+extension InsulineRapide {
+
+    /// Temps du pic d'activité `tp` (minutes), dérivé du profil pharmacocinétique
+    /// de l'insuline. Analogues rapides (aspart/lispro/glulisine) ≈ 75 min ;
+    /// ultra-rapides (Fiasp/Lyumjev) ≈ 55 min. Voir doc Eraser « Modèle IOB ».
+    var picActionMinutes: Double {
+        switch self {
+        case .novorapid, .humalog, .apidra: return 75
+        case .fiasp, .lyumjev:              return 55
+        case .autre:                        return 75
+        }
     }
 }
