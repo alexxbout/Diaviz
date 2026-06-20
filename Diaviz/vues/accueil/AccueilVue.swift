@@ -27,11 +27,10 @@ struct AccueilVue: View {
     /// vue est instanciée sans binding (previews).
     @Binding var jourDetailScore: Date?
 
-    /// Service mocké pour la grille de métriques. Les vues filles n'en
-    /// ont pas besoin — on consomme `metriques` directement ici.
-    /// Sera remplacé par une lecture `@Environment` quand la couche
-    /// d'analyses sera branchée.
-    @State private var metriquesService = AccueilMetriquesServiceMock.shared
+    /// Service **réel** des métriques d'accueil (hypos du jour, dernière
+    /// injection, dernier repas) calculées depuis le hub. La carte IOB est
+    /// alimentée à part par `iobService`.
+    @State private var metriquesService = MetriquesAccueilService()
 
     /// Service IOB **réel** — calcule l'insuline active depuis le hub (injections
     /// rapides + DIA du profil). Alimente la carte « Insuline active » ; les 3
@@ -197,8 +196,14 @@ struct AccueilVue: View {
                     }
                 )
             }
-            .task { iobService.demarrer(contexte: modelContext) }
-            .onAppear { iobService.rafraichir() }
+            .task {
+                iobService.demarrer(contexte: modelContext)
+                metriquesService.demarrer(contexte: modelContext)
+            }
+            .onAppear {
+                iobService.rafraichir()
+                metriquesService.recharger()
+            }
         }
     }
 

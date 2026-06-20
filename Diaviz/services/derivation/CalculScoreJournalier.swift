@@ -124,7 +124,9 @@ enum CalculScoreJournalier {
     /// Compte les épisodes d'hypoglycémie distincts. Un épisode débute au
     /// premier point < 70 et se clôt au retour ≥ 70 ; un nouvel épisode requiert
     /// donc un retour en cible préalable. `severe` = épisode atteignant < 54.
-    private static func comptageHypos(_ valeurs: [Int]) -> (hypo: Int, severe: Int) {
+    /// `nonisolated` + public : réutilisé par les métriques d'accueil (carte
+    /// Hypos) sans le seuil de couverture du score.
+    nonisolated static func comptageHypos(_ valeurs: [Int]) -> (hypo: Int, severe: Int) {
         var hypo = 0
         var severe = 0
         var enEpisode = false
