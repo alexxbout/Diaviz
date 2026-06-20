@@ -29,6 +29,9 @@ struct ListeActivitesSport: View {
     /// `nil` = données manquantes (la row affichera l'icône warning).
     let etatsCourbes: [UUID: EtatMiniCourbeSport]
 
+    /// Persiste une activité éditée depuis la page détail (upsert hub).
+    var onEnregistrer: (ActiviteSportive) -> Void
+
     var onSupprimer: (ActiviteSportive) -> Void
 
     var body: some View {
@@ -38,7 +41,9 @@ struct ListeActivitesSport: View {
             ForEach(activites) { activite in
                 LigneActiviteSport(
                     activite: activite,
-                    etatCourbe: etatsCourbes[activite.id] ?? .donneesManquantes
+                    etatCourbe: etatsCourbes[activite.id] ?? .donneesManquantes,
+                    onEnregistrer: onEnregistrer,
+                    onSupprimer: { onSupprimer(activite) }
                 )
                 .id(activite.id)
                 // Swipe gauche : suppression native iOS, role .destructive

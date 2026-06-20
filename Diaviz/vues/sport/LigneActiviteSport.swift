@@ -25,12 +25,22 @@ struct LigneActiviteSport: View {
     /// (réponse pré-calculée si disponible, sinon `.donneesManquantes`).
     let etatCourbe: EtatMiniCourbeSport
 
+    /// Persiste une activité éditée depuis la page détail (upsert hub).
+    /// Optionnel : les previews qui n'ouvrent pas le détail peuvent l'omettre.
+    var onEnregistrer: ((ActiviteSportive) -> Void)? = nil
+
+    /// Supprime cette activité depuis la page détail. Optionnel pour la
+    /// même raison.
+    var onSupprimer: (() -> Void)? = nil
+
     var body: some View {
         NavigationLink {
             DetailActiviteVue(
                 activite: activite,
                 reponse: reponseDepuisEtat,
-                minutesAttenteRestantes: minutesAttenteDepuisEtat
+                minutesAttenteRestantes: minutesAttenteDepuisEtat,
+                onEnregistrer: onEnregistrer,
+                onSupprimer: onSupprimer
             )
         } label: {
             HStack(spacing: 12) {
@@ -147,7 +157,7 @@ struct LigneActiviteSport: View {
 // MARK: - Aperçu
 
 #Preview("Toutes les variantes") {
-    let service = ActivitesSportServiceMock.shared
+    let service = ActivitesSportService.apercu()
 
     return List {
         Section("Aujourd'hui") {

@@ -528,10 +528,10 @@ extension GraphiqueGlycemique.Configuration {
 }
 
 #Preview("Sport — stable") {
-    let service = ActivitesSportServiceMock.shared
-    let activite = service.activites.first { $0.type == .yoga } ?? service.activites[0]
+    let echantillons = ActivitesSportService.echantillonsApercu()
+    let activite = echantillons.first { $0.type == .yoga } ?? echantillons[0]
     GraphiqueGlycemique.pourSport(
-        etat: service.reponse(pour: activite).map { .disponible($0) } ?? .donneesManquantes,
+        etat: .disponible(ActivitesSportService.genererReponse(pour: activite)),
         dureeMinutes: activite.dureeMinutes
     )
     .padding()

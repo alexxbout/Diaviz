@@ -417,7 +417,7 @@ struct GrapheJourneeSport: View {
 
 #Preview("Journée typique") {
     @Previewable @State var date = Calendar.current.startOfDay(for: Date())
-    let activites = ActivitesSportServiceMock.shared.activites
+    let activites = ActivitesSportService.echantillonsApercu()
     return ScrollView {
         VStack(spacing: 0) {
             GrapheJourneeSport(activites: activites, selectedDate: $date)

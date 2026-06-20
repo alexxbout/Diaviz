@@ -30,12 +30,22 @@ struct SheetImportAppleHealth: View {
     /// sans contaminer le state global.
     let service: HealthKitImportService
 
+    /// Persiste l'`ActiviteSportive` construite à l'import dans le hub.
+    /// Fourni par la vue appelante qui détient le `ActivitesSportService` —
+    /// le service d'import ne connaît pas le `ModelContext`. `nil` dans les
+    /// previews isolées (l'import ne fait alors que vider la file d'attente).
+    let onImporter: ((ActiviteSportive) -> Void)?
+
     /// Le default `nil` + résolution dans le corps évite que l'expression
     /// `.shared` (isolée `@MainActor`) ne soit évaluée dans le contexte
     /// non-isolé d'un argument par défaut, ce qui déclencherait une erreur
     /// en Swift 6 strict.
-    init(service: HealthKitImportService? = nil) {
+    init(
+        service: HealthKitImportService? = nil,
+        onImporter: ((ActiviteSportive) -> Void)? = nil
+    ) {
         self.service = service ?? .shared
+        self.onImporter = onImporter
     }
 
     // MARK: - Environnement
@@ -245,11 +255,12 @@ struct SheetImportAppleHealth: View {
     private func importerToutes() {
         for workout in workouts {
             guard let etat = etats[workout.id], etat.selectionnee else { continue }
-            service.importer(
+            let activite = service.importer(
                 workout,
                 glucidesPreSport: parserGlucides(etat.glucidesTexte),
                 intensite: etat.intensite
             )
+            onImporter?(activite)
         }
         dismiss()
     }
