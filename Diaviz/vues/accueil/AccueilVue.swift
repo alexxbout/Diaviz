@@ -211,8 +211,12 @@ struct AccueilVue: View {
     /// Date du jour calendaire courant (00h locale) — sert d'ancre
     /// pour la navigation vers `DetailScoreVue` et de pivot pour
     /// l'historique 7 jours.
+    /// Jour de référence du score = **jour métabolique en cours** (06h→06h), pas
+    /// le jour calendaire. Avant 06h c'est encore la veille → la carte et le
+    /// détail n'affichent pas le jour suivant à tort (même correctif que la
+    /// page détail / les barres semaine).
     private var aujourdhui: Date {
-        Calendar.current.startOfDay(for: Date())
+        scoreService.jourCourant
     }
 
     /// Contenu de la carte score, recalculé à chaque render via les
