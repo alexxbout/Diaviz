@@ -102,38 +102,81 @@ final class RepasService {
     /// Les entrées sans aliment ne produisent rien : on n'enregistre pas un
     /// repas vide.
     @discardableResult
-    func enregistrerDepuisSaisie(entrees: [EntreeAliment], heure: Date = Date()) -> Repas? {
+    func enregistrerDepuisSaisie(
+        entrees: [EntreeAliment],
+        heure: Date = Date(),
+        doseInjectee: Double = 0,
+        site: SiteInjection = .parDefaut
+    ) -> Repas? {
         let alimentsHub = entrees.map(Aliment.init(depuis:))
         guard !alimentsHub.isEmpty else { return nil }
         let nouveau = Repas(heure: heure, aliments: alimentsHub)
         // IOB actif juste avant le repas — snapshot figé du contexte insuline
-        // (dérivé du hub à la saisie). `nil` si négligeable, pour ne pas afficher
-        // un badge « 0u ».
+        // (dérivé du hub à la saisie, donc avant le bolus de ce repas). `nil` si
+        // négligeable, pour ne pas afficher un badge « 0u ».
         if let contexte {
             let iob = IOBService.iobDuHub(a: heure, contexte: contexte)
             nouveau.iobAuDebut = iob > 0.05 ? iob : nil
         }
         enregistrer(nouveau)
+
+        // Bolus repas → `Injection` rapide liée au repas dans le hub. C'est elle
+        // que lisent l'IOB et la section « Bolus repas » de Médications (le hub
+        // ne déduit pas l'insuline depuis les aliments). Rien créé sans dose.
+        if doseInjectee > 0, let contexte {
+            let bolus = Injection(
+                type: .rapideRepas,
+                dose: doseInjectee,
+                heure: heure,
+                zoneInjection: site.zone,
+                coteInjection: site.cote,
+                repasAssocieId: nouveau.id,
+                labelRepas: SectionRepas(heure: heure).titre,
+                emojiRepas: nouveau.emojiPrincipal,
+                motif: .repas,
+                source: .manuel
+            )
+            contexte.insert(bolus)
+            try? contexte.save()
+        }
         return nouveau
     }
 
-    /// Supprime un repas du hub (ses aliments suivent via la cascade).
+    /// Supprime un repas du hub (ses aliments suivent via la cascade), ainsi que
+    /// son bolus `Injection` lié — sinon l'IOB compterait une dose fantôme.
     func supprimer(_ unRepas: Repas) {
         guard let contexte else { return }
+        supprimerBolusLie(repasId: unRepas.id, contexte: contexte)
         contexte.delete(unRepas)
         try? contexte.save()
         recharger()
     }
 
     /// Supprime un aliment isolé d'un repas. Si c'était le dernier, le repas
-    /// devenu vide est retiré aussi (un repas sans aliment n'a pas de sens).
+    /// devenu vide est retiré aussi (avec son bolus lié) — un repas sans aliment
+    /// n'a pas de sens.
     func supprimerAliment(_ aliment: Aliment, de unRepas: Repas) {
         guard let contexte else { return }
         let deviendraitVide = unRepas.aliments.filter { $0.id != aliment.id }.isEmpty
         contexte.delete(aliment)
-        if deviendraitVide { contexte.delete(unRepas) }
+        if deviendraitVide {
+            supprimerBolusLie(repasId: unRepas.id, contexte: contexte)
+            contexte.delete(unRepas)
+        }
         try? contexte.save()
         recharger()
+    }
+
+    /// Supprime les injections bolus liées à un repas (via `repasAssocieId`).
+    /// La dose d'un aliment retiré sans vider le repas n'est PAS recalculée :
+    /// le bolus est un fait déjà injecté, pas un dérivé des aliments.
+    private func supprimerBolusLie(repasId: UUID, contexte: ModelContext) {
+        let descripteur = FetchDescriptor<Injection>(
+            predicate: #Predicate { $0.repasAssocieId == repasId }
+        )
+        for bolus in (try? contexte.fetch(descripteur)) ?? [] {
+            contexte.delete(bolus)
+        }
     }
 
     // MARK: - Privé

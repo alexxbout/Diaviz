@@ -27,8 +27,10 @@ struct RepasSheet: View {
     /// la sheet et active la barre de recherche.
     let onAjouterUnAliment: () -> Void
 
-    /// Validation finale du repas. Le parent reset l'état.
-    let onValiderRepas: () -> Void
+    /// Validation finale du repas. Transmet la **dose réellement injectée**
+    /// (aliments + ajustements + correction) et le **site**, pour que le parent
+    /// crée le bolus repas dans le hub. Le parent reset l'état.
+    let onValiderRepas: (_ doseInjectee: Double, _ site: SiteInjection) -> Void
 
     // MARK: - État interne
 
@@ -122,7 +124,7 @@ struct RepasSheet: View {
         .safeAreaInset(edge: .bottom) {
             BoutonValiderRepas(
                 nombreAliments: aliments.count,
-                onValider: onValiderRepas
+                onValider: { onValiderRepas(totalInjecte, siteInjection) }
             )
         }
         // Sheet enfant — édition d'une entrée existante (tap sur une row).
@@ -225,7 +227,7 @@ private let _previewAlimentsRepas: [EntreeAliment] = [
     RepasSheet(
         aliments: $aliments,
         onAjouterUnAliment: {},
-        onValiderRepas: {}
+        onValiderRepas: { _, _ in }
     )
 }
 
@@ -234,6 +236,6 @@ private let _previewAlimentsRepas: [EntreeAliment] = [
     RepasSheet(
         aliments: $aliments,
         onAjouterUnAliment: {},
-        onValiderRepas: {}
+        onValiderRepas: { _, _ in }
     )
 }
