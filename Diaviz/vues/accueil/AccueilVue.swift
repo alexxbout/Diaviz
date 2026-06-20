@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 /// Page d'accueil — carte score du jour (en temps réel, convention
 /// 06h-06h) et grille d'aperçu instantané sur l'état courant.
@@ -37,13 +38,14 @@ struct AccueilVue: View {
     /// autres cartes restent sur le mock pour l'instant.
     @State private var iobService = IOBService()
 
-    /// Contexte du hub — passé à l'`IOBService` au démarrage de la vue.
-    @Environment(\.modelContext) private var modelContext
+    /// Service réel du score du jour et de son historique. Lit le hub
+    /// `GlucoseReading` (injecté via `modelContext` au boot) et calcule le GRI
+    /// à la volée. Expose `scoreDuJour` / `heuresDataDuJour` (live) +
+    /// `historiqueSept`. API identique à l'ancien mock.
+    @State private var scoreService = ScoreService()
 
-    /// Service mocké pour le score du jour et son historique. Expose
-    /// `scoreDuJour` et `heuresDataDuJour` recalculés à chaque accès
-    /// (live), plus `historiqueSept` qui inclut la barre du jour.
-    @State private var scoreService = ScoreJournalierServiceMock.shared
+    /// Contexte du hub — injecté dans les services (IOB, Score) au boot.
+    @Environment(\.modelContext) private var modelContext
 
     /// Observations ML affichées sous la carte score — section masquée
     /// si le tableau est vide. Service mock pour l'instant ; sera
@@ -167,6 +169,11 @@ struct AccueilVue: View {
                 }
             }
             .background(Color(.systemGroupedBackground))
+            .task {
+                // Injecte le contexte du hub au boot et charge les 30
+                // derniers jours de glycémies pour le calcul du score.
+                scoreService.demarrer(contexte: modelContext)
+            }
             .navigationDestination(item: $jourDetailScore) { jour in
                 DetailScoreVue(jourInitial: jour)
             }
@@ -223,12 +230,48 @@ struct AccueilVue: View {
     }
 }
 
+#if DEBUG
+/// Conteneur in-memory peuplé de glycémies synthétiques pour les previews —
+/// calqué sur le pattern d'ingestion du hub. Génère ~30 jours d'échantillons
+/// à 5 min autour d'une courbe plausible (cible le jour, léger creux la nuit),
+/// de quoi alimenter le score réel sans dépendre d'un device / HealthKit.
+@MainActor
+private func conteneurApercu() -> ModelContainer {
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: GlucoseReading.self, configurations: config)
+    let contexte = container.mainContext
+
+    let cal = Calendar.current
+    let debut = cal.date(byAdding: .day, value: -30, to: Date()) ?? Date()
+    let pas: TimeInterval = 5 * 60
+    let nbPoints = Int((Date().timeIntervalSince(debut) / pas))
+
+    for i in 0..<nbPoints {
+        let date = debut.addingTimeInterval(Double(i) * pas)
+        // Sinusoïde lente (~3h) centrée à 130 mg/dL, amplitude 45, + bruit léger.
+        let phase = Double(i) * pas / (3 * 3600) * 2 * .pi
+        let valeur = Int((130 + 45 * sin(phase) + Double((i * 37) % 21 - 10)).rounded())
+        contexte.insert(
+            GlucoseReading(
+                date: date,
+                valeur: max(50, min(320, valeur)),
+                source: .manuel
+            )
+        )
+    }
+    try? contexte.save()
+    return container
+}
+
 #Preview("Avec profil complet") {
     AccueilVue()
         .environment(ProfilService.mockComplet())
+        .modelContainer(conteneurApercu())
 }
 
 #Preview("Profil neuf") {
     AccueilVue()
         .environment(ProfilService.mockVide())
+        .modelContainer(conteneurApercu())
 }
+#endif
