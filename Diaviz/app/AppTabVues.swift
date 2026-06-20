@@ -92,9 +92,15 @@ struct AppTabVues: View {
         .task {
             repasService.demarrer(contexte: modelContext)
             scoreService.demarrer(contexte: modelContext)
-            // N'ouvre la sheet du matin que s'il existe un jour consolidé à
-            // montrer — évite un faux « 0 / Très difficile » au lancement.
-            afficherScoreMatin = scoreService.joursNavigables.last != nil
+            // Sheet du matin : seulement après 6h, une fois par jour, et s'il
+            // existe un score de la veille consolidé.
+            if doitAfficherSheetMatin() {
+                afficherScoreMatin = true
+                UserDefaults.standard.set(
+                    Calendar.current.startOfDay(for: Date()),
+                    forKey: Self.cleSheetMatin
+                )
+            }
             await healthKit.demanderAcces()
             await healthKit.synchroniser(container: modelContext.container)
             healthKit.demarrerSurveillance(container: modelContext.container)
@@ -114,6 +120,26 @@ struct AppTabVues: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
+    }
+
+    /// Clé UserDefaults : dernier jour calendaire où la sheet du matin a été
+    /// affichée (pour la limiter à une fois par jour).
+    private static let cleSheetMatin = "sheetMatin.dernierJourAffiche"
+
+    /// Faut-il ouvrir la sheet du score du matin à ce lancement ?
+    /// Trois conditions : il est ≥ 6h (la veille métabolique est consolidée),
+    /// elle n'a pas déjà été montrée aujourd'hui, et un score de la veille existe.
+    private func doitAfficherSheetMatin() -> Bool {
+        let cal = Calendar.current
+        let now = Date()
+        guard cal.component(.hour, from: now) >= 6 else { return false }
+        guard scoreService.joursNavigables.last != nil else { return false }
+        let aujourdhui = cal.startOfDay(for: now)
+        if let dernier = UserDefaults.standard.object(forKey: Self.cleSheetMatin) as? Date,
+           cal.isDate(dernier, inSameDayAs: aujourdhui) {
+            return false
+        }
+        return true
     }
 
     /// Date d'hier — utilisée comme date affichée par la sheet score du
