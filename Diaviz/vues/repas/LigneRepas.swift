@@ -18,6 +18,10 @@ import SwiftUI
 // automatiquement le chevron de navigation à droite.
 struct LigneRepas: View {
 
+    /// Service hub partagé — utilisé pour brancher la suppression depuis la
+    /// page détail sur le vrai store.
+    @Environment(RepasService.self) private var repasService
+
     let repas: Repas
     /// Titre de la section parente ("Petit déjeuner", "Déjeuner", …) — sert
     /// de label principal de la row ET de titre de la nav bar de la page
@@ -26,7 +30,11 @@ struct LigneRepas: View {
 
     var body: some View {
         NavigationLink {
-            DetailRepasVue(repas: repas, titreSection: titreSection)
+            DetailRepasVue(
+                repas: repas,
+                titreSection: titreSection,
+                onSupprimer: { repasService.supprimer(repas) }
+            )
         } label: {
             HStack(spacing: 12) {
                 zoneInfos
@@ -177,4 +185,5 @@ private func _previewHeure(_ h: Int, _ m: Int = 0) -> Date {
         }
     }
     .listStyle(.insetGrouped)
+    .environment(RepasService.apercu())
 }

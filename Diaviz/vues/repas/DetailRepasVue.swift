@@ -88,10 +88,15 @@ struct DetailRepasVue: View {
     private var menuActions: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
-                Button {
-                    onModifier?()
-                } label: {
-                    Label("Modifier", systemImage: "pencil")
+                // Le bouton « Modifier » n'apparaît que si un callback d'édition
+                // est fourni — l'édition complète d'un repas n'est pas encore
+                // branchée, on n'affiche pas un bouton mort.
+                if onModifier != nil {
+                    Button {
+                        onModifier?()
+                    } label: {
+                        Label("Modifier", systemImage: "pencil")
+                    }
                 }
                 Button(role: .destructive) {
                     afficherConfirmationSuppression = true
