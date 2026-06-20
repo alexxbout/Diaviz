@@ -28,6 +28,10 @@ import SwiftUI
 struct BarresSemaine: View {
 
     let jourConsulte: Date
+    /// Jour métabolique **en cours** (06h→06h) — pilote la barre hachurée et
+    /// borne l'affichage : les jours postérieurs ne sont pas rendus (leur score
+    /// n'existe pas encore). Distinct du jour calendaire.
+    let jourEnCours: Date
     /// Closure de lecture des données — laissée non-Sendable car
     /// invoquée uniquement depuis le main actor de la vue.
     let scorePourJour: (Date) -> Int?
@@ -52,7 +56,10 @@ struct BarresSemaine: View {
 
     private var joursSemaine: [Date] {
         let cal = calendrierFrancais
-        return (0..<7).compactMap { cal.date(byAdding: .day, value: $0, to: lundiSemaine) }
+        let tous = (0..<7).compactMap { cal.date(byAdding: .day, value: $0, to: lundiSemaine) }
+        // N'affiche pas les jours postérieurs au jour en cours : leur fenêtre
+        // 06h→06h n'a pas commencé, il n'y a pas de score à montrer.
+        return tous.filter { cal.startOfDay(for: $0) <= cal.startOfDay(for: jourEnCours) }
     }
 
     private var barresVue: some View {
@@ -68,7 +75,7 @@ struct BarresSemaine: View {
     @ViewBuilder
     private func barreJour(jour: Date, score: Int?) -> some View {
         let estActif = calendrierFrancais.isDate(jour, inSameDayAs: jourConsulte)
-        let estJourEnCours = calendrierFrancais.isDateInToday(jour)
+        let estJourEnCours = calendrierFrancais.isDate(jour, inSameDayAs: jourEnCours)
         let estVide = (score == nil)
 
         ZStack(alignment: .bottom) {

@@ -149,6 +149,7 @@ struct DetailScoreVue: View {
 
                     BarresSemaine(
                         jourConsulte: jourConsulte,
+                        jourEnCours: service.jourCourant,
                         scorePourJour: { jour in
                             // Le jour métabolique en cours n'est pas dans la
                             // liste consolidée — on lit le score partiel live.
