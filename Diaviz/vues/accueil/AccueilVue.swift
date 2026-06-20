@@ -56,11 +56,10 @@ struct AccueilVue: View {
     /// le temps que la couche ML produise la vraie liste.
     @State private var repasARevoir: [RepasARevoir] = RepasAReevoirServiceMock.mock()
 
-    /// Contexte de la carte « Insuline lente » — mocké en état urgent
-    /// pour démontrer le rappel sur l'accueil. Sera dérivé du
-    /// `ProfilService` et du service d'injections quand la couche
-    /// médication sera branchée sur l'accueil.
-    @State private var contexteLente: ContexteLente = .mockUrgent
+    /// Contexte de la carte « Insuline lente » — **réel**, construit depuis la
+    /// dernière injection lente du hub + le profil (`construireContexteLente()`).
+    /// `nil` tant que pas chargé → carte masquée.
+    @State private var contexteLente: ContexteLente?
 
     /// Pilote l'ouverture de la sheet d'enregistrement de la lente.
     @State private var sheetLenteOuverte: Bool = false
@@ -106,7 +105,7 @@ struct AccueilVue: View {
                         // entre et sort en spring avec une transition
                         // depuis le haut, désactivée quand l'utilisateur
                         // a activé « Réduire les animations ».
-                        if let etatLente {
+                        if let etatLente, let contexteLente {
                             CarteLenteRappel(
                                 etat: etatLente,
                                 contexte: contexteLente,
@@ -184,25 +183,26 @@ struct AccueilVue: View {
                 // `onValider` → la carte disparaît avec animation.
                 SheetInsulineLente(
                     derniereZoneLente: nil,
-                    onValider: { _ in
-                        contexteLente = ContexteLente(
-                            heureHabituelle: contexteLente.heureHabituelle,
-                            nomInsuline: contexteLente.nomInsuline,
-                            doseHabituelle: contexteLente.doseHabituelle,
-                            dernierePrise: Date(),
-                            dernierSite: contexteLente.dernierSite,
-                            priseAujourdhui: true
-                        )
+                    onValider: { injection in
+                        // Enregistre la lente dans le hub (saisie manuelle), puis
+                        // rafraîchit le rappel, les métriques et l'IOB.
+                        modelContext.insert(injection)
+                        try? modelContext.save()
+                        contexteLente = construireContexteLente()
+                        metriquesService.recharger()
+                        iobService.rafraichir()
                     }
                 )
             }
             .task {
                 iobService.demarrer(contexte: modelContext)
                 metriquesService.demarrer(contexte: modelContext)
+                contexteLente = construireContexteLente()
             }
             .onAppear {
                 iobService.rafraichir()
                 metriquesService.recharger()
+                contexteLente = construireContexteLente()
             }
         }
     }
@@ -210,7 +210,31 @@ struct AccueilVue: View {
     /// État courant du rappel lente — `nil` quand la carte doit être
     /// masquée (trop tôt, ou lente déjà prise aujourd'hui).
     private var etatLente: EtatRappelLente? {
-        EtatRappelLente.calculer(contexte: contexteLente)
+        contexteLente.flatMap { EtatRappelLente.calculer(contexte: $0) }
+    }
+
+    /// Construit le contexte du rappel de lente depuis le hub (dernière injection
+    /// lente) et le profil. Heure habituelle = 22h en V1 (à terme depuis le
+    /// profil). `priseAujourdhui` = dernière lente prise ce jour calendaire.
+    private func construireContexteLente() -> ContexteLente {
+        let cal = Calendar.current
+        let now = Date()
+        let heureHabituelle = HeureDuJour(heure: 22, minute: 0).date(pour: now)
+
+        let descripteur = FetchDescriptor<Injection>(
+            sortBy: [SortDescriptor(\.heure, order: .reverse)]
+        )
+        let derniereLente = (try? modelContext.fetch(descripteur))?.first { $0.type == .lente }
+
+        let profil = ProfilService.shared.profil
+        return ContexteLente(
+            heureHabituelle: heureHabituelle,
+            nomInsuline: derniereLente?.nomMedicament ?? profil.insulineLente.rawValue,
+            doseHabituelle: derniereLente?.dose ?? 0,
+            dernierePrise: derniereLente?.heure ?? .distantPast,
+            dernierSite: derniereLente?.libelleSite ?? "—",
+            priseAujourdhui: derniereLente.map { cal.isDateInToday($0.heure) } ?? false
+        )
     }
 
     /// Date du jour calendaire courant (00h locale) — sert d'ancre
