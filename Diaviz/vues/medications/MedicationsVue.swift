@@ -54,17 +54,21 @@ struct MedicationsVue: View {
     /// Zone de la dernière injection rapide (toutes injections rapides
     /// confondues, lente exclue) — sert au `SiteInjectionPicker` pour le
     /// warning de rotation des sites.
-    private var derniereZoneRapide: ZoneInjection? {
-        derniereZone { $0.type != .lente }
+    /// Zone de la dernière injection rapide, en **excluant** l'injection en
+    /// cours d'édition (sinon elle se comparerait à elle-même et déclencherait
+    /// un faux warning de rotation des sites).
+    private func derniereZoneRapide(excluant id: UUID? = nil) -> ZoneInjection? {
+        derniereZone(excluant: id) { $0.type != .lente }
     }
 
-    private var derniereZoneLente: ZoneInjection? {
-        derniereZone { $0.type == .lente }
+    private func derniereZoneLente(excluant id: UUID? = nil) -> ZoneInjection? {
+        derniereZone(excluant: id) { $0.type == .lente }
     }
 
-    private func derniereZone(filtre: (Injection) -> Bool) -> ZoneInjection? {
+    private func derniereZone(excluant id: UUID?, filtre: (Injection) -> Bool) -> ZoneInjection? {
         service.injections
             .lazy
+            .filter { $0.id != id }
             .filter(filtre)
             .max(by: { $0.heure < $1.heure })?
             .zoneInjection
@@ -164,8 +168,13 @@ struct MedicationsVue: View {
             CarteInsulineLente(
                 etat: etatCarteLente,
                 onTap: {
-                    if case .aPrendre = etatCarteLente {
+                    switch etatCarteLente {
+                    case .aPrendre:
                         sheetActive = .lente
+                    case .enregistree(let lente):
+                        sheetActive = .editionLente(lente)
+                    case .prochainePrevue:
+                        break
                     }
                 }
             )
@@ -187,7 +196,8 @@ struct MedicationsVue: View {
             } else {
                 ListeCorrections(
                     corrections: corrections,
-                    onTap: { sheetActive = .editionCorrection($0) }
+                    onTap: { sheetActive = .editionCorrection($0) },
+                    onSupprimer: { service.supprimer($0) }
                 )
             }
         }
@@ -218,24 +228,24 @@ struct MedicationsVue: View {
         switch sheet {
         case .lente:
             SheetInsulineLente(
-                derniereZoneLente: derniereZoneLente,
+                derniereZoneLente: derniereZoneLente(),
                 onValider: { service.enregistrer($0) }
             )
         case .correction:
             SheetCorrection(
-                derniereZoneRapide: derniereZoneRapide,
+                derniereZoneRapide: derniereZoneRapide(),
                 onValider: { service.enregistrer($0) }
             )
         case .editionLente(let inj):
             SheetInsulineLente(
                 injectionExistante: inj,
-                derniereZoneLente: derniereZoneLente,
+                derniereZoneLente: derniereZoneLente(excluant: inj.id),
                 onValider: { service.enregistrer($0) }
             )
         case .editionCorrection(let inj):
             SheetCorrection(
                 injectionExistante: inj,
-                derniereZoneRapide: derniereZoneRapide,
+                derniereZoneRapide: derniereZoneRapide(excluant: inj.id),
                 onValider: { service.enregistrer($0) }
             )
         }

@@ -60,7 +60,7 @@ struct CarteInsulineLente: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(libelleAccessible)
         .accessibilityAddTraits(estTappable ? .isButton : [])
-        .accessibilityHint(estTappable ? "Touchez deux fois pour enregistrer" : "")
+        .accessibilityHint(hintAccessible)
     }
 
     private var carte: some View {
@@ -213,8 +213,10 @@ struct CarteInsulineLente: View {
     }
 
     private var estTappable: Bool {
-        if case .aPrendre = etat { return true }
-        return false
+        switch etat {
+        case .aPrendre, .enregistree: return true
+        case .prochainePrevue:        return false
+        }
     }
 
     // MARK: - Accessibilité
@@ -227,6 +229,14 @@ struct CarteInsulineLente: View {
             return "Insuline lente à prendre. Heure habituelle : \(h.libelle)."
         case .prochainePrevue(let h):
             return "Prochaine insuline lente prévue à \(h.libelle)."
+        }
+    }
+
+    private var hintAccessible: String {
+        switch etat {
+        case .aPrendre:        return "Touchez deux fois pour enregistrer"
+        case .enregistree:     return "Touchez deux fois pour modifier"
+        case .prochainePrevue: return ""
         }
     }
 

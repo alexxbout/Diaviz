@@ -66,10 +66,7 @@ struct AppTabVues: View {
             }
 
             Tab("Journal", systemImage: "long.text.page.and.pencil") {
-                JournalVue(
-                    nombreRepas: repasService.nombreRepasAujourdhui,
-                    sections: repasService.sectionsAujourdhui
-                )
+                JournalVue()
             }
             .badge(importService.nombreEnAttente)
 
@@ -87,6 +84,7 @@ struct AppTabVues: View {
         // ce qui rend les previews capable de fournir un mock isolé.
         .environment(importService)
         .environment(profilService)
+        .environment(repasService)
         .task {
             repasService.demarrer(contexte: modelContext)
             await healthKit.demanderAcces()

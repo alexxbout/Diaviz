@@ -118,6 +118,17 @@ final class RepasService {
         recharger()
     }
 
+    /// Supprime un aliment isolé d'un repas. Si c'était le dernier, le repas
+    /// devenu vide est retiré aussi (un repas sans aliment n'a pas de sens).
+    func supprimerAliment(_ aliment: Aliment, de unRepas: Repas) {
+        guard let contexte else { return }
+        let deviendraitVide = unRepas.aliments.filter { $0.id != aliment.id }.isEmpty
+        contexte.delete(aliment)
+        if deviendraitVide { contexte.delete(unRepas) }
+        try? contexte.save()
+        recharger()
+    }
+
     // MARK: - Privé
 
     private func recharger() {
@@ -205,6 +216,15 @@ extension RepasService {
             container.mainContext.insert(unRepas)
         }
         return container
+    }
+
+    /// Instance de service **démarrée** sur un container de démo — pour les
+    /// previews qui consomment `RepasService` via `@Environment`.
+    @MainActor
+    static func apercu() -> RepasService {
+        let service = RepasService()
+        service.demarrer(contexte: conteneurApercu.mainContext)
+        return service
     }
 
     /// Jeu de repas de démonstration sur la journée courante (un par section).

@@ -19,11 +19,19 @@ struct ListeCorrections: View {
 
     let corrections: [Injection]
     let onTap: (Injection) -> Void
+    let onSupprimer: (Injection) -> Void
 
     var body: some View {
         ForEach(corrections) { c in
             ligne(c)
                 .id(c.id)
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) {
+                        onSupprimer(c)
+                    } label: {
+                        Label("Supprimer", systemImage: "trash")
+                    }
+                }
         }
     }
 
@@ -109,7 +117,7 @@ struct ListeCorrections: View {
     ]
     return List {
         Section("Corrections") {
-            ListeCorrections(corrections: corrections, onTap: { _ in })
+            ListeCorrections(corrections: corrections, onTap: { _ in }, onSupprimer: { _ in })
         }
     }
     .listStyle(.insetGrouped)

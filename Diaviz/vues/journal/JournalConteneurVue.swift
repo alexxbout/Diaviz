@@ -21,19 +21,13 @@ import SwiftUI
 ///   par tap sur l'accessoire) pour swap le contenu sans push/pop.
 struct JournalConteneurVue: View {
 
-    /// Données des repas — passées par `JournalVue` puisque
-    /// `ListeRepasParSection` n'a pas son propre service.
-    let sections: [(titre: String, repas: [Repas])]
-
     @Environment(AppRouter.self) private var router
 
-    /// Section courante. Initialisée par `init(initialSection:…)`,
-    /// puis maintenue en sync avec `router.journalSection` via
-    /// `onChange`.
+    /// Section courante. Initialisée par `init(initialSection:)`, puis
+    /// maintenue en sync avec `router.journalSection` via `onChange`.
     @State private var section: SectionJournal
 
-    init(initialSection: SectionJournal, sections: [(titre: String, repas: [Repas])]) {
-        self.sections = sections
+    init(initialSection: SectionJournal) {
         self._section = State(initialValue: initialSection)
     }
 
@@ -41,7 +35,9 @@ struct JournalConteneurVue: View {
         Group {
             switch section {
             case .repas:
-                ListeRepasParSection(sections: sections)
+                // `ListeRepasParSection` lit ses repas depuis le `RepasService`
+                // partagé via l'environnement — pas de données passées ici.
+                ListeRepasParSection()
             case .medications:
                 MedicationsVue()
             case .sport:
@@ -68,33 +64,29 @@ struct JournalConteneurVue: View {
 
 // MARK: - Aperçu
 
-private let _previewSectionsVides: [(titre: String, repas: [Repas])] = [
-    (titre: "Petit déjeuner", repas: []),
-    (titre: "Déjeuner", repas: []),
-    (titre: "En-cas", repas: []),
-    (titre: "Dîner", repas: []),
-]
-
 #Preview("Journal détail — Repas") {
     NavigationStack {
-        JournalConteneurVue(initialSection: .repas, sections: _previewSectionsVides)
+        JournalConteneurVue(initialSection: .repas)
     }
     .environment(AppRouter())
+    .environment(RepasService.apercu())
     .environment(HealthKitImportService.mockVide())
 }
 
 #Preview("Journal détail — Médications") {
     NavigationStack {
-        JournalConteneurVue(initialSection: .medications, sections: _previewSectionsVides)
+        JournalConteneurVue(initialSection: .medications)
     }
     .environment(AppRouter())
+    .environment(RepasService.apercu())
     .environment(HealthKitImportService.mockVide())
 }
 
 #Preview("Journal détail — Sport") {
     NavigationStack {
-        JournalConteneurVue(initialSection: .sport, sections: _previewSectionsVides)
+        JournalConteneurVue(initialSection: .sport)
     }
     .environment(AppRouter())
+    .environment(RepasService.apercu())
     .environment(HealthKitImportService.mockVide())
 }

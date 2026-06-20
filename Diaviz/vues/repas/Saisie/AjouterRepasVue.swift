@@ -31,12 +31,11 @@ enum FiltreAliment: String, CaseIterable {
 ///   avec toutes les sections (insuline, alertes, détails d'injection).
 struct AjouterRepasVue: View {
 
-    /// Contexte du hub SwiftData — passé au service au démarrage de la vue.
-    @Environment(\.modelContext) private var modelContext
-
-    /// Service hub des repas. La validation construit un `Repas` (mapping
-    /// `EntreeAliment -> Aliment`) et l'enregistre via ce service.
-    @State private var repasService = RepasService()
+    /// Service hub des repas, **partagé** via l'environnement (même instance que
+    /// le journal) → un repas validé ici apparaît immédiatement dans la liste.
+    /// La validation construit un `Repas` (mapping `EntreeAliment -> Aliment`)
+    /// et l'enregistre via ce service.
+    @Environment(RepasService.self) private var repasService
 
     @State private var recherche: String = ""
     @State private var resultats: [AlimentCiqual] = []
@@ -78,7 +77,6 @@ struct AjouterRepasVue: View {
         // (le passage `aliments vide` ↔ `aliments non vide`), pas chaque
         // ajout d'aliment individuel.
         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: alimentsRepas.isEmpty)
-        .task { repasService.demarrer(contexte: modelContext) }
         .toolbar { menuToolbar }
         .navigationTitle("Nouveau repas")
         .navigationBarTitleDisplayMode(.inline)
@@ -285,5 +283,5 @@ struct AjouterRepasVue: View {
     NavigationStack {
         AjouterRepasVue()
     }
-    .modelContainer(RepasService.conteneurApercu)
+    .environment(RepasService.apercu())
 }
