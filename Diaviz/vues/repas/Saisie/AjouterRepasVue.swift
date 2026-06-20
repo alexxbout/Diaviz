@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 /// Catégories de filtrage disponibles dans la barre de segmentation.
 /// Pour le moment, seul `.bruts` est branché sur la recherche CIQUAL.
@@ -29,6 +30,14 @@ enum FiltreAliment: String, CaseIterable {
 /// - Tap ou drag-up sur la bulle → présente `RepasSheet` plein écran (`.large`)
 ///   avec toutes les sections (insuline, alertes, détails d'injection).
 struct AjouterRepasVue: View {
+
+    /// Contexte du hub SwiftData — passé au service au démarrage de la vue.
+    @Environment(\.modelContext) private var modelContext
+
+    /// Service hub des repas. La validation construit un `Repas` (mapping
+    /// `EntreeAliment -> Aliment`) et l'enregistre via ce service.
+    @State private var repasService = RepasService()
+
     @State private var recherche: String = ""
     @State private var resultats: [AlimentCiqual] = []
     @State private var filtre: FiltreAliment = .bruts
@@ -69,6 +78,7 @@ struct AjouterRepasVue: View {
         // (le passage `aliments vide` ↔ `aliments non vide`), pas chaque
         // ajout d'aliment individuel.
         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: alimentsRepas.isEmpty)
+        .task { repasService.demarrer(contexte: modelContext) }
         .toolbar { menuToolbar }
         .navigationTitle("Nouveau repas")
         .navigationBarTitleDisplayMode(.inline)
@@ -109,9 +119,12 @@ struct AjouterRepasVue: View {
         rechercheActive = true
     }
 
-    /// Validation finale du repas : reset l'état.
-    /// La logique réelle (persistance + analyses) viendra plus tard.
+    /// Validation finale du repas : persiste le repas dans le hub puis reset
+    /// l'état de saisie. L'horodatage du repas est l'instant de validation
+    /// (`Date()`) — c'est le fait brut horodaté attendu par le hub. La réponse
+    /// glycémique (`etatAnalyse`) reste une dérivation non calculée ici.
     private func validerRepas() {
+        repasService.enregistrerDepuisSaisie(entrees: alimentsRepas)
         alimentsRepas.removeAll()
         recherche = ""
         repasSheetPresentee = false
@@ -272,4 +285,5 @@ struct AjouterRepasVue: View {
     NavigationStack {
         AjouterRepasVue()
     }
+    .modelContainer(RepasService.conteneurApercu)
 }
