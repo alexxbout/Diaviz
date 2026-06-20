@@ -55,7 +55,7 @@ struct AppTabVues: View {
     /// (l'utilisateur peut la dismisser ; elle reviendra au prochain
     /// cold start). Les previews héritent automatiquement de ce
     /// comportement, pas besoin de hack supplémentaire.
-    @State private var afficherScoreMatin = true
+    @State private var afficherScoreMatin = false
 
     /// Jour pour lequel on souhaite pousser `DetailScoreVue` dans
     /// l'onglet Accueil. Écrit par le bouton « Voir les détails » de
@@ -92,6 +92,9 @@ struct AppTabVues: View {
         .task {
             repasService.demarrer(contexte: modelContext)
             scoreService.demarrer(contexte: modelContext)
+            // N'ouvre la sheet du matin que s'il existe un jour consolidé à
+            // montrer — évite un faux « 0 / Très difficile » au lancement.
+            afficherScoreMatin = scoreService.joursNavigables.last != nil
             await healthKit.demanderAcces()
             await healthKit.synchroniser(container: modelContext.container)
             healthKit.demarrerSurveillance(container: modelContext.container)
@@ -99,13 +102,13 @@ struct AppTabVues: View {
         .sheet(isPresented: $afficherScoreMatin) {
             SheetScoreMatin(
                 faits: faitsScoreMatin,
-                date: hier,
+                date: jourScoreMatin,
                 onAfficherDetails: {
                     // L'utilisateur a tapé « Voir les détails » : la
                     // sheet vient de `dismiss()` côté enfant, on
                     // enchaîne sur la push de `DetailScoreVue` dans
                     // l'onglet Accueil via le binding.
-                    jourDetailScore = hier
+                    jourDetailScore = jourScoreMatin
                 }
             )
             .presentationDetents([.large])
@@ -119,11 +122,17 @@ struct AppTabVues: View {
         Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
     }
 
-    /// `FaitsJour` réel de la veille pour la sheet du matin — calculé depuis le
-    /// hub via `ScoreService`. Repli neutre (tout à zéro) tant que la veille
-    /// n'est pas consolidée (avant 06h) ou si la couverture CGM est insuffisante.
+    /// Jour montré par la sheet du matin = dernier jour métabolique **consolidé**
+    /// (terminé). En usage normal c'est la veille ; en pleine nuit c'est
+    /// l'avant-veille (la veille est encore en cours, pas de score figé).
+    private var jourScoreMatin: Date {
+        scoreService.joursNavigables.last ?? hier
+    }
+
+    /// `FaitsJour` réel du dernier jour consolidé pour la sheet du matin.
+    /// Repli neutre seulement si le hub est vide (sheet alors non affichée).
     private var faitsScoreMatin: FaitsJour {
-        scoreService.score(pour: hier)?.faits ?? Self.faitsIndisponibles
+        scoreService.score(pour: jourScoreMatin)?.faits ?? Self.faitsIndisponibles
     }
 
     /// Repli quand aucun score de la veille n'est disponible.
