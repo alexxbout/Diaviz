@@ -44,8 +44,9 @@ final class HealthKitCGMService {
 
     /// Clé UserDefaults de l'ancre de requête incrémentale.
     private let cleAnchor = "healthkit.glucose.anchor"
-    /// Fenêtre du premier pull (évite d'ingérer des années d'historique d'un coup).
-    private let fenetreInitiale: TimeInterval = 14 * 24 * 3600
+    /// Fenêtre du premier pull : 7 jours (assez pour le score journalier sur une
+    /// semaine ; pas de backfill profond, les analyses event-based démarrent à vide).
+    private let fenetreInitiale: TimeInterval = 7 * 24 * 3600
 
     static var disponible: Bool { HKHealthStore.isHealthDataAvailable() }
 
