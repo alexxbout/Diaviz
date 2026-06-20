@@ -95,12 +95,11 @@ final class ScoreService {
     func historiqueSept(jusquA jour: Date) -> [(jour: Date, score: Int?)] {
         let cal = Calendar.current
         let base = cal.startOfDay(for: jour)
-        let aujourdhui = cal.startOfDay(for: Date())
         return (0..<7).reversed().compactMap { decalage in
             guard let j = cal.date(byAdding: .day, value: -decalage, to: base) else {
                 return nil
             }
-            if cal.isDate(j, inSameDayAs: aujourdhui) {
+            if estJourCourant(j) {
                 return (j, scoreDuJour)
             }
             return (j, score(pour: j)?.score)
@@ -130,6 +129,19 @@ final class ScoreService {
         return sixHeures
     }
 
+    /// Jour calendaire du **jour métabolique en cours** : le jour où la fenêtre
+    /// 06h→06h a commencé. Avant 06h, c'est encore « hier » (la nuit appartient à
+    /// la veille). C'est LUI le « jour en cours » du score — pas le jour
+    /// calendaire courant. Évite d'afficher le jour suivant avant 06h.
+    var jourCourant: Date {
+        Calendar.current.startOfDay(for: Self.debutJourMetabolique(pour: Date()))
+    }
+
+    /// `true` si `jour` est le jour métabolique en cours.
+    func estJourCourant(_ jour: Date) -> Bool {
+        Calendar.current.isDate(jour, inSameDayAs: jourCourant)
+    }
+
     /// Heures écoulées depuis le début du jour métabolique courant, bornées
     /// [0, 24].
     var heuresDataDuJour: Double {
@@ -154,14 +166,12 @@ final class ScoreService {
     /// durée écoulée (pas 24h), pour ne pas pénaliser une journée qui commence.
     /// Retombe sur des `FaitsJour` neutres si la couverture est insuffisante.
     var partielDuJour: ScoreJournalier {
-        let cal = Calendar.current
-        let aujourdhui = cal.startOfDay(for: Date())
         let now = Date()
         let debut = Self.debutJourMetabolique(pour: now)
         let fenetre = debut...max(debut, now)
         let faits = CalculScoreJournalier.faits(depuis: echantillons, fenetre: fenetre)
             ?? Self.faitsNeutres
-        return ScoreJournalier(jour: aujourdhui, faits: faits)
+        return ScoreJournalier(jour: jourCourant, faits: faits)
     }
 
     // MARK: - Consolidation des jours terminés

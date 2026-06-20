@@ -89,16 +89,16 @@ struct DetailScoreVue: View {
     /// plutôt que de chercher dans la liste consolidée — la journée
     /// n'est pas clôturée à 06h donc elle n'y figure pas.
     private var scoreCourant: ScoreJournalier? {
-        if calendrierFrancais.isDate(jourConsulte, inSameDayAs: Date()) {
+        if service.estJourCourant(jourConsulte) {
             return service.partielDuJour
         }
         return service.score(pour: jourConsulte)
     }
 
-    /// Est-on en train de consulter aujourd'hui (journée pas encore
-    /// clôturée à 06h) ?
+    /// Est-on en train de consulter le jour métabolique en cours (06h→06h, non
+    /// clôturé) ?
     private var estJourEnCours: Bool {
-        calendrierFrancais.isDate(jourConsulte, inSameDayAs: Date())
+        service.estJourCourant(jourConsulte)
     }
 
     // MARK: Navigation jour
@@ -111,7 +111,7 @@ struct DetailScoreVue: View {
     private func jourPlusProche(de cible: Date) -> Date {
         let cal = calendrierFrancais
         let cibleStart = cal.startOfDay(for: cible)
-        if cal.isDate(cibleStart, inSameDayAs: Date()) {
+        if service.estJourCourant(cibleStart) {
             return cibleStart
         }
         return service.joursNavigables.min(by: {
@@ -150,10 +150,9 @@ struct DetailScoreVue: View {
                     BarresSemaine(
                         jourConsulte: jourConsulte,
                         scorePourJour: { jour in
-                            // Aujourd'hui n'est pas dans la liste
-                            // consolidée — on lit le score partiel
-                            // calculé en temps réel.
-                            if calendrierFrancais.isDate(jour, inSameDayAs: Date()) {
+                            // Le jour métabolique en cours n'est pas dans la
+                            // liste consolidée — on lit le score partiel live.
+                            if service.estJourCourant(jour) {
                                 return service.scoreDuJour
                             }
                             return service.score(pour: jour)?.score
@@ -167,8 +166,6 @@ struct DetailScoreVue: View {
                     .frame(maxWidth: .infinity)
                 }
 
-                messageLLM
-                    .padding(.top, 4)
             }
             .animation(.spring(response: 0.4, dampingFraction: 0.8), value: jourConsulte)
         }
