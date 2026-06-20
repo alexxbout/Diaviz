@@ -78,6 +78,12 @@ final class ActivitesSportService {
     /// plutôt que doublonnée.
     func enregistrer(_ activite: ActiviteSportive) {
         guard let contexte else { return }
+        // IOB actif juste avant le début de la séance — figé à la saisie si non
+        // renseigné (dérivé du hub). On ne recalcule pas en édition.
+        if activite.iobAuDebut == nil {
+            let iob = IOBService.iobDuHub(a: activite.dateDebut, contexte: contexte)
+            activite.iobAuDebut = iob > 0.05 ? iob : nil
+        }
         let cible = activite.id
         let descripteur = FetchDescriptor<ActiviteSportive>(predicate: #Predicate { $0.id == cible })
         if let existant = try? contexte.fetch(descripteur).first, existant !== activite {

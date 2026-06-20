@@ -50,6 +50,11 @@ struct GrilleMetriquesAccueil: View {
 
     let metriques: MetriquesAccueil
 
+    /// IOB **réel** (calculé depuis le hub), fourni à part du snapshot mock le
+    /// temps que les 3 autres cartes passent aussi au réel.
+    let iobValeur: Double
+    let iobPoints: [PointIOB]
+
     /// Hauteur minimale d'une carte — ~180pt, calée pour accommoder
     /// les mini-courbes (24pt) ajoutées en bas des cartes Hypos et
     /// IOB sans écraser les libellés. Les cartes Injection et Repas
@@ -78,8 +83,8 @@ struct GrilleMetriquesAccueil: View {
 
             // MARK: Haut-droite — insuline active
             CarteIOB(
-                valeur: metriques.iob,
-                pointsIOB: metriques.pointsIOB
+                valeur: iobValeur,
+                pointsIOB: iobPoints
             )
             .frame(minHeight: minCarteHauteur)
 
@@ -106,7 +111,7 @@ struct GrilleMetriquesAccueil: View {
 
 #Preview("Grille - Normal") {
     ScrollView {
-        GrilleMetriquesAccueil(metriques: .mockNormal)
+        GrilleMetriquesAccueil(metriques: .mockNormal, iobValeur: MetriquesAccueil.mockNormal.iob, iobPoints: MetriquesAccueil.mockNormal.pointsIOB)
             .padding(16)
     }
     .background(Color(.systemGroupedBackground))
@@ -114,7 +119,7 @@ struct GrilleMetriquesAccueil: View {
 
 #Preview("Grille - Alerte") {
     ScrollView {
-        GrilleMetriquesAccueil(metriques: .mockAlerte)
+        GrilleMetriquesAccueil(metriques: .mockAlerte, iobValeur: MetriquesAccueil.mockAlerte.iob, iobPoints: MetriquesAccueil.mockAlerte.pointsIOB)
             .padding(16)
     }
     .background(Color(.systemGroupedBackground))
@@ -122,7 +127,7 @@ struct GrilleMetriquesAccueil: View {
 
 #Preview("Grille - Calme") {
     ScrollView {
-        GrilleMetriquesAccueil(metriques: .mockCalme)
+        GrilleMetriquesAccueil(metriques: .mockCalme, iobValeur: MetriquesAccueil.mockCalme.iob, iobPoints: MetriquesAccueil.mockCalme.pointsIOB)
             .padding(16)
     }
     .background(Color(.systemGroupedBackground))
@@ -130,7 +135,7 @@ struct GrilleMetriquesAccueil: View {
 
 #Preview("Grille - Sombre") {
     ScrollView {
-        GrilleMetriquesAccueil(metriques: .mockNormal)
+        GrilleMetriquesAccueil(metriques: .mockNormal, iobValeur: MetriquesAccueil.mockNormal.iob, iobPoints: MetriquesAccueil.mockNormal.pointsIOB)
             .padding(16)
     }
     .background(Color(.systemGroupedBackground))

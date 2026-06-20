@@ -20,21 +20,10 @@ struct LectureCgm: Sendable, Equatable {
     let valeur: Double
 }
 
-/// Injection rapide récente — entrée minimale pour le calcul d'IOB.
-/// On ne porte que `heure` et `dose` : la zone, le nom du médicament,
-/// la glycémie au moment ne nous intéressent pas ici.
-struct InjectionPourIOB: Sendable, Equatable {
-    let heure: Date
-    let dose: Double
-}
+// `InjectionPourIOB` vit désormais dans l'assembleur `IOBCalculateur`
+// (services/derivation) — réutilisé ici pour les courbes de preview.
 
-/// Point unique de la courbe de décroissance IOB projetée. Exprimé
-/// en minutes depuis "maintenant" (0 = instant courant, valeurs
-/// positives = futur), et en unités d'insuline résiduelle.
-struct PointIOB: Sendable, Equatable {
-    let minutesDepuisMaintenant: Int
-    let iob: Double
-}
+// `PointIOB` vit désormais dans l'assembleur `IOBCalculateur`.
 
 /// Catégorie d'insuline affichée sur le badge de la carte
 /// « Injection » de la page d'accueil. Vue simplifiée à deux

@@ -106,6 +106,13 @@ final class RepasService {
         let alimentsHub = entrees.map(Aliment.init(depuis:))
         guard !alimentsHub.isEmpty else { return nil }
         let nouveau = Repas(heure: heure, aliments: alimentsHub)
+        // IOB actif juste avant le repas — snapshot figé du contexte insuline
+        // (dérivé du hub à la saisie). `nil` si négligeable, pour ne pas afficher
+        // un badge « 0u ».
+        if let contexte {
+            let iob = IOBService.iobDuHub(a: heure, contexte: contexte)
+            nouveau.iobAuDebut = iob > 0.05 ? iob : nil
+        }
         enregistrer(nouveau)
         return nouveau
     }

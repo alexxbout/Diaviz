@@ -32,6 +32,14 @@ struct AccueilVue: View {
     /// d'analyses sera branchée.
     @State private var metriquesService = AccueilMetriquesServiceMock.shared
 
+    /// Service IOB **réel** — calcule l'insuline active depuis le hub (injections
+    /// rapides + DIA du profil). Alimente la carte « Insuline active » ; les 3
+    /// autres cartes restent sur le mock pour l'instant.
+    @State private var iobService = IOBService()
+
+    /// Contexte du hub — passé à l'`IOBService` au démarrage de la vue.
+    @Environment(\.modelContext) private var modelContext
+
     /// Service mocké pour le score du jour et son historique. Expose
     /// `scoreDuJour` et `heuresDataDuJour` recalculés à chaque accès
     /// (live), plus `historiqueSept` qui inclut la barre du jour.
@@ -137,7 +145,11 @@ struct AccueilVue: View {
                                 .padding(.leading, 4)
                                 .accessibilityAddTraits(.isHeader)
 
-                            GrilleMetriquesAccueil(metriques: metriques)
+                            GrilleMetriquesAccueil(
+                                metriques: metriques,
+                                iobValeur: iobService.iobCourant,
+                                iobPoints: iobService.courbe
+                            )
                         }
                     }
                     .padding(16)
@@ -178,6 +190,8 @@ struct AccueilVue: View {
                     }
                 )
             }
+            .task { iobService.demarrer(contexte: modelContext) }
+            .onAppear { iobService.rafraichir() }
         }
     }
 
