@@ -6,48 +6,57 @@
 //
 
 import Foundation
+import SwiftData
 
-/// Une injection d'insuline enregistrée. Englobe les trois flux possibles :
-/// insuline lente quotidienne, correction rapide hors repas, et bolus repas
-/// (saisi via la page Repas, exposé ici en lecture seule).
+/// Une injection d'insuline enregistrée dans le hub. Englobe les trois flux
+/// possibles : insuline lente quotidienne, correction rapide hors repas, et
+/// bolus repas (saisi via la page Repas, exposé ici en lecture).
 ///
-/// Le champ `repasAssocieId` permet de remonter au repas d'origine pour
-/// les bolus ; `labelRepas` et `emojiRepas` sont des dénormalisations
-/// pratiques pour l'affichage en liste sans avoir à rejoindre la table
-/// repas. Dans la version branchée à Prisma, ces deux champs seront
-/// remplacés par un join côté API.
-struct Injection: Identifiable, Codable, Sendable, Hashable {
-    let id: UUID
-    let type: TypeInsuline
-    let dose: Double
-    let heure: Date
+/// **Fait brut horodaté** : `heure` porte l'instant absolu, clé d'alignement
+/// avec la glycémie. Entité du hub (`@Model`) : seules l'ingestion et la saisie
+/// manuelle l'écrivent ; les analyses la lisent par tranches.
+///
+/// `repasAssocieId` remonte au repas d'origine pour les bolus ; `labelRepas` /
+/// `emojiRepas` sont des dénormalisations d'affichage (évitent un join).
+@Model
+final class Injection {
+    var id: UUID
+    var type: TypeInsuline
+    var dose: Double
+    /// Horodatage absolu de l'injection (clé de tri / découpage).
+    var heure: Date
 
     /// Site d'injection — décomposé en zone × côté pour rester compatible
-    /// avec le `SiteInjectionPicker` existant et faciliter la statistique
-    /// future (rotation des sites, alerte lipodystrophie).
-    let zoneInjection: ZoneInjection
-    let coteInjection: CoteInjection
+    /// avec le `SiteInjectionPicker` et faciliter la statistique future
+    /// (rotation des sites, alerte lipodystrophie).
+    var zoneInjection: ZoneInjection
+    var coteInjection: CoteInjection
 
-    let note: String?
+    var note: String?
 
-    /// Glycémie capillaire saisie manuellement — `nil` pour la lente et
-    /// les bolus repas. Utile aux corrections vu le délai de 3h du CGM
-    /// Dexcom UE (l'utilisateur peut renseigner sa valeur capillaire).
-    let glycemieAuMoment: Double?
+    /// Glycémie capillaire saisie manuellement — `nil` pour la lente et les
+    /// bolus repas. Utile aux corrections vu le délai de 3h du CGM Dexcom UE.
+    var glycemieAuMoment: Double?
 
     /// `nil` sauf pour les bolus repas : pointe vers `Repas.id`.
-    let repasAssocieId: UUID?
+    var repasAssocieId: UUID?
 
-    /// Marque commerciale renseignée pour la lente (Lantus, Tresiba…)
-    /// et éventuellement pour la rapide (NovoRapid, Humalog…).
-    let nomMedicament: String?
+    /// Marque commerciale renseignée pour la lente (Lantus, Tresiba…) et
+    /// éventuellement pour la rapide (NovoRapid, Humalog…).
+    var nomMedicament: String?
 
-    /// Libellé du repas associé (« Petit-déjeuner », « Déjeuner »…).
-    /// Dénormalisation de confort — sera dérivée du repas joint en prod.
-    let labelRepas: String?
+    /// Libellé du repas associé (« Petit-déjeuner »…). Dénormalisation d'affichage.
+    var labelRepas: String?
 
     /// Emoji du repas associé. Idem : dénormalisation pour l'affichage.
-    let emojiRepas: String?
+    var emojiRepas: String?
+
+    /// Motif métier de l'injection. `nil` quand non renseigné (saisie ancienne
+    /// ou ambiguë). Trigger de l'analyse B3 quand `.correction` au coucher.
+    var motif: MotifInjection?
+
+    /// Provenance de la saisie.
+    var source: SourceDonnee
 
     init(
         id: UUID = UUID(),
@@ -61,7 +70,9 @@ struct Injection: Identifiable, Codable, Sendable, Hashable {
         repasAssocieId: UUID? = nil,
         nomMedicament: String? = nil,
         labelRepas: String? = nil,
-        emojiRepas: String? = nil
+        emojiRepas: String? = nil,
+        motif: MotifInjection? = nil,
+        source: SourceDonnee = .manuel
     ) {
         self.id = id
         self.type = type
@@ -75,6 +86,8 @@ struct Injection: Identifiable, Codable, Sendable, Hashable {
         self.nomMedicament = nomMedicament
         self.labelRepas = labelRepas
         self.emojiRepas = emojiRepas
+        self.motif = motif
+        self.source = source
     }
 }
 
@@ -90,7 +103,6 @@ extension Injection {
 // `ZoneInjection` et `CoteInjection` vivent dans `SiteInjectionPicker.swift`
 // (ressources partagées avec la page Repas). On y ajoute Codable + Sendable
 // ici sans toucher au fichier source : Codable est synthétisé pour les
-// `enum: String`, et Sendable est trivialement vérifié pour ces énumérations
-// sans valeurs associées.
+// `enum: String`, et Sendable est trivialement vérifié pour ces énumérations.
 extension ZoneInjection: Codable, Sendable {}
 extension CoteInjection: Codable, Sendable {}

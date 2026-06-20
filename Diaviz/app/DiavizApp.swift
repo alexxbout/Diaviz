@@ -10,13 +10,23 @@ import SwiftData
 
 @main
 struct DiavizApp: App {
-    /// Hub d'événements SwiftData. V1 : seule `GlucoseReading` est persistée
-    /// (ingestion Dexcom). Les autres entités du hub (Injection, Repas, …)
-    /// migreront depuis les services mock au fur et à mesure.
+    /// Hub d'événements SwiftData. Toutes les entités du hub sont modélisées et
+    /// enregistrées d'un bloc (évite les migrations de schéma ultérieures), même
+    /// si la saisie de certaines (état, médicament, pause) n'est pas encore
+    /// branchée. L'écriture réelle migre depuis les services mock étape par étape.
     var body: some Scene {
         WindowGroup {
             AppTabVues()
         }
-        .modelContainer(for: GlucoseReading.self)
+        .modelContainer(for: [
+            GlucoseReading.self,
+            Injection.self,
+            Repas.self,
+            Aliment.self,
+            ActiviteSportive.self,
+            EtatDeclare.self,
+            Medicament.self,
+            PeriodePause.self,
+        ])
     }
 }
