@@ -85,6 +85,7 @@ struct JournalVue: View {
     }
 }
 
+#if DEBUG
 private func makeDate(hour: Int, minute: Int, daysAgo: Int = 0) -> Date {
     let cal = Calendar.current
     let jour = cal.date(byAdding: .day, value: -daysAgo, to: Date()) ?? Date()
@@ -285,4 +286,5 @@ private let previewRepas: [(titre: String, repas: [Repas])] = [
         ListeRepasParSection(sections: previewRepas)
     }
 }
+#endif
 
