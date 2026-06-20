@@ -9,6 +9,28 @@ import Foundation
 import Observation
 import SwiftData
 
+/// Score quotidien complet — `FaitsJour` (score + décomposition GRI) ancré à un
+/// jour calendaire. Les pourcentages sont la source de vérité ; les durées sont
+/// dérivées (24h × %) pour l'affichage.
+struct ScoreJournalier: Sendable, Equatable, Hashable {
+    /// Jour calendaire (00:00 local) auquel ce score se rapporte.
+    let jour: Date
+
+    /// Faits du jour — score et métriques GRI.
+    let faits: FaitsJour
+
+    /// Score 0–100 — convenience.
+    var score: Int { faits.score }
+
+    /// Durée d'une journée standardisée (24h) — base des conversions % → durée.
+    static let dureeJourSec: TimeInterval = 24 * 60 * 60
+
+    /// Convertit un pourcentage (0–100) en durée (secondes).
+    static func duree(pourPourcent pct: Double) -> TimeInterval {
+        max(0, pct) / 100.0 * dureeJourSec
+    }
+}
+
 /// Service **réel** du score quotidien : lit les `GlucoseReading` du hub,
 /// découpe en jours métaboliques (06h→06h) et délègue le calcul GRI à
 /// `CalculScoreJournalier` (assembleur pur).
@@ -212,3 +234,33 @@ final class ScoreService {
         sportContext: nil
     )
 }
+
+#if DEBUG
+extension ScoreService {
+
+    /// Container in-memory peuplé de ~30 jours de glycémies synthétiques (pas de
+    /// 5 min, sinusoïde plausible centrée 130 mg/dL) — alimente le score réel
+    /// pour les `#Preview`, sans device ni HealthKit. Couverture suffisante pour
+    /// que le GRI soit calculé (≥ 70 %).
+    @MainActor
+    static func conteneurApercu() -> ModelContainer {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try! ModelContainer(for: GlucoseReading.self, configurations: config)
+        let contexte = container.mainContext
+
+        let cal = Calendar.current
+        let debut = cal.date(byAdding: .day, value: -30, to: Date()) ?? Date()
+        let pas: TimeInterval = 5 * 60
+        let nbPoints = Int(Date().timeIntervalSince(debut) / pas)
+
+        for i in 0..<nbPoints {
+            let date = debut.addingTimeInterval(Double(i) * pas)
+            let phase = Double(i) * pas / (3 * 3600) * 2 * .pi
+            let valeur = Int((130 + 45 * sin(phase) + Double((i * 37) % 21 - 10)).rounded())
+            contexte.insert(GlucoseReading(date: date, valeur: max(50, min(320, valeur)), source: .manuel))
+        }
+        try? contexte.save()
+        return container
+    }
+}
+#endif

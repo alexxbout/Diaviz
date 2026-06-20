@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 /// Page de détail du score de gestion — push depuis l'accueil
 /// (`CarteScoreQuotidien`) ou depuis le bouton « Voir les détails » de
@@ -39,9 +40,11 @@ struct DetailScoreVue: View {
     /// directement sur un jour donné.
     let jourInitial: Date
 
-    /// Service mocké — sera remplacé par le vrai backend quand la
-    /// couche d'analyses sera branchée.
-    private let service = ScoreJournalierServiceMock.shared
+    /// Service réel du score — lit le hub `GlucoseReading` et calcule le GRI.
+    @State private var service = ScoreService()
+
+    /// Contexte du hub, injecté dans le service au démarrage de la vue.
+    @Environment(\.modelContext) private var modelContext
 
     /// Jour dont les métriques sont affichées (cercle, message LLM,
     /// barre AGP, décomposition). Mis à jour par tap sur une barre
@@ -71,10 +74,10 @@ struct DetailScoreVue: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Score de gestion")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            // Recale `jourConsulte` sur le jour navigable le plus
-            // proche de `jourInitial` (cas où l'appelant pousse une
-            // date hors plage).
+        .task {
+            service.demarrer(contexte: modelContext)
+            // Recale `jourConsulte` sur le jour navigable le plus proche de
+            // `jourInitial` après `demarrer` (sinon `joursNavigables` est vide).
             jourConsulte = jourPlusProche(de: jourInitial)
         }
     }
@@ -437,31 +440,22 @@ private struct CercleScoreDetail: View {
 
 // MARK: - Previews
 
-#Preview("Très bonne — 92") {
+#Preview("Hier") {
     NavigationStack {
-        DetailScoreVue(jourInitial: _previewJourScore(92) ?? Date())
+        DetailScoreVue(jourInitial: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date())
     }
+    .modelContainer(ScoreService.conteneurApercu())
 }
 
-#Preview("Bonne — 76") {
+#Preview("Aujourd'hui") {
     NavigationStack {
-        DetailScoreVue(jourInitial: _previewJourScore(76) ?? Date())
+        DetailScoreVue(jourInitial: Date())
     }
+    .modelContainer(ScoreService.conteneurApercu())
 }
 
-#Preview("Difficile — 42") {
+#Preview("Hub vide") {
     NavigationStack {
-        DetailScoreVue(jourInitial: _previewJourScore(42) ?? Date())
+        DetailScoreVue(jourInitial: Date())
     }
-}
-
-/// Cherche un jour dans le mock dont le score est le plus proche de
-/// `cible`. Permet aux previews d'ouvrir directement sur un palier
-/// donné sans hardcoder un index — robuste si on retouche la liste.
-@MainActor
-private func _previewJourScore(_ cible: Int) -> Date? {
-    let service = ScoreJournalierServiceMock.shared
-    return service.scores
-        .min(by: { abs($0.score - cible) < abs($1.score - cible) })?
-        .jour
 }

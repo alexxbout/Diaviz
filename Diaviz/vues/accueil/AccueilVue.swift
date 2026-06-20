@@ -231,47 +231,15 @@ struct AccueilVue: View {
 }
 
 #if DEBUG
-/// Conteneur in-memory peuplé de glycémies synthétiques pour les previews —
-/// calqué sur le pattern d'ingestion du hub. Génère ~30 jours d'échantillons
-/// à 5 min autour d'une courbe plausible (cible le jour, léger creux la nuit),
-/// de quoi alimenter le score réel sans dépendre d'un device / HealthKit.
-@MainActor
-private func conteneurApercu() -> ModelContainer {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: GlucoseReading.self, configurations: config)
-    let contexte = container.mainContext
-
-    let cal = Calendar.current
-    let debut = cal.date(byAdding: .day, value: -30, to: Date()) ?? Date()
-    let pas: TimeInterval = 5 * 60
-    let nbPoints = Int((Date().timeIntervalSince(debut) / pas))
-
-    for i in 0..<nbPoints {
-        let date = debut.addingTimeInterval(Double(i) * pas)
-        // Sinusoïde lente (~3h) centrée à 130 mg/dL, amplitude 45, + bruit léger.
-        let phase = Double(i) * pas / (3 * 3600) * 2 * .pi
-        let valeur = Int((130 + 45 * sin(phase) + Double((i * 37) % 21 - 10)).rounded())
-        contexte.insert(
-            GlucoseReading(
-                date: date,
-                valeur: max(50, min(320, valeur)),
-                source: .manuel
-            )
-        )
-    }
-    try? contexte.save()
-    return container
-}
-
 #Preview("Avec profil complet") {
     AccueilVue()
         .environment(ProfilService.mockComplet())
-        .modelContainer(conteneurApercu())
+        .modelContainer(ScoreService.conteneurApercu())
 }
 
 #Preview("Profil neuf") {
     AccueilVue()
         .environment(ProfilService.mockVide())
-        .modelContainer(conteneurApercu())
+        .modelContainer(ScoreService.conteneurApercu())
 }
 #endif

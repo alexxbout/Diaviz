@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Charts
+import SwiftData
 
 /// Sheet « Score du matin » — résumé visuel détaillé du score de la
 /// veille, présentée automatiquement au lancement de l'app (cf.
@@ -57,6 +58,14 @@ struct SheetScoreMatin: View {
     /// Foundation Models. On consomme `etat` pour rendre le texte, en
     /// ignorant la coloration sémantique des segments.
     @State private var modele = NarrationViewModel()
+
+    /// Service réel du score — alimente la courbe d'évolution 7 jours en prod
+    /// (quand `historiquePrecedent` n'est pas fourni). Démarré au boot de la sheet.
+    @State private var scoreService = ScoreService()
+
+    /// Contexte du hub, injecté dans `scoreService` (la sheet hérite du
+    /// `modelContext` de la vue présentante).
+    @Environment(\.modelContext) private var modelContext
 
     /// `false` pendant le premier frame d'affichage, puis bascule à
     /// `true` au `.onAppear` pour déclencher le scale-in + fondu du
@@ -121,6 +130,7 @@ struct SheetScoreMatin: View {
                 .padding(.bottom, 12)
         }
         .task(id: faits) {
+            scoreService.demarrer(contexte: modelContext)
             await modele.demarrer(faits: faits)
         }
         .task {
@@ -441,7 +451,7 @@ struct SheetScoreMatin: View {
                 let pad = max(0, 6 - override.count)
                 return Array(override.prefix(6)) + Array(repeating: nil, count: pad)
             }
-            let historique = ScoreJournalierServiceMock.shared
+            let historique = scoreService
                 .historiqueSept(jusquA: date)
             // `historiqueSept` renvoie 7 valeurs (J-6 → jour affiché).
             // On ne garde que les 6 premières — le 7ᵉ point vient
