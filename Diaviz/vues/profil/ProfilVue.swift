@@ -40,6 +40,11 @@ struct ProfilVue: View {
             SectionHorairesRepas()
             SectionSeuilsGlycemiques()
             SectionPreferencesAvancees()
+            Section("Données") {
+                NavigationLink("Diagnostic HealthKit") {
+                    VueDiagnosticHealthKit()
+                }
+            }
         }
         .formStyle(.grouped)
         .scrollDismissesKeyboard(.immediately)

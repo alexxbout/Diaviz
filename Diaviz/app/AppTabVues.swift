@@ -5,6 +5,7 @@
 //  Created by Alexandre on 19/04/2026.
 //
 
+import SwiftData
 import SwiftUI
 
 /// Vue racine — `TabView` portant les quatre onglets de l'app.
@@ -45,6 +46,13 @@ struct AppTabVues: View {
     /// récupèrent par `@Environment(ProfilService.self)`.
     @State private var profilService = ProfilService.shared
 
+    /// Service HealthKit — autorisation, synchro incrémentale et surveillance
+    /// background des glycémies vers le hub.
+    @State private var healthKit = HealthKitCGMService()
+
+    /// Contexte SwiftData du hub (pour récupérer le `ModelContainer`).
+    @Environment(\.modelContext) private var modelContext
+
     /// Pilote la sheet « Score du matin ». Forcé à `true` à
     /// l'initialisation → auto-open à chaque lancement de l'app
     /// (l'utilisateur peut la dismisser ; elle reviendra au prochain
@@ -83,6 +91,11 @@ struct AppTabVues: View {
         // ce qui rend les previews capable de fournir un mock isolé.
         .environment(importService)
         .environment(profilService)
+        .task {
+            await healthKit.demanderAcces()
+            await healthKit.synchroniser(container: modelContext.container)
+            healthKit.demarrerSurveillance(container: modelContext.container)
+        }
         .sheet(isPresented: $afficherScoreMatin) {
             SheetScoreMatin(
                 faits: faitsScoreMatin,
