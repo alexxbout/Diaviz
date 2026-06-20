@@ -465,7 +465,7 @@ struct GrapheJourneeMedications: View {
 
 #Preview("Journée typique") {
     @Previewable @State var date = Calendar.current.startOfDay(for: Date())
-    let injections = InjectionsServiceMock.shared.injections
+    let injections = InjectionsService.echantillonsApercu()
     return ScrollView {
         VStack(spacing: 0) {
             GrapheJourneeMedications(

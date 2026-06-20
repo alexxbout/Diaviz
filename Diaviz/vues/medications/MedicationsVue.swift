@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 /// Page racine « Médications ». Pushée depuis `JournalVue` via un
 /// `NavigationLink`, donc PAS de `NavigationStack` propre — elle
@@ -20,7 +21,10 @@ struct MedicationsVue: View {
 
     // MARK: - État
 
-    @State private var service = InjectionsServiceMock.shared
+    /// Contexte du hub SwiftData — passé au service au démarrage de la vue.
+    @Environment(\.modelContext) private var modelContext
+
+    @State private var service = InjectionsService()
 
     /// Date affichée — utilisée pour filtrer les sections en dessous.
     /// Représente le début de la journée (00:00 local).
@@ -108,6 +112,7 @@ struct MedicationsVue: View {
         .sheet(item: $sheetActive) { sheet in
             sheetVue(pour: sheet)
         }
+        .task { service.demarrer(contexte: modelContext) }
     }
 
     // MARK: - Toolbar
@@ -214,24 +219,24 @@ struct MedicationsVue: View {
         case .lente:
             SheetInsulineLente(
                 derniereZoneLente: derniereZoneLente,
-                onValider: { service.ajouter($0) }
+                onValider: { service.enregistrer($0) }
             )
         case .correction:
             SheetCorrection(
                 derniereZoneRapide: derniereZoneRapide,
-                onValider: { service.ajouter($0) }
+                onValider: { service.enregistrer($0) }
             )
         case .editionLente(let inj):
             SheetInsulineLente(
                 injectionExistante: inj,
                 derniereZoneLente: derniereZoneLente,
-                onValider: { service.ajouter($0) }
+                onValider: { service.enregistrer($0) }
             )
         case .editionCorrection(let inj):
             SheetCorrection(
                 injectionExistante: inj,
                 derniereZoneRapide: derniereZoneRapide,
-                onValider: { service.ajouter($0) }
+                onValider: { service.enregistrer($0) }
             )
         }
     }
@@ -263,4 +268,5 @@ private enum SheetMedication: Identifiable {
     NavigationStack {
         MedicationsVue()
     }
+    .modelContainer(InjectionsService.conteneurApercu)
 }
