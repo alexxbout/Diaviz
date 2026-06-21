@@ -96,7 +96,7 @@ struct CarteInsight: View {
         // pour rester à l'intérieur du cadre, concentrique avec la surface.
         .overlay {
             RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
-                .strokeBorder(insight.categorie.couleur.opacity(0.7), lineWidth: 2)
+                .strokeBorder(insight.categorie.couleur.opacity(0.7), lineWidth: 3)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(insight.titre). \(insight.message)")
