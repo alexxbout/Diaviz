@@ -89,13 +89,6 @@ struct CarteInsight: View {
         // à travers le verre et donnent de la profondeur à la pile. Radius
         // `large` (hero) aligné sur le `contentShape` de la pile.
         .glassEffect(in: RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
-        // Bordure neutre fine — redéfinit le bord du verre (sinon
-        // discret) sans porter de couleur de catégorie. `strokeBorder`
-        // pour rester à l'intérieur du cadre, concentrique avec la surface.
-        .overlay {
-            RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
-                .strokeBorder(Color(.separator), lineWidth: 1)
-        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(insight.titre). \(insight.message)")
         .accessibilityHint("Voir l'analyse détaillée")
