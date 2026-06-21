@@ -295,11 +295,10 @@ struct GrapheJourneeMedications: View {
 
     @ViewBuilder
     private var chiffreCle: some View {
-        if injectionsAffichees.isEmpty {
-            Text("Aucune donnée")
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(.tertiary)
-        } else {
+        // Jour sans injection : pas de chiffre « Aucune donnée » dans
+        // l'en-tête — le message centré du graphe vide suffit, on garde
+        // l'en-tête léger (juste la date).
+        if !injectionsAffichees.isEmpty {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(formate(totalRapide))
                     .font(.system(size: 36, weight: .bold))
@@ -331,7 +330,11 @@ struct GrapheJourneeMedications: View {
             .scrollPosition(id: $dateScroll)
             .scrollIndicators(.hidden)
 
-            legendeFixe
+            // Légende Y masquée les jours sans injection — pas de
+            // squelette d'axe quand il n'y a rien à mesurer.
+            if !injectionsPour(jour: dateAffichee).isEmpty {
+                legendeFixe
+            }
         }
         .frame(height: hauteurChart)
     }
@@ -377,8 +380,8 @@ struct GrapheJourneeMedications: View {
     private func pagePour(jour: Date) -> some View {
         let injectionsJour = injectionsPour(jour: jour)
         if injectionsJour.isEmpty {
+            // Centré pleine largeur : la légende Y est masquée ce jour-là.
             etatVide
-                .padding(.trailing, legendWidth + legendMarge)
         } else {
             chartPour(jour: jour, injections: injectionsJour)
         }
@@ -454,20 +457,25 @@ struct GrapheJourneeMedications: View {
 
     /// Légende des couleurs sous le graphe — tous les types représentés
     /// dans le chart.
+    @ViewBuilder
     private var legende: some View {
-        HStack(spacing: 20) {
-            Spacer()
-            ForEach(TypeInsuline.allCases, id: \.self) { t in
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(t.couleur)
-                        .frame(width: 6, height: 6)
-                    Text(t.libelle)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+        // Légende des types masquée les jours sans injection — pas de
+        // pastilles de couleur à expliquer quand le graphe est vide.
+        if !injectionsAffichees.isEmpty {
+            HStack(spacing: 20) {
+                Spacer()
+                ForEach(TypeInsuline.allCases, id: \.self) { t in
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(t.couleur)
+                            .frame(width: 6, height: 6)
+                        Text(t.libelle)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                Spacer()
             }
-            Spacer()
         }
     }
 

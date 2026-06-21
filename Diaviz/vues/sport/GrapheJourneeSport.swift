@@ -245,11 +245,10 @@ struct GrapheJourneeSport: View {
 
     @ViewBuilder
     private var chiffreCle: some View {
-        if activitesAffichees.isEmpty {
-            Text("Aucune activité")
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(.tertiary)
-        } else {
+        // Jour sans activité : pas de chiffre « Aucune activité » dans
+        // l'en-tête — le message centré du graphe vide suffit, on garde
+        // l'en-tête léger (juste la date).
+        if !activitesAffichees.isEmpty {
             Text(formaterDuree(totalMinutes))
                 .font(.system(size: 36, weight: .bold))
                 .monospacedDigit()

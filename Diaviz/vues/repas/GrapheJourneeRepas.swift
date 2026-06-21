@@ -259,11 +259,10 @@ struct GrapheJourneeRepas: View {
 
     @ViewBuilder
     private var chiffresCles: some View {
-        if nombreRepasAffiche == 0 {
-            Text("Aucune donnée")
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(.tertiary)
-        } else {
+        // Jour sans repas : pas de chiffre « Aucune donnée » dans l'en-tête
+        // — le message centré du graphe vide porte déjà l'info, on garde
+        // l'en-tête léger (juste la date).
+        if nombreRepasAffiche > 0 {
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text("\(totalGlucidesAffiche)")
                     .font(.system(size: 36, weight: .bold))
@@ -295,7 +294,11 @@ struct GrapheJourneeRepas: View {
             .scrollPosition(id: $dateScroll)
             .scrollIndicators(.hidden)
 
-            legendeFixe
+            // Légende Y masquée les jours sans repas — pas de squelette
+            // d'axe quand il n'y a rien à mesurer.
+            if !repasPour(jour: dateAffichee).isEmpty {
+                legendeFixe
+            }
         }
         .frame(height: hauteurChart)
         .padding(.bottom, 16)
@@ -305,9 +308,9 @@ struct GrapheJourneeRepas: View {
     private func pagePour(jour: Date) -> some View {
         let repasJour = repasPour(jour: jour)
         if repasJour.isEmpty {
+            // Centré pleine largeur : la légende Y est masquée ce jour-là.
             etatVide
-                .padding(.trailing, legendWidth + legendMarge)
-                .padding(.leading, 16)
+                .padding(.horizontal, 16)
         } else {
             barresPour(jour: jour, repasJour: repasJour)
         }
