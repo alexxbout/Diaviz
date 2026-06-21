@@ -130,6 +130,32 @@ struct GrapheJourneeRepas: View {
     }
 
     var body: some View {
+        if repas.isEmpty {
+            carteVide
+        } else {
+            contenu
+        }
+    }
+
+    // MARK: - État vide épuré
+
+    /// Carte affichée quand **aucun** repas n'existe sur la période :
+    /// titre + message centré, sans la légende Y fantôme, sans l'en-tête
+    /// « Aucune donnée » et sans navigation — on évite le graphe-squelette
+    /// chargé qui n'affichait rien. Le graphe complet revient dès qu'un
+    /// repas existe (même sur un autre jour).
+    private var carteVide: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            titre
+            etatVide
+                .frame(height: hauteurChart)
+                .padding(.bottom, 16)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.systemBackground))
+    }
+
+    private var contenu: some View {
         VStack(alignment: .leading, spacing: 0) {
             titre
             entete
