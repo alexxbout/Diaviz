@@ -27,14 +27,14 @@ struct SectionInsights: View {
 
     var body: some View {
         if !insights.isEmpty {
-            // Spacing 10 entre le titre et la pile pour aérer sous
+            // Spacing 18 entre le titre et la pile pour aérer sous
             // l'en-tête. Le `.padding(.bottom, -10)` resserre ensuite la
             // section sur la suivante (« Aujourd'hui ») en annulant une
             // partie du spacing 28 du VStack parent dans `AccueilVue`,
             // sans toucher aux autres inter-sections. Géré ici (et pas
             // sur l'appel dans `AccueilVue`) pour disparaître avec la
             // section quand elle est masquée (tableau vide).
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 18) {
 
                 // MARK: Titre de section — compte d'observations
                 // Style aligné sur « Aperçu du jour » dans `AccueilVue`
