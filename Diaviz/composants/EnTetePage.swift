@@ -8,8 +8,9 @@
 import SwiftUI
 
 /// En-tête de page « App Store style » — titre `.largeTitle` à gauche
-/// et avatar circulaire (initiale du prénom) à droite, sur la même
-/// ligne et sans padding vertical superflu.
+/// et avatar circulaire (photo de profil, ou initiale du prénom en
+/// fallback) à droite, sur la même ligne et sans padding vertical
+/// superflu.
 ///
 /// Présent sur les quatre onglets racines (Accueil, Journal, Analyses,
 /// Recherche/Chat) pour offrir un accès rapide à la sheet Profil
@@ -39,7 +40,10 @@ struct EnTetePage: View {
 
             Spacer()
 
-            BoutonProfilAvatar(prenom: profilService.profil.prenom) {
+            BoutonProfilAvatar(
+                prenom: profilService.profil.prenom,
+                photoData: profilService.profil.photoData
+            ) {
                 afficherProfil = true
             }
         }

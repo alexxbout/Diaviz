@@ -81,6 +81,12 @@ final class ProfilService {
         sauvegarder()
     }
 
+    /// Définit (ou retire si `nil`) la photo de profil, puis persiste.
+    /// Raccourci sémantique au-dessus de `mettreAJour` pour l'avatar.
+    func definirPhotoProfil(_ data: Data?) {
+        mettreAJour { $0.photoData = data }
+    }
+
     // MARK: - Persistance privée
 
     private static func charger(

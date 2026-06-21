@@ -25,6 +25,14 @@ struct ProfilUtilisateur: Codable, Equatable, Sendable {
     // MARK: - Informations de base
 
     var prenom: String
+
+    /// Photo de profil — JPEG réduite (plus grand côté ~512 px), encodée
+    /// en base64 dans le JSON `UserDefaults`. `nil` → l'avatar retombe
+    /// sur l'initiale du prénom. Champ optionnel avec valeur par défaut :
+    /// rétrocompatible avec les profils déjà persistés (clé absente
+    /// décodée en `nil`) et sans toucher aux initialiseurs existants.
+    var photoData: Data? = nil
+
     var poidsKg: Double?
 
     // MARK: - Insuline

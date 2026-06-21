@@ -33,6 +33,7 @@ struct ProfilVue: View {
 
     var body: some View {
         Form {
+            SectionPhotoProfil()
             SectionInformationsBase()
             SectionInsuline()
             SectionRatios()
