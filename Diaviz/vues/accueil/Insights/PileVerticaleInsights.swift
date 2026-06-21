@@ -52,13 +52,13 @@ struct PileVerticaleInsights: View {
     private let hauteurCarte: CGFloat = 180
     /// Distance verticale au-delà de laquelle un drag relâché est
     /// considéré comme un swipe validé.
-    private let seuilSwipe: CGFloat = 80
+    private let seuilSwipe: CGFloat = 64
 
     /// Distance verticale au-delà de laquelle le dismiss est
     /// déclenché **automatiquement** pendant le drag (sans attendre
     /// le release). Cale aussi le drag max — la carte file en
     /// dessous dès qu'on atteint cette distance.
-    private let seuilAutoDismiss: CGFloat = 120
+    private let seuilAutoDismiss: CGFloat = 100
 
     var body: some View {
         // Alignement bas : la carte active (position 0) s'ancre en bas de
