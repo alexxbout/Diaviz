@@ -71,23 +71,29 @@ struct JournalVue: View {
         return "\(n) repas enregistré\(n > 1 ? "s" : "") aujourd'hui"
     }
 
-    /// Pastille rouge en haut à droite de la carte sport — n'apparaît
-    /// que si le service signale des activités à importer. Animation
-    /// `easeInOut` pour qu'elle apparaisse/disparaisse en douceur quand
-    /// l'utilisateur traite ou ignore depuis la sheet.
+    /// Pastille « à importer » en haut à droite de la carte sport —
+    /// n'apparaît que si le service signale des activités Apple Santé en
+    /// attente. Pastille **explicite** (icône d'import + compteur +
+    /// libellé) plutôt qu'un simple point rouge ambigu : on comprend
+    /// d'un coup d'œil qu'il y a N activités à importer dans la section.
+    /// Transition `scale + opacity` pour une apparition/disparition douce
+    /// quand l'utilisateur traite ou ignore depuis la sheet.
     @ViewBuilder
     private var badgeImport: some View {
         if importService.aDesImportsEnAttente {
-            Text("\(importService.nombreEnAttente)")
-                .font(.caption2.bold())
-                .foregroundStyle(.white)
-                .monospacedDigit()
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(Color.red, in: Capsule())
-                .padding(12)
-                .accessibilityLabel("\(importService.nombreEnAttente) activités Apple Santé à importer")
-                .transition(.scale.combined(with: .opacity))
+            HStack(spacing: 5) {
+                Image(systemName: "tray.and.arrow.down.fill")
+                Text("\(importService.nombreEnAttente) à importer")
+                    .monospacedDigit()
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Color.red, in: Capsule())
+            .padding(10)
+            .accessibilityLabel("\(importService.nombreEnAttente) activités Apple Santé à importer")
+            .transition(.scale.combined(with: .opacity))
         }
     }
 }

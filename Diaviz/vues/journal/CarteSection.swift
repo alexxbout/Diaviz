@@ -7,18 +7,21 @@
 
 import SwiftUI
 
-/// Carte de section plein hauteur, traitement aligné sur les cartes "warn"
-/// de la `RepasSheet` (IOBCard, SportDetecteCard, ValidationRatioCard) :
+/// Carte de section plein hauteur, style **surface claire + accents
+/// colorés** :
 ///
-/// - **Fond** : couleur d'accent unie à `0.10` d'opacité.
-/// - **Icône** : SF Symbol en couleur pleine, encerclée par un disque
-///   `couleur.opacity(0.18)`. L'icône reste lisible, le cercle donne du focus.
-/// - **Texte** : titre et sous-titre directement dans la couleur d'accent
-///   (titre solide, sous-titre à 70% pour la hiérarchie).
+/// - **Fond** : surface neutre (`secondarySystemGroupedBackground`) +
+///   ombre douce neutre → la carte se détache nettement du fond et lit
+///   comme « tappable ».
+/// - **Icône** : SF Symbol en couleur d'accent dans un disque
+///   `couleur.opacity(0.18)`.
+/// - **Texte** : titre en couleur d'accent (lisible sur surface claire),
+///   sous-titre en `.secondary` neutre pour la hiérarchie.
+/// - **Chevron** : `chevron.right` teinté à droite → affordance de nav.
 ///
-/// Layout "héro éditorial" conservé : icône en haut à gauche, titre + sous-titre
-/// en bas à gauche, carte étirée pour partager toute la hauteur disponible
-/// avec ses sœurs.
+/// Layout "héro éditorial" conservé : icône en haut à gauche, titre +
+/// sous-titre en bas à gauche, chevron centré à droite, carte étirée
+/// pour partager toute la hauteur disponible avec ses sœurs.
 struct CarteSection: View {
     let icone: String
     let titre: String
@@ -26,32 +29,46 @@ struct CarteSection: View {
     let couleur: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            iconeCirculaire
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 0) {
+                iconeCirculaire
 
-            Spacer(minLength: 12)
+                Spacer(minLength: 12)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(titre)
-                    .font(.title.weight(.bold))
-                    .foregroundStyle(couleur)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(titre)
+                        .font(.title.weight(.bold))
+                        .foregroundStyle(couleur)
 
-                Text(sousTitre)
-                    .font(.subheadline)
-                    .foregroundStyle(couleur.opacity(0.70))
+                    Text(sousTitre)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+            // Chevron centré à droite — affordance de navigation, teinté
+            // à l'accent (légèrement atténué pour rester sous le titre).
+            Image(systemName: "chevron.right")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(couleur.opacity(0.7))
+                .accessibilityHidden(true)
         }
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(couleur.opacity(0.10))
-        .clipShape(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
+        // Surface claire + ombre douce neutre : la carte se détache du
+        // fond et reste très lisible ; l'accent reste porté par le titre,
+        // l'icône et le chevron.
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
+        .shadow(color: .black.opacity(0.10), radius: 8, x: 0, y: 3)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(titre), \(sousTitre)")
+        .accessibilityAddTraits(.isButton)
     }
 
-    /// Disque coloré contenant l'icône SF Symbol en couleur pleine.
-    /// Le rapport diamètre cercle / taille icône (~64/30) reproduit celui
-    /// des cartes warn (~40/22) à plus grande échelle pour la carte hero.
+    /// Disque coloré (accent à 18 %) contenant l'icône SF Symbol en
+    /// couleur d'accent pleine. Diamètre 64 / icône 30 pour l'échelle
+    /// carte hero.
     private var iconeCirculaire: some View {
         ZStack {
             Circle()
