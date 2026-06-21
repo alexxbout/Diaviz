@@ -27,12 +27,14 @@ struct SectionInsights: View {
 
     var body: some View {
         if !insights.isEmpty {
-            // Spacing 0 entre le titre et la pile : le titre `.title2`
-            // a déjà une grosse line-height qui crée une respiration
-            // visuelle naturelle, on n'ajoute rien. La séparation
-            // avec les sections voisines (carte score, « Aperçu du
-            // jour ») est gérée par le VStack parent dans `AccueilVue`.
-            VStack(alignment: .leading, spacing: 0) {
+            // Spacing 10 entre le titre et la pile pour aérer sous
+            // l'en-tête. Le `.padding(.bottom, -10)` resserre ensuite la
+            // section sur la suivante (« Aujourd'hui ») en annulant une
+            // partie du spacing 28 du VStack parent dans `AccueilVue`,
+            // sans toucher aux autres inter-sections. Géré ici (et pas
+            // sur l'appel dans `AccueilVue`) pour disparaître avec la
+            // section quand elle est masquée (tableau vide).
+            VStack(alignment: .leading, spacing: 10) {
 
                 // MARK: Titre de section — compte d'observations
                 // Style aligné sur « Aperçu du jour » dans `AccueilVue`
@@ -48,6 +50,7 @@ struct SectionInsights: View {
                 PileVerticaleInsights(insights: insights, indexActif: $pageActive)
                     .frame(maxWidth: .infinity)
             }
+            .padding(.bottom, -10)
         }
     }
 
