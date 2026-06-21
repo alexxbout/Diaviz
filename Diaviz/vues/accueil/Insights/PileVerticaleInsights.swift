@@ -13,12 +13,13 @@ import SwiftUI
 /// dégradés pour signaler qu'il y en a d'autres. On lit la pile de bas
 /// en haut.
 ///
-/// Au swipe (drag vertical past seuil), la carte active part en
-/// transition `.move(edge: .top)` (= file vers le haut, dans la pile),
-/// `indexActif` avance dans un spring, et SwiftUI redescend
-/// automatiquement les cartes suivantes à leurs nouvelles positions
-/// (animation pilotée par l'identité stable de chaque insight dans le
-/// ZStack).
+/// Au swipe **vers le bas** (drag past seuil ; on tire la carte active,
+/// en bas de la pile, vers le bas pour la sortir — un drag vers le haut,
+/// dans la pile, n'est pas naturel et est ignoré), la carte active part
+/// en transition `.move(edge: .bottom)`, `indexActif` avance dans un
+/// spring, et SwiftUI redescend automatiquement les cartes suivantes à
+/// leurs nouvelles positions (animation pilotée par l'identité stable de
+/// chaque insight dans le ZStack).
 ///
 /// Toute l'animation tient en un seul `withAnimation` — pas de
 /// chaînage en deux temps qui faisait drifter le premier essai.
@@ -123,13 +124,13 @@ struct PileVerticaleInsights: View {
 
     /// Transition appliquée aux cartes : insertion en fondu (la
     /// nouvelle carte arrière apparaît doucement en haut de la pile),
-    /// suppression en `.move(edge: .top)` + opacity (la carte active
-    /// file vers le haut, dans la pile, quand on swipe). Extraite d'un
-    /// modifier inline pour soulager le type-checker.
+    /// suppression en `.move(edge: .bottom)` + opacity (la carte active
+    /// sort vers le bas, dans le sens du swipe). Extraite d'un modifier
+    /// inline pour soulager le type-checker.
     private var transitionCarte: AnyTransition {
         .asymmetric(
             insertion: .opacity,
-            removal: .move(edge: .top).combined(with: .opacity)
+            removal: .move(edge: .bottom).combined(with: .opacity)
         )
     }
 
@@ -148,16 +149,19 @@ struct PileVerticaleInsights: View {
                 // mais on évite d'embarquer le ScrollView parent).
                 guard abs(value.translation.height) > abs(value.translation.width) else { return }
 
-                glissementY = value.translation.height
+                // Swipe **vers le bas uniquement** : la carte active est
+                // en bas de la pile, on la tire vers le bas pour la
+                // sortir. On clampe à 0 pour qu'un drag vers le haut
+                // (vers la pile) ne fasse rien bouger — geste non naturel.
+                glissementY = max(0, value.translation.height)
 
                 // Auto-dismiss au-delà du gros seuil — pendant le
-                // drag, sans attendre le release. Plafonne de fait
-                // la distance de drag visible (au lieu d'aller à
-                // l'infini, la carte file en dessous). Le verrou est
+                // drag (vers le bas), sans attendre le release. Plafonne
+                // de fait la distance de drag visible. Le verrou est
                 // posé ici et ne sera libéré qu'au `.onEnded` (release
                 // du doigt) — c'est ce qui empêche le re-déclenchement
-                // en chaîne sur la nouvelle carte top.
-                if abs(value.translation.height) > seuilAutoDismiss {
+                // en chaîne sur la nouvelle carte active.
+                if value.translation.height > seuilAutoDismiss {
                     enCoursDeDismiss = true
                     declenchementDismiss()
                 }
@@ -172,11 +176,11 @@ struct PileVerticaleInsights: View {
                     return
                 }
 
-                // Cas 2 : release au-delà du seuil "intentionnel" mais
-                // sans avoir atteint l'auto-dismiss → dismiss classique.
-                // Pas besoin de verrou : le gesture est en train de se
-                // terminer, aucun `.onChanged` ne suivra.
-                if abs(value.translation.height) > seuilSwipe {
+                // Cas 2 : release vers le bas au-delà du seuil
+                // "intentionnel" mais sans avoir atteint l'auto-dismiss →
+                // dismiss classique. Pas besoin de verrou : le gesture se
+                // termine, aucun `.onChanged` ne suivra.
+                if value.translation.height > seuilSwipe {
                     declenchementDismiss()
                 } else {
                     // Cas 3 : pas assez loin → snap back élastique.
