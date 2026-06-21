@@ -161,6 +161,39 @@ final class ScoreService {
         partielDuJour.score
     }
 
+    /// Heures de données CGM **réelles** accumulées dans le jour métabolique en
+    /// cours. ≠ heures écoulées : avec le différé Dexcom (~3h), bien moindre le
+    /// matin (aucune donnée du jour avant ~9h).
+    var heuresDonneesJourCourant: Double {
+        let debut = Self.debutJourMetabolique(pour: Date())
+        let n = echantillons.filter { $0.date >= debut }.count
+        return Double(n) * CalculScoreJournalier.intervalleEchantillonSec / 3600
+    }
+
+    /// Le jour en cours a-t-il assez de données pour un score **représentatif**
+    /// (≥ 6h de CGM réelles) ? En-deçà, on préfère mettre en avant le dernier
+    /// jour complet plutôt qu'un score partiel trompeur (« 0 » le matin).
+    var jourCourantSignificatif: Bool {
+        heuresDonneesJourCourant >= 6
+    }
+
+    /// Score du jour en cours s'il est significatif, sinon `nil` (affichage
+    /// « — » au lieu d'un faux « 0 »).
+    var scoreDuJourSignificatif: Int? {
+        jourCourantSignificatif ? scoreDuJour : nil
+    }
+
+    /// Jour à mettre en avant sur l'accueil : le jour en cours s'il est
+    /// significatif, sinon le **dernier jour consolidé** (bascule sur la veille).
+    var jourAffiche: Date {
+        jourCourantSignificatif ? jourCourant : (joursNavigables.last ?? jourCourant)
+    }
+
+    /// Score de `jourAffiche` (nil si aucun jour exploitable).
+    var scoreAffiche: Int? {
+        jourCourantSignificatif ? scoreDuJour : score(pour: jourAffiche)?.score
+    }
+
     /// `ScoreJournalier` partiel d'aujourd'hui — fenêtre du jour métabolique
     /// courant tronquée à l'instant présent. Couverture attendue réduite à la
     /// durée écoulée (pas 24h), pour ne pas pénaliser une journée qui commence.

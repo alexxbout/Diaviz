@@ -90,7 +90,9 @@ struct DetailScoreVue: View {
     /// n'est pas clôturée à 06h donc elle n'y figure pas.
     private var scoreCourant: ScoreJournalier? {
         if service.estJourCourant(jourConsulte) {
-            return service.partielDuJour
+            // Jour en cours : score seulement s'il est significatif (≥ 6h de
+            // données), sinon nil → cercle « — » au lieu d'un faux « 0 ».
+            return service.jourCourantSignificatif ? service.partielDuJour : nil
         }
         return service.score(pour: jourConsulte)
     }
@@ -151,10 +153,10 @@ struct DetailScoreVue: View {
                         jourConsulte: jourConsulte,
                         jourEnCours: service.jourCourant,
                         scorePourJour: { jour in
-                            // Le jour métabolique en cours n'est pas dans la
-                            // liste consolidée — on lit le score partiel live.
+                            // Jour en cours : score partiel seulement s'il est
+                            // significatif (sinon barre vide, pas un faux 0).
                             if service.estJourCourant(jour) {
-                                return service.scoreDuJour
+                                return service.scoreDuJourSignificatif
                             }
                             return service.score(pour: jour)?.score
                         },

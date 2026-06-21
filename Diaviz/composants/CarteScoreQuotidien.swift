@@ -31,6 +31,11 @@ struct ContenuCarteScore: Sendable, Equatable {
     /// remplissage partiel de la 7ᵉ barre et le sous-texte
     /// "Xh de données".
     let heuresJourEcoulees: Double
+    /// `true` si la carte montre le **jour en cours** (partiel) ; `false` si elle
+    /// montre un **jour complet** (bascule sur la veille tant que le jour en
+    /// cours n'a pas assez de données). Pilote le titre, le sous-texte et le
+    /// rendu de la 7ᵉ barre. Défaut `true` (rétro-compat des previews).
+    var estEnCours: Bool = true
 }
 
 /// Style visuel de la carte. La variante `.gradient` reprend la teinte
@@ -79,7 +84,7 @@ struct CarteScoreQuotidien: View {
             Image(systemName: "target")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(couleurTitre)
-            Text("Score du jour")
+            Text(contenu.estEnCours ? "Score du jour" : "Dernier score")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(couleurTitre)
             Spacer(minLength: 8)
@@ -100,7 +105,7 @@ struct CarteScoreQuotidien: View {
                     .lineLimit(2)
                     .minimumScaleFactor(0.85)
 
-                Text(libelleHeuresDonnees)
+                Text(libelleSousTexte)
                     .font(.caption)
                     .foregroundStyle(couleurSubtext)
             }
@@ -111,17 +116,29 @@ struct CarteScoreQuotidien: View {
                 historique: contenu.historique,
                 scoreActuel: contenu.score,
                 pourcentageJourActuel: contenu.heuresJourEcoulees / 24,
+                estEnCours: contenu.estEnCours,
                 style: style
             )
             .accessibilityHidden(true)
         }
     }
 
-    /// Sous-texte « Xh de données » — heures écoulées depuis 06h ce
-    /// matin, arrondies à l'entier inférieur (8.5h → "8h").
-    private var libelleHeuresDonnees: String {
+    /// Sous-texte sous le qualificatif : « Xh de données » pour le jour en
+    /// cours, sinon la date du jour complet affiché (« Hier », « Samedi 20 juin »).
+    private var libelleSousTexte: String {
+        guard contenu.estEnCours else { return libelleDateComplete }
         let heures = Int(contenu.heuresJourEcoulees.rounded(.down))
         return "\(heures)h de données"
+    }
+
+    /// Date relative du jour complet affiché (mode bascule sur la veille).
+    private var libelleDateComplete: String {
+        if Calendar.current.isDateInYesterday(contenu.date) { return "Hier" }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "fr_FR")
+        f.dateFormat = "EEEE d MMMM"
+        let s = f.string(from: contenu.date)
+        return s.prefix(1).uppercased() + s.dropFirst()
     }
 
     /// Couleur du sous-texte : blanc à 70 % d'opacité en gradient,
@@ -514,6 +531,9 @@ private struct BarresHistorique: View {
     /// 0…1, % de la journée écoulée depuis 06h (pilote le remplissage
     /// partiel de la 7ᵉ barre). À midi : ~0.25. À minuit : 0.75.
     let pourcentageJourActuel: Double
+    /// `true` → la dernière barre est rendue « en cours » (partielle) ; sinon
+    /// toutes les barres sont consolidées (mode jour complet).
+    var estEnCours: Bool = true
     let style: StyleCarteScore
 
     /// Largeur d'une barre, partagée par toutes (régulières et en cours).
@@ -548,7 +568,7 @@ private struct BarresHistorique: View {
     }
 
     private func estJourCourant(_ index: Int) -> Bool {
-        index == historique.count - 1
+        estEnCours && index == historique.count - 1
     }
 }
 
