@@ -8,10 +8,11 @@
 import SwiftUI
 
 /// Carte d'observation individuelle affichée dans
-/// `PileVerticaleInsights`. Fond opaque neutre
-/// (`secondarySystemGroupedBackground`) — même langage visuel que les
-/// cartes « Repas à revoir » juste en dessous, pour homogénéiser la
-/// surface des composants standard de l'accueil.
+/// `PileVerticaleInsights`. Surface en **Liquid Glass** (iOS 26,
+/// `.glassEffect`) : le verre laisse transparaître les cartes empilées
+/// dessous, ce qui matérialise la profondeur de la pile au lieu d'un
+/// simple fond plat. Radius `large` (carte hero) aligné sur le
+/// `contentShape` de `PileVerticaleInsights`.
 ///
 /// La couleur de catégorie est **réservée aux éléments clés** : icône
 /// d'en-tête, donnée centrale (`MicroVisuelInsight`) et lien « Voir
@@ -83,8 +84,11 @@ struct CarteInsight: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        // Surface standard des cartes de l'accueil — voir `surfaceCarte()`.
-        .surfaceCarte()
+        // Surface en Liquid Glass (iOS 26) plutôt que le fond opaque des
+        // cartes standard : empilées, les cartes du dessous transparaissent
+        // à travers le verre et donnent de la profondeur à la pile. Radius
+        // `large` (hero) aligné sur le `contentShape` de la pile.
+        .glassEffect(in: RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(insight.titre). \(insight.message)")
         .accessibilityHint("Voir l'analyse détaillée")

@@ -8,15 +8,15 @@
 import SwiftUI
 
 /// Section « observations » de l'accueil — titre + pile verticale
-/// des cartes d'insights produits par la couche ML. La carte du
-/// dessus est interactive (swipe vertical), les cartes derrière
-/// pointent dessous.
+/// des cartes d'insights produits par la couche ML. La carte active
+/// est en bas (interactive, swipe vertical), les cartes suivantes
+/// pointent au-dessus.
 ///
 /// La section se masque entièrement quand le tableau est vide pour ne
 /// pas laisser une coquille vide sur la page.
 ///
-/// Position sur l'accueil : sous la carte score du jour, au-dessus
-/// de la grille des 4 métriques.
+/// Position sur l'accueil : en tête de page, au-dessus de la section
+/// « Aujourd'hui » (carte score + rappel lente).
 struct SectionInsights: View {
 
     let insights: [Insight]

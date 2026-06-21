@@ -7,16 +7,18 @@
 
 import SwiftUI
 
-/// Pile verticale de cartes d'observations — la carte du dessus est
-/// fully visible et interactive (drag vertical), les cartes derrière
-/// pointent **dessous** avec scale/opacity dégradés pour signaler
-/// qu'il y en a d'autres.
+/// Pile verticale de cartes d'observations — la carte active est en
+/// **bas** de la pile, fully visible et interactive (drag vertical) ;
+/// les cartes suivantes pointent **au-dessus** d'elle avec scale/opacity
+/// dégradés pour signaler qu'il y en a d'autres. On lit la pile de bas
+/// en haut.
 ///
-/// Au swipe (drag vertical past seuil), la carte du dessus part en
-/// transition `.move(edge: .bottom)` (= passe dessous), `indexActif`
-/// avance dans un spring, et SwiftUI remonte automatiquement les
-/// cartes derrière à leurs nouvelles positions (animation pilotée
-/// par l'identité stable de chaque insight dans le ZStack).
+/// Au swipe (drag vertical past seuil), la carte active part en
+/// transition `.move(edge: .top)` (= file vers le haut, dans la pile),
+/// `indexActif` avance dans un spring, et SwiftUI redescend
+/// automatiquement les cartes suivantes à leurs nouvelles positions
+/// (animation pilotée par l'identité stable de chaque insight dans le
+/// ZStack).
 ///
 /// Toute l'animation tient en un seul `withAnimation` — pas de
 /// chaînage en deux temps qui faisait drifter le premier essai.
@@ -59,7 +61,9 @@ struct PileVerticaleInsights: View {
     private let seuilAutoDismiss: CGFloat = 120
 
     var body: some View {
-        ZStack(alignment: .top) {
+        // Alignement bas : la carte active (position 0) s'ancre en bas de
+        // la pile, les suivantes débordent vers le haut (offset négatif).
+        ZStack(alignment: .bottom) {
             ForEach(pileVisible) { item in
                 carteEmpilee(item)
             }
@@ -88,7 +92,9 @@ struct PileVerticaleInsights: View {
     @ViewBuilder
     private func carteEmpilee(_ item: PileItem) -> some View {
         let estTop = item.position == 0
-        let decalageBase = CGFloat(item.position) * decalageY
+        // Offset **négatif** : les cartes derrière montent au-dessus de la
+        // carte active (ancrée en bas), pour une lecture de bas en haut.
+        let decalageBase = -CGFloat(item.position) * decalageY
         let drag: CGFloat = estTop ? glissementY : 0
         let echelleBase = 1 - CGFloat(item.position) * echelleParCarte
         let opacite = 1 - Double(item.position) * opaciteParCarte
@@ -116,14 +122,14 @@ struct PileVerticaleInsights: View {
     }
 
     /// Transition appliquée aux cartes : insertion en fondu (la
-    /// nouvelle carte arrière apparaît doucement), suppression en
-    /// `.move(edge: .bottom)` + opacity (la carte du dessus glisse
-    /// vers le bas et fait dessous quand on swipe). Extraite d'un
+    /// nouvelle carte arrière apparaît doucement en haut de la pile),
+    /// suppression en `.move(edge: .top)` + opacity (la carte active
+    /// file vers le haut, dans la pile, quand on swipe). Extraite d'un
     /// modifier inline pour soulager le type-checker.
     private var transitionCarte: AnyTransition {
         .asymmetric(
             insertion: .opacity,
-            removal: .move(edge: .bottom).combined(with: .opacity)
+            removal: .move(edge: .top).combined(with: .opacity)
         )
     }
 

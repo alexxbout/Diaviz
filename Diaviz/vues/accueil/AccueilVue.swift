@@ -83,46 +83,59 @@ struct AccueilVue: View {
                 EnTetePage(titre: "Accueil")
 
                 ScrollView {
-                    // Spacing 28pt entre les sections (score, observations,
-                    // aperçu) pour clarifier la hiérarchie : chaque bloc
-                    // respire et se lit comme une unité distincte.
+                    // Spacing 28pt entre les sections (tendances,
+                    // « Aujourd'hui », repas, aperçu) pour clarifier la
+                    // hiérarchie : chaque bloc respire et se lit comme
+                    // une unité distincte.
                     VStack(spacing: 28) {
-                        // Carte score du jour — recalculée en temps
-                        // réel (06h-06h), avec la dernière barre de
-                        // l'historique rendue en mode "en cours".
-                        CarteScoreQuotidien(
-                            contenu: contenuScore,
-                            style: .gradient,
-                            onTap: { jourDetailScore = aujourdhui }
-                        )
-
-                        // Carte contextuelle « Insuline lente » —
-                        // visible uniquement si l'utilisateur entre
-                        // dans la fenêtre de rappel (≥ heure habituelle
-                        // − 1h) sans avoir encore pris sa lente. Le
-                        // calcul de visibilité vit dans
-                        // `EtatRappelLente.calculer(...)`. La carte
-                        // entre et sort en spring avec une transition
-                        // depuis le haut, désactivée quand l'utilisateur
-                        // a activé « Réduire les animations ».
-                        if let etatLente, let contexteLente {
-                            CarteLenteRappel(
-                                etat: etatLente,
-                                contexte: contexteLente,
-                                onTapAjouter: { sheetLenteOuverte = true }
-                            )
-                            .transition(.asymmetric(
-                                insertion: .move(edge: .top).combined(with: .opacity),
-                                removal: .move(edge: .top).combined(with: .opacity)
-                            ))
-                        }
-
-                        // Section observations ML — TabView paginé
-                        // sous la carte score. Auto-masquée quand le
-                        // tableau d'insights est vide pour ne pas
-                        // laisser une coquille vide entre le score
-                        // et la grille des métriques.
+                        // Section « Nouvelles tendances » — pile des
+                        // observations ML, désormais en tête de page.
+                        // Auto-masquée quand le tableau d'insights est
+                        // vide pour ne pas laisser une coquille en haut.
                         SectionInsights(insights: insights)
+
+                        // Section « Aujourd'hui » — carte score du jour
+                        // (recalculée en temps réel 06h-06h) et, si la
+                        // fenêtre de rappel est ouverte, la carte
+                        // contextuelle « Insuline lente ». Les deux
+                        // cartes sont groupées sous un même en-tête, comme
+                        // « Aperçu du jour » plus bas (spacing 8 titre →
+                        // contenu pour que le titre "appartienne" au bloc).
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Aujourd'hui")
+                                .font(.title2.bold())
+                                .foregroundStyle(.primary)
+                                .padding(.leading, 4)
+                                .accessibilityAddTraits(.isHeader)
+
+                            VStack(spacing: 12) {
+                                CarteScoreQuotidien(
+                                    contenu: contenuScore,
+                                    style: .gradient,
+                                    onTap: { jourDetailScore = aujourdhui }
+                                )
+
+                                // Carte « Insuline lente » — visible
+                                // uniquement dans la fenêtre de rappel
+                                // (≥ heure habituelle − 1h) sans prise
+                                // enregistrée ; visibilité calculée dans
+                                // `EtatRappelLente.calculer(...)`. Entre et
+                                // sort en spring avec une transition depuis
+                                // le haut, désactivée si « Réduire les
+                                // animations ».
+                                if let etatLente, let contexteLente {
+                                    CarteLenteRappel(
+                                        etat: etatLente,
+                                        contexte: contexteLente,
+                                        onTapAjouter: { sheetLenteOuverte = true }
+                                    )
+                                    .transition(.asymmetric(
+                                        insertion: .move(edge: .top).combined(with: .opacity),
+                                        removal: .move(edge: .top).combined(with: .opacity)
+                                    ))
+                                }
+                            }
+                        }
 
                         // Section « Repas à revoir » — scroll horizontal
                         // des repas sortis de cible avec aliments
