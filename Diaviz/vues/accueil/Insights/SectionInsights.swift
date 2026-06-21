@@ -28,7 +28,7 @@ struct SectionInsights: View {
     var body: some View {
         if !insights.isEmpty {
             // Spacing 18 entre le titre et la pile pour aérer sous
-            // l'en-tête. Le `.padding(.bottom, -10)` resserre ensuite la
+            // l'en-tête. Le `.padding(.bottom, -14)` resserre ensuite la
             // section sur la suivante (« Aujourd'hui ») en annulant une
             // partie du spacing 28 du VStack parent dans `AccueilVue`,
             // sans toucher aux autres inter-sections. Géré ici (et pas
@@ -50,7 +50,7 @@ struct SectionInsights: View {
                 PileVerticaleInsights(insights: insights, indexActif: $pageActive)
                     .frame(maxWidth: .infinity)
             }
-            .padding(.bottom, -10)
+            .padding(.bottom, -14)
         }
     }
 
