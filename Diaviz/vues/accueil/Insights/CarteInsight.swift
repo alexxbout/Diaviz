@@ -14,10 +14,9 @@ import SwiftUI
 /// simple fond plat. Radius `large` (carte hero) aligné sur le
 /// `contentShape` de `PileVerticaleInsights`.
 ///
-/// La couleur de catégorie est **réservée aux éléments clés** : bordure
-/// de la carte, icône d'en-tête, donnée centrale (`MicroVisuelInsight`)
-/// et lien « Voir l'analyse → ». Le titre passe en `.primary` et le
-/// message reste en
+/// La couleur de catégorie est **réservée aux éléments clés** : icône
+/// d'en-tête, donnée centrale (`MicroVisuelInsight`) et lien « Voir
+/// l'analyse → ». Le titre passe en `.primary` et le message reste en
 /// `.secondary` — la palette neutre laisse la couleur signaler ce qui
 /// mérite l'attention, plutôt que de wash la surface entière.
 ///
@@ -90,13 +89,12 @@ struct CarteInsight: View {
         // à travers le verre et donnent de la profondeur à la pile. Radius
         // `large` (hero) aligné sur le `contentShape` de la pile.
         .glassEffect(in: RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
-        // Bordure fine teintée à la couleur de la catégorie — relie la
-        // carte à son type (positif/attention/informatif/action) et
-        // redéfinit le bord du verre (sinon discret). `strokeBorder`
+        // Bordure neutre fine — redéfinit le bord du verre (sinon
+        // discret) sans porter de couleur de catégorie. `strokeBorder`
         // pour rester à l'intérieur du cadre, concentrique avec la surface.
         .overlay {
             RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
-                .strokeBorder(insight.categorie.couleur.opacity(0.7), lineWidth: 3)
+                .strokeBorder(Color(.separator), lineWidth: 1)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(insight.titre). \(insight.message)")
