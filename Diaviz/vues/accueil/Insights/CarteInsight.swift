@@ -88,9 +88,9 @@ struct CarteInsight: View {
         // cartes standard : empilées, les cartes du dessous transparaissent
         // à travers le verre et donnent de la profondeur à la pile. Radius
         // `large` (hero) aligné sur le `contentShape` de la pile.
-        // Verre `.clear` (plus transparent) + `.interactive()` (réagit au
-        // toucher pendant le drag/tap) — variante liquid glass à l'essai.
-        .glassEffect(.clear.interactive(), in: RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
+        // Verre `.regular` + `.interactive()` (réagit au toucher pendant
+        // le drag/tap de la pile).
+        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(insight.titre). \(insight.message)")
         .accessibilityHint("Voir l'analyse détaillée")
