@@ -8,14 +8,13 @@
 import SwiftUI
 
 /// Trois points qui pulsent — utilisé pendant la génération du message
-/// narratif LLM dans `SheetScoreMatin` et `MessageNarratifScore`.
+/// narratif LLM dans `SheetScoreMatin`.
 ///
 /// Respecte « Réduire les animations » système : sans animation, les
 /// trois points sont rendus statiques en opacité 0.5.
 ///
-/// Une seule implémentation partagée entre les deux écrans qui en ont
-/// besoin — auparavant dupliquée à l'identique sous les noms
-/// `LoaderPoints` et `LoaderTroisPoints`.
+/// Implémentation partagée — auparavant dupliquée à l'identique sous
+/// les noms `LoaderPoints` et `LoaderTroisPoints`.
 struct LoaderPoints: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 

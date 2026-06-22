@@ -12,10 +12,9 @@ import SwiftData
 /// (`CarteScoreQuotidien`) ou depuis le bouton « Voir les détails » de
 /// `SheetScoreMatin`.
 ///
-/// Décompose le score quotidien en ses 4 zones GRI (Klonoff 2022),
-/// affiche un message narratif (Foundation Models, même pipeline que
-/// la sheet du matin), et permet de consulter les scores des
-/// 30 derniers jours par sélection de barre semaine.
+/// Décompose le score quotidien en ses 4 zones GRI (Klonoff 2022) et
+/// permet de consulter les scores des 7 derniers jours par sélection
+/// d'une barre.
 ///
 /// Architecture :
 ///   - `NavigationStack` parent porte le titre `.inline` et le bouton
@@ -29,8 +28,8 @@ import SwiftData
 ///     pas, seule la mise en avant se déplace).
 ///
 /// Sous-vues extraites dans ce dossier (`Score/`) : `BarresSemaine`,
-/// `BarreAGP`, `MessageNarratifScore`, `LigneDecompositionGRI`,
-/// `LoaderPoints` ; helpers calendaires dans `CalendrierScore.swift`.
+/// `BarreAGP`, `LigneDecompositionGRI`, `LoaderPoints` ; helpers
+/// calendaires dans `CalendrierScore.swift`.
 ///
 /// Aucun texte ne suggère une action de soin — observations seulement.
 struct DetailScoreVue: View {
@@ -95,12 +94,6 @@ struct DetailScoreVue: View {
             return service.jourCourantSignificatif ? service.partielDuJour : nil
         }
         return service.score(pour: jourConsulte)
-    }
-
-    /// Est-on en train de consulter le jour métabolique en cours (06h→06h, non
-    /// clôturé) ?
-    private var estJourEnCours: Bool {
-        service.estJourCourant(jourConsulte)
     }
 
     // MARK: Navigation jour
@@ -201,36 +194,6 @@ struct DetailScoreVue: View {
         case 30..<50:  return "Difficile"
         default:       return "Très difficile"
         }
-    }
-
-    /// Texte narratif Foundation Models (même pipeline que la sheet du
-    /// matin). Trois branches :
-    ///   - **Jour en cours** : pas de résumé LLM (la journée n'est pas
-    ///     clôturée), juste un message neutre "Journée en cours · Xh
-    ///     de données" — pas de disclaimer IA car pas d'IA invoquée.
-    ///   - **Jour clôturé avec faits** : pipeline LLM standard.
-    ///   - **Aucun fait disponible** (cas dégénéré, edge backend) :
-    ///     texte court de repli.
-    @ViewBuilder
-    private var messageLLM: some View {
-        if estJourEnCours {
-            Text("Journée en cours · \(heuresDataDuJour)h de données")
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .center)
-        } else if let faits = scoreCourant?.faits {
-            MessageNarratifScore(faits: faits)
-        } else {
-            Text("Pas de résumé disponible pour ce jour.")
-                .font(.body)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    /// Heures écoulées depuis 06h ce matin (arrondi inférieur) — utilisé
-    /// par le message "Journée en cours · Xh de données".
-    private var heuresDataDuJour: Int {
-        Int(service.heuresDataDuJour.rounded(.down))
     }
 
     // MARK: Carte 2 — Analyse
