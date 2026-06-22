@@ -202,8 +202,9 @@ final class ScoreService {
         let now = Date()
         let debut = Self.debutJourMetabolique(pour: now)
         let fenetre = debut...max(debut, now)
-        let faits = CalculScoreJournalier.faits(depuis: echantillons, fenetre: fenetre)
-            ?? Self.faitsNeutres
+        let faits = CalculScoreJournalier.faits(
+            depuis: echantillons, fenetre: fenetre, couvertureMin: Self.couvertureMinAffichage
+        ) ?? Self.faitsNeutres
         return ScoreJournalier(jour: jourCourant, faits: faits)
     }
 
@@ -212,6 +213,15 @@ final class ScoreService {
     /// Reconstruit les scores des 30 jours métaboliques **terminés** précédant
     /// aujourd'hui (J-30 … J-1). Un jour sans couverture suffisante est omis
     /// (dégradation gracieuse) — il apparaîtra en barre atténuée côté carte.
+    /// Seuil de couverture CGM pour qu'un jour soit affiché (consolidé ou jour en
+    /// cours). Plus permissif que le 70 % « clinique » : sur device réel (différé
+    /// Dexcom ~3h qui laisse un trou récent + warmup capteur + pertes signal),
+    /// beaucoup de jours valides tombent sous 70 % et disparaîtraient (barres
+    /// vides / score 0). 50 % garde un score exploitable tout en écartant les
+    /// jours quasi vides. Distinct du seuil « significatif » du jour en cours
+    /// (≥ 6h de données réelles).
+    static let couvertureMinAffichage: Double = 0.5
+
     private func consoliderJours() -> [ScoreJournalier] {
         let cal = Calendar.current
         let debutJourCourant = Self.debutJourMetabolique(pour: Date())
@@ -223,7 +233,8 @@ final class ScoreService {
             let fin = debut.addingTimeInterval(24 * 3600)
             guard let faits = CalculScoreJournalier.faits(
                 depuis: echantillons,
-                fenetre: debut...fin
+                fenetre: debut...fin,
+                couvertureMin: Self.couvertureMinAffichage
             ) else {
                 return nil
             }
