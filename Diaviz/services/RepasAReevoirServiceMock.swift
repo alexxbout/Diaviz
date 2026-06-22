@@ -32,8 +32,4 @@ enum RepasAReevoirServiceMock {
             .mockPadThai,
         ]
     }
-
-    /// État neutre — la section « Repas à revoir » se masque alors
-    /// entièrement plutôt que d'afficher une coquille vide.
-    static func mockVide() -> [RepasARevoir] { [] }
 }

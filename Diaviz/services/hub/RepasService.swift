@@ -66,11 +66,6 @@ final class RepasService {
         }
     }
 
-    /// Sections du jour courant — raccourci pour le branchement journal.
-    var sectionsAujourdhui: [(titre: String, repas: [Repas])] {
-        sectionsDuJour(Date())
-    }
-
     /// Nombre de repas (non vides) enregistrés aujourd'hui — alimente le
     /// sous-titre de la carte « Repas » du journal.
     var nombreRepasAujourdhui: Int {

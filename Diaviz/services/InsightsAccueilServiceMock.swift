@@ -155,8 +155,8 @@ extension Insight {
 
 /// Source d'observations affichées sur l'accueil. Pour le moment, ne
 /// produit que des jeux mockés ; sera remplacé par une vraie source
-/// (résultats ML pré-calculés) plus tard. L'API publique (`mockComplet`,
-/// `mockVide`) reste un tableau de `Insight` pour découpler la vue.
+/// (résultats ML pré-calculés) plus tard. L'API publique (`mockComplet`)
+/// reste un tableau de `Insight` pour découpler la vue.
 ///
 /// Distinct du `InsightsService` historique qui sert la `RepasSheet` :
 /// celui-ci porte les observations de **niveau accueil** (aperçu ML),
@@ -174,7 +174,4 @@ enum InsightsAccueilServiceMock {
             .mockBasale,
         ]
     }
-
-    /// État neutre — la section d'observations est alors masquée.
-    static func mockVide() -> [Insight] { [] }
 }

@@ -80,17 +80,4 @@ extension WorkoutHealthKitMock {
         distanceMetres: nil,
         sourceAppareil: "Apple Watch Series 9"
     )
-
-    /// Sortie vélo — FC modérée prolongée, distance importante.
-    static let mockVelo = WorkoutHealthKitMock(
-        id: UUID(),
-        typeSport: .velo,
-        dateDebut: aujourdHui(17, 30),
-        dureeMinutes: 60,
-        fcMoyenne: 132,
-        fcMax: 158,
-        caloriesActives: 510,
-        distanceMetres: 22000,
-        sourceAppareil: "Apple Watch Series 9"
-    )
 }

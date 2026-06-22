@@ -683,21 +683,6 @@ extension FaitsJour {
         mealContext: "déjeuner copieux",
         sportContext: nil
     )
-
-    static let apercuMoyen = FaitsJour(
-        score: 68,
-        tir: 64,
-        tbrLevel1: 2,
-        tbrLevel2: 0,
-        tarLevel1: 28,
-        tarLevel2: 6,
-        hypoCount: 2,
-        severeHypoCount: 0,
-        peakTime: "20:00",
-        peakValue: 268,
-        mealContext: nil,
-        sportContext: "course 30 min"
-    )
 }
 
 // MARK: - Aperçus figés

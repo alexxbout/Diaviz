@@ -41,7 +41,7 @@ struct ContenuCarteScore: Sendable, Equatable {
 /// Style visuel de la carte. La variante `.gradient` reprend la teinte
 /// du mesh du cercle en fond de carte, et passe textes / bulle / barres
 /// en blanc avec glass effect.
-enum StyleCarteScore: Sendable, CaseIterable {
+enum StyleCarteScore: Sendable {
     case sobre
     case gradient
 }

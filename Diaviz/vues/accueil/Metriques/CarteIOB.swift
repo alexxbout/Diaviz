@@ -22,9 +22,10 @@ import Charts
 ///
 /// Une **mini-courbe de décroissance IOB** sur les 6h à venir est
 /// rendue en bas de la carte quand de l'insuline est active. La
-/// courbe est calculée à partir d'un modèle Hermite cubique lisse
-/// (cf. `iobResiduel`) qui gère naturellement la superposition de
-/// plusieurs injections et la forme d'une ultra-rapide moderne. Si
+/// courbe est calculée à partir du modèle d'IOB exponentiel
+/// (Loop/OpenAPS, cf. `IOBCalculateur`) qui gère naturellement la
+/// superposition de plusieurs injections et la forme d'une ultra-
+/// rapide moderne. Si
 /// IOB ≈ 0, la courbe est remplacée par un sous-libellé "Aucune
 /// insuline active" pour équilibrer la masse visuelle.
 struct CarteIOB: View {

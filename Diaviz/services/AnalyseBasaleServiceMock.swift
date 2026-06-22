@@ -1696,14 +1696,6 @@ extension AnalyseBasaleDetail {
         AnalyseBasaleServiceMock.mockAdaptee()
     }
 
-    static var mockTropBasse: AnalyseBasaleDetail {
-        AnalyseBasaleServiceMock.mockTropBasse()
-    }
-
-    static var mockInsuffisant: AnalyseBasaleDetail {
-        AnalyseBasaleServiceMock.mockInsuffisant()
-    }
-
     /// Mock par défaut, aligné mot pour mot sur la spec produit
     /// (5 stables + 2 basses dont 1 hypo + 1 haute + 3 exclues + 2 sans CGM + 1 en cours).
     static var mockStandard14j: AnalyseBasaleDetail {

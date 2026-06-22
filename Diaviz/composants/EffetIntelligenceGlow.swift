@@ -143,62 +143,6 @@ extension View {
     func glowIntelligence<F: InsettableShape>(in forme: F) -> some View {
         modifier(EffetIntelligenceGlow(forme: forme))
     }
-
-    /// Wraps la vue dans une carte standard du projet (fond
-    /// `secondarySystemGroupedBackground`, RoundedRectangle 12pt), avec ou
-    /// sans glow Apple Intelligence. Combine en une ligne ce qui demandait
-    /// auparavant un `formeCarte` partagé + `.background` + `.glowIntelligence`
-    /// + `.animation`.
-    ///
-    /// - `avecGlow` : active le halo Apple Intelligence autour de la carte.
-    ///   Mettre à `false` pour une carte sobre.
-    /// - `animeDeclencheur` : anime la hauteur de la carte quand sa valeur
-    ///   change. Utile quand le contenu change de hauteur (par ex.
-    ///   `NarrationJourVue` qui passe de « 3 points » à « phrase complète »).
-    ///
-    /// Usage :
-    /// ```swift
-    /// MaCarte().carteIntelligente()                              // avec glow
-    /// MaCarte().carteIntelligente(avecGlow: false)               // sans glow
-    /// MaCarte().carteIntelligente(animeDeclencheur: visible)     // + anime
-    /// ```
-    func carteIntelligente(
-        rayonCoin: CGFloat = 12,
-        avecGlow: Bool = true,
-        animeDeclencheur: Bool = false
-    ) -> some View {
-        modifier(StyleCarteIntelligente(
-            rayonCoin: rayonCoin,
-            avecGlow: avecGlow,
-            declencheur: animeDeclencheur
-        ))
-    }
-}
-
-/// ViewModifier qui combine fond de carte (+ glow optionnel) + animation de
-/// hauteur. Extrait dans un modifier dédié pour pouvoir partager exactement
-/// la même `RoundedRectangle` entre le `.background` (remplissage) et le
-/// `.glowIntelligence` (contour stroké) — sinon le glow ne suit pas
-/// précisément les arrondis du remplissage.
-private struct StyleCarteIntelligente: ViewModifier {
-    let rayonCoin: CGFloat
-    let avecGlow: Bool
-    let declencheur: Bool
-
-    func body(content: Content) -> some View {
-        let forme = RoundedRectangle(cornerRadius: rayonCoin, style: .continuous)
-        let base = content
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(forme.fill(Color(.secondarySystemGroupedBackground)))
-        if avecGlow {
-            base
-                .glowIntelligence(in: forme)
-                .animation(.smooth(duration: 0.4), value: declencheur)
-        } else {
-            base
-                .animation(.smooth(duration: 0.4), value: declencheur)
-        }
-    }
 }
 
 // MARK: - Aperçus
