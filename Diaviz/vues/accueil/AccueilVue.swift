@@ -64,6 +64,12 @@ struct AccueilVue: View {
     /// Pilote l'ouverture de la sheet d'enregistrement de la lente.
     @State private var sheetLenteOuverte: Bool = false
 
+    /// `false` jusqu'au premier remplissage des données. Tant qu'il est faux,
+    /// l'`.animation` de la carte lente est neutralisée : le passage initial
+    /// `nil`→valeur d'`etatLente` (données async au boot) n'anime rien — évite le
+    /// « morphing » des cartes au lancement.
+    @State private var animationsLente: Bool = false
+
     /// Respecte « Réduire les animations » système — l'`.animation`
     /// d'apparition/disparition de la carte lente la désactive alors.
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -135,6 +141,19 @@ struct AccueilVue: View {
                                     ))
                                 }
                             }
+                            // Anime UNIQUEMENT l'insertion/sortie de la carte
+                            // lente. Portée restreinte à ce VStack (et non au
+                            // grand VStack du ScrollView) : sinon le passage
+                            // nil→valeur d'`etatLente` au boot — quand les données
+                            // async arrivent — animait le re-layout de TOUTES les
+                            // cartes (« morphing » 50%→100%). `animationsLente`
+                            // reste false au tout premier rendu pour ne pas animer
+                            // non plus l'apparition initiale de la carte au boot.
+                            .animation(
+                                animationsLente && !reduceMotion
+                                    ? .spring(response: 0.4, dampingFraction: 0.8) : nil,
+                                value: etatLente
+                            )
                         }
 
                         // Section « Repas à revoir » — scroll horizontal
@@ -166,17 +185,6 @@ struct AccueilVue: View {
                         }
                     }
                     .padding(16)
-                    // Anime l'insertion/suppression de la carte lente
-                    // (et toute future entrée/sortie de section) en
-                    // fonction de l'état calculé. La valeur observée
-                    // est l'`etatLente` directement : tout passage
-                    // entre `nil`, `.doux`, `.urgent`, `.alerte`
-                    // déclenche la même spring. Désactivée si l'
-                    // utilisateur a activé « Réduire les animations ».
-                    .animation(
-                        reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.8),
-                        value: etatLente
-                    )
                 }
             }
             .background(Color(.systemGroupedBackground))
@@ -216,6 +224,13 @@ struct AccueilVue: View {
                 iobService.rafraichir()
                 metriquesService.recharger()
                 contexteLente = construireContexteLente()
+                // Active l'animation de la carte lente au tick SUIVANT : le
+                // changement nil→valeur d'`etatLente` de ce cycle (boot) reste
+                // donc non animé ; seuls les changements ultérieurs (prise de
+                // lente, fenêtre de rappel qui s'ouvre) le sont.
+                if !animationsLente {
+                    Task { @MainActor in animationsLente = true }
+                }
             }
         }
     }
