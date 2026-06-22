@@ -7,30 +7,31 @@
 
 import SwiftUI
 
-// MARK: - Barres semaine fixes (lundi → dimanche)
+// MARK: - Barres 7 jours glissants (fenêtre se terminant au jour en cours)
 
-/// Composant « semaine » de la page détail :
-///   - 7 barres verticales représentant lundi → dimanche de la
-///     **semaine contenant** `jourConsulte`. Les barres sont
-///     **toujours en position fixe** ; seule la mise en avant
-///     (bordure 2pt) se déplace selon `jourConsulte`.
-///   - Labels « L M M J V S D » sous les barres.
+/// Composant « historique » de la page détail :
+///   - 7 barres verticales = les **7 derniers jours glissants** se
+///     terminant au **jour métabolique en cours** (`jourEnCours`,
+///     ancre fixe à droite) : `[J-6 … J]`. Cohérent avec le mini-graphe
+///     7 jours de la carte d'accueil ; jamais réduit à une seule barre
+///     en début de semaine (l'ancien découpage calendaire lun→dim ne
+///     montrait qu'un jour le lundi).
+///   - La dernière barre (jour en cours) est **hachurée** (jour non
+///     clôturé). La mise en avant (bordure 2pt) se déplace selon
+///     `jourConsulte`.
+///   - Labels sous les barres = initiale de chaque jour de la fenêtre.
 ///
-/// Tap sur une barre → `onChangerJour(jour)` (les barres restent en
-/// place — c'est la sélection du jour consulté qui bouge). La
-/// navigation est restreinte à la semaine de `jourInitial` ;
-/// l'utilisateur ne peut pas consulter les semaines précédentes (choix
-/// produit : on évite de mettre en exergue des scores historiques).
+/// Tap sur une barre → `onChangerJour(jour)` (la fenêtre reste en
+/// place — c'est la sélection du jour consulté qui bouge).
 ///
-/// Si une journée de la semaine n'a pas de score (futur, ou jour
-/// pour lequel le calcul n'a pas encore été fait), sa barre est
-/// rendue en gris vide et le tap est ignoré.
+/// Si une journée de la fenêtre n'a pas de score (couverture CGM
+/// insuffisante), sa barre est rendue en gris vide et le tap est ignoré.
 struct BarresSemaine: View {
 
     let jourConsulte: Date
-    /// Jour métabolique **en cours** (06h→06h) — pilote la barre hachurée et
-    /// borne l'affichage : les jours postérieurs ne sont pas rendus (leur score
-    /// n'existe pas encore). Distinct du jour calendaire.
+    /// Jour métabolique **en cours** (06h→06h) — ancre fixe (à droite) de la
+    /// fenêtre glissante de 7 jours, et pilote la barre hachurée. Distinct du
+    /// jour calendaire.
     let jourEnCours: Date
     /// Closure de lecture des données — laissée non-Sendable car
     /// invoquée uniquement depuis le main actor de la vue.
@@ -48,23 +49,22 @@ struct BarresSemaine: View {
         }
     }
 
-    // MARK: Barres (7 jours, position fixe)
+    // MARK: Barres (7 derniers jours glissants, position fixe)
 
-    private var lundiSemaine: Date {
-        lundiDeLaSemaine(jourConsulte)
-    }
-
-    private var joursSemaine: [Date] {
+    /// Les 7 derniers jours glissants se terminant au jour en cours :
+    /// `[J-6 … J]`. Ancre fixe à droite (`jourEnCours`) — la fenêtre ne bouge
+    /// pas au tap, seule la bordure de sélection se déplace.
+    private var joursFenetre: [Date] {
         let cal = calendrierFrancais
-        let tous = (0..<7).compactMap { cal.date(byAdding: .day, value: $0, to: lundiSemaine) }
-        // N'affiche pas les jours postérieurs au jour en cours : leur fenêtre
-        // 06h→06h n'a pas commencé, il n'y a pas de score à montrer.
-        return tous.filter { cal.startOfDay(for: $0) <= cal.startOfDay(for: jourEnCours) }
+        let finStart = cal.startOfDay(for: jourEnCours)
+        return (0..<7).compactMap { offset in
+            cal.date(byAdding: .day, value: offset - 6, to: finStart)
+        }
     }
 
     private var barresVue: some View {
         HStack(alignment: .bottom, spacing: Self.espacement) {
-            ForEach(Array(joursSemaine.enumerated()), id: \.offset) { (_, jour) in
+            ForEach(Array(joursFenetre.enumerated()), id: \.offset) { (_, jour) in
                 barreJour(jour: jour, score: scorePourJour(jour))
             }
         }
@@ -142,7 +142,7 @@ struct BarresSemaine: View {
 
     private var labelsJours: some View {
         HStack(spacing: Self.espacement) {
-            ForEach(Array(joursSemaine.enumerated()), id: \.offset) { (_, jour) in
+            ForEach(Array(joursFenetre.enumerated()), id: \.offset) { (_, jour) in
                 Text(initialeJour(jour))
                     .font(.caption2)
                     .foregroundStyle(estJourConsulte(jour) ? .primary : .secondary)

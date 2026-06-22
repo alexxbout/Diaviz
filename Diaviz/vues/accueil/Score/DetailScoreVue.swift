@@ -23,10 +23,10 @@ import SwiftData
 ///   - Une seule page : tout le contenu (en-tête, barres semaine,
 ///     LLM, barre AGP, décompo, à propos) est piloté par l'état
 ///     `jourConsulte`.
-///   - Les barres semaine sont **fixes** (Lundi → Dimanche) ; tap
-///     sur une barre = changement de jour consulté (les barres ne
-///     bougent pas, seule la mise en avant se déplace). Les boutons
-///     ⟨ / ⟩ font glisser la semaine entière (avec spring).
+///   - Les barres montrent les **7 derniers jours glissants** (se
+///     terminant au jour en cours), en position fixe ; tap sur une
+///     barre = changement de jour consulté (les barres ne bougent
+///     pas, seule la mise en avant se déplace).
 ///
 /// Sous-vues extraites dans ce dossier (`Score/`) : `BarresSemaine`,
 /// `BarreAGP`, `MessageNarratifScore`, `LigneDecompositionGRI`,
