@@ -185,11 +185,12 @@ struct SheetInsulineLente: View {
     }
 
     private var sectionHeure: some View {
-        Section("Heure") {
+        Section("Date et heure") {
             DatePicker(
-                "Heure",
+                "Date et heure",
                 selection: $heure,
-                displayedComponents: [.hourAndMinute]
+                in: ...Date(),
+                displayedComponents: [.date, .hourAndMinute]
             )
         }
     }
