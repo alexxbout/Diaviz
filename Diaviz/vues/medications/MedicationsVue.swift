@@ -128,7 +128,7 @@ struct MedicationsVue: View {
                 Button {
                     sheetActive = .correction
                 } label: {
-                    Label("Correction rapide", systemImage: "drop.fill")
+                    Label("Insuline rapide", systemImage: "drop.fill")
                 }
                 Button {
                     sheetActive = .lente

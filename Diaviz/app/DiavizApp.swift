@@ -17,6 +17,10 @@ struct DiavizApp: App {
     var body: some Scene {
         WindowGroup {
             AppTabVues()
+                // App mono-utilisateur en français : on force la locale
+                // fr_FR pour toute l'app (date pickers, formats de date,
+                // etc.) au lieu de dépendre de la langue du device.
+                .environment(\.locale, Locale(identifier: "fr_FR"))
         }
         .modelContainer(for: [
             GlucoseReading.self,
