@@ -99,7 +99,6 @@ struct SheetInsulineLente: View {
             Form {
                 sectionDose
                 sectionHeure
-                sectionType
                 sectionSite
                 sectionNote
             }
@@ -198,23 +197,6 @@ struct SheetInsulineLente: View {
                 in: ...Date(),
                 displayedComponents: [.date, .hourAndMinute]
             )
-        }
-    }
-
-    private var sectionType: some View {
-        Section("Type") {
-            Picker("Marque", selection: $marque) {
-                ForEach(MarqueInsulineLente.allCases) { m in
-                    Text(m.rawValue).tag(m)
-                }
-            }
-            .pickerStyle(.menu)
-
-            if marque == .autre {
-                TextField("Nom du médicament", text: $marqueAutre)
-                    .textInputAutocapitalization(.words)
-                    .autocorrectionDisabled()
-            }
         }
     }
 
