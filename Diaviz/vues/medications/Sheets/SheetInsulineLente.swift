@@ -45,16 +45,22 @@ struct SheetInsulineLente: View {
     init(
         injectionExistante: Injection? = nil,
         derniereZoneLente: ZoneInjection? = nil,
+        doseParDefaut: Double? = nil,
+        nomMedicamentParDefaut: String? = nil,
         onValider: @escaping (Injection) -> Void
     ) {
         self.injectionExistante = injectionExistante
         self.derniereZoneLente = derniereZoneLente
         self.onValider = onValider
 
-        // Pré-remplissage en mode édition.
-        _dose = State(initialValue: injectionExistante?.dose ?? 18)
+        // Pré-remplissage : en édition on reprend l'injection ; en création
+        // on prérempli la dose avec la **dernière dose enregistrée**
+        // (`doseParDefaut`, fallback 18) et la marque avec le **type du
+        // profil** (`nomMedicamentParDefaut`) — l'utilisateur n'a plus à les
+        // ressaisir à chaque fois.
+        _dose = State(initialValue: injectionExistante?.dose ?? doseParDefaut ?? 18)
         _heure = State(initialValue: injectionExistante?.heure ?? Date())
-        _marque = State(initialValue: Self.marquePour(injectionExistante?.nomMedicament))
+        _marque = State(initialValue: Self.marquePour(injectionExistante?.nomMedicament ?? nomMedicamentParDefaut))
         _marqueAutre = State(initialValue: injectionExistante?.nomMedicament ?? "")
         _site = State(initialValue: SiteInjection(
             zone: injectionExistante?.zoneInjection ?? .cuisse,

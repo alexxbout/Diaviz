@@ -197,13 +197,15 @@ struct AccueilVue: View {
                 DetailScoreVue(jourInitial: jour)
             }
             .sheet(isPresented: $sheetLenteOuverte) {
-                // Sheet existante d'enregistrement de la lente. Les
-                // valeurs par défaut (`dose = 18`, `heure = now`)
-                // suffisent au pré-remplissage du mock ; le binding
-                // bascule `priseAujourdhui` à `true` côté
-                // `onValider` → la carte disparaît avec animation.
+                // Sheet d'enregistrement de la lente, préremplie : dose =
+                // dernière dose enregistrée (`doseHabituelle` du contexte,
+                // si > 0), type = insuline lente du profil. `heure = now`.
+                // Le binding bascule `priseAujourdhui` côté `onValider` → la
+                // carte disparaît avec animation.
                 SheetInsulineLente(
                     derniereZoneLente: nil,
+                    doseParDefaut: contexteLente.flatMap { $0.doseHabituelle > 0 ? $0.doseHabituelle : nil },
+                    nomMedicamentParDefaut: ProfilService.shared.profil.insulineLente.rawValue,
                     onValider: { injection in
                         // Enregistre la lente dans le hub (saisie manuelle), puis
                         // rafraîchit le rappel, les métriques et l'IOB.

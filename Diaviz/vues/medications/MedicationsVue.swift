@@ -51,6 +51,16 @@ struct MedicationsVue: View {
         service.lenteDuJour(selectedDate)
     }
 
+    /// Dose de la **dernière injection lente** enregistrée (toutes dates
+    /// confondues) — sert à préremplir la sheet lente avec la dose
+    /// habituelle plutôt qu'une valeur fixe. `nil` si aucun historique.
+    private var derniereDoseLente: Double? {
+        service.injections
+            .filter { $0.type == .lente }
+            .max { $0.heure < $1.heure }?
+            .dose
+    }
+
     /// Zone de la dernière injection rapide (toutes injections rapides
     /// confondues, lente exclue) — sert au `SiteInjectionPicker` pour le
     /// warning de rotation des sites.
@@ -229,6 +239,8 @@ struct MedicationsVue: View {
         case .lente:
             SheetInsulineLente(
                 derniereZoneLente: derniereZoneLente(),
+                doseParDefaut: derniereDoseLente,
+                nomMedicamentParDefaut: ProfilService.shared.profil.insulineLente.rawValue,
                 onValider: { service.enregistrer($0) }
             )
         case .correction:
