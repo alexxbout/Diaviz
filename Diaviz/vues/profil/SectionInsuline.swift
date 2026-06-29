@@ -7,20 +7,20 @@
 
 import SwiftUI
 
-/// Section « INSULINE » du profil — type d'insuline rapide, type
-/// d'insuline lente, et durée d'action (DIA) ajustable au slider.
+/// Section « INSULINE » du profil — type d'insuline rapide (+ sa durée
+/// d'action), puis type d'insuline lente.
 ///
-/// La DIA est exposée comme un slider 3–6h avec pas 0,5 et trois
-/// repères contextuels (Fiasp / standard / lente) pour aider à se
-/// situer. Footer rappelant le rôle du paramètre dans le calcul de
-/// l'IOB.
+/// La durée d'action (DIA) est **propre à l'insuline rapide** : elle est
+/// placée juste sous le sélecteur de rapide et libellée explicitement
+/// pour lever l'ambiguïté avec la lente. Slider 3–6h, pas 0,5, trois
+/// repères (Fiasp / standard / longue). Sert au calcul de l'IOB.
 struct SectionInsuline: View {
 
     @Environment(ProfilService.self) private var service
 
     var body: some View {
         Section {
-            // MARK: Insuline rapide
+            // MARK: Insuline rapide + sa durée d'action (DIA)
             Picker("Insuline rapide", selection: bindingRapide) {
                 ForEach(InsulineRapide.allCases) { type in
                     Text(type.rawValue).tag(type)
@@ -28,18 +28,12 @@ struct SectionInsuline: View {
             }
             .pickerStyle(.menu)
 
-            // MARK: Insuline lente
-            Picker("Insuline lente", selection: bindingLente) {
-                ForEach(InsulineLente.allCases) { type in
-                    Text(type.rawValue).tag(type)
-                }
-            }
-            .pickerStyle(.menu)
-
-            // MARK: DIA
+            // DIA placée juste sous la rapide et libellée « (rapide) » :
+            // ce paramètre ne concerne que l'insuline rapide (calcul IOB),
+            // jamais la lente.
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("Durée d'action")
+                    Text("Durée d'action (rapide)")
                     Spacer()
                     Text(formateHeures(service.profil.dureeActionInsulineHeures))
                         .fontWeight(.bold)
@@ -60,16 +54,24 @@ struct SectionInsuline: View {
                     Spacer()
                     Text("4h (standard)")
                     Spacer()
-                    Text("6h (lente)")
+                    Text("6h (longue)")
                 }
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
             }
             .padding(.vertical, 4)
+
+            // MARK: Insuline lente (pas de DIA — paramètre rapide uniquement)
+            Picker("Insuline lente", selection: bindingLente) {
+                ForEach(InsulineLente.allCases) { type in
+                    Text(type.rawValue).tag(type)
+                }
+            }
+            .pickerStyle(.menu)
         } header: {
             Text("Insuline")
         } footer: {
-            Text("Détermine la durée de calcul de l'insuline active (IOB).")
+            Text("La durée d'action concerne l'insuline rapide : elle détermine la durée de calcul de l'insuline active (IOB).")
         }
     }
 
