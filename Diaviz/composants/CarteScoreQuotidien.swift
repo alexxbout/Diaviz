@@ -455,7 +455,6 @@ private struct CercleScore: View {
                 contenuIndisponible
             }
         }
-        .frame(width: Self.taille, height: Self.taille)
     }
 
     @ViewBuilder
@@ -468,6 +467,7 @@ private struct CercleScore: View {
                     phase: MeshScore.phase(date: contexte.date)
                 )
                 .clipShape(Circle())
+                .frame(width: Self.taille, height: Self.taille)
                 .shadow(
                     color: CouleurScore.couleur(pour: score).opacity(0.35),
                     radius: 6,
@@ -480,14 +480,15 @@ private struct CercleScore: View {
                 .shadow(color: .black.opacity(0.15), radius: 1, x: 0, y: 1)
 
         case .gradient:
-            Color.clear
-                .frame(width: Self.taille, height: Self.taille)
-                .glassEffect(in: Circle())
-
-            texteScore(score)
-                .shadow(color: .black.opacity(0.20), radius: 2, x: 0, y: 1)
+            Text("\(score)")
+                .font(Self.policeGrosScore)
+                .foregroundStyle(.white)
+                .monospacedDigit()
+                .shadow(color: .black.opacity(0.25), radius: 3, x: 0, y: 1)
         }
     }
+
+    private static let policeGrosScore = Font.system(size: 42, weight: .heavy, design: .rounded)
 
     private func texteScore(_ score: Int) -> some View {
         Text("\(score)")
@@ -501,16 +502,15 @@ private struct CercleScore: View {
         switch style {
         case .sobre:
             Circle().fill(Color.secondary.opacity(0.18))
+                .frame(width: Self.taille, height: Self.taille)
             Text("—")
                 .font(.system(size: 22, weight: .heavy, design: .rounded))
                 .foregroundStyle(.secondary)
         case .gradient:
-            Color.clear
-                .frame(width: Self.taille, height: Self.taille)
-                .glassEffect(in: Circle())
             Text("—")
-                .font(.system(size: 22, weight: .heavy, design: .rounded))
-                .foregroundStyle(.white)
+                .font(Self.policeGrosScore)
+                .foregroundStyle(.white.opacity(0.6))
+                .shadow(color: .black.opacity(0.25), radius: 3, x: 0, y: 1)
         }
     }
 }

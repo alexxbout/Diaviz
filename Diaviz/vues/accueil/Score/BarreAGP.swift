@@ -78,12 +78,6 @@ struct BarreAGP: View {
         // / sombre, contraste élevé) gérée automatiquement.
         return [
             SegmentAGP(
-                pourcent: pctHypo,
-                couleur: .red,
-                largeur: largeur(pctHypo),
-                titre: "Hypo"
-            ),
-            SegmentAGP(
                 pourcent: pctCible,
                 couleur: .green,
                 largeur: largeur(pctCible),
@@ -94,6 +88,12 @@ struct BarreAGP: View {
                 couleur: .orange,
                 largeur: largeur(pctHyper),
                 titre: "Hyper"
+            ),
+            SegmentAGP(
+                pourcent: pctHypo,
+                couleur: .red,
+                largeur: largeur(pctHypo),
+                titre: "Hypo"
             ),
         ]
     }

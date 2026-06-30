@@ -35,14 +35,15 @@ struct LigneDecompositionGRI: View {
             iconeColoree
 
             VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(ligne.titre)
-                        .font(miseEnAvant ? .body.weight(.semibold) : .body)
-                        .foregroundStyle(.primary)
-                    Text(ligne.description)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                // Texte unique concaténé (titre + description) plutôt que deux
+                // `Text` côte à côte dans un `HStack` : avec deux vues séparées,
+                // la colonne droite (pourcentage/durée) pouvait écraser la
+                // largeur dispo du titre et le faire wrapper au milieu d'un mot
+                // (ex. « Temps » / « en cible ») pendant que la description
+                // restait collée sur la première ligne. Un seul `Text` wrap
+                // normalement, comme une phrase.
+                Text("\(Text(ligne.titre).foregroundStyle(.primary)) \(Text(ligne.description).font(.caption).foregroundStyle(.secondary))")
+                    .font(miseEnAvant ? .body.weight(.semibold) : .body)
 
                 progressionBar
 
