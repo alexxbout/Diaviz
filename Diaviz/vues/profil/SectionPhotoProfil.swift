@@ -33,12 +33,15 @@ struct SectionPhotoProfil: View {
                     taille: 96
                 )
 
+                // Le label de `PhotosPicker` est un `@Sendable` closure — on
+                // calcule le libellé avant plutôt que de lire `service`
+                // (MainActor-isolé) depuis l'intérieur de la closure.
                 PhotosPicker(
                     selection: $selection,
                     matching: .images,
                     photoLibrary: .shared()
                 ) {
-                    Text(service.profil.photoData == nil ? "Ajouter une photo" : "Modifier la photo")
+                    Text(libellePhotoPicker)
                         .font(.callout.weight(.semibold))
                 }
 
@@ -57,6 +60,10 @@ struct SectionPhotoProfil: View {
             guard let nouveau else { return }
             Task { await chargerEtEnregistrer(nouveau) }
         }
+    }
+
+    private var libellePhotoPicker: String {
+        service.profil.photoData == nil ? "Ajouter une photo" : "Modifier la photo"
     }
 
     /// Charge les données de l'élément choisi, les réduit, puis les

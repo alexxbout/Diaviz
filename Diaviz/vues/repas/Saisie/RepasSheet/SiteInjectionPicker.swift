@@ -50,7 +50,12 @@ struct SiteInjection: Equatable, Hashable {
     }
 
     /// Site par défaut proposé à l'ouverture de la sheet.
-    static let parDefaut = SiteInjection(zone: .ventre, cote: .gauche)
+    ///
+    /// `nonisolated` : les valeurs par défaut de paramètre sont évaluées hors
+    /// de l'isolation de la fonction appelante — sans ce marquage (projet en
+    /// `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`), `.parDefaut` ne serait
+    /// pas utilisable comme défaut d'un paramètre (ex. `RepasService`).
+    nonisolated static let parDefaut = SiteInjection(zone: .ventre, cote: .gauche)
 }
 
 // MARK: - Sheet de sélection

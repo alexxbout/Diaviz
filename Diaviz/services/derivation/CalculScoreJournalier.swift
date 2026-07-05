@@ -17,7 +17,12 @@ import Foundation
 ///
 /// Convention « un hub, des dérivations » : rien n'est persisté ici, tout est
 /// recalculé à la volée depuis les échantillons CGM bruts.
-enum CalculScoreJournalier {
+///
+/// `nonisolated` sur le type : le projet a `SWIFT_DEFAULT_ACTOR_ISOLATION =
+/// MainActor`, donc sans ce marquage chaque constante/méthode serait
+/// implicitement MainActor-isolée — inutilisable depuis `faits(...)`,
+/// lui-même `nonisolated`.
+nonisolated enum CalculScoreJournalier {
 
     // MARK: - Constantes GRI / couverture
 
