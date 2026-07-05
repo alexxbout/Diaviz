@@ -5,6 +5,7 @@
 //  Created by Alexandre on 27/06/2026.
 //
 
+import CryptoKit
 import Foundation
 import Observation
 import SwiftData
@@ -67,7 +68,7 @@ final class AnalyseBasaleService {
         ResumeAnalyseCoucher(
             verdictBasale: analyse.verdict,
             sections: [
-                ResumeSousAnalyse(sousAnalyse: .basale, etat: etatBasale, aDuNouveau: false),
+                ResumeSousAnalyse(sousAnalyse: .basale, etat: etatBasale, aDuNouveau: estNouvelleTendance),
                 ResumeSousAnalyse(sousAnalyse: .glycemie, etat: .enAttente, aDuNouveau: false),
                 ResumeSousAnalyse(sousAnalyse: .corrections, etat: .enAttente, aDuNouveau: false),
             ]
@@ -85,6 +86,103 @@ final class AnalyseBasaleService {
                 ? .collecte(actuel: analyse.nuitsAnalysees, requis: 3)
                 : .enAttente
         }
+    }
+
+    // MARK: - Nouvelle tendance (badge navbar + insight accueil)
+
+    /// Clé UserDefaults : signature du dernier verdict B1 **vu** par
+    /// l'utilisateur (marqué au moment où il ouvre le détail de l'analyse,
+    /// pas juste l'onglet Analyses — un coup d'œil à la liste ne suffit pas).
+    private static let cleDerniereSignatureVue = "analyseBasale.derniereSignatureVue"
+
+    /// `true` si le verdict courant (verdict + éventuel « en amélioration »)
+    /// diffère du dernier vu — pilote le badge de l'onglet Analyses et le
+    /// point « nouveau » sur la ligne « Tendance basale » de la carte
+    /// sommaire. Les données insuffisantes ne comptent jamais comme
+    /// « nouvelles » (rien à regarder tant qu'il n'y a pas de verdict).
+    var estNouvelleTendance: Bool {
+        guard analyse.verdict != .donneesInsuffisantes else { return false }
+        let vue = UserDefaults.standard.string(forKey: Self.cleDerniereSignatureVue)
+        return signatureVerdict != vue
+    }
+
+    /// Marque le verdict courant comme vu — appelé quand l'utilisateur ouvre
+    /// réellement le détail de l'analyse basale (`DetailAnalyseBasaleVue`).
+    func marquerVerdictCommeVu() {
+        UserDefaults.standard.set(signatureVerdict, forKey: Self.cleDerniereSignatureVue)
+    }
+
+    /// Encodage compact du verdict courant — deux analyses au même verdict
+    /// et au même statut « en amélioration » partagent la même signature.
+    private var signatureVerdict: String {
+        let code: String
+        switch analyse.verdict {
+        case .adaptee:               code = "adaptee"
+        case .tropHaute:             code = "tropHaute"
+        case .tropBasse:             code = "tropBasse"
+        case .donneesInsuffisantes:  code = "insuffisant"
+        }
+        return "\(code)|\(analyse.enAmelioration)"
+    }
+
+    /// Observation « nouvelle tendance basale » pour la pile d'insights de
+    /// l'accueil — `nil` tant qu'il n'y a rien de nouveau à montrer (verdict
+    /// déjà vu, ou données insuffisantes). L'`id` est **dérivé de la
+    /// signature** (pas aléatoire) : un verdict identique retombe sur le même
+    /// identifiant, donc une suppression par l'utilisateur reste valable tant
+    /// que le verdict ne change pas, et l'insight réapparaît naturellement dès
+    /// que la tendance évolue.
+    var insightNouvelleTendance: Insight? {
+        guard estNouvelleTendance else { return nil }
+
+        let categorie: CategorieInsight
+        let message: String
+        let microVisuel: MicroVisuelType
+        if analyse.enAmelioration {
+            categorie = .positif
+            message = "Amélioration observée sur les dernières nuits"
+            microVisuel = .grandeIcone(systemName: "arrow.up.forward.circle.fill")
+        } else {
+            switch analyse.verdict {
+            case .tropHaute:
+                categorie = .attention
+                message = "Basale potentiellement trop élevée"
+                microVisuel = .grandNombreAvecFleche(valeur: "\(analyse.nuitsAnalysees) nuits", direction: "arrow.down.right")
+            case .tropBasse:
+                categorie = .attention
+                message = "Basale potentiellement trop faible"
+                microVisuel = .grandNombreAvecFleche(valeur: "\(analyse.nuitsAnalysees) nuits", direction: "arrow.up.right")
+            case .adaptee:
+                categorie = .positif
+                message = "Basale stable sur la période"
+                microVisuel = .grandeIcone(systemName: "checkmark.circle.fill")
+            case .donneesInsuffisantes:
+                return nil
+            }
+        }
+
+        return Insight(
+            id: Self.idDeterministe(signatureVerdict),
+            categorie: categorie,
+            titre: "Tendance nocturne",
+            message: message,
+            microVisuel: microVisuel,
+            lienAnalyse: "tendance-nocturne"
+        )
+    }
+
+    /// UUID stable dérivé d'une chaîne (SHA-256 tronqué à 16 octets) — pas de
+    /// `String.hashValue` ici, qui varie d'un lancement à l'autre (seed
+    /// randomisée) et casserait la persistance des insights supprimés.
+    private static func idDeterministe(_ chaine: String) -> UUID {
+        let empreinte = SHA256.hash(data: Data(chaine.utf8))
+        let octets = Array(empreinte.prefix(16))
+        return UUID(uuid: (
+            octets[0], octets[1], octets[2], octets[3],
+            octets[4], octets[5], octets[6], octets[7],
+            octets[8], octets[9], octets[10], octets[11],
+            octets[12], octets[13], octets[14], octets[15]
+        ))
     }
 
     // MARK: - Accès au hub (mapping @Model → value types)

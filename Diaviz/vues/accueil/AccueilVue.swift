@@ -51,6 +51,30 @@ struct AccueilVue: View {
     /// remplacé par une vraie source quand la couche ML sera branchée.
     @State private var insights: [Insight] = InsightsAccueilServiceMock.mockComplet()
 
+    /// Assembleur B1 réel — instance partagée (injectée par `AppTabVues`),
+    /// utilisée ici pour ajouter l'observation « nouvelle tendance basale »
+    /// en tête de la pile d'insights quand le verdict vient de changer.
+    @Environment(AnalyseBasaleService.self) private var analyseBasaleService
+
+    /// Identifiants des insights supprimés par l'utilisateur (swipe gauche /
+    /// appui long + confirmation). Persisté en UserDefaults : un insight au
+    /// même contenu (même `id`, dérivé de son contenu pour l'observation
+    /// réelle) reste masqué tant que rien n'a changé. Les insights mockés,
+    /// eux, ont un UUID aléatoire régénéré à chaque lancement — leur
+    /// suppression ne survit donc pas à un redémarrage de l'app.
+    @State private var idsInsightsSupprimes: Set<UUID> = InsightsAccueilPersistance.chargerSupprimes()
+
+    /// Insight en attente de confirmation de suppression (alert). `nil` =
+    /// aucune confirmation en cours.
+    @State private var insightASupprimer: Insight?
+
+    /// Pile affichée : l'observation B1 réelle (si nouvelle) en tête, suivie
+    /// des mocks, moins les insights déjà supprimés par l'utilisateur.
+    private var insightsAffiches: [Insight] {
+        let reels = [analyseBasaleService.insightNouvelleTendance].compactMap { $0 }
+        return (reels + insights).filter { !idsInsightsSupprimes.contains($0.id) }
+    }
+
     /// Repas signalés « à revoir » (sortis de cible, contenant au
     /// moins un aliment estimé, hors fenêtre de sport). Service mock
     /// le temps que la couche ML produise la vraie liste.
@@ -98,7 +122,10 @@ struct AccueilVue: View {
                         // observations ML, désormais en tête de page.
                         // Auto-masquée quand le tableau d'insights est
                         // vide pour ne pas laisser une coquille en haut.
-                        SectionInsights(insights: insights)
+                        SectionInsights(
+                            insights: insightsAffiches,
+                            onDemandeSuppression: { insightASupprimer = $0 }
+                        )
 
                         // Section « Aujourd'hui » — carte score du jour
                         // (recalculée en temps réel 06h-06h) et, si la
@@ -196,6 +223,18 @@ struct AccueilVue: View {
             .navigationDestination(item: $jourDetailScore) { jour in
                 DetailScoreVue(jourInitial: jour)
             }
+            .alert(
+                "Supprimer cette tendance ?",
+                isPresented: Binding(
+                    get: { insightASupprimer != nil },
+                    set: { if !$0 { insightASupprimer = nil } }
+                )
+            ) {
+                Button("Supprimer", role: .destructive) { confirmerSuppressionInsight() }
+                Button("Annuler", role: .cancel) { insightASupprimer = nil }
+            } message: {
+                Text("« \(insightASupprimer?.titre ?? "") » disparaîtra de l'accueil.")
+            }
             .sheet(isPresented: $sheetLenteOuverte) {
                 // Sheet d'enregistrement de la lente, préremplie : dose =
                 // dernière dose enregistrée (`doseHabituelle` du contexte,
@@ -286,6 +325,15 @@ struct AccueilVue: View {
         )
     }
 
+    /// Confirme la suppression de `insightASupprimer` — l'ajoute à l'ensemble
+    /// persisté et referme l'alert.
+    private func confirmerSuppressionInsight() {
+        guard let insight = insightASupprimer else { return }
+        idsInsightsSupprimes.insert(insight.id)
+        InsightsAccueilPersistance.sauvegarder(idsInsightsSupprimes)
+        insightASupprimer = nil
+    }
+
     /// Jour mis en avant par la carte score = `jourAffiche` du service : le jour
     /// métabolique en cours s'il est significatif (≥ 6h de données), sinon le
     /// dernier jour complet (bascule sur la veille le matin). Sert aussi d'ancre
@@ -313,12 +361,14 @@ struct AccueilVue: View {
 #Preview("Avec profil complet") {
     AccueilVue()
         .environment(ProfilService.mockComplet())
+        .environment(AnalyseBasaleService())
         .modelContainer(ScoreService.conteneurApercu())
 }
 
 #Preview("Profil neuf") {
     AccueilVue()
         .environment(ProfilService.mockVide())
+        .environment(AnalyseBasaleService())
         .modelContainer(ScoreService.conteneurApercu())
 }
 #endif

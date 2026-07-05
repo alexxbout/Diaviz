@@ -120,12 +120,18 @@ struct CarteAnalyseCoucher: View {
     /// carte retombe sur le snapshot mocké routé par le verdict.
     var analyse: AnalyseBasaleDetail? = nil
 
+    /// Appelé quand le détail s'ouvre réellement (pas juste au survol de
+    /// cette carte) — le parent y marque le verdict B1 comme vu, ce qui
+    /// efface le badge de l'onglet Analyses.
+    var onOuvrirDetail: (() -> Void)? = nil
+
     var body: some View {
         NavigationLink {
             // TODO: remplacer par la page fusionnée « Analyse du coucher »
             // une fois designée. En attendant, on ouvre le détail B1 existant.
             DetailAnalyseBasaleVue(
-                analyse: analyse ?? AnalyseBasaleServiceMock.charger(verdict: resume.verdictBasale)
+                analyse: analyse ?? AnalyseBasaleServiceMock.charger(verdict: resume.verdictBasale),
+                onApparition: onOuvrirDetail
             )
         } label: {
             contenu
@@ -204,6 +210,13 @@ struct CarteAnalyseCoucher: View {
                 .foregroundStyle(.primary)
                 .lineLimit(1)
 
+            if section.aDuNouveau {
+                Circle()
+                    .fill(Color.red)
+                    .frame(width: 6, height: 6)
+                    .accessibilityHidden(true)
+            }
+
             Spacer(minLength: 8)
 
             StatutSousAnalyseVue(etat: section.etat)
@@ -221,7 +234,8 @@ struct CarteAnalyseCoucher: View {
             case let .collecte(actuel, requis): etat = "en cours, \(actuel) sur \(requis)"
             case .enAttente: etat = "en attente"
             }
-            return "\(section.sousAnalyse.titre) : \(etat)"
+            let suffixeNouveau = section.aDuNouveau ? ", nouveau" : ""
+            return "\(section.sousAnalyse.titre) : \(etat)\(suffixeNouveau)"
         }
         return (["Analyse du coucher."] + resumeSections).joined(separator: " ")
     }

@@ -47,6 +47,13 @@ struct AppTabVues: View {
     /// veille (calculé depuis le hub).
     @State private var scoreService = ScoreService()
 
+    /// Service de l'analyse basale (B1) — instance **unique** partagée entre
+    /// l'onglet Analyses (détail), l'accueil (insight « nouvelle tendance »)
+    /// et le badge de cet onglet. Doit être la même instance partout (pas un
+    /// `@State` privé par vue) pour que « marquer comme vu » depuis le détail
+    /// efface le badge vu par les deux autres écrans.
+    @State private var analyseBasaleService = AnalyseBasaleService()
+
     /// Contexte SwiftData du hub (pour récupérer le `ModelContainer`).
     @Environment(\.modelContext) private var modelContext
 
@@ -77,6 +84,7 @@ struct AppTabVues: View {
             Tab("Analyses", systemImage: "chart.dots.scatter") {
                 AnalysesVue()
             }
+            .badge(analyseBasaleService.estNouvelleTendance ? "•" : "")
 
             Tab("Recherche", systemImage: "bubble.left.and.text.bubble.right", role: TabRole.search) {
                 RecercheVue()
@@ -89,9 +97,11 @@ struct AppTabVues: View {
         .environment(importService)
         .environment(profilService)
         .environment(repasService)
+        .environment(analyseBasaleService)
         .task {
             repasService.demarrer(contexte: modelContext)
             scoreService.demarrer(contexte: modelContext)
+            analyseBasaleService.demarrer(contexte: modelContext)
             // Sheet du matin : seulement après 6h, une fois par jour, et s'il
             // existe un score de la veille consolidé.
             if doitAfficherSheetMatin() {

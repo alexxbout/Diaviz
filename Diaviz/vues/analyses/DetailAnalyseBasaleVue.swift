@@ -27,6 +27,11 @@ struct DetailAnalyseBasaleVue: View {
     let endormissement: AnalyseEndormissement
     let corrections: AnalyseCorrections
 
+    /// Appelé à l'apparition de la page — le parent (`CarteAnalyseCoucher`)
+    /// y marque le verdict B1 comme vu (efface le badge de l'onglet Analyses
+    /// et le point « nouveau » de la carte sommaire).
+    var onApparition: (() -> Void)? = nil
+
     // Page affichée (index dans `SousAnalyseCoucher.allCases`).
     @State private var selection: Int = 0
 
@@ -53,10 +58,12 @@ struct DetailAnalyseBasaleVue: View {
 
     init(analyse: AnalyseBasaleDetail = .mockStandard14j,
          endormissement: AnalyseEndormissement = .mock,
-         corrections: AnalyseCorrections = .mock) {
+         corrections: AnalyseCorrections = .mock,
+         onApparition: (() -> Void)? = nil) {
         self.analyse = analyse
         self.endormissement = endormissement
         self.corrections = corrections
+        self.onApparition = onApparition
     }
 
     var body: some View {
@@ -78,6 +85,7 @@ struct DetailAnalyseBasaleVue: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Analyse du coucher")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { onApparition?() }
     }
 
     // MARK: - Contenu de la page sélectionnée

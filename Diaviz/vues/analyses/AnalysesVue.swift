@@ -22,9 +22,10 @@ struct AnalysesVue: View {
 
     @Environment(\.modelContext) private var modelContext
 
-    /// Assembleur B1 réel — branché sur le hub au boot. Produit l'analyse et le
-    /// résumé de la carte « Analyse du coucher ».
-    @State private var basaleService = AnalyseBasaleService()
+    /// Assembleur B1 réel — instance **partagée** injectée par `AppTabVues`
+    /// (pas un `@State` privé) : l'accueil et le badge de cet onglet doivent
+    /// voir la même instance pour que « marquer comme vu » se propage partout.
+    @Environment(AnalyseBasaleService.self) private var basaleService
 
     /// Override pour previews : quand fourni, court-circuite le service réel
     /// (et le `.task` de démarrage) pour exercer les états visuels mockés.
@@ -54,7 +55,11 @@ struct AnalysesVue: View {
                     // Spacing 28pt entre sections — cohérent avec l'accueil,
                     // donne à chaque carte sommaire l'espace de respirer.
                     VStack(spacing: 28) {
-                        CarteAnalyseCoucher(resume: coucher, analyse: analyseReelle)
+                        CarteAnalyseCoucher(
+                            resume: coucher,
+                            analyse: analyseReelle,
+                            onOuvrirDetail: { basaleService.marquerVerdictCommeVu() }
+                        )
                     }
                     .padding(16)
                 }
@@ -79,14 +84,17 @@ struct AnalysesVue: View {
 #Preview("Analyses - Coucher défaut") {
     AnalysesVue(coucher: .mockDefault)
         .environment(ProfilService.mockComplet())
+        .environment(AnalyseBasaleService())
 }
 
 #Preview("Analyses - Coucher mature") {
     AnalysesVue(coucher: .mockMature)
         .environment(ProfilService.mockComplet())
+        .environment(AnalyseBasaleService())
 }
 
 #Preview("Analyses - Coucher débutant") {
     AnalysesVue(coucher: .mockDebutant)
         .environment(ProfilService.mockComplet())
+        .environment(AnalyseBasaleService())
 }

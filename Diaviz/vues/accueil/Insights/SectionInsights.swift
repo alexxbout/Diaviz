@@ -21,6 +21,11 @@ struct SectionInsights: View {
 
     let insights: [Insight]
 
+    /// Appelé quand l'utilisateur demande la suppression d'un insight (swipe
+    /// gauche ou appui long sur la carte active) — le parent affiche la
+    /// confirmation, cette vue ne supprime jamais directement.
+    var onDemandeSuppression: ((Insight) -> Void)? = nil
+
     /// Index de la carte actuellement au sommet de la pile. Bindé sur
     /// `PileVerticaleInsights` qui l'incrémente à chaque swipe validé.
     @State private var pageActive: Int = 0
@@ -47,7 +52,11 @@ struct SectionInsights: View {
                     .accessibilityAddTraits(.isHeader)
 
                 // MARK: Pile
-                PileVerticaleInsights(insights: insights, indexActif: $pageActive)
+                PileVerticaleInsights(
+                    insights: insights,
+                    indexActif: $pageActive,
+                    onDemandeSuppression: onDemandeSuppression
+                )
                     .frame(maxWidth: .infinity)
             }
             .padding(.bottom, -14)
