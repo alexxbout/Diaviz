@@ -141,10 +141,10 @@ struct RepartitionNuitsVue: View {
             ligneMetrique(icone: "arrow.right", couleurIcone: .green,
                           label: "Zones stables",
                           valeur: "\(distribution.stableZones)")
-            ligneMetrique(icone: "arrow.down.right", couleurIcone: .orange,
+            ligneMetrique(icone: "arrow.down.right", couleurIcone: .red,
                           label: "Zones tendance basse",
                           valeur: "\(distribution.descendingZones)")
-            ligneMetrique(icone: "arrow.up.right", couleurIcone: .red,
+            ligneMetrique(icone: "arrow.up.right", couleurIcone: .orange,
                           label: "Zones tendance haute",
                           valeur: "\(distribution.ascendingZones)")
             ligneMetrique(icone: "circle.dashed", couleurIcone: .secondary,
@@ -227,10 +227,12 @@ private struct BarreZones: View {
                 Segment(couleur: Color(red: 0.114, green: 0.620, blue: 0.459),
                         pourcent: pourcent(stables, sur: total))
                     .frame(width: largeur(stables, sur: total, total: geo.size.width))
-                Segment(couleur: Color(red: 0.937, green: 0.624, blue: 0.153),
+                // Descendantes (vers l'hypo) → rouge ; ascendantes (vers
+                // l'hyper) → ambre.
+                Segment(couleur: Color(red: 0.886, green: 0.294, blue: 0.290),
                         pourcent: pourcent(descendantes, sur: total))
                     .frame(width: largeur(descendantes, sur: total, total: geo.size.width))
-                Segment(couleur: Color(red: 0.886, green: 0.294, blue: 0.290),
+                Segment(couleur: Color(red: 0.937, green: 0.624, blue: 0.153),
                         pourcent: pourcent(ascendantes, sur: total))
                     .frame(width: largeur(ascendantes, sur: total, total: geo.size.width))
             }

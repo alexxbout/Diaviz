@@ -21,7 +21,7 @@ enum SousAnalyseCoucher: String, CaseIterable, Sendable {
         switch self {
         case .basale:       return "Tendance basale"
         case .glycemie:     return "Endormissement"
-        case .corrections:  return "Corrections"
+        case .corrections:  return "Corrections du soir"
         }
     }
 
@@ -30,6 +30,16 @@ enum SousAnalyseCoucher: String, CaseIterable, Sendable {
         case .basale:       return "syringe.fill"
         case .glycemie:     return "bed.double.fill"
         case .corrections:  return "plusminus"
+        }
+    }
+
+    /// Couleur d'accent propre à la section — teinte l'icône et le titre des
+    /// pills de la page « Analyse du coucher ».
+    var couleur: Color {
+        switch self {
+        case .basale:       return .indigo
+        case .glycemie:     return .teal
+        case .corrections:  return .orange
         }
     }
 }
@@ -106,12 +116,16 @@ struct CarteAnalyseCoucher: View {
 
     let resume: ResumeAnalyseCoucher
 
+    /// Analyse B1 **réelle** (calculée depuis le hub). `nil` en preview → la
+    /// carte retombe sur le snapshot mocké routé par le verdict.
+    var analyse: AnalyseBasaleDetail? = nil
+
     var body: some View {
         NavigationLink {
             // TODO: remplacer par la page fusionnée « Analyse du coucher »
             // une fois designée. En attendant, on ouvre le détail B1 existant.
             DetailAnalyseBasaleVue(
-                analyse: AnalyseBasaleServiceMock.charger(verdict: resume.verdictBasale)
+                analyse: analyse ?? AnalyseBasaleServiceMock.charger(verdict: resume.verdictBasale)
             )
         } label: {
             contenu

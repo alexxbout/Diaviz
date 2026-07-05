@@ -7,41 +7,49 @@
 
 import SwiftUI
 
-/// Page « Analyse du coucher » — hub fusionné des trois sous-analyses du
-/// coucher, présentées en **accordéon** (`EnTeteSectionCoucher` + contenu) :
+/// Page « Analyse du coucher » — hub des trois sous-analyses du coucher,
+/// parcourues une à une via un **switcher à flèches** :
 ///
-///   1. **Tendance basale** (B1)      — contenu existant (verdict, courbes,
-///      timeline, répartition, historique de dose, résumé IA)
+///   1. **Tendance basale** (B1)      — verdict, courbes, timeline, répartition,
+///      historique de dose, résumé IA
 ///   2. **Endormissement** (B2)       — tableau des hypos à l'endormissement
 ///   3. **Corrections du soir** (B3)  — tableau des corrections au coucher
 ///
-/// Toutes les sections sont **fermées par défaut** : seuls les en-têtes
-/// (titre + statut glance + ⓘ) sont visibles, donnant un panorama des trois
-/// analyses sans scroll. Le détail se déplie à la demande.
+/// En-tête : rangée de **pills draguables** (`PillsCoucher`) posée **fixe** au
+/// dessus du contenu scrollable. Un court texte descriptif ouvre chaque
+/// section, suivi de son contenu.
 ///
 /// L'état `mode` / `indexSelectionne` du chart B1 vit ici pour que le tap
 /// timeline puisse basculer le picker sur « Par nuit » et aligner la nuit.
-/// L'analyse basale reste calculée sur la fenêtre clinique de 14 nuits.
 struct DetailAnalyseBasaleVue: View {
 
     let analyse: AnalyseBasaleDetail
     let endormissement: AnalyseEndormissement
     let corrections: AnalyseCorrections
 
-    // Sections ouvertes — vide = toutes fermées (défaut).
-    @State private var sectionsOuvertes: Set<SousAnalyseCoucher> = []
-
-    // Sheets explicatives Pourquoi / Quoi / Comment (B2/B3 = placeholders).
-    @State private var afficherInfoBasale: Bool = false
-    @State private var afficherInfoEndormissement: Bool = false
-    @State private var afficherInfoCorrections: Bool = false
-
-    // Sheet de recherche « Comparer à ce soir » (transverse B2/B3).
-    @State private var afficherComparaison: Bool = false
+    // Page affichée (index dans `SousAnalyseCoucher.allCases`).
+    @State private var selection: Int = 0
 
     // État du chart B1 lifté ici pour que le tap timeline puisse y agir.
     @State private var mode: ModeAffichageGraphiqueBasale = .toutes
     @State private var indexSelectionne: Int = 0
+
+    private let sections = SousAnalyseCoucher.allCases
+
+    /// Sous-analyse actuellement affichée.
+    private var pageCourante: SousAnalyseCoucher {
+        sections[min(selection, sections.count - 1)]
+    }
+
+    /// Pills dérivées des sections (icône + titre). Toutes teintées de la même
+    /// couleur — celle de la première section (violet) — pour un sélecteur
+    /// visuellement homogène.
+    private var pills: [PillCoucher] {
+        let teinte = sections.first?.couleur ?? .indigo
+        return sections.enumerated().map { index, s in
+            PillCoucher(id: index, icone: s.icone, titre: s.titre, couleur: teinte)
+        }
+    }
 
     init(analyse: AnalyseBasaleDetail = .mockStandard14j,
          endormissement: AnalyseEndormissement = .mock,
@@ -52,184 +60,70 @@ struct DetailAnalyseBasaleVue: View {
     }
 
     var body: some View {
+        // Pills flottantes FIXES en overlay ; le contenu défile DESSOUS pour
+        // donner de la matière au Liquid Glass (sinon posé sur le gris plat, il
+        // paraît terne). Le contenu est décalé de la hauteur des pills pour ne
+        // pas démarrer caché derrière elles au repos.
         ScrollView(.vertical) {
-            VStack(spacing: 0) {
-                boutonComparer
-                sectionBasale
-                sectionEndormissement
-                sectionCorrections
-            }
+            contenuPage
+                .padding(.top, PillsCoucher.hauteur + 24)
+                .padding(.bottom, 28)
+                .animation(.easeInOut(duration: 0.22), value: selection)
         }
         .scrollIndicators(.hidden)
+        .overlay(alignment: .top) {
+            PillsCoucher(selection: $selection, items: pills)
+                .padding(.top, 4)
+        }
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Analyse du coucher")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $afficherComparaison) {
-            SheetComparerCeSoir(analyse: endormissement)
-        }
-        .sheet(isPresented: $afficherInfoBasale) {
-            SheetExplicativeBasale()
-                .presentationDetents([.medium])
-                .presentationDragIndicator(.visible)
-        }
-        .sheet(isPresented: $afficherInfoEndormissement) {
-            SheetExplicativePlaceholder(titre: "Endormissement")
-                .presentationDetents([.medium])
-                .presentationDragIndicator(.visible)
-        }
-        .sheet(isPresented: $afficherInfoCorrections) {
-            SheetExplicativePlaceholder(titre: "Corrections du soir")
-                .presentationDetents([.medium])
-                .presentationDragIndicator(.visible)
-        }
     }
 
-    // MARK: - Bouton « Comparer à ce soir » (niveau page)
+    // MARK: - Contenu de la page sélectionnée
 
-    private var boutonComparer: some View {
-        Button {
-            afficherComparaison = true
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                Text("Comparer ma glycémie du soir").fontWeight(.semibold)
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.indigo.opacity(0.5))
+    /// Contenu de la sous-analyse courante. Le `.id(selection)` le recrée à
+    /// chaque changement de page → transition d'opacité entre sections.
+    private var contenuPage: some View {
+        VStack(spacing: 12) {
+            switch pageCourante {
+            case .basale:       contenuBasale
+            case .glycemie:     TableauEndormissement(analyse: endormissement)
+            case .corrections:  TableauCorrections(analyse: corrections)
             }
-            .foregroundStyle(.indigo)
-            .padding(16)
-            .frame(maxWidth: .infinity)
-            .background(Color.indigo.opacity(0.12))
-            .clipShape(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
         }
-        .buttonStyle(.plain)
         .padding(.horizontal, 16)
-        .padding(.top, 16)
-        .padding(.bottom, 4)
-        .accessibilityHint("Recherche les nuits passées proches de ta situation de ce soir")
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .id(selection)
+        .transition(.opacity)
     }
 
-    // MARK: - Section B1 — Tendance basale
-
-    private var sectionBasale: some View {
-        VStack(spacing: 0) {
-            EnTeteSectionCoucher(
-                titre: "Tendance basale",
-                etat: etatBasale,
-                ouverte: sectionsOuvertes.contains(.basale),
-                onInfo: { afficherInfoBasale = true },
-                onToggle: { basculer(.basale) }
+    /// Contenu B1 — verdict, fondements, courbes, timeline, répartition,
+    /// historique de dose et résumé IA.
+    private var contenuBasale: some View {
+        VStack(spacing: 12) {
+            CarteVerdictBasale(analyse: analyse)
+            CarteFondementsVerdict(analyse: analyse)
+            CourbesNocturnesChart(
+                nights: analyse.nightChartData,
+                mode: $mode,
+                indexSelectionne: $indexSelectionne
             )
-            if sectionsOuvertes.contains(.basale) {
-                VStack(spacing: 12) {
-                    CarteVerdictBasale(analyse: analyse)
-                    CourbesNocturnesChart(
-                        nights: analyse.nightChartData,
-                        mode: $mode,
-                        indexSelectionne: $indexSelectionne
-                    )
-                    TimelineNuitsVue(
-                        timeline: analyse.timeline,
-                        onNightSelected: { date in basculerSurNuit(date: date) }
-                    )
-                    RepartitionNuitsVue(analyse: analyse)
-                    DoseHistoryCard(changes: analyse.doseHistory)
-
-                    if analyse.verdict != .donneesInsuffisantes,
-                       let resume = analyse.resumeIA {
-                        CarteResumeIA(texte: resume)
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
-                .padding(.bottom, 18)
-            }
-        }
-    }
-
-    // MARK: - Section B2 — Endormissement
-
-    private var sectionEndormissement: some View {
-        VStack(spacing: 0) {
-            EnTeteSectionCoucher(
-                titre: "Endormissement",
-                etat: etatEndormissement,
-                ouverte: sectionsOuvertes.contains(.glycemie),
-                onInfo: { afficherInfoEndormissement = true },
-                onToggle: { basculer(.glycemie) }
+            TimelineNuitsVue(
+                timeline: analyse.timeline,
+                onNightSelected: { date in basculerSurNuit(date: date) }
             )
-            if sectionsOuvertes.contains(.glycemie) {
-                TableauEndormissement(analyse: endormissement)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 14)
-                    .padding(.bottom, 18)
-            }
-        }
-    }
+            RepartitionNuitsVue(analyse: analyse)
+            DoseHistoryCard(changes: analyse.doseHistory)
 
-    // MARK: - Section B3 — Corrections du soir
-
-    private var sectionCorrections: some View {
-        VStack(spacing: 0) {
-            EnTeteSectionCoucher(
-                titre: "Corrections",
-                etat: etatCorrections,
-                ouverte: sectionsOuvertes.contains(.corrections),
-                onInfo: { afficherInfoCorrections = true },
-                onToggle: { basculer(.corrections) }
-            )
-            if sectionsOuvertes.contains(.corrections) {
-                TableauCorrections(analyse: corrections)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 14)
-                    .padding(.bottom, 18)
+            if analyse.verdict != .donneesInsuffisantes,
+               let resume = analyse.resumeIA {
+                CarteResumeIA(texte: resume)
             }
         }
     }
 
     // MARK: - Helpers
-
-    /// Plie/déplie une section avec une animation de hauteur simple
-    /// (pas de glissement vertical).
-    private func basculer(_ sous: SousAnalyseCoucher) {
-        withAnimation(.easeInOut(duration: 0.22)) {
-            if sectionsOuvertes.contains(sous) { sectionsOuvertes.remove(sous) }
-            else { sectionsOuvertes.insert(sous) }
-        }
-    }
-
-    /// Statut glance de la section B1, dérivé du verdict basale — même
-    /// vocabulaire que la carte sommaire.
-    private var etatBasale: EtatSousAnalyse {
-        switch analyse.verdict {
-        case .adaptee:
-            return .resultat(libelle: "Adaptée", ton: .positif)
-        case .tropHaute, .tropBasse:
-            return .resultat(libelle: "À revoir", ton: .attention)
-        case .donneesInsuffisantes:
-            return .enAttente
-        }
-    }
-
-    /// Statut glance de la section B2 — compte d'hypos à l'endormissement,
-    /// sinon « Aucune récente ». B2 ne se gate pas : il remonte des faits.
-    private var etatEndormissement: EtatSousAnalyse {
-        let n = endormissement.nombreHypos
-        guard n > 0 else { return .resultat(libelle: "Aucune récente", ton: .neutre) }
-        return .resultat(libelle: n == 1 ? "1 hypo" : "\(n) hypos", ton: .attention)
-    }
-
-    /// Statut glance de la section B3 — compte de corrections du soir, neutre
-    /// (B3 expose des faits, ne juge pas).
-    private var etatCorrections: EtatSousAnalyse {
-        let n = corrections.nombre
-        guard n > 0 else { return .enAttente }
-        // Le mot « corrections » serait redondant avec le titre de section :
-        // on n'affiche que le compte.
-        return .resultat(libelle: "\(n)", ton: .neutre)
-    }
 
     /// Cherche la nuit dans `nightChartData` qui matche le jour calendaire
     /// de la date tappée, bascule le chart sur « Par nuit » et positionne
@@ -279,25 +173,117 @@ private struct CarteResumeIA: View {
     }
 }
 
-// MARK: - Placeholder sheet explicative (B2 / B3)
+// MARK: - Fondements du verdict (« Sur quoi se base ce verdict »)
 
-/// Sheet explicative provisoire (Pourquoi / Quoi / Comment) pour B2 / B3,
-/// en attendant la généralisation de `SheetExplicativeBasale`.
-private struct SheetExplicativePlaceholder: View {
+/// Bloc factuel sous la carte verdict : explicite les données qui ont produit
+/// le verdict B1 — nuits analysées (et depuis quand), pente moyenne nuit
+/// profonde, nuits exclues avec motifs, nuits sans CGM. Permet de comprendre
+/// d'un coup d'œil le « pourquoi » d'une alerte de basale.
+private struct CarteFondementsVerdict: View {
 
-    let titre: String
+    let analyse: AnalyseBasaleDetail
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(titre)
-                .font(.title2.bold())
-            Text("Pourquoi / Quoi / Comment — contenu explicatif à rédiger.")
-                .font(.body)
+            Text("Sur quoi se base ce verdict")
+                .font(.subheadline.bold())
                 .foregroundStyle(.secondary)
-            Spacer()
+                .accessibilityAddTraits(.isHeader)
+
+            ligne(icone: "checkmark.seal.fill", couleur: .green,
+                  texte: nuitsAnalyseesTexte, sous: depuisChangement)
+
+            if analyse.nuitsAnalysees > 0 {
+                ligne(icone: "chart.xyaxis.line", couleur: .indigo,
+                      texte: "Pente moyenne nuit profonde : \(penteFmt(analyse.penteMoyenne)) mg/dL/h",
+                      sous: nil)
+            }
+
+            if analyse.nuitsExclues > 0 {
+                ligne(icone: "xmark.circle.fill", couleur: .orange,
+                      texte: "\(analyse.nuitsExclues) \(motNuit(analyse.nuitsExclues)) exclue\(analyse.nuitsExclues > 1 ? "s" : "")",
+                      sous: nil)
+                ForEach(raisonsExclusion, id: \.libelle) { r in
+                    sousLigne("\(r.libelle) : \(r.count)")
+                }
+            }
+
+            if nbSansDonnees > 0 {
+                ligne(icone: "wifi.slash", couleur: .secondary,
+                      texte: "\(nbSansDonnees) \(motNuit(nbSansDonnees)) sans CGM", sous: nil)
+            }
         }
+        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(24)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
+
+    // MARK: Lignes
+
+    @ViewBuilder
+    private func ligne(icone: String, couleur: Color, texte: String, sous: String?) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icone)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(couleur)
+                .frame(width: 22)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(texte)
+                    .font(.system(size: 14))
+                    .foregroundStyle(.primary)
+                if let sous {
+                    Text(sous)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func sousLigne(_ texte: String) -> some View {
+        Text(texte)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.leading, 32)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: Dérivés
+
+    private var nuitsAnalyseesTexte: String {
+        "\(analyse.nuitsAnalysees) \(motNuit(analyse.nuitsAnalysees)) analysée\(analyse.nuitsAnalysees > 1 ? "s" : "")"
+    }
+
+    private var depuisChangement: String? {
+        guard let date = analyse.changementDoseRecent else { return nil }
+        let lib = date.formatted(.dateTime.day().month(.wide).locale(Locale(identifier: "fr_FR")))
+        return "depuis le changement de dose du \(lib)"
+    }
+
+    /// Répartition des motifs d'exclusion sur la fenêtre comparable
+    /// (post-changement de dose, hors nuit en cours) — somme cohérente avec
+    /// `nuitsExclues`.
+    private var raisonsExclusion: [(libelle: String, count: Int)] {
+        var dict: [String: Int] = [:]
+        for n in analyse.timeline where !n.avantChangementDose {
+            if case .exclue(let r) = n.etat { dict[r.rawValue, default: 0] += 1 }
+        }
+        return dict.map { (libelle: $0.key, count: $0.value) }
+            .sorted { $0.count > $1.count }
+    }
+
+    private var nbSansDonnees: Int {
+        analyse.timeline.filter { !$0.avantChangementDose && $0.etat == .sansDonnees }.count
+    }
+
+    private func motNuit(_ n: Int) -> String { n > 1 ? "nuits" : "nuit" }
+
+    private func penteFmt(_ s: Double) -> String {
+        String(format: "%+.1f", s).replacingOccurrences(of: ".", with: ",")
     }
 }
 
@@ -306,6 +292,12 @@ private struct SheetExplicativePlaceholder: View {
 #Preview("Page - Normal (verdict sufficient)") {
     NavigationStack {
         DetailAnalyseBasaleVue(analyse: .mockStandard14j)
+    }
+}
+
+#Preview("Page - Pipeline réel (synthétique)") {
+    NavigationStack {
+        DetailAnalyseBasaleVue(analyse: CalculAnalyseBasale.apercu())
     }
 }
 

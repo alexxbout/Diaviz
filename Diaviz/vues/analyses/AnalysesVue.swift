@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 /// Page Analyses — **sommaire** des analyses disponibles. Chaque section
 /// est une carte simple qui pousse une page dédiée via `NavigationLink`.
@@ -19,13 +20,29 @@ import SwiftUI
 /// à l'identique sur les quatre onglets racines.
 struct AnalysesVue: View {
 
-    /// Résumé alimentant la carte « Analyse du coucher » (B1 + B2 + B3).
-    /// Mock par défaut le temps que la couche d'analyses produise les vrais
-    /// états ; injecté dans les previews pour exercer les états visuels.
-    let coucher: ResumeAnalyseCoucher
+    @Environment(\.modelContext) private var modelContext
 
-    init(coucher: ResumeAnalyseCoucher = .mockDefault) {
-        self.coucher = coucher
+    /// Assembleur B1 réel — branché sur le hub au boot. Produit l'analyse et le
+    /// résumé de la carte « Analyse du coucher ».
+    @State private var basaleService = AnalyseBasaleService()
+
+    /// Override pour previews : quand fourni, court-circuite le service réel
+    /// (et le `.task` de démarrage) pour exercer les états visuels mockés.
+    private let coucherOverride: ResumeAnalyseCoucher?
+
+    init(coucher: ResumeAnalyseCoucher? = nil) {
+        self.coucherOverride = coucher
+    }
+
+    /// Résumé affiché : override de preview, sinon dérivé du service réel.
+    private var coucher: ResumeAnalyseCoucher {
+        coucherOverride ?? basaleService.resumeCoucher
+    }
+
+    /// Analyse réelle passée à la carte (→ page détail). `nil` en preview pour
+    /// retomber sur le snapshot mocké routé par le verdict.
+    private var analyseReelle: AnalyseBasaleDetail? {
+        coucherOverride == nil ? basaleService.analyse : nil
     }
 
     var body: some View {
@@ -37,12 +54,22 @@ struct AnalysesVue: View {
                     // Spacing 28pt entre sections — cohérent avec l'accueil,
                     // donne à chaque carte sommaire l'espace de respirer.
                     VStack(spacing: 28) {
-                        CarteAnalyseCoucher(resume: coucher)
+                        CarteAnalyseCoucher(resume: coucher, analyse: analyseReelle)
                     }
                     .padding(16)
                 }
             }
             .background(Color(.systemGroupedBackground))
+        }
+        // Re-sync automatique : on recalcule à chaque retour sur la page
+        // (ajout d'une lente/CGM depuis un autre onglet → l'analyse se met à
+        // jour sans action). Le premier passage démarre le service (qui calcule
+        // déjà) ; les suivants forcent un `recharger()`.
+        .onAppear {
+            guard coucherOverride == nil else { return }
+            let premierBoot = !basaleService.estDemarre
+            basaleService.demarrer(contexte: modelContext)
+            if !premierBoot { basaleService.recharger() }
         }
     }
 }

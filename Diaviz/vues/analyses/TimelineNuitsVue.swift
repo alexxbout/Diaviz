@@ -60,6 +60,19 @@ struct TimelineNuitsVue: View {
     /// Hauteur de la rangée de points — tap target ~32pt vertical.
     private static let hauteurRangeePoints: CGFloat = 32
 
+    /// `true` si la fenêtre contient des nuits antérieures au dernier
+    /// changement de dose (affichées en anneau, hors agrégat).
+    private var aPreChangement: Bool {
+        timeline.contains { $0.avantChangementDose }
+    }
+
+    /// Index de la première nuit **post**-changement — frontière où poser le
+    /// séparateur. `nil` s'il n'y a pas de changement de dose dans la fenêtre.
+    private var indexChangementDose: Int? {
+        guard aPreChangement else { return nil }
+        return timeline.firstIndex { !$0.avantChangementDose }
+    }
+
     private var ligneTimeline: some View {
         VStack(spacing: 4) {
             // Couche dots + ligne de liaison.
@@ -79,6 +92,16 @@ struct TimelineNuitsVue: View {
                         path.move(to: CGPoint(x: x1, y: y))
                         path.addLine(to: CGPoint(x: x2, y: y))
                         ctx.stroke(path, with: .color(.green.opacity(0.6)), lineWidth: 1)
+                    }
+                    // Séparateur vertical pointillé à la frontière du dernier
+                    // changement de dose (entre nuits pré- et post-changement).
+                    if let idx = indexChangementDose {
+                        let x = pas * CGFloat(idx)
+                        var sep = Path()
+                        sep.move(to: CGPoint(x: x, y: 2))
+                        sep.addLine(to: CGPoint(x: x, y: size.height - 2))
+                        ctx.stroke(sep, with: .color(.secondary.opacity(0.5)),
+                                   style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
                     }
                 }
 
@@ -121,8 +144,7 @@ struct TimelineNuitsVue: View {
         Button {
             handleTap(nuit)
         } label: {
-            cerclePourEtat(nuit.etat, avantChangementDose: nuit.avantChangementDose)
-                .opacity(nuit.avantChangementDose ? 0.35 : 1)
+            cerclePourEtat(nuit.etat)
                 .scaleEffect(estPressee ? 1.4 : 1)
                 .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7),
                            value: estPressee)
@@ -134,19 +156,19 @@ struct TimelineNuitsVue: View {
     }
 
     @ViewBuilder
-    private func cerclePourEtat(_ etat: EtatNuit, avantChangementDose: Bool) -> some View {
+    private func cerclePourEtat(_ etat: EtatNuit) -> some View {
         switch etat {
         case .valide:
+            // Au moins une zone analysée → disque vert plein.
             Circle()
                 .fill(Color.green)
                 .frame(width: 8, height: 8)
-        case .exclue:
+        case .exclue, .sansDonnees:
+            // Non analysée (exclue ou pas de CGM) → cercle vide. Le détail
+            // (motif / sans données) vit dans la vue « Par nuit » et le bloc
+            // « Sur quoi se base ce verdict ».
             Circle()
                 .stroke(Color.secondary, lineWidth: 1.5)
-                .frame(width: 8, height: 8)
-        case .sansDonnees:
-            Circle()
-                .stroke(Color.secondary, style: StrokeStyle(lineWidth: 1.5, dash: [1.5, 1.5]))
                 .frame(width: 8, height: 8)
         case .enCours:
             Circle()
@@ -158,20 +180,31 @@ struct TimelineNuitsVue: View {
     // MARK: - Légende
 
     private var legende: some View {
-        HStack(spacing: 16) {
-            puceLegende(forme: .pleine(.green), texte: "Analysable")
-            puceLegende(forme: .vide, texte: "Non exploitable")
-            puceLegende(forme: .pointille, texte: "Pas de données")
+        HStack(spacing: 12) {
+            puceLegende(forme: .pleine(.green), texte: "Analysée")
+            puceLegende(forme: .vide, texte: "Non analysée")
+            puceLegende(forme: .pleine(.blue), texte: "Aujourd'hui")
+            // N'apparaît que si le séparateur est effectivement affiché dans
+            // la timeline (changement de dose dans la fenêtre).
+            if indexChangementDose != nil {
+                puceLegende(forme: .separateur, texte: "Changement de dose")
+            }
         }
         .font(.system(size: 9))
         .foregroundStyle(.tertiary)
+        // Le HStack ne wrappe jamais un `Text` à la ligne suivante à la place —
+        // sans `lineLimit(1)`, un Text pressé en largeur passe sur 2 lignes
+        // (hauteur de la légende qui double). `minimumScaleFactor` absorbe le
+        // manque de place en rétrécissant la police plutôt qu'en repliant.
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
         .accessibilityHidden(true)
     }
 
     private enum FormePuce {
         case pleine(Color)
         case vide
-        case pointille
+        case separateur
     }
 
     @ViewBuilder
@@ -182,10 +215,14 @@ struct TimelineNuitsVue: View {
                 Circle().fill(couleur).frame(width: 8, height: 8)
             case .vide:
                 Circle().stroke(Color.secondary, lineWidth: 1.5).frame(width: 8, height: 8)
-            case .pointille:
-                Circle()
-                    .stroke(Color.secondary, style: StrokeStyle(lineWidth: 1.5, dash: [1.5, 1.5]))
-                    .frame(width: 8, height: 8)
+            case .separateur:
+                // Miroir du trait pointillé rendu dans le Canvas de la timeline.
+                Path { p in
+                    p.move(to: CGPoint(x: 0, y: 0))
+                    p.addLine(to: CGPoint(x: 0, y: 8))
+                }
+                .stroke(Color.secondary.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
+                .frame(width: 8, height: 8)
             }
             Text(texte)
         }

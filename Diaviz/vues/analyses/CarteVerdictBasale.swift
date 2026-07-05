@@ -54,16 +54,29 @@ struct CarteVerdictBasale: View {
     private var contenuSufficient: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                Text(iconeTendance)
+                Text(iconeConstat)
                     .font(.title3)
                     .accessibilityHidden(true)
-                Text(libelleTendance)
+                Text(libelleConstat)
                     .font(.title3.weight(.medium))
-                    .foregroundStyle(couleurTendance)
+                    .foregroundStyle(couleurConstat)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isHeader)
+
+            // Hypos nocturnes : signal prioritaire, mis en avant si présent.
+            if verdict.hypoCount > 0 {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .accessibilityHidden(true)
+                    Text("\(verdict.hypoCount) hypo\(verdict.hypoCount > 1 ? "s" : "") nocturne\(verdict.hypoCount > 1 ? "s" : "")")
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.red)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(verdict.hypoCount) hypoglycémies nocturnes")
+            }
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
@@ -148,6 +161,14 @@ struct CarteVerdictBasale: View {
             }
         }
     }
+
+    // MARK: - Constat (override « en amélioration »)
+
+    /// L'état « en amélioration » prime sur la tendance brute : la situation
+    /// penchait « à revoir » mais les nuits récentes sont redevenues stables.
+    private var iconeConstat: String { verdict.enAmelioration ? "🟢" : iconeTendance }
+    private var libelleConstat: String { verdict.enAmelioration ? "En amélioration" : libelleTendance }
+    private var couleurConstat: Color { verdict.enAmelioration ? .green : couleurTendance }
 
     // MARK: - Dérivés tendance
 

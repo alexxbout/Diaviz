@@ -118,7 +118,7 @@ final class ScoreService {
     /// Début du **jour métabolique** contenant `date` (06h locale). Avant 06h,
     /// on est encore dans le jour métabolique de la veille. Helper recopié à
     /// l'identique depuis le mock pour cohérence avec la couche d'analyses.
-    static func debutJourMetabolique(pour date: Date = Date()) -> Date {
+    nonisolated static func debutJourMetabolique(pour date: Date = Date()) -> Date {
         let cal = Calendar.current
         let sixHeures = cal.date(
             bySettingHour: 6, minute: 0, second: 0, of: date

@@ -253,8 +253,6 @@ private struct VueGraphiqueToutes: View {
     /// Popover lente moyenne (lifted ici pour clamp + zIndex max).
     @State private var presentedEventInfo: PresentedEventInfo?
 
-    @Environment(\.colorScheme) private var colorScheme
-
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             entete
@@ -307,12 +305,6 @@ private struct VueGraphiqueToutes: View {
         return nights.filter { cal.startOfDay(for: $0.date) >= cutoff }
     }
 
-    /// Nuits lissées + sous-échantillonnées (cache local par render —
-    /// pour 14 nuits × 121 samples le coût reste négligeable).
-    private var nuitsLissees: [(id: UUID, points: [GlucosePoint])] {
-        nuitsFiltrees.map { (id: $0.id, points: lisser($0.glucoseValues)) }
-    }
-
     /// Tendance moyenne pré-calculée — extension sur `[NightChartData]`,
     /// puis lissée pour rester visuellement cohérente avec les nuits.
     private var tendance: [GlucosePoint] { lisser(nuitsFiltrees.tendanceMoyenne) }
@@ -336,12 +328,10 @@ private struct VueGraphiqueToutes: View {
         return cal.date(bySettingHour: 22, minute: 0, second: 0, of: jourDebut)
     }
 
-    /// Plage Y dynamique — couvre toutes les valeurs (nuits +
-    /// tendance) avec un padding de 10 mg/dL.
+    /// Plage Y dynamique — cadrée sur la courbe de tendance (seule affichée),
+    /// avec un padding de 10 mg/dL.
     private var plageY: ClosedRange<Double> {
-        let nuitsVals = nuitsFiltrees.flatMap { $0.glucoseValues.map(\.value) }
-        let tendanceVals = tendance.map(\.value)
-        return plageYAvecPadding(nuitsVals + tendanceVals)
+        plageYAvecPadding(tendance.map(\.value))
     }
 
     @ViewBuilder
@@ -349,7 +339,6 @@ private struct VueGraphiqueToutes: View {
         if let bornes = bornesX {
             Chart {
                 seuils
-                courbesIndividuelles
                 courbeTendance
             }
             .chartXScale(domain: bornes.debut...bornes.fin)
@@ -430,37 +419,6 @@ private struct VueGraphiqueToutes: View {
             .annotation(position: .topLeading, alignment: .leading, spacing: 1) {
                 Text("180").font(.system(size: 10)).foregroundStyle(.secondary)
             }
-    }
-
-    /// Une LineMark par série de nuit, découpée en segments hypo /
-    /// normal / hyper. À opacité 0.35 (light) / 0.12 (dark) — les
-    /// portions hors cible restent visibles sans saturer l'œil.
-    @ChartContentBuilder
-    private var courbesIndividuelles: some ChartContent {
-        let teinteBase = Color.secondary.opacity(colorScheme == .dark ? 0.12 : 0.35)
-        let opaciteHorsCible: Double = colorScheme == .dark ? 0.45 : 0.65
-        ForEach(nuitsLissees, id: \.id) { nuit in
-            let segments = segmenter(nuit.points)
-            ForEach(segments) { seg in
-                let couleur: Color = {
-                    switch seg.categorie {
-                    case .hypo:    return Color.basaleHypo.opacity(opaciteHorsCible)
-                    case .hyper:   return Color.basaleHyper.opacity(opaciteHorsCible)
-                    case .normal:  return teinteBase
-                    }
-                }()
-                ForEach(seg.points) { p in
-                    LineMark(
-                        x: .value("Heure", p.time),
-                        y: .value("Glycémie", p.value),
-                        series: .value("Nuit", "\(nuit.id.uuidString)-\(seg.id.uuidString)")
-                    )
-                    .foregroundStyle(couleur)
-                    .lineStyle(StrokeStyle(lineWidth: 1.5))
-                    .interpolationMethod(.catmullRom)
-                }
-            }
-        }
     }
 
     /// Tendance moyenne — découpée en segments hypo/normal/hyper pour
@@ -563,6 +521,9 @@ private struct VueGraphiqueParNuit: View {
                 .padding(.top, 10)
                 .padding(.leading, -20)
                 .padding(.trailing, -16)
+            Divider()
+                .padding(.top, 2)
+            DetailZonesNuit(nuit: nuit)
         }
         .onAppear {
             selectedDate = Calendar.current.startOfDay(for: nuit.date)
@@ -863,6 +824,144 @@ private struct VueGraphiqueParNuit: View {
         return String(format: "%02d:%02d", comps.hour ?? 0, comps.minute ?? 0)
     }
 
+}
+
+// MARK: - Détail des zones de la nuit (sous le graphe « Par nuit »)
+
+/// Décompose la nuit en ses 4 zones et explicite, pour chacune, si elle
+/// entre dans le calcul de la basale et pourquoi. Surface le « pourquoi »
+/// par nuit demandé : statut (analysée / contexte / exclue + motif) et,
+/// pour la nuit profonde, la pente retenue.
+private struct DetailZonesNuit: View {
+
+    let nuit: NightChartData
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Zones de la nuit")
+                .font(.subheadline.bold())
+                .foregroundStyle(.secondary)
+                .accessibilityAddTraits(.isHeader)
+
+            if nuit.zones.isEmpty {
+                Text("Aucune zone calculée pour cette nuit — lente non enregistrée ou données insuffisantes.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                ForEach(nuit.zones) { zone in
+                    ligneZone(zone)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func ligneZone(_ z: ZoneData) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text(z.zone.emoji)
+                .font(.body)
+                .frame(width: 24)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(z.zone.label)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.primary)
+                Text(plage(z.timeRange))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+
+            Spacer(minLength: 8)
+
+            statut(z)
+        }
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(libelleAccessible(z))
+    }
+
+    /// Pastille de statut à droite — contexte / analysée / exclue, et la
+    /// pente signée pour la nuit profonde.
+    @ViewBuilder
+    private func statut(_ z: ZoneData) -> some View {
+        if z.zone == .preEndormissement || z.zone == .dawnPhenomenon {
+            badge(systemImage: "circle.dashed", texte: "Contexte", couleur: .secondary)
+        } else if z.zone == .nuitProfonde, z.isAnalyzed, let s = z.slope {
+            let heures = z.timeRange.upperBound.timeIntervalSince(z.timeRange.lowerBound) / 3600
+            badgePente(slope: s, categorie: CalculAnalyseBasale.categorie(deriveMgDl: s * heures))
+        } else if z.isAnalyzed {
+            badge(systemImage: "checkmark.circle.fill", texte: "Analysée", couleur: .green)
+        } else {
+            VStack(alignment: .trailing, spacing: 2) {
+                badge(systemImage: "xmark.circle.fill", texte: "Exclue", couleur: .orange)
+                if let raison = z.exclusionReason {
+                    Text(raison)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.trailing)
+                }
+            }
+        }
+    }
+
+    /// Pente nuit profonde : valeur signée + flèche + couleur de tendance
+    /// (descendante = ambre, ascendante = rouge, stable = vert).
+    private func badgePente(slope: Double, categorie: CategorieNuit) -> some View {
+        let couleur: Color
+        let fleche: String
+        switch categorie {
+        case .tendanceBasse:  couleur = .red;    fleche = "arrow.down.right"
+        case .tendanceHaute:  couleur = .orange; fleche = "arrow.up.right"
+        case .stable:         couleur = .green;  fleche = "arrow.right"
+        }
+        return HStack(spacing: 4) {
+            Image(systemName: fleche)
+            Text(penteFmt(slope) + " mg/dL/h")
+                .monospacedDigit()
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(couleur)
+    }
+
+    private func badge(systemImage: String, texte: String, couleur: Color) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: systemImage)
+            Text(texte)
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(couleur)
+    }
+
+    // MARK: Formatage
+
+    private func plage(_ range: ClosedRange<Date>) -> String {
+        "\(hhmm(range.lowerBound))–\(hhmm(range.upperBound))"
+    }
+
+    private func hhmm(_ date: Date) -> String {
+        let c = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return String(format: "%02dh%02d", c.hour ?? 0, c.minute ?? 0)
+    }
+
+    private func penteFmt(_ s: Double) -> String {
+        String(format: "%+.1f", s).replacingOccurrences(of: ".", with: ",")
+    }
+
+    private func libelleAccessible(_ z: ZoneData) -> String {
+        let base = "\(z.zone.label), \(plage(z.timeRange))."
+        if z.zone == .preEndormissement || z.zone == .dawnPhenomenon {
+            return base + " Contexte, hors calcul."
+        } else if z.zone == .nuitProfonde, z.isAnalyzed, let s = z.slope {
+            return base + " Analysée, pente \(penteFmt(s)) milligrammes par décilitre par heure."
+        } else if z.isAnalyzed {
+            return base + " Analysée."
+        } else {
+            return base + " Exclue\(z.exclusionReason.map { " : \($0)" } ?? "")."
+        }
+    }
 }
 
 // MARK: - EventsOnChart (overlay events sur le chart Par nuit)
@@ -1502,8 +1601,7 @@ private func puceLegende(forme: FormePuceLegende, texte: String) -> some View {
 private struct LegendeGraphique: View {
     var body: some View {
         HStack(spacing: 14) {
-            puceLegende(forme: .ligne(.secondary, 1.5), texte: "Nuits")
-            puceLegende(forme: .ligne(.basaleTendanceMoy, 2.5), texte: "Tendance")
+            puceLegende(forme: .ligne(.basaleTendanceMoy, 2.5), texte: "Moyenne des nuits")
         }
         .font(.system(size: 11))
         .foregroundStyle(.secondary)

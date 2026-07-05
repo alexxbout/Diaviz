@@ -26,7 +26,7 @@ let kFenetreNuits: Int = 14
 /// **heures depuis 00h** (0.0 → 6.0) pour rester indépendant d'une date
 /// calendaire spécifique. Sert à la fois à `Chart` (axe X numérique)
 /// et au calcul de la tendance moyenne (interpolation simple par index).
-struct PointCourbeNuit: Identifiable, Equatable, Sendable {
+nonisolated struct PointCourbeNuit: Identifiable, Equatable, Sendable {
     let id = UUID()
     let heure: Double
     let valeur: Double
@@ -37,7 +37,7 @@ struct PointCourbeNuit: Identifiable, Equatable, Sendable {
 }
 
 /// Catégorisation d'une nuit **valide** pour la répartition.
-enum CategorieNuit: Sendable {
+nonisolated enum CategorieNuit: Sendable {
     case stable
     case tendanceBasse
     case tendanceHaute
@@ -45,7 +45,7 @@ enum CategorieNuit: Sendable {
 
 /// Une nuit individuelle valide — sa série de points + sa catégorie +
 /// ses éventuels points hypos (< 70 mg/dL) à afficher en rouge.
-struct CourbeNuit: Identifiable, Sendable {
+nonisolated struct CourbeNuit: Identifiable, Sendable {
     let id = UUID()
     let categorie: CategorieNuit
     let points: [PointCourbeNuit]
@@ -62,11 +62,16 @@ struct CourbeNuit: Identifiable, Sendable {
 /// Raison textuelle d'exclusion d'une nuit — affichée en popover quand
 /// l'utilisateur tape un point gris dans la timeline. Format court qui
 /// rentre sur une ligne (`.caption .secondary`).
-enum RaisonExclusion: String, Sendable {
-    case iobResiduel = "IOB résiduel 1.2u"
-    case sportTardif = "Sport à 19h30"
-    case repasCopieux = "Repas copieux (85g vs moy. 45g)"
-    case cgmIncomplet = "CGM incomplet (62%)"
+nonisolated enum RaisonExclusion: String, Sendable, Equatable {
+    case iobResiduel = "IOB résiduel"
+    case sportTardif = "Sport tardif"
+    case repasCopieux = "Repas tardif copieux"
+    case cgmIncomplet = "Couverture CGM insuffisante"
+    case bolusCorrection = "Correction au coucher"
+    case chaotique = "Glycémie instable"
+    case modePause = "Mode pause"
+    case pasDeLente = "Lente non renseignée"
+    case dureeInsuffisante = "Fenêtre trop courte"
 }
 
 /// État visuel d'une nuit dans la timeline 14 jours.
@@ -77,7 +82,7 @@ enum RaisonExclusion: String, Sendable {
 /// fenêtre 02h-06h même si une correction a eu lieu à 23h), mais cette
 /// granularité ajouterait une couche de logique non-triviale sur le
 /// pipeline ML — repoussée volontairement à plus tard.
-enum EtatNuit: Sendable, Equatable {
+nonisolated enum EtatNuit: Sendable, Equatable {
     case valide(categorie: CategorieNuit)
     case exclue(raison: RaisonExclusion)
     case sansDonnees
@@ -101,7 +106,7 @@ enum EtatNuit: Sendable, Equatable {
     }
 }
 
-extension CategorieNuit: Equatable {}
+nonisolated extension CategorieNuit: Equatable {}
 
 /// Une cellule de la timeline 14 jours.
 ///
@@ -109,7 +114,7 @@ extension CategorieNuit: Equatable {}
 /// nuits qui précèdent un changement de dose récent : leur glycémie
 /// reflète l'ancien réglage et ne devrait pas être moyennée avec les
 /// nuits post-changement.
-struct NuitTimeline: Identifiable, Sendable {
+nonisolated struct NuitTimeline: Identifiable, Sendable {
     let id = UUID()
     let date: Date
     let etat: EtatNuit
@@ -121,7 +126,7 @@ struct NuitTimeline: Identifiable, Sendable {
 /// Un point glycémique daté — sert à la fois aux séries individuelles
 /// de `NightChartData.glucoseValues` et à la tendance moyenne calculée
 /// par l'extension `Array<NightChartData>.tendanceMoyenne`.
-struct GlucosePoint: Identifiable, Sendable, Hashable {
+nonisolated struct GlucosePoint: Identifiable, Sendable, Hashable {
     let id = UUID()
     let time: Date
     let value: Double
@@ -147,7 +152,7 @@ struct GlucosePoint: Identifiable, Sendable, Hashable {
 /// reste contextuelle (pré-injection), la zone 4 est exclue par
 /// principe (le foie libère du glucose au petit matin, indépendamment
 /// de la basale).
-enum NightZone: String, CaseIterable, Sendable {
+nonisolated enum NightZone: String, CaseIterable, Sendable {
     case preEndormissement
     case endormissement
     case nuitProfonde
@@ -215,7 +220,7 @@ enum NightZone: String, CaseIterable, Sendable {
 
 /// Caractéristique macro d'une portion de courbe glycémique — sert au
 /// libellé « Caractéristique » de la grille stats en mode zoom.
-enum CurveCharacteristic: String, Sendable {
+nonisolated enum CurveCharacteristic: String, Sendable {
     case stable        = "Stable"
     case gradualDrop   = "Descente graduelle"
     case steepDrop     = "Descente brutale"
@@ -228,7 +233,7 @@ enum CurveCharacteristic: String, Sendable {
 /// Définition d'une zone (avec ses bornes temporelles) + caractérisation
 /// + événements internes. Les champs `slope`/`characteristic`/`events`
 /// sont déjà calculés par le service : la vue se contente d'afficher.
-struct ZoneData: Identifiable, Sendable {
+nonisolated struct ZoneData: Identifiable, Sendable {
     let id = UUID()
     let zone: NightZone
     let timeRange: ClosedRange<Date>
@@ -240,7 +245,7 @@ struct ZoneData: Identifiable, Sendable {
 }
 
 /// Type d'événement ponctuel à annoter sur la courbe.
-enum EventType: Sendable {
+nonisolated enum EventType: Sendable {
     case hypo       // < 70 mg/dL — point rouge cerclé blanc
     case rapide     // injection rapide — point bleu cerclé blanc
     case resucrage  // glucides de correction — point vert cerclé blanc
@@ -251,7 +256,7 @@ enum EventType: Sendable {
 /// Un événement ponctuel — affiché sous forme de point (hypo / rapide /
 /// resucrage) ou de ligne verticale (lente). `detail` est le texte
 /// utilisé dans le tooltip au tap (« 💉 1.5u à 22h45 »).
-struct NightEvent: Identifiable, Sendable, Equatable {
+nonisolated struct NightEvent: Identifiable, Sendable, Equatable {
     let id = UUID()
     let type: EventType
     let time: Date
@@ -265,7 +270,7 @@ struct NightEvent: Identifiable, Sendable, Equatable {
 
 /// Statut global d'une nuit pour la pastille « Statut » de la grille
 /// stats sur la vue « Par nuit ».
-enum NightStatus: Sendable {
+nonisolated enum NightStatus: Sendable {
     case valid           // toutes zones analysables OK → vert
     case partiallyValid  // au moins une zone exploitable mais ≥ 1 zone exclue → ambre
     case excluded        // aucune zone exploitable → gris
@@ -275,7 +280,7 @@ enum NightStatus: Sendable {
 /// Snapshot complet d'une nuit prêt à alimenter le graphique d'analyse
 /// basale (vues « Toutes » et « Par nuit »). Toutes les valeurs sont
 /// pré-calculées par le service — la vue est purement présentationnelle.
-struct NightChartData: Identifiable, Sendable {
+nonisolated struct NightChartData: Identifiable, Sendable {
     let id = UUID()
     let date: Date
     let glucoseValues: [GlucosePoint]
@@ -288,6 +293,11 @@ struct NightChartData: Identifiable, Sendable {
     let overallStatus: NightStatus
     let slopeZone3: Double?
     let motifExclusion: String?
+
+    /// Nb d'épisodes hypo (zones 2+3) de la nuit — source unique des compteurs.
+    var hypoCount: Int = 0
+    /// Nb de resucrages avec rechute (hypo → nouvelle hypo) de la nuit.
+    var rechuteCount: Int = 0
 }
 
 extension Array where Element == NightChartData {
@@ -349,7 +359,7 @@ extension Array where Element == NightChartData {
 /// volontairement le même libellé « À revoir » côté carte pour ne pas
 /// suggérer une direction de correction — l'utilisateur ouvre le détail
 /// pour savoir quoi ajuster.
-enum VerdictBasale: Sendable, Equatable {
+nonisolated enum VerdictBasale: Sendable, Equatable {
 
     /// Profil glycémique nocturne stable, basale calibrée.
     case adaptee
@@ -370,7 +380,7 @@ enum VerdictBasale: Sendable, Equatable {
 /// verdict, métriques, courbes et texte LLM pour la fenêtre 14 nuits
 /// courante. La forme est volontairement plate : toutes les valeurs
 /// sont déjà calculées par le service (pas de logique dans la vue).
-struct AnalyseBasaleDetail: Identifiable, Sendable {
+nonisolated struct AnalyseBasaleDetail: Identifiable, Sendable {
     let id = UUID()
 
     let verdict: VerdictBasale
@@ -413,6 +423,17 @@ struct AnalyseBasaleDetail: Identifiable, Sendable {
 
     // MARK: Texte LLM
     let resumeIA: String?
+
+    // MARK: Historique de dose réel (injecté par le calculateur)
+    /// Historique de dose calculé depuis les vraies injections lente du hub.
+    /// `nil` pour les mocks de preview → `doseHistory` retombe sur sa
+    /// génération simulée. Le service réel le renseigne via `CalculAnalyseBasale`.
+    var doseHistoriqueReel: [DoseChange]? = nil
+
+    /// `true` quand la fenêtre penchait « à revoir » mais que les nuits récentes
+    /// sont revenues à stable (ex. reprise de sport). Pilote l'état « en
+    /// amélioration » de la carte verdict.
+    var enAmelioration: Bool = false
 }
 
 // MARK: - Service mock
@@ -1449,7 +1470,10 @@ enum AnalyseBasaleServiceMock {
 
     // MARK: - Textes LLM mockés
 
-    private static func texteIATropHaute(nuitsValides: Int) -> String? {
+    // `nonisolated` : passés comme valeur `(Int) -> String?` à `construire`
+    // (`resumeBuilder:`), une méthode MainActor-isolée ne peut pas être
+    // convertie en closure simple non-isolée sans ce marquage.
+    private nonisolated static func texteIATropHaute(nuitsValides: Int) -> String? {
         """
         Sur les \(nuitsValides) nuits valides analysées (sur 14 jours), une \
         tendance à la baisse a été observée avec une pente moyenne de \
@@ -1460,7 +1484,7 @@ enum AnalyseBasaleServiceMock {
         """
     }
 
-    private static func texteIATropBasse(nuitsValides: Int) -> String? {
+    private nonisolated static func texteIATropBasse(nuitsValides: Int) -> String? {
         """
         Sur les \(nuitsValides) nuits valides analysées (sur 14 jours), une \
         tendance à la hausse a été observée avec une pente moyenne de \
@@ -1470,7 +1494,7 @@ enum AnalyseBasaleServiceMock {
         """
     }
 
-    private static func texteIAAdaptee(nuitsValides: Int) -> String? {
+    private nonisolated static func texteIAAdaptee(nuitsValides: Int) -> String? {
         """
         Sur les \(nuitsValides) nuits valides analysées (sur 14 jours), la \
         glycémie est restée stable avec une pente moyenne proche de zéro. \
@@ -1527,6 +1551,10 @@ struct BasalVerdict: Sendable {
     let currentDose: Double
     let doseChangedDate: Date?
     let nightsNeeded: Int        // = max(0, 3 - validNights)
+    /// La situation était « à revoir » mais s'améliore sur les nuits récentes.
+    var enAmelioration: Bool = false
+    /// Nb d'hypos nocturnes sur la fenêtre — mis en avant si > 0.
+    var hypoCount: Int = 0
 }
 
 /// Répartition de la qualité des zones analysées (zones 2 + 3 — seules
@@ -1543,7 +1571,7 @@ struct BasalDistribution: Sendable {
 
 /// Une entrée de l'historique de dose. `endDate == nil` ⇔ dose
 /// courante.
-struct DoseChange: Identifiable, Sendable {
+nonisolated struct DoseChange: Identifiable, Sendable {
     let id = UUID()
     let dose: Double
     let startDate: Date
@@ -1570,12 +1598,16 @@ extension AnalyseBasaleDetail {
             return .sufficient
         }()
 
+        // Tendance dérivée du **verdict** (récence-aware), pas de la pente brute
+        // moyennée sur toute la fenêtre — sinon une vieille nuit garderait
+        // l'alerte alors que le récent est stable.
         let trend: BasalTrend? = {
             guard state == .sufficient else { return nil }
-            switch penteMoyenne {
-            case ..<(-0.3):  return .descending
-            case 0.3...:     return .ascending
-            default:         return .stable
+            switch verdict {
+            case .tropHaute:              return .descending
+            case .tropBasse:              return .ascending
+            case .adaptee:                return .stable
+            case .donneesInsuffisantes:   return nil
             }
         }()
 
@@ -1588,7 +1620,9 @@ extension AnalyseBasaleDetail {
             totalNights: kFenetreNuits,
             currentDose: doseActuelle,
             doseChangedDate: changementDoseRecent,
-            nightsNeeded: nightsNeeded
+            nightsNeeded: nightsNeeded,
+            enAmelioration: state == .sufficient ? enAmelioration : false,
+            hypoCount: hyposNocturnes
         )
     }
 
@@ -1626,20 +1660,20 @@ extension AnalyseBasaleDetail {
                 if !zd.isAnalyzed {
                     excluded += 1
                 } else if let s = zd.slope {
-                    if s < -1 { descending += 1 }
-                    else if s > 1 { ascending += 1 }
-                    else { stable += 1 }
+                    // Classement sur la **dérive** (pente × durée), aligné sur le verdict.
+                    let heures = zd.timeRange.upperBound.timeIntervalSince(zd.timeRange.lowerBound) / 3600
+                    switch CalculAnalyseBasale.categorie(deriveMgDl: s * heures) {
+                    case .tendanceBasse:  descending += 1
+                    case .tendanceHaute:  ascending += 1
+                    case .stable:         stable += 1
+                    }
                 } else {
                     stable += 1
                 }
             }
-            for ev in night.events {
-                switch ev.type {
-                case .hypo:       hypos += 1
-                case .resucrage:  resucrages += 1
-                default:          break
-                }
-            }
+            // Compteurs par nuit = source unique (mêmes chiffres que le verdict).
+            hypos += night.hypoCount
+            resucrages += night.rechuteCount
             sommeReveil += night.wakeUpGlucose
         }
         let moyReveil = nuitsFiltrees.isEmpty ? 0 : sommeReveil / Double(nuitsFiltrees.count)
@@ -1663,6 +1697,10 @@ extension AnalyseBasaleDetail {
     /// pilote le récap « Aucun changement depuis X jours » de
     /// `DoseHistoryCard`.
     var doseHistory: [DoseChange] {
+        // Donnée réelle injectée par le calculateur si présente ; sinon la
+        // génération simulée ci-dessous (previews).
+        if let reel = doseHistoriqueReel { return reel }
+
         let cal = Calendar.current
         let now = Date.now
         func date(_ daysAgo: Int) -> Date {
