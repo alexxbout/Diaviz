@@ -74,7 +74,7 @@ struct PillsCoucher: View {
         }
         .foregroundStyle(item.couleur.opacity(0.45 + 0.55 * proximite))
         .frame(width: largeurPill, height: Self.hauteurPill)
-        .glassEffect(.clear, in: Capsule())
+        .glassEffect(.regular, in: Capsule())
         .contentShape(Capsule())
         .accessibilityAddTraits(item.id == selection ? [.isButton, .isSelected] : .isButton)
         .accessibilityLabel(item.titre)
