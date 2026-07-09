@@ -277,6 +277,37 @@ nonisolated enum NightStatus: Sendable {
     case noData          // pas de capteur cette nuit → gris (avec libellé spécifique)
 }
 
+/// Taxonomie des épisodes hypo d'une nuit — calculée sur la **fenêtre de
+/// sommeil complète** (endormissement → fin de nuit, zone 4 incluse : une
+/// hypo à 4h45 reste une hypo, même si la zone dawn est exclue de la dérive).
+///
+/// Quatre patterns distincts, quatre signaux :
+///   - **prolongée** : un épisode continu sous le seuil ≥ 30 min (ne remonte pas)
+///   - **en série** : épisodes rapprochés **sans repas entre eux** — la glycémie
+///     rase le seuil (remonte à peine puis retombe)
+///   - **rechute** : resucrage loggé → remontée → nouvelle hypo < 60 min
+///     (sous-correction ; n'existe que si un repas est loggé)
+///   - **spontanée / resucrée** : l'épisode est-il remonté seul (aucun repas
+///     loggé → contre-régulation, fin d'action ou compression capteur) ou
+///     après resucrage ?
+nonisolated struct BilanHyposNuit: Sendable, Equatable {
+    /// Total d'épisodes hypo (points contigus < 70) sur la fenêtre de sommeil.
+    var episodes: Int = 0
+    /// Épisodes dont le point bas tombe après l'endormissement (zones 3+4) —
+    /// seuls déclencheurs du verdict basale (zone 2 = plutôt dîner/bolus).
+    var episodesProfonds: Int = 0
+    /// Épisodes restés sous le seuil en continu ≥ `dureeProlongeeMin`.
+    var prolongees: Int = 0
+    /// Épisodes appartenant à un cluster (< 60 min d'écart, sans repas entre).
+    var enSerie: Int = 0
+    /// Resucrages loggés suivis d'une nouvelle hypo < 60 min.
+    var rechutes: Int = 0
+    /// Épisodes avec repas loggé pendant l'hypo (resucrage).
+    var resucrees: Int = 0
+    /// Épisodes remontés sans resucrage enregistré (remontée spontanée).
+    var spontanees: Int = 0
+}
+
 /// Snapshot complet d'une nuit prêt à alimenter le graphique d'analyse
 /// basale (vues « Toutes » et « Par nuit »). Toutes les valeurs sont
 /// pré-calculées par le service — la vue est purement présentationnelle.
@@ -294,10 +325,14 @@ nonisolated struct NightChartData: Identifiable, Sendable {
     let slopeZone3: Double?
     let motifExclusion: String?
 
-    /// Nb d'épisodes hypo (zones 2+3) de la nuit — source unique des compteurs.
+    /// Nb d'épisodes hypo (fenêtre de sommeil complète) — source unique des
+    /// compteurs. Toujours égal à `bilanHypos.episodes`.
     var hypoCount: Int = 0
-    /// Nb de resucrages avec rechute (hypo → nouvelle hypo) de la nuit.
+    /// Nb de resucrages avec rechute — toujours égal à `bilanHypos.rechutes`.
     var rechuteCount: Int = 0
+    /// Taxonomie détaillée des épisodes (série / prolongée / spontanée…) —
+    /// consommée par la carte « Verdict de la nuit ».
+    var bilanHypos: BilanHyposNuit = BilanHyposNuit()
 }
 
 extension Array where Element == NightChartData {

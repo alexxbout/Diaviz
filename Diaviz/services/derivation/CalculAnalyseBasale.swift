@@ -46,9 +46,16 @@ nonisolated struct ConfigBasale: Sendable {
     /// **stable** — aligné sur la règle clinique ±30 mg/dL sur la nuit à jeun
     /// (on classe sur la dérive totale, pas sur une pente ±1 mg/dL/h trop serrée).
     var seuilDeriveStable: Double = 30
-    /// Fenêtre (min) entre deux hypos rapprochées pour parler de resucrage
-    /// **avec rechute** (resucrage suivi d'une nouvelle hypo).
+    /// Fenêtre (min) entre deux hypos rapprochées : avec repas loggé entre =
+    /// **rechute** (resucrage insuffisant) ; sans repas = **hypos en série**
+    /// (glycémie qui rase le seuil).
     var fenetreRechuteMin: Double = 60
+    /// Fenêtre (min) après le début d'une hypo pendant laquelle un repas
+    /// loggé compte comme **resucrage** de cet épisode.
+    var fenetreResucrageMin: Double = 20
+    /// Durée (min) continue sous le seuil au-delà de laquelle une hypo est
+    /// dite **prolongée** (ne remonte pas).
+    var dureeProlongeeMin: Double = 30
     /// Nombre de dernières nuits valides qui pilotent le verdict de tendance
     /// (récence — évite qu'une alerte reste figée quand la situation s'améliore).
     var nuitsRecence: Int = 5
@@ -155,9 +162,8 @@ nonisolated enum CalculAnalyseBasale {
         let categorie: CategorieNuit? // nil si non valide
         let slopeZone3: Double?       // pente retenue (nil si zone 3 exclue)
         let deriveZone3: Double?      // dérive Δ mg/dL retenue (nil si zone 3 exclue)
-        let hypoCount: Int            // épisodes hypo zones 2+3 (métrique unifiée)
-        let rechuteCount: Int         // resucrages avec rechute (hypo → nouvelle hypo)
-        let aHypoZone3: Bool          // hypo en zone 3 → trigger « tendance descendante »
+        let bilan: BilanHyposNuit     // taxonomie hypos, fenêtre de sommeil complète
+        let aHypoProfonde: Bool       // hypo zones 3+4 → trigger « tendance descendante »
         let reveil: Int?              // glycémie au réveil (mg/dL)
         let chart: NightChartData?    // nil si pas de CGM exploitable
     }
@@ -197,8 +203,8 @@ nonisolated enum CalculAnalyseBasale {
                 dateNuit: dateSoir,
                 etat: estCourante ? .enCours : .sansDonnees,
                 categorie: nil, slopeZone3: nil, deriveZone3: nil,
-                hypoCount: 0, rechuteCount: 0,
-                aHypoZone3: false, reveil: nil, chart: nil
+                bilan: BilanHyposNuit(),
+                aHypoProfonde: false, reveil: nil, chart: nil
             )
         }
 
@@ -208,15 +214,15 @@ nonisolated enum CalculAnalyseBasale {
                 dateNuit: dateSoir, lente: nil, doseLente: 0,
                 debutGrille: debutGrille, cgm: cgmFenetre,
                 zones: [], events: [], statut: .excluded, slopeZone3: nil,
-                hypoCount: 0, rechuteCount: 0,
+                bilan: BilanHyposNuit(),
                 motif: RaisonExclusion.pasDeLente.rawValue
             )
             return NuitAnalysee(
                 dateNuit: dateSoir,
                 etat: estCourante ? .enCours : .exclue(raison: .pasDeLente),
                 categorie: nil, slopeZone3: nil, deriveZone3: nil,
-                hypoCount: 0, rechuteCount: 0,
-                aHypoZone3: false, reveil: cgmFenetre.last?.valeur, chart: chart
+                bilan: BilanHyposNuit(),
+                aHypoProfonde: false, reveil: cgmFenetre.last?.valeur, chart: chart
             )
         }
 
@@ -235,14 +241,19 @@ nonisolated enum CalculAnalyseBasale {
             return chevauche && p.debut <= dawn && (p.fin ?? finGrille) >= L
         }
 
-        // Hypos / rechutes sur la fenêtre de sommeil (zones 2+3) — source unique.
-        let fenetreSommeil = z2.lowerBound...z3.upperBound
+        // Hypos sur la fenêtre de sommeil **complète** (endormissement → fin de
+        // nuit, zone 4 incluse : une hypo à 4h45 reste une hypo, seule la
+        // *dérive* de la zone dawn est exclue du calcul) — source unique.
+        let fenetreSommeil = z2.lowerBound...z4.upperBound
         let episodes = episodesHypoDetail(
             cgmFenetre.filter { fenetreSommeil.contains($0.date) }, seuil: config.seuilHypo
         )
-        let hypoCount = episodes.count
+        let bilan = bilanHypos(
+            episodes: episodes, repas: entrees.repas,
+            finEndormissement: z2.upperBound, config: config
+        )
         let aHypoZone3 = episodes.contains { z3.contains($0.bas) }
-        let rechuteCount = compteRechutes(episodes, fenetreMin: config.fenetreRechuteMin)
+        let aHypoProfonde = bilan.episodesProfonds > 0
 
         // Évaluation de la zone 3 (cœur du calcul) — classification sur la dérive.
         let pointsZ3 = cgmFenetre.filter { z3.contains($0.date) }
@@ -274,10 +285,10 @@ nonisolated enum CalculAnalyseBasale {
             etat = .enCours; categorie = nil
             statut = evalZ3.analysee ? .valid : .excluded
         } else if let cat = evalZ3.categorie {
-            // Hypo en zone 3 → la nuit ne compte jamais « stable » : une courbe
-            // globalement plate malgré une hypo doit sa stabilité au resucrage,
-            // pas à la basale. Le danger bas prime sur la dérive.
-            let catEffective: CategorieNuit = aHypoZone3 ? .tendanceBasse : cat
+            // Hypo profonde (zones 3+4) → la nuit ne compte jamais « stable » :
+            // une courbe plate malgré une hypo doit sa stabilité au resucrage
+            // (ou à la contre-régulation), pas à la basale. Le danger bas prime.
+            let catEffective: CategorieNuit = aHypoProfonde ? .tendanceBasse : cat
             etat = .valide(categorie: catEffective); categorie = catEffective
             statut = evalZ2.analysee ? .valid : .partiallyValid
         } else {
@@ -290,7 +301,7 @@ nonisolated enum CalculAnalyseBasale {
             dateNuit: dateSoir, lente: lente, doseLente: lente.dose,
             debutGrille: debutGrille, cgm: cgmFenetre,
             zones: zonesData, events: events, statut: statut,
-            slopeZone3: evalZ3.slope, hypoCount: hypoCount, rechuteCount: rechuteCount,
+            slopeZone3: evalZ3.slope, bilan: bilan,
             motif: evalZ3.categorie == nil ? (evalZ3.raison?.rawValue) : nil
         )
 
@@ -298,7 +309,7 @@ nonisolated enum CalculAnalyseBasale {
             dateNuit: dateSoir, etat: etat, categorie: categorie,
             slopeZone3: evalZ3.categorie != nil ? evalZ3.slope : nil,
             deriveZone3: evalZ3.categorie != nil ? evalZ3.derive : nil,
-            hypoCount: hypoCount, rechuteCount: rechuteCount, aHypoZone3: aHypoZone3,
+            bilan: bilan, aHypoProfonde: aHypoProfonde,
             reveil: reveil, chart: chart
         )
     }
@@ -412,8 +423,8 @@ nonisolated enum CalculAnalyseBasale {
             if case .enCours = n.etat { return false }
             return !avantChangement(n.dateNuit)
         }
-        let hypos = fenetreComparable.reduce(0) { $0 + $1.hypoCount }
-        let resucrages = fenetreComparable.reduce(0) { $0 + $1.rechuteCount }
+        let hypos = fenetreComparable.reduce(0) { $0 + $1.bilan.episodes }
+        let resucrages = fenetreComparable.reduce(0) { $0 + $1.bilan.rechutes }
         let reveils = valides.compactMap(\.reveil)
         let reveilMoyen = reveils.isEmpty ? 0 : reveils.reduce(0, +) / reveils.count
 
@@ -463,7 +474,7 @@ nonisolated enum CalculAnalyseBasale {
         guard valides.count >= 3 else { return (.donneesInsuffisantes, false) }
 
         // Signal descendant immédiat : hypo zone 3 récente ou resucrage avec rechute.
-        if recentes.contains(where: { $0.aHypoZone3 || $0.rechuteCount > 0 }) {
+        if recentes.contains(where: { $0.aHypoProfonde || $0.bilan.rechutes > 0 }) {
             return (.tropHaute, false)
         }
 
@@ -627,8 +638,7 @@ private nonisolated extension CalculAnalyseBasale {
         events: [NightEvent],
         statut: NightStatus,
         slopeZone3: Double?,
-        hypoCount: Int,
-        rechuteCount: Int,
+        bilan: BilanHyposNuit,
         motif: String?
     ) -> NightChartData {
         let glucose = echantillonnerGrille(cgm: cgm, debut: debutGrille)
@@ -649,8 +659,9 @@ private nonisolated extension CalculAnalyseBasale {
             slopeZone3: slopeZone3,
             motifExclusion: motif
         )
-        chart.hypoCount = hypoCount
-        chart.rechuteCount = rechuteCount
+        chart.hypoCount = bilan.episodes
+        chart.rechuteCount = bilan.rechutes
+        chart.bilanHypos = bilan
         return chart
     }
 
@@ -795,17 +806,50 @@ private nonisolated extension CalculAnalyseBasale {
         return resultat
     }
 
-    /// Compte les **resucrages avec rechute** : un épisode hypo qui redescend en
-    /// hypo peu après (le resucrage a fonctionné puis rechute). Nombre de paires
-    /// d'épisodes consécutifs séparés de moins de `fenetreMin` minutes.
-    static func compteRechutes(_ episodes: [EpisodeHypo], fenetreMin: Double) -> Int {
-        guard episodes.count >= 2 else { return 0 }
-        var n = 0
-        for i in 1..<episodes.count {
-            let gapMin = episodes[i].debut.timeIntervalSince(episodes[i - 1].fin) / 60
-            if gapMin >= 0 && gapMin < fenetreMin { n += 1 }
+    /// Taxonomie des épisodes hypo d'une nuit (cf. doc `BilanHyposNuit`).
+    /// La distinction resucrage / remontée spontanée repose sur le log repas :
+    /// pas de repas loggé pendant l'épisode → remontée spontanée par principe
+    /// (contre-régulation, fin d'action — ou compression capteur, V2).
+    static func bilanHypos(
+        episodes: [EpisodeHypo],
+        repas: [(heure: Date, glucides: Int)],
+        finEndormissement: Date,
+        config: ConfigBasale
+    ) -> BilanHyposNuit {
+        var bilan = BilanHyposNuit()
+        bilan.episodes = episodes.count
+        guard !episodes.isEmpty else { return bilan }
+
+        // Resucrage = repas loggé pendant l'épisode (fenêtre élargie à
+        // `fenetreResucrageMin` après le début pour les hypos très courtes,
+        // corrigées avant que le CGM ne remonte).
+        func estResucre(_ e: EpisodeHypo) -> Bool {
+            let borne = max(e.fin, e.debut.addingTimeInterval(config.fenetreResucrageMin * 60))
+            return repas.contains { $0.heure >= e.debut && $0.heure <= borne }
         }
-        return n
+
+        var indicesEnSerie = Set<Int>()
+        for (i, e) in episodes.enumerated() {
+            if e.bas > finEndormissement { bilan.episodesProfonds += 1 }
+            if e.fin.timeIntervalSince(e.debut) >= config.dureeProlongeeMin * 60 {
+                bilan.prolongees += 1
+            }
+            if estResucre(e) { bilan.resucrees += 1 } else { bilan.spontanees += 1 }
+
+            guard i > 0 else { continue }
+            let gapMin = e.debut.timeIntervalSince(episodes[i - 1].fin) / 60
+            guard gapMin >= 0 && gapMin < config.fenetreRechuteMin else { continue }
+            if estResucre(episodes[i - 1]) {
+                // Resucrage → remontée → nouvelle hypo : rechute.
+                bilan.rechutes += 1
+            } else {
+                // Pas de repas entre : la glycémie rase le seuil — série.
+                indicesEnSerie.insert(i - 1)
+                indicesEnSerie.insert(i)
+            }
+        }
+        bilan.enSerie = indicesEnSerie.count
+        return bilan
     }
 
     /// Points bas des épisodes hypo — pour les pills du graphique.
