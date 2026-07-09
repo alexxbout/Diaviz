@@ -80,7 +80,7 @@ struct CarteVerdictBasale: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
-                    Text("Pente moy. : \(libellePente)")
+                    Text("Dérive moy. : \(libelleDerive)")
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
@@ -222,10 +222,11 @@ struct CarteVerdictBasale: View {
 
     // MARK: - Formatage
 
-    private var libellePente: String {
-        guard let s = verdict.slope else { return "—" }
-        let signe = s >= 0 ? "+" : ""
-        return signe + String(format: "%.1f", s) + " mg/dL/h"
+    /// Dérive moyenne par nuit — l'unité de décision (comparable au seuil
+    /// ±30 mg/dL), pas la pente horaire qui ne parle à personne.
+    private var libelleDerive: String {
+        guard let d = verdict.derive else { return "—" }
+        return String(format: "%+d", Int(d.rounded())) + " mg/dL / nuit"
     }
 
     private func libelleDose(_ d: Double) -> String {

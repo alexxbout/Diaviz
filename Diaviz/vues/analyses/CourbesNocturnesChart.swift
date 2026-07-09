@@ -523,6 +523,8 @@ private struct VueGraphiqueParNuit: View {
                 .padding(.trailing, -16)
             Divider()
                 .padding(.top, 2)
+            CarteVerdictNuit(nuit: nuit)
+            Divider()
             DetailZonesNuit(nuit: nuit)
         }
         .onAppear {
@@ -826,6 +828,259 @@ private struct VueGraphiqueParNuit: View {
 
 }
 
+// MARK: - Carte verdict de la nuit (sous le graphe « Par nuit »)
+
+/// Verdict factuel de la nuit sélectionnée — badge de catégorie, **dérive
+/// nette** de la nuit profonde en mg/dL (l'unité de décision, comparable au
+/// seuil ±30) et jauge de position dans la zone de stabilité. Répond au
+/// « qu'a conclu l'app sur cette nuit ? » sans laisser l'utilisateur
+/// interpréter une pente horaire.
+private struct CarteVerdictNuit: View {
+
+    let nuit: NightChartData
+
+    /// Seuil de stabilité (± mg/dL) — même source que le calculateur.
+    private let seuil = CalculAnalyseBasale.seuilDeriveStableParDefaut
+    /// Demi-étendue de la jauge (± mg/dL). Le point est clampé aux bords ;
+    /// la valeur affichée reste la vraie dérive.
+    private let etendue: Double = 60
+    /// Nb de nuits valides pilotant le verdict global (pied de carte).
+    private let nuitsRecence = ConfigBasale().nuitsRecence
+
+    var body: some View {
+        if let z3 = zone3 {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Verdict de la nuit")
+                    .font(.subheadline.bold())
+                    .foregroundStyle(.secondary)
+                    .accessibilityAddTraits(.isHeader)
+                    .padding(.bottom, 12)
+
+                if z3.isAnalyzed, let s = z3.slope {
+                    verdictAnalyse(z3, slope: s)
+                } else {
+                    verdictExclu(z3)
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(libelleAccessible(z3))
+        }
+    }
+
+    // MARK: Sous-vues
+
+    /// Variante nominale : badge + dérive en gros, jauge, détail, poids.
+    @ViewBuilder
+    private func verdictAnalyse(_ z: ZoneData, slope: Double) -> some View {
+        let derive = slope * heures(z)
+        let categorie = CalculAnalyseBasale.categorie(deriveMgDl: derive, seuil: seuil)
+
+        HStack(alignment: .center) {
+            badgeCategorie(categorie)
+            Spacer()
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(deriveFmt(derive))
+                    .font(.title3.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(categorie == .stable ? Color.primary : couleur(categorie))
+                Text("mg/dL")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.bottom, 14)
+
+        jauge(derive: derive, couleur: couleur(categorie))
+            .padding(.bottom, 14)
+
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Nuit profonde \(plage(z.timeRange)) · \(deriveFmt(derive)) mg/dL en \(dureeFmt(z))")
+            Text(phrasePosition(derive))
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .padding(.bottom, 10)
+
+        piedPoids(texte: "Compte comme 1 nuit \(libelle(categorie).lowercased()) sur les \(nuitsRecence) retenues pour le verdict")
+    }
+
+    /// Variante exclue : badge + motif, pas de jauge (aucun signal retenu).
+    @ViewBuilder
+    private func verdictExclu(_ z: ZoneData) -> some View {
+        HStack(alignment: .top) {
+            badge(texte: "Exclue", systemImage: "xmark.circle.fill", couleur: .orange)
+            Spacer()
+            if let raison = z.exclusionReason {
+                Text(raison)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.trailing)
+            }
+        }
+        .padding(.bottom, 10)
+
+        piedPoids(texte: "Ne compte pas dans le verdict — nuit profonde exclue")
+    }
+
+    /// Jauge horizontale : bande verte = zone stable ±seuil, trait central
+    /// = 0, point = dérive de la nuit (clampé aux bords de l'étendue).
+    private func jauge(derive: Double, couleur: Color) -> some View {
+        VStack(spacing: 5) {
+            GeometryReader { geo in
+                let w = geo.size.width
+                let clampee = min(max(derive, -etendue), etendue)
+                let posX = w * (clampee + etendue) / (etendue * 2)
+                let largeurBande = w * seuil / etendue
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color(.tertiarySystemFill))
+                        .frame(height: 8)
+                    Capsule()
+                        .fill(Color.green.opacity(0.28))
+                        .frame(width: largeurBande, height: 8)
+                        .offset(x: (w - largeurBande) / 2)
+                    Rectangle()
+                        .fill(.tertiary)
+                        .frame(width: 1, height: 14)
+                        .offset(x: w / 2)
+                    Circle()
+                        .fill(couleur)
+                        .frame(width: 15, height: 15)
+                        .overlay(
+                            Circle().stroke(Color(.secondarySystemGroupedBackground), lineWidth: 2)
+                        )
+                        .offset(x: posX - 7.5)
+                }
+                .frame(height: 15)
+            }
+            .frame(height: 15)
+
+            HStack {
+                Text("−\(Int(etendue))")
+                Spacer()
+                Text("−\(Int(seuil))")
+                Spacer()
+                Text("0")
+                Spacer()
+                Text("+\(Int(seuil))")
+                Spacer()
+                Text("+\(Int(etendue))")
+            }
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+            .monospacedDigit()
+        }
+    }
+
+    private func badgeCategorie(_ c: CategorieNuit) -> some View {
+        let (icone, teinte): (String, Color) = switch c {
+        case .stable:        ("checkmark.circle.fill", .green)
+        case .tendanceHaute: ("arrow.up.right", .orange)
+        case .tendanceBasse: ("arrow.down.right", .red)
+        }
+        return badge(texte: libelle(c), systemImage: icone, couleur: teinte)
+    }
+
+    private func badge(texte: String, systemImage: String, couleur: Color) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: systemImage)
+                .font(.caption.weight(.semibold))
+            Text(texte)
+                .font(.footnote.weight(.medium))
+        }
+        .foregroundStyle(couleur)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(couleur.opacity(0.13), in: Capsule())
+    }
+
+    private func piedPoids(texte: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "scalemass")
+                .font(.caption2)
+            Text(texte)
+                .font(.caption2)
+        }
+        .foregroundStyle(.tertiary)
+    }
+
+    // MARK: Logique d'affichage
+
+    private var zone3: ZoneData? {
+        nuit.zones.first(where: { $0.zone == .nuitProfonde })
+    }
+
+    private func couleur(_ c: CategorieNuit) -> Color {
+        switch c {
+        case .stable:        return .green
+        case .tendanceHaute: return .orange
+        case .tendanceBasse: return .red
+        }
+    }
+
+    private func libelle(_ c: CategorieNuit) -> String {
+        switch c {
+        case .stable:        return "Stable"
+        case .tendanceHaute: return "Ascendante"
+        case .tendanceBasse: return "Descendante"
+        }
+    }
+
+    /// Phrase de position vs le seuil — explicite les cas limites (« à
+    /// 3 mg/dL du seuil ») pour qu'une nuit borderline ne se lise pas
+    /// comme une nuit franchement déviante, et inversement.
+    private func phrasePosition(_ derive: Double) -> String {
+        let absD = abs(derive)
+        let seuilTxt = "±\(Int(seuil))"
+        if absD <= seuil {
+            let marge = seuil - absD
+            if marge <= 10 {
+                return "À \(Int(marge.rounded())) mg/dL du seuil (\(seuilTxt)) — limite, mais stable"
+            }
+            return "Bien dans la zone de stabilité (\(seuilTxt))"
+        }
+        let depassement = absD - seuil
+        let sens = derive > 0 ? "au-dessus du" : "sous le"
+        if depassement <= 15 {
+            return "Juste \(sens) seuil (\(seuilTxt))"
+        }
+        return "Nettement \(sens) seuil (\(seuilTxt))"
+    }
+
+    // MARK: Formatage
+
+    private func heures(_ z: ZoneData) -> Double {
+        z.timeRange.upperBound.timeIntervalSince(z.timeRange.lowerBound) / 3600
+    }
+
+    private func dureeFmt(_ z: ZoneData) -> String {
+        let mins = Int(z.timeRange.upperBound.timeIntervalSince(z.timeRange.lowerBound) / 60)
+        return "\(mins / 60) h \(String(format: "%02d", mins % 60))"
+    }
+
+    private func deriveFmt(_ d: Double) -> String {
+        String(format: "%+d", Int(d.rounded()))
+    }
+
+    private func plage(_ range: ClosedRange<Date>) -> String {
+        "\(hhmm(range.lowerBound))–\(hhmm(range.upperBound))"
+    }
+
+    private func hhmm(_ date: Date) -> String {
+        let c = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return String(format: "%02dh%02d", c.hour ?? 0, c.minute ?? 0)
+    }
+
+    private func libelleAccessible(_ z: ZoneData) -> String {
+        guard z.isAnalyzed, let s = z.slope else {
+            return "Verdict de la nuit : exclue\(z.exclusionReason.map { ", \($0)" } ?? "")."
+        }
+        let derive = s * heures(z)
+        let categorie = CalculAnalyseBasale.categorie(deriveMgDl: derive, seuil: seuil)
+        return "Verdict de la nuit : \(libelle(categorie).lowercased()), dérive \(deriveFmt(derive)) milligrammes par décilitre en \(dureeFmt(z)). \(phrasePosition(derive))."
+    }
+}
+
 // MARK: - Détail des zones de la nuit (sous le graphe « Par nuit »)
 
 /// Décompose la nuit en ses 4 zones et explicite, pour chacune, si elle
@@ -883,15 +1138,13 @@ private struct DetailZonesNuit: View {
         .accessibilityLabel(libelleAccessible(z))
     }
 
-    /// Pastille de statut à droite — contexte / analysée / exclue, et la
-    /// pente signée pour la nuit profonde.
+    /// Pastille de statut à droite — contexte / analysée / exclue. Le
+    /// chiffre de dérive de la nuit profonde vit dans `CarteVerdictNuit`
+    /// (pas de doublon ici).
     @ViewBuilder
     private func statut(_ z: ZoneData) -> some View {
         if z.zone == .preEndormissement || z.zone == .dawnPhenomenon {
             badge(systemImage: "circle.dashed", texte: "Contexte", couleur: .secondary)
-        } else if z.zone == .nuitProfonde, z.isAnalyzed, let s = z.slope {
-            let heures = z.timeRange.upperBound.timeIntervalSince(z.timeRange.lowerBound) / 3600
-            badgePente(slope: s, categorie: CalculAnalyseBasale.categorie(deriveMgDl: s * heures))
         } else if z.isAnalyzed {
             badge(systemImage: "checkmark.circle.fill", texte: "Analysée", couleur: .green)
         } else {
@@ -905,25 +1158,6 @@ private struct DetailZonesNuit: View {
                 }
             }
         }
-    }
-
-    /// Pente nuit profonde : valeur signée + flèche + couleur de tendance
-    /// (descendante = ambre, ascendante = rouge, stable = vert).
-    private func badgePente(slope: Double, categorie: CategorieNuit) -> some View {
-        let couleur: Color
-        let fleche: String
-        switch categorie {
-        case .tendanceBasse:  couleur = .red;    fleche = "arrow.down.right"
-        case .tendanceHaute:  couleur = .orange; fleche = "arrow.up.right"
-        case .stable:         couleur = .green;  fleche = "arrow.right"
-        }
-        return HStack(spacing: 4) {
-            Image(systemName: fleche)
-            Text(penteFmt(slope) + " mg/dL/h")
-                .monospacedDigit()
-        }
-        .font(.caption.weight(.semibold))
-        .foregroundStyle(couleur)
     }
 
     private func badge(systemImage: String, texte: String, couleur: Color) -> some View {
@@ -946,16 +1180,10 @@ private struct DetailZonesNuit: View {
         return String(format: "%02dh%02d", c.hour ?? 0, c.minute ?? 0)
     }
 
-    private func penteFmt(_ s: Double) -> String {
-        String(format: "%+.1f", s).replacingOccurrences(of: ".", with: ",")
-    }
-
     private func libelleAccessible(_ z: ZoneData) -> String {
         let base = "\(z.zone.label), \(plage(z.timeRange))."
         if z.zone == .preEndormissement || z.zone == .dawnPhenomenon {
             return base + " Contexte, hors calcul."
-        } else if z.zone == .nuitProfonde, z.isAnalyzed, let s = z.slope {
-            return base + " Analysée, pente \(penteFmt(s)) milligrammes par décilitre par heure."
         } else if z.isAnalyzed {
             return base + " Analysée."
         } else {

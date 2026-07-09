@@ -434,6 +434,12 @@ nonisolated struct AnalyseBasaleDetail: Identifiable, Sendable {
     /// sont revenues à stable (ex. reprise de sport). Pilote l'état « en
     /// amélioration » de la carte verdict.
     var enAmelioration: Bool = false
+
+    /// Dérive moyenne (Δ mg/dL par nuit) des nuits récentes — l'unité de
+    /// décision affichée à l'utilisateur (comparable au seuil ±30), là où
+    /// `penteMoyenne` reste horaire. Renseignée par `CalculAnalyseBasale` ;
+    /// approximée par les mocks.
+    var deriveMoyenne: Double = 0
 }
 
 // MARK: - Service mock
@@ -807,7 +813,7 @@ enum AnalyseBasaleServiceMock {
             outliersBasse: outliersBasse
         )
 
-        return AnalyseBasaleDetail(
+        var detail = AnalyseBasaleDetail(
             verdict: verdict,
             doseActuelle: doseActuelle,
             changementDoseRecent: changementDoseRecent,
@@ -826,6 +832,9 @@ enum AnalyseBasaleServiceMock {
             timeline: timeline,
             resumeIA: resumeBuilder(nuitsValides)
         )
+        // Approximation preview : dérive ≈ pente × 2,6 h (durée typique zone 3).
+        detail.deriveMoyenne = penteMoyenne * 2.6
+        return detail
     }
 
     // MARK: - Génération des courbes
@@ -1544,6 +1553,9 @@ enum BasalVerdictState: Sendable {
 struct BasalVerdict: Sendable {
     let state: BasalVerdictState
     let slope: Double?           // pente moyenne zone 3, nil hors `.sufficient`
+    /// Dérive moyenne (Δ mg/dL par nuit) des nuits récentes — l'unité montrée
+    /// à l'utilisateur (comparable au seuil ±30). `nil` hors `.sufficient`.
+    var derive: Double? = nil
     let trend: BasalTrend?
     let validNights: Int
     let excludedNights: Int
@@ -1614,6 +1626,7 @@ extension AnalyseBasaleDetail {
         return BasalVerdict(
             state: state,
             slope: state == .sufficient ? penteMoyenne : nil,
+            derive: state == .sufficient ? deriveMoyenne : nil,
             trend: trend,
             validNights: valides,
             excludedNights: nuitsExclues,

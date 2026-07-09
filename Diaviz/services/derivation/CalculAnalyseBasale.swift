@@ -45,7 +45,7 @@ nonisolated struct ConfigBasale: Sendable {
     /// Dérive (mg/dL) sur la zone 3 en-deçà de laquelle la nuit est jugée
     /// **stable** — aligné sur la règle clinique ±30 mg/dL sur la nuit à jeun
     /// (on classe sur la dérive totale, pas sur une pente ±1 mg/dL/h trop serrée).
-    var seuilDeriveStable: Double = 25
+    var seuilDeriveStable: Double = 30
     /// Fenêtre (min) entre deux hypos rapprochées pour parler de resucrage
     /// **avec rechute** (resucrage suivi d'une nouvelle hypo).
     var fenetreRechuteMin: Double = 60
@@ -83,7 +83,7 @@ nonisolated enum CalculAnalyseBasale {
     // MARK: - Classification (dérive → catégorie)
 
     /// Seuil de dérive par défaut (mg/dL) — partagé avec `basalDistribution`.
-    nonisolated static let seuilDeriveStableParDefaut: Double = 25
+    nonisolated static let seuilDeriveStableParDefaut: Double = 30
 
     /// Classe une nuit à partir de la **dérive** (Δ mg/dL) de sa zone 3, sur la
     /// règle clinique ±30 mg/dL : `|Δ| ≤ seuil` → stable ; `Δ < −seuil` →
@@ -154,6 +154,7 @@ nonisolated enum CalculAnalyseBasale {
         let etat: EtatNuit
         let categorie: CategorieNuit? // nil si non valide
         let slopeZone3: Double?       // pente retenue (nil si zone 3 exclue)
+        let deriveZone3: Double?      // dérive Δ mg/dL retenue (nil si zone 3 exclue)
         let hypoCount: Int            // épisodes hypo zones 2+3 (métrique unifiée)
         let rechuteCount: Int         // resucrages avec rechute (hypo → nouvelle hypo)
         let aHypoZone3: Bool          // hypo en zone 3 → trigger « tendance descendante »
@@ -195,7 +196,8 @@ nonisolated enum CalculAnalyseBasale {
             return NuitAnalysee(
                 dateNuit: dateSoir,
                 etat: estCourante ? .enCours : .sansDonnees,
-                categorie: nil, slopeZone3: nil, hypoCount: 0, rechuteCount: 0,
+                categorie: nil, slopeZone3: nil, deriveZone3: nil,
+                hypoCount: 0, rechuteCount: 0,
                 aHypoZone3: false, reveil: nil, chart: nil
             )
         }
@@ -212,7 +214,8 @@ nonisolated enum CalculAnalyseBasale {
             return NuitAnalysee(
                 dateNuit: dateSoir,
                 etat: estCourante ? .enCours : .exclue(raison: .pasDeLente),
-                categorie: nil, slopeZone3: nil, hypoCount: 0, rechuteCount: 0,
+                categorie: nil, slopeZone3: nil, deriveZone3: nil,
+                hypoCount: 0, rechuteCount: 0,
                 aHypoZone3: false, reveil: cgmFenetre.last?.valeur, chart: chart
             )
         }
@@ -290,6 +293,7 @@ nonisolated enum CalculAnalyseBasale {
         return NuitAnalysee(
             dateNuit: dateSoir, etat: etat, categorie: categorie,
             slopeZone3: evalZ3.categorie != nil ? evalZ3.slope : nil,
+            deriveZone3: evalZ3.categorie != nil ? evalZ3.derive : nil,
             hypoCount: hypoCount, rechuteCount: rechuteCount, aHypoZone3: aHypoZone3,
             reveil: reveil, chart: chart
         )
@@ -301,6 +305,7 @@ nonisolated enum CalculAnalyseBasale {
         let analysee: Bool
         let categorie: CategorieNuit?   // nil si non analysée
         let slope: Double?              // pente mg/dL/h (affichage)
+        let derive: Double?             // dérive Δ mg/dL (unité de décision)
         let raison: RaisonExclusion?
     }
 
@@ -313,7 +318,7 @@ nonisolated enum CalculAnalyseBasale {
         config: ConfigBasale
     ) -> EvalZone3 {
         func exclue(_ raison: RaisonExclusion) -> EvalZone3 {
-            EvalZone3(analysee: false, categorie: nil, slope: nil, raison: raison)
+            EvalZone3(analysee: false, categorie: nil, slope: nil, derive: nil, raison: raison)
         }
 
         // Critères d'exclusion (par ordre de priorité de message).
@@ -337,7 +342,7 @@ nonisolated enum CalculAnalyseBasale {
         // Classification sur la **dérive totale** (pente × durée), pas sur la pente.
         let derive = slope * dureeH
         let categorie = categorie(deriveMgDl: derive, seuil: config.seuilDeriveStable)
-        return EvalZone3(analysee: true, categorie: categorie, slope: slope, raison: nil)
+        return EvalZone3(analysee: true, categorie: categorie, slope: slope, derive: derive, raison: nil)
     }
 
     private struct EvalZoneSecondaire {
@@ -386,6 +391,8 @@ nonisolated enum CalculAnalyseBasale {
         let recentes = Array(valides.suffix(config.nuitsRecence))
         let pentesRecentes = recentes.compactMap(\.slopeZone3)
         let penteMoyenne = pentesRecentes.isEmpty ? 0 : pentesRecentes.reduce(0, +) / Double(pentesRecentes.count)
+        let derivesRecentes = recentes.compactMap(\.deriveZone3)
+        let deriveMoyenne = derivesRecentes.isEmpty ? 0 : derivesRecentes.reduce(0, +) / Double(derivesRecentes.count)
 
         let stables = valides.filter { $0.categorie == .stable }.count
         let basses = valides.filter { $0.categorie == .tendanceBasse }.count
@@ -438,6 +445,7 @@ nonisolated enum CalculAnalyseBasale {
         )
         detail.doseHistoriqueReel = historique
         detail.enAmelioration = enAmelioration
+        detail.deriveMoyenne = deriveMoyenne
         return detail
     }
 

@@ -203,7 +203,7 @@ private struct CarteFondementsVerdict: View {
 
             if analyse.nuitsAnalysees > 0 {
                 ligne(icone: "chart.xyaxis.line", couleur: .indigo,
-                      texte: "Pente moyenne nuit profonde : \(penteFmt(analyse.penteMoyenne)) mg/dL/h",
+                      texte: "Dérive moyenne nuit profonde : \(deriveFmt(analyse.deriveMoyenne)) mg/dL par nuit",
                       sous: nil)
             }
 
@@ -290,8 +290,8 @@ private struct CarteFondementsVerdict: View {
 
     private func motNuit(_ n: Int) -> String { n > 1 ? "nuits" : "nuit" }
 
-    private func penteFmt(_ s: Double) -> String {
-        String(format: "%+.1f", s).replacingOccurrences(of: ".", with: ",")
+    private func deriveFmt(_ d: Double) -> String {
+        String(format: "%+d", Int(d.rounded()))
     }
 }
 
