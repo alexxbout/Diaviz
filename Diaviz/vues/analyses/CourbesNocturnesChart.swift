@@ -870,13 +870,17 @@ private struct CarteVerdictNuit: View {
     // MARK: Sous-vues
 
     /// Variante nominale : badge + dérive en gros, jauge, détail, poids.
+    /// Hiérarchie du badge : **rechute > hypo zone 3 > dérive** — une nuit
+    /// avec hypo ne s'affiche jamais « Stable », même si la régression est
+    /// plate (la stabilité viendrait du resucrage, pas de la basale).
     @ViewBuilder
     private func verdictAnalyse(_ z: ZoneData, slope: Double) -> some View {
         let derive = slope * heures(z)
         let categorie = CalculAnalyseBasale.categorie(deriveMgDl: derive, seuil: seuil)
+        let hyposZ3 = compteHypos(z)
 
         HStack(alignment: .center) {
-            badgeCategorie(categorie)
+            badgePrincipal(categorieDerive: categorie, hyposZ3: hyposZ3)
             Spacer()
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(deriveFmt(derive))
@@ -895,16 +899,29 @@ private struct CarteVerdictNuit: View {
 
         VStack(alignment: .leading, spacing: 2) {
             Text("Nuit profonde \(plage(z.timeRange)) · \(deriveFmt(derive)) mg/dL en \(dureeFmt(z))")
-            Text(phrasePosition(derive))
+            Text(phraseSignal(derive: derive, categorieDerive: categorie, hyposZ3: hyposZ3))
+                .foregroundStyle(hyposZ3 > 0 || nuit.rechuteCount > 0 ? Color.red : Color.secondary)
         }
         .font(.caption)
         .foregroundStyle(.secondary)
         .padding(.bottom, 10)
 
-        piedPoids(texte: "Compte comme 1 nuit \(libelle(categorie).lowercased()) sur les \(nuitsRecence) retenues pour le verdict")
+        if hyposZ3 == 0, hyposEndormissement > 0 {
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                Text("Hypo à l'endormissement — plutôt dîner/bolus que basale, hors verdict")
+            }
+            .font(.caption)
+            .foregroundStyle(.orange)
+            .padding(.bottom, 10)
+        }
+
+        piedPoids(texte: piedTexte(categorieDerive: categorie, hyposZ3: hyposZ3))
     }
 
     /// Variante exclue : badge + motif, pas de jauge (aucun signal retenu).
+    /// Les hypos restent affichées même exclue — le signal vital ne
+    /// disparaît pas avec l'exclusion de la pente.
     @ViewBuilder
     private func verdictExclu(_ z: ZoneData) -> some View {
         HStack(alignment: .top) {
@@ -918,6 +935,14 @@ private struct CarteVerdictNuit: View {
             }
         }
         .padding(.bottom, 10)
+
+        let hyposZ3 = compteHypos(z)
+        if hyposZ3 > 0 {
+            Text("\(hyposZ3) passage\(hyposZ3 > 1 ? "s" : "") < 70 en nuit profonde malgré l'exclusion")
+                .font(.caption)
+                .foregroundStyle(.red)
+                .padding(.bottom, 10)
+        }
 
         piedPoids(texte: "Ne compte pas dans le verdict — nuit profonde exclue")
     }
@@ -972,6 +997,19 @@ private struct CarteVerdictNuit: View {
         }
     }
 
+    /// Badge de tête — le danger prime : rechute > hypo zone 3 > dérive.
+    @ViewBuilder
+    private func badgePrincipal(categorieDerive: CategorieNuit, hyposZ3: Int) -> some View {
+        if nuit.rechuteCount > 0 {
+            badge(texte: "Hypo avec rechute", systemImage: "exclamationmark.triangle.fill", couleur: .red)
+        } else if hyposZ3 > 0 {
+            badge(texte: hyposZ3 > 1 ? "\(hyposZ3) hypos nocturnes" : "Hypo nocturne",
+                  systemImage: "exclamationmark.triangle.fill", couleur: .red)
+        } else {
+            badgeCategorie(categorieDerive)
+        }
+    }
+
     private func badgeCategorie(_ c: CategorieNuit) -> some View {
         let (icone, teinte): (String, Color) = switch c {
         case .stable:        ("checkmark.circle.fill", .green)
@@ -1008,6 +1046,43 @@ private struct CarteVerdictNuit: View {
 
     private var zone3: ZoneData? {
         nuit.zones.first(where: { $0.zone == .nuitProfonde })
+    }
+
+    /// Nb d'épisodes hypo dans une zone (events `.hypo` = un par épisode).
+    private func compteHypos(_ z: ZoneData) -> Int {
+        z.events.filter { $0.type == .hypo }.count
+    }
+
+    /// Hypos de la zone 2 — signal dîner/bolus, pas basale : averti sans
+    /// faire basculer le verdict de la nuit.
+    private var hyposEndormissement: Int {
+        nuit.zones.first(where: { $0.zone == .endormissement })
+            .map(compteHypos) ?? 0
+    }
+
+    /// Phrase sous le détail — remplacée par le signal hypo quand il y en a
+    /// un (la position vs seuil devient secondaire).
+    private func phraseSignal(derive: Double, categorieDerive: CategorieNuit, hyposZ3: Int) -> String {
+        if nuit.rechuteCount > 0 {
+            return "Resucrage suivi d'une nouvelle hypo — signal prioritaire, la dérive ne compte pas"
+        }
+        if hyposZ3 > 0 {
+            let passages = "\(hyposZ3) passage\(hyposZ3 > 1 ? "s" : "") < 70"
+            if categorieDerive == .stable {
+                return "Courbe globalement stable, mais \(passages) — stabilité obtenue par resucrage"
+            }
+            return "\(passages) en nuit profonde"
+        }
+        return phrasePosition(derive)
+    }
+
+    /// Pied de carte — une nuit avec hypo zone 3 (ou rechute) compte
+    /// « tendance basse » dans le verdict, jamais stable (aligné calculateur).
+    private func piedTexte(categorieDerive: CategorieNuit, hyposZ3: Int) -> String {
+        if hyposZ3 > 0 || nuit.rechuteCount > 0 {
+            return "Compte comme 1 nuit à tendance basse sur les \(nuitsRecence) retenues pour le verdict"
+        }
+        return "Compte comme 1 nuit \(libelle(categorieDerive).lowercased()) sur les \(nuitsRecence) retenues pour le verdict"
     }
 
     private func couleur(_ c: CategorieNuit) -> Color {
@@ -1073,11 +1148,22 @@ private struct CarteVerdictNuit: View {
 
     private func libelleAccessible(_ z: ZoneData) -> String {
         guard z.isAnalyzed, let s = z.slope else {
-            return "Verdict de la nuit : exclue\(z.exclusionReason.map { ", \($0)" } ?? "")."
+            let hypos = compteHypos(z)
+            let suffixe = hypos > 0 ? " \(hypos) passages sous 70 malgré l'exclusion." : ""
+            return "Verdict de la nuit : exclue\(z.exclusionReason.map { ", \($0)" } ?? "")." + suffixe
         }
         let derive = s * heures(z)
         let categorie = CalculAnalyseBasale.categorie(deriveMgDl: derive, seuil: seuil)
-        return "Verdict de la nuit : \(libelle(categorie).lowercased()), dérive \(deriveFmt(derive)) milligrammes par décilitre en \(dureeFmt(z)). \(phrasePosition(derive))."
+        let hyposZ3 = compteHypos(z)
+        let tete: String
+        if nuit.rechuteCount > 0 {
+            tete = "hypo avec rechute"
+        } else if hyposZ3 > 0 {
+            tete = hyposZ3 > 1 ? "\(hyposZ3) hypos nocturnes" : "hypo nocturne"
+        } else {
+            tete = libelle(categorie).lowercased()
+        }
+        return "Verdict de la nuit : \(tete), dérive \(deriveFmt(derive)) milligrammes par décilitre en \(dureeFmt(z)). \(phraseSignal(derive: derive, categorieDerive: categorie, hyposZ3: hyposZ3))."
     }
 }
 

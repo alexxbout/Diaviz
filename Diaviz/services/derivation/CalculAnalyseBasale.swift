@@ -274,7 +274,11 @@ nonisolated enum CalculAnalyseBasale {
             etat = .enCours; categorie = nil
             statut = evalZ3.analysee ? .valid : .excluded
         } else if let cat = evalZ3.categorie {
-            etat = .valide(categorie: cat); categorie = cat
+            // Hypo en zone 3 → la nuit ne compte jamais « stable » : une courbe
+            // globalement plate malgré une hypo doit sa stabilité au resucrage,
+            // pas à la basale. Le danger bas prime sur la dérive.
+            let catEffective: CategorieNuit = aHypoZone3 ? .tendanceBasse : cat
+            etat = .valide(categorie: catEffective); categorie = catEffective
             statut = evalZ2.analysee ? .valid : .partiallyValid
         } else {
             etat = .exclue(raison: evalZ3.raison ?? .cgmIncomplet); categorie = nil
