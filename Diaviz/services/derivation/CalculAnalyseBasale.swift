@@ -430,8 +430,17 @@ nonisolated enum CalculAnalyseBasale {
 
         let (verdict, enAmelioration) = deduireVerdict(valides: valides, recentes: recentes)
 
-        // Données graphiques : nuits exploitables (CGM présent), plus récente d'abord.
-        let nightData = nuits.compactMap(\.chart).sorted { $0.date > $1.date }
+        // Données graphiques : nuits exploitables (CGM présent), plus récente
+        // d'abord — décorées avec leur place dans le verdict (catégorie
+        // effective + appartenance à la fenêtre de récence) pour le pied de
+        // la carte « Verdict de la nuit ».
+        let datesRetenues = Set(recentes.map(\.dateNuit))
+        let nightData = nuits.compactMap { n -> NightChartData? in
+            guard var chart = n.chart else { return nil }
+            chart.categorieVerdict = n.categorie
+            chart.retenueDansVerdict = datesRetenues.contains(n.dateNuit)
+            return chart
+        }.sorted { $0.date > $1.date }
 
         // Timeline : ancienne → récente, avec drapeau pré-changement.
         let timeline = nuits.map {

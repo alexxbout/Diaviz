@@ -525,7 +525,7 @@ private struct VueGraphiqueParNuit: View {
                 .gesture(swipeNavigation)
             Divider()
                 .padding(.top, 2)
-            CarteVerdictNuit(nuit: nuit)
+            CarteVerdictNuit(nuit: nuit, nights: nights)
             Divider()
             DetailZonesNuit(nuit: nuit)
         }
@@ -876,6 +876,9 @@ private struct VueGraphiqueParNuit: View {
 private struct CarteVerdictNuit: View {
 
     let nuit: NightChartData
+    /// Toutes les nuits du dataset — nécessaires au pied de carte pour
+    /// afficher les vraies nuits retenues (chacune colorée par sa catégorie).
+    var nights: [NightChartData] = []
 
     /// Seuil de stabilité (± mg/dL) — même source que le calculateur.
     private let seuil = CalculAnalyseBasale.seuilDeriveStableParDefaut
@@ -952,9 +955,9 @@ private struct CarteVerdictNuit: View {
         }
 
         if aSignalHypo {
-            piedVerdict(libelle: "tendance basse", couleur: .red, comptee: true)
+            piedVerdict(libelle: "tendance basse", couleur: .red)
         } else {
-            piedVerdict(libelle: libelle(categorie).lowercased(), couleur: couleur(categorie), comptee: true)
+            piedVerdict(libelle: libelle(categorie).lowercased(), couleur: couleur(categorie))
         }
     }
 
@@ -983,7 +986,7 @@ private struct CarteVerdictNuit: View {
                 .padding(.bottom, 10)
         }
 
-        piedVerdict(libelle: "exclue", couleur: .orange, comptee: false)
+        piedVerdict(libelle: "exclue", couleur: .orange)
     }
 
     /// Jauge horizontale : bande verte = zone stable ±seuil, trait central
@@ -1077,37 +1080,59 @@ private struct CarteVerdictNuit: View {
         .background(couleur.opacity(0.13), in: Capsule())
     }
 
-    /// Pied de carte « points » : « Dans le verdict : {catégorie} » à gauche,
-    /// et à droite les 5 nuits retenues sous forme de points — celui de cette
-    /// nuit rempli à la couleur de sa catégorie, les autres vides. Répond
-    /// « cette nuit pèse combien ? » d'un coup d'œil : 1 sur 5.
-    private func piedVerdict(libelle: String, couleur: Color, comptee: Bool) -> some View {
+    /// Pied de carte « points honnêtes » : à gauche la place de cette nuit
+    /// dans le verdict, à droite les **vraies** nuits retenues (fenêtre de
+    /// récence), chronologiques, chacune colorée par sa propre catégorie —
+    /// la nuit affichée est entourée d'un anneau. D'un coup d'œil : la
+    /// composition du verdict (ex. 4 vertes + 1 rouge) et où se situe cette
+    /// nuit. Une nuit hors fenêtre l'affiche explicitement (aucun anneau).
+    private func piedVerdict(libelle: String, couleur: Color) -> some View {
         HStack {
-            Text("Dans le verdict : \(Text(libelle).foregroundStyle(couleur).fontWeight(.medium))")
-                .foregroundStyle(.secondary)
-                .font(.caption)
+            if nuit.retenueDansVerdict {
+                Text("Dans le verdict : \(Text(libelle).foregroundStyle(couleur).fontWeight(.medium))")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            } else {
+                Text("Hors de la fenêtre du verdict")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
             Spacer(minLength: 12)
-            pointsRetenues(remplie: comptee ? couleur : nil)
+            pointsRetenues
         }
     }
 
-    /// Les `nuitsRecence` points — le premier représente cette nuit
-    /// (rempli si elle compte), les autres les nuits restantes de la
-    /// fenêtre de récence (vides).
-    private func pointsRetenues(remplie: Color?) -> some View {
-        HStack(spacing: 4) {
-            ForEach(0..<nuitsRecence, id: \.self) { i in
-                if i == 0, let remplie {
-                    Circle()
-                        .fill(remplie)
-                        .frame(width: 8, height: 8)
-                } else {
-                    Circle()
-                        .strokeBorder(Color(.systemFill), lineWidth: 1.2)
-                        .frame(width: 8, height: 8)
-                }
+    /// Les nuits retenues (ancienne → récente), un point coloré chacune ;
+    /// les slots manquants (moins de K nuits valides) restent vides.
+    private var pointsRetenues: some View {
+        let retenues = nights.filter(\.retenueDansVerdict).sorted { $0.date < $1.date }
+        return HStack(spacing: 4) {
+            ForEach(retenues) { n in
+                pointNuit(n)
+            }
+            ForEach(0..<max(0, nuitsRecence - retenues.count), id: \.self) { _ in
+                Circle()
+                    .strokeBorder(Color(.systemFill), lineWidth: 1.2)
+                    .frame(width: 8, height: 8)
+                    .frame(width: 12, height: 12)
             }
         }
+    }
+
+    /// Point d'une nuit retenue — couleur de sa catégorie effective, anneau
+    /// autour de la nuit actuellement affichée.
+    private func pointNuit(_ n: NightChartData) -> some View {
+        ZStack {
+            if n.id == nuit.id {
+                Circle()
+                    .stroke(Color.primary.opacity(0.55), lineWidth: 1.2)
+                    .frame(width: 12, height: 12)
+            }
+            Circle()
+                .fill(n.categorieVerdict.map(couleur) ?? Color(.systemFill))
+                .frame(width: 8, height: 8)
+        }
+        .frame(width: 12, height: 12)
     }
 
     // MARK: Logique d'affichage

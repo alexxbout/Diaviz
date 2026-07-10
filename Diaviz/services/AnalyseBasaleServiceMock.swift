@@ -333,6 +333,14 @@ nonisolated struct NightChartData: Identifiable, Sendable {
     /// Taxonomie détaillée des épisodes (série / prolongée / spontanée…) —
     /// consommée par la carte « Verdict de la nuit ».
     var bilanHypos: BilanHyposNuit = BilanHyposNuit()
+
+    /// `true` si cette nuit fait partie des K dernières nuits valides qui
+    /// pilotent le verdict global (fenêtre de récence, post-changement de
+    /// dose). Renseigné par le calculateur.
+    var retenueDansVerdict: Bool = false
+    /// Catégorie effective de la nuit dans le verdict (hypo profonde déjà
+    /// forcée en tendance basse). `nil` si la nuit n'est pas valide.
+    var categorieVerdict: CategorieNuit? = nil
 }
 
 extension Array where Element == NightChartData {
