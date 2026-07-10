@@ -951,7 +951,11 @@ private struct CarteVerdictNuit: View {
             .padding(.bottom, 10)
         }
 
-        piedPoids(texte: piedTexte(categorieDerive: categorie))
+        if aSignalHypo {
+            piedVerdict(libelle: "tendance basse", couleur: .red, comptee: true)
+        } else {
+            piedVerdict(libelle: libelle(categorie).lowercased(), couleur: couleur(categorie), comptee: true)
+        }
     }
 
     /// Variante exclue : badge + motif, pas de jauge (aucun signal retenu).
@@ -979,7 +983,7 @@ private struct CarteVerdictNuit: View {
                 .padding(.bottom, 10)
         }
 
-        piedPoids(texte: "Ne compte pas dans le verdict — nuit profonde exclue")
+        piedVerdict(libelle: "exclue", couleur: .orange, comptee: false)
     }
 
     /// Jauge horizontale : bande verte = zone stable ±seuil, trait central
@@ -1073,14 +1077,37 @@ private struct CarteVerdictNuit: View {
         .background(couleur.opacity(0.13), in: Capsule())
     }
 
-    private func piedPoids(texte: String) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: "scalemass")
-                .font(.caption2)
-            Text(texte)
-                .font(.caption2)
+    /// Pied de carte « points » : « Dans le verdict : {catégorie} » à gauche,
+    /// et à droite les 5 nuits retenues sous forme de points — celui de cette
+    /// nuit rempli à la couleur de sa catégorie, les autres vides. Répond
+    /// « cette nuit pèse combien ? » d'un coup d'œil : 1 sur 5.
+    private func piedVerdict(libelle: String, couleur: Color, comptee: Bool) -> some View {
+        HStack {
+            Text("Dans le verdict : \(Text(libelle).foregroundStyle(couleur).fontWeight(.medium))")
+                .foregroundStyle(.secondary)
+                .font(.caption)
+            Spacer(minLength: 12)
+            pointsRetenues(remplie: comptee ? couleur : nil)
         }
-        .foregroundStyle(.tertiary)
+    }
+
+    /// Les `nuitsRecence` points — le premier représente cette nuit
+    /// (rempli si elle compte), les autres les nuits restantes de la
+    /// fenêtre de récence (vides).
+    private func pointsRetenues(remplie: Color?) -> some View {
+        HStack(spacing: 4) {
+            ForEach(0..<nuitsRecence, id: \.self) { i in
+                if i == 0, let remplie {
+                    Circle()
+                        .fill(remplie)
+                        .frame(width: 8, height: 8)
+                } else {
+                    Circle()
+                        .strokeBorder(Color(.systemFill), lineWidth: 1.2)
+                        .frame(width: 8, height: 8)
+                }
+            }
+        }
     }
 
     // MARK: Logique d'affichage
@@ -1134,15 +1161,6 @@ private struct CarteVerdictNuit: View {
             return "Courbe globalement stable, mais \(composition) — \(remontee)"
         }
         return "\(composition) — \(remontee)"
-    }
-
-    /// Pied de carte — une nuit avec hypo profonde (ou rechute) compte
-    /// « tendance basse » dans le verdict, jamais stable (aligné calculateur).
-    private func piedTexte(categorieDerive: CategorieNuit) -> String {
-        if aSignalHypo {
-            return "Compte comme 1 nuit à tendance basse sur les \(nuitsRecence) retenues pour le verdict"
-        }
-        return "Compte comme 1 nuit \(libelle(categorieDerive).lowercased()) sur les \(nuitsRecence) retenues pour le verdict"
     }
 
     private func couleur(_ c: CategorieNuit) -> Color {
