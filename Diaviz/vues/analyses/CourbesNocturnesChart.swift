@@ -481,27 +481,6 @@ private struct VueGraphiqueToutes: View {
 
 // MARK: - Vue « Par nuit »
 
-/// Couleur de verdict d'une nuit — même hiérarchie que `CarteVerdictNuit`
-/// (rechute > série > prolongée > hypo profonde > dérive), réutilisée pour
-/// la pastille du bouton date (aperçu du verdict sans ouvrir le détail).
-private func couleurVerdictNuit(_ nuit: NightChartData) -> Color {
-    let bilan = nuit.bilanHypos
-    if bilan.rechutes > 0 || bilan.enSerie > 0 || bilan.prolongees > 0 || bilan.episodesProfonds > 0 {
-        return .red
-    }
-    guard let z3 = nuit.zones.first(where: { $0.zone == .nuitProfonde }),
-          z3.isAnalyzed, let s = z3.slope else {
-        return .secondary
-    }
-    let heures = z3.timeRange.upperBound.timeIntervalSince(z3.timeRange.lowerBound) / 3600
-    let derive = s * heures
-    switch CalculAnalyseBasale.categorie(deriveMgDl: derive, seuil: CalculAnalyseBasale.seuilDeriveStableParDefaut) {
-    case .stable:        return .green
-    case .tendanceHaute: return .orange
-    case .tendanceBasse: return .red
-    }
-}
-
 /// Affiche la nuit sélectionnée : entête (titre + chevrons + date picker) +
 /// un `Chart` whole-night avec crosshair (long-press + drag), swipe gauche/
 /// droite pour naviguer entre nuits, et pills d'events tappables (popover
@@ -631,7 +610,7 @@ private struct VueGraphiqueParNuit: View {
             }
     }
 
-    // MARK: Entête (titre + chevrons + DatePicker compact)
+    // MARK: Entête (titre + DatePicker compact)
 
     /// Plage acceptable par le DatePicker : bornée aux nuits du dataset
     /// → l'utilisateur ne peut pas sélectionner une date sans données.
@@ -648,28 +627,12 @@ private struct VueGraphiqueParNuit: View {
     /// dès qu'une date est sélectionnée (contrairement au DatePicker
     /// `.compact` natif qui reste ouvert).
     private var entete: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 8) {
             Text("Glycémie nocturne")
                 .font(.title3.weight(.semibold))
             Spacer()
-            chevron(systemName: "chevron.left", index: indexPlusAncienne)
             boutonDate
-            chevron(systemName: "chevron.right", index: indexPlusRecente)
         }
-    }
-
-    /// Chevron précédente/suivante — grisé et inactif en bout de fenêtre.
-    private func chevron(systemName: String, index: Int?) -> some View {
-        Button {
-            if let index { naviguer(vers: index) }
-        } label: {
-            Image(systemName: systemName)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(index == nil ? Color.secondary.opacity(0.3) : Color.secondary)
-                .frame(width: 28, height: 28)
-        }
-        .buttonStyle(.plain)
-        .disabled(index == nil)
     }
 
     private var boutonDate: some View {
@@ -677,9 +640,6 @@ private struct VueGraphiqueParNuit: View {
             afficherCalendrier = true
         } label: {
             HStack(spacing: 6) {
-                Circle()
-                    .fill(couleurVerdictNuit(nuit))
-                    .frame(width: 7, height: 7)
                 Image(systemName: "calendar")
                     .font(.system(size: 13, weight: .medium))
                 Text(libelleDateCompact)
