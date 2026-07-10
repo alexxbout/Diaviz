@@ -206,7 +206,6 @@ struct CourbesNocturnesChart: View {
             }
         }
         .pickerStyle(.segmented)
-        .accessibilityLabel("Mode d'affichage du graphique")
     }
 
     // MARK: - Bascule vue courante
@@ -278,7 +277,6 @@ private struct VueGraphiqueToutes: View {
         VStack(alignment: .leading, spacing: 2) {
             Text("Glycémie nocturne")
                 .font(.title3.weight(.semibold))
-                .accessibilityAddTraits(.isHeader)
             Text("\(nuitsFiltrees.count) nuits affichées · \(periode.labelLong)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -294,7 +292,6 @@ private struct VueGraphiqueToutes: View {
             }
         }
         .pickerStyle(.segmented)
-        .accessibilityLabel("Fenêtre temporelle du graphique agrégé")
     }
 
 /// Nuits du dataset restreintes à la fenêtre sélectionnée. Le
@@ -383,7 +380,6 @@ private struct VueGraphiqueToutes: View {
                     }
                 }
             }
-            .accessibilityLabel("Courbes nocturnes agrégées sur \(nights.count) nuits")
         }
     }
 
@@ -485,9 +481,31 @@ private struct VueGraphiqueToutes: View {
 
 // MARK: - Vue « Par nuit »
 
-/// Affiche la nuit sélectionnée : entête (titre + date picker) + un
-/// `Chart` whole-night avec crosshair (long-press + drag) et pills
-/// d'events tappables (popover détaillé).
+/// Couleur de verdict d'une nuit — même hiérarchie que `CarteVerdictNuit`
+/// (rechute > série > prolongée > hypo profonde > dérive), réutilisée pour
+/// la pastille du bouton date (aperçu du verdict sans ouvrir le détail).
+private func couleurVerdictNuit(_ nuit: NightChartData) -> Color {
+    let bilan = nuit.bilanHypos
+    if bilan.rechutes > 0 || bilan.enSerie > 0 || bilan.prolongees > 0 || bilan.episodesProfonds > 0 {
+        return .red
+    }
+    guard let z3 = nuit.zones.first(where: { $0.zone == .nuitProfonde }),
+          z3.isAnalyzed, let s = z3.slope else {
+        return .secondary
+    }
+    let heures = z3.timeRange.upperBound.timeIntervalSince(z3.timeRange.lowerBound) / 3600
+    let derive = s * heures
+    switch CalculAnalyseBasale.categorie(deriveMgDl: derive, seuil: CalculAnalyseBasale.seuilDeriveStableParDefaut) {
+    case .stable:        return .green
+    case .tendanceHaute: return .orange
+    case .tendanceBasse: return .red
+    }
+}
+
+/// Affiche la nuit sélectionnée : entête (titre + chevrons + date picker) +
+/// un `Chart` whole-night avec crosshair (long-press + drag), swipe gauche/
+/// droite pour naviguer entre nuits, et pills d'events tappables (popover
+/// détaillé).
 private struct VueGraphiqueParNuit: View {
 
     let nights: [NightChartData]
@@ -510,6 +528,10 @@ private struct VueGraphiqueParNuit: View {
     /// fermé automatiquement dès qu'une date est sélectionnée.
     @State private var afficherCalendrier: Bool = false
 
+    /// Incrémenté à chaque changement de nuit (chevron, swipe, calendrier)
+    /// pour déclencher le retour haptique via `.sensoryFeedback(trigger:)`.
+    @State private var compteurNavigation: Int = 0
+
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -521,12 +543,14 @@ private struct VueGraphiqueParNuit: View {
                 .padding(.top, 10)
                 .padding(.leading, -20)
                 .padding(.trailing, -16)
+                .gesture(swipeNavigation)
             Divider()
                 .padding(.top, 2)
             CarteVerdictNuit(nuit: nuit)
             Divider()
             DetailZonesNuit(nuit: nuit)
         }
+        .sensoryFeedback(.selection, trigger: compteurNavigation)
         .onAppear {
             selectedDate = Calendar.current.startOfDay(for: nuit.date)
         }
@@ -568,8 +592,46 @@ private struct VueGraphiqueParNuit: View {
         return nights[safe]
     }
 
+    // MARK: Navigation entre nuits (chevrons + swipe)
 
-    // MARK: Entête (titre + DatePicker compact)
+    /// `nights` est trié plus récent d'abord (index 0 = dernière nuit) —
+    /// index+1 = nuit plus ancienne, index-1 = nuit plus récente.
+    private var indexPlusAncienne: Int? {
+        let i = indexSelectionne + 1
+        return i < nights.count ? i : nil
+    }
+
+    private var indexPlusRecente: Int? {
+        let i = indexSelectionne - 1
+        return i >= 0 ? i : nil
+    }
+
+    private func naviguer(vers index: Int) {
+        withAnimation(.easeInOut(duration: 0.22)) {
+            indexSelectionne = index
+        }
+        compteurNavigation += 1
+    }
+
+    /// Swipe horizontal sur le chart → nuit précédente/suivante. Coexiste
+    /// avec le crosshair (long-press + drag) : un flick rapide dépasse le
+    /// déplacement toléré par le `LongPressGesture` avant que ses 0.2 s ne
+    /// s'écoulent, qui échoue alors et laisse ce geste ancêtre reconnaître
+    /// le swipe — un doigt qui reste posé (scrub) déclenche le crosshair
+    /// en premier, comme avant.
+    private var swipeNavigation: some Gesture {
+        DragGesture(minimumDistance: 40)
+            .onEnded { value in
+                guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
+                if value.translation.width < 0, let i = indexPlusRecente {
+                    naviguer(vers: i)
+                } else if value.translation.width > 0, let i = indexPlusAncienne {
+                    naviguer(vers: i)
+                }
+            }
+    }
+
+    // MARK: Entête (titre + chevrons + DatePicker compact)
 
     /// Plage acceptable par le DatePicker : bornée aux nuits du dataset
     /// → l'utilisateur ne peut pas sélectionner une date sans données.
@@ -586,13 +648,28 @@ private struct VueGraphiqueParNuit: View {
     /// dès qu'une date est sélectionnée (contrairement au DatePicker
     /// `.compact` natif qui reste ouvert).
     private var entete: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 4) {
             Text("Glycémie nocturne")
                 .font(.title3.weight(.semibold))
-                .accessibilityAddTraits(.isHeader)
             Spacer()
+            chevron(systemName: "chevron.left", index: indexPlusAncienne)
             boutonDate
+            chevron(systemName: "chevron.right", index: indexPlusRecente)
         }
+    }
+
+    /// Chevron précédente/suivante — grisé et inactif en bout de fenêtre.
+    private func chevron(systemName: String, index: Int?) -> some View {
+        Button {
+            if let index { naviguer(vers: index) }
+        } label: {
+            Image(systemName: systemName)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(index == nil ? Color.secondary.opacity(0.3) : Color.secondary)
+                .frame(width: 28, height: 28)
+        }
+        .buttonStyle(.plain)
+        .disabled(index == nil)
     }
 
     private var boutonDate: some View {
@@ -600,6 +677,9 @@ private struct VueGraphiqueParNuit: View {
             afficherCalendrier = true
         } label: {
             HStack(spacing: 6) {
+                Circle()
+                    .fill(couleurVerdictNuit(nuit))
+                    .frame(width: 7, height: 7)
                 Image(systemName: "calendar")
                     .font(.system(size: 13, weight: .medium))
                 Text(libelleDateCompact)
@@ -614,7 +694,6 @@ private struct VueGraphiqueParNuit: View {
             .foregroundStyle(.primary)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Choisir la date de la nuit")
         .popover(isPresented: $afficherCalendrier) {
             DatePicker(
                 "Date",
@@ -713,7 +792,6 @@ private struct VueGraphiqueParNuit: View {
                 }
             }
         }
-        .accessibilityLabel("Courbe complète de la nuit")
     }
 
     /// Axe Y posé à droite (`position: .trailing`) avec graduations
@@ -853,7 +931,6 @@ private struct CarteVerdictNuit: View {
                 Text("Verdict de la nuit")
                     .font(.subheadline.bold())
                     .foregroundStyle(.secondary)
-                    .accessibilityAddTraits(.isHeader)
                     .padding(.bottom, 12)
 
                 if z3.isAnalyzed, let s = z3.slope {
@@ -862,8 +939,6 @@ private struct CarteVerdictNuit: View {
                     verdictExclu(z3)
                 }
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(libelleAccessible(z3))
         }
     }
 
@@ -1171,28 +1246,6 @@ private struct CarteVerdictNuit: View {
         return String(format: "%02dh%02d", c.hour ?? 0, c.minute ?? 0)
     }
 
-    private func libelleAccessible(_ z: ZoneData) -> String {
-        guard z.isAnalyzed, let s = z.slope else {
-            let hypos = bilan.episodesProfonds
-            let suffixe = hypos > 0 ? " \(hypos) passages sous 70 malgré l'exclusion." : ""
-            return "Verdict de la nuit : exclue\(z.exclusionReason.map { ", \($0)" } ?? "")." + suffixe
-        }
-        let derive = s * heures(z)
-        let categorie = CalculAnalyseBasale.categorie(deriveMgDl: derive, seuil: seuil)
-        let tete: String
-        if bilan.rechutes > 0 {
-            tete = "hypo avec rechute"
-        } else if bilan.enSerie > 0 {
-            tete = "hypos en série"
-        } else if bilan.prolongees > 0 {
-            tete = "hypo prolongée"
-        } else if bilan.episodesProfonds > 0 {
-            tete = bilan.episodesProfonds > 1 ? "\(bilan.episodesProfonds) hypos nocturnes" : "hypo nocturne"
-        } else {
-            tete = libelle(categorie).lowercased()
-        }
-        return "Verdict de la nuit : \(tete), dérive \(deriveFmt(derive)) milligrammes par décilitre en \(dureeFmt(z)). \(phraseSignal(derive: derive, categorieDerive: categorie))."
-    }
 }
 
 // MARK: - Détail des zones de la nuit (sous le graphe « Par nuit »)
@@ -1210,7 +1263,6 @@ private struct DetailZonesNuit: View {
             Text("Zones de la nuit")
                 .font(.subheadline.bold())
                 .foregroundStyle(.secondary)
-                .accessibilityAddTraits(.isHeader)
 
             if nuit.zones.isEmpty {
                 Text("Aucune zone calculée pour cette nuit — lente non enregistrée ou données insuffisantes.")
@@ -1231,7 +1283,6 @@ private struct DetailZonesNuit: View {
             Text(z.zone.emoji)
                 .font(.body)
                 .frame(width: 24)
-                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(z.zone.label)
@@ -1248,8 +1299,6 @@ private struct DetailZonesNuit: View {
             statut(z)
         }
         .padding(.vertical, 2)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(libelleAccessible(z))
     }
 
     /// Pastille de statut à droite — contexte / analysée / exclue. Le
@@ -1294,16 +1343,6 @@ private struct DetailZonesNuit: View {
         return String(format: "%02dh%02d", c.hour ?? 0, c.minute ?? 0)
     }
 
-    private func libelleAccessible(_ z: ZoneData) -> String {
-        let base = "\(z.zone.label), \(plage(z.timeRange))."
-        if z.zone == .preEndormissement || z.zone == .dawnPhenomenon {
-            return base + " Contexte, hors calcul."
-        } else if z.isAnalyzed {
-            return base + " Analysée."
-        } else {
-            return base + " Exclue\(z.exclusionReason.map { " : \($0)" } ?? "")."
-        }
-    }
 }
 
 // MARK: - EventsOnChart (overlay events sur le chart Par nuit)
@@ -1775,7 +1814,6 @@ private struct EventPillTappable: View {
                         .strokeBorder(e.type.pillForeground.opacity(0.35), lineWidth: 0.5)
                 )
                 .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
-                .accessibilityLabel(e.detail)
         case .multi(let events):
             Text(events.map { $0.type.pillLabel(detail: $0.detail) }.joined(separator: " · "))
                 .font(.system(size: 13, weight: .semibold))
@@ -1791,7 +1829,6 @@ private struct EventPillTappable: View {
                         .strokeBorder(Color.secondary.opacity(0.35), lineWidth: 0.5)
                 )
                 .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
-                .accessibilityLabel("\(events.count) événements groupés")
         }
     }
 }
@@ -1947,7 +1984,6 @@ private struct LegendeGraphique: View {
         }
         .font(.system(size: 11))
         .foregroundStyle(.secondary)
-        .accessibilityHidden(true)
     }
 }
 
