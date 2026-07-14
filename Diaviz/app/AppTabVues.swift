@@ -54,6 +54,12 @@ struct AppTabVues: View {
     /// efface le badge vu par les deux autres écrans.
     @State private var analyseBasaleService = AnalyseBasaleService()
 
+    /// Services des analyses B2/B3 — dépendent de `analyseBasaleService` pour
+    /// l'ancrage de nuit (lente, glycémie au coucher). Mêmes règles d'instance
+    /// unique partagée que B1.
+    @State private var analyseEndormissementService = AnalyseEndormissementService()
+    @State private var analyseCorrectionsService = AnalyseCorrectionsService()
+
     /// Contexte SwiftData du hub (pour récupérer le `ModelContainer`).
     @Environment(\.modelContext) private var modelContext
 
@@ -98,10 +104,14 @@ struct AppTabVues: View {
         .environment(profilService)
         .environment(repasService)
         .environment(analyseBasaleService)
+        .environment(analyseEndormissementService)
+        .environment(analyseCorrectionsService)
         .task {
             repasService.demarrer(contexte: modelContext)
             scoreService.demarrer(contexte: modelContext)
             analyseBasaleService.demarrer(contexte: modelContext)
+            analyseEndormissementService.demarrer(contexte: modelContext, basale: analyseBasaleService)
+            analyseCorrectionsService.demarrer(contexte: modelContext, basale: analyseBasaleService)
             // Sheet du matin : seulement après 6h, une fois par jour, et s'il
             // existe un score de la veille consolidé.
             if doitAfficherSheetMatin() {

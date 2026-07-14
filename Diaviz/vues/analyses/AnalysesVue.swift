@@ -26,6 +26,8 @@ struct AnalysesVue: View {
     /// (pas un `@State` privé) : l'accueil et le badge de cet onglet doivent
     /// voir la même instance pour que « marquer comme vu » se propage partout.
     @Environment(AnalyseBasaleService.self) private var basaleService
+    @Environment(AnalyseEndormissementService.self) private var endormissementService
+    @Environment(AnalyseCorrectionsService.self) private var correctionsService
 
     /// Override pour previews : quand fourni, court-circuite le service réel
     /// (et le `.task` de démarrage) pour exercer les états visuels mockés.
@@ -35,15 +37,26 @@ struct AnalysesVue: View {
         self.coucherOverride = coucher
     }
 
-    /// Résumé affiché : override de preview, sinon dérivé du service réel.
+    /// Résumé affiché : override de preview, sinon dérivé des trois services réels.
     private var coucher: ResumeAnalyseCoucher {
-        coucherOverride ?? basaleService.resumeCoucher
+        coucherOverride ?? basaleService.resumeCoucher(
+            endormissement: endormissementService.analyse,
+            corrections: correctionsService.analyse
+        )
     }
 
     /// Analyse réelle passée à la carte (→ page détail). `nil` en preview pour
     /// retomber sur le snapshot mocké routé par le verdict.
     private var analyseReelle: AnalyseBasaleDetail? {
         coucherOverride == nil ? basaleService.analyse : nil
+    }
+
+    private var endormissementReel: AnalyseEndormissement? {
+        coucherOverride == nil ? endormissementService.analyse : nil
+    }
+
+    private var correctionsReelles: AnalyseCorrections? {
+        coucherOverride == nil ? correctionsService.analyse : nil
     }
 
     var body: some View {
@@ -58,6 +71,8 @@ struct AnalysesVue: View {
                         CarteAnalyseCoucher(
                             resume: coucher,
                             analyse: analyseReelle,
+                            endormissement: endormissementReel,
+                            corrections: correctionsReelles,
                             onOuvrirDetail: { basaleService.marquerVerdictCommeVu() }
                         )
                     }
@@ -74,7 +89,13 @@ struct AnalysesVue: View {
             guard coucherOverride == nil else { return }
             let premierBoot = !basaleService.estDemarre
             basaleService.demarrer(contexte: modelContext)
-            if !premierBoot { basaleService.recharger() }
+            endormissementService.demarrer(contexte: modelContext, basale: basaleService)
+            correctionsService.demarrer(contexte: modelContext, basale: basaleService)
+            if !premierBoot {
+                basaleService.recharger()
+                endormissementService.recharger()
+                correctionsService.recharger()
+            }
         }
     }
 }

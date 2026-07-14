@@ -7,17 +7,17 @@
 
 import SwiftUI
 
-/// Page « Analyse du coucher » — hub des trois sous-analyses du coucher,
-/// parcourues une à une via un **switcher à flèches** :
+/// Page « Analyse du coucher » — hub des deux sous-analyses du coucher,
+/// parcourues via les **pills** :
 ///
-///   1. **Tendance basale** (B1)      — verdict, courbes, timeline, répartition,
+///   1. **Tendance basale** (B1)     — verdict, courbes, timeline, répartition,
 ///      historique de dose, résumé IA
-///   2. **Endormissement** (B2)       — tableau des hypos à l'endormissement
-///   3. **Corrections du soir** (B3)  — tableau des corrections au coucher
+///   2. **Hypos au coucher** (B2+B3) — fusion endormissement + corrections,
+///      focus hypo : chiffre honnête, situations minées, soirs listés,
+///      « Comparer à ce soir »
 ///
 /// En-tête : rangée de **pills draguables** (`PillsCoucher`) posée **fixe** au
-/// dessus du contenu scrollable. Un court texte descriptif ouvre chaque
-/// section, suivi de son contenu.
+/// dessus du contenu scrollable.
 ///
 /// L'état `mode` / `indexSelectionne` du chart B1 vit ici pour que le tap
 /// timeline puisse basculer le picker sur « Par nuit » et aligner la nuit.
@@ -26,6 +26,17 @@ struct DetailAnalyseBasaleVue: View {
     let analyse: AnalyseBasaleDetail
     let endormissement: AnalyseEndormissement
     let corrections: AnalyseCorrections
+
+    /// Fusion B2+B3 dérivée à la volée (calcul pur, instantané) — la timeline
+    /// B1 alimente le facteur « nuit descendante » des situations.
+    private var hyposCoucher: AnalyseHyposCoucher {
+        CalculSituationsCoucher.analyser(
+            endormissement: endormissement,
+            corrections: corrections,
+            timeline: analyse.timeline,
+            changementDoseRecent: analyse.changementDoseRecent
+        )
+    }
 
     /// Appelé à l'apparition de la page — le parent (`CarteAnalyseCoucher`)
     /// y marque le verdict B1 comme vu (efface le badge de l'onglet Analyses
@@ -95,9 +106,8 @@ struct DetailAnalyseBasaleVue: View {
     private var contenuPage: some View {
         VStack(spacing: 12) {
             switch pageCourante {
-            case .basale:       contenuBasale
-            case .glycemie:     TableauEndormissement(analyse: endormissement)
-            case .corrections:  TableauCorrections(analyse: corrections)
+            case .basale:        contenuBasale
+            case .hyposCoucher:  PageHyposCoucher(analyse: hyposCoucher, endormissement: endormissement)
             }
         }
         .padding(.horizontal, 16)

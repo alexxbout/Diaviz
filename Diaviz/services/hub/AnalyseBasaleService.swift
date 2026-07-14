@@ -63,14 +63,14 @@ final class AnalyseBasaleService {
     // MARK: - Résumé pour la carte sommaire (B1 ligne)
 
     /// `ResumeAnalyseCoucher` dérivé de l'analyse réelle. B1 reflète le verdict ;
-    /// B2 / B3 restent en attente tant que leurs assembleurs ne sont pas branchés.
+    /// la ligne « Hypos au coucher » reste en attente tant que les services
+    /// B2/B3 ne sont pas branchés (voir la surcharge ci-dessous).
     var resumeCoucher: ResumeAnalyseCoucher {
         ResumeAnalyseCoucher(
             verdictBasale: analyse.verdict,
             sections: [
                 ResumeSousAnalyse(sousAnalyse: .basale, etat: etatBasale, aDuNouveau: estNouvelleTendance),
-                ResumeSousAnalyse(sousAnalyse: .glycemie, etat: .enAttente, aDuNouveau: false),
-                ResumeSousAnalyse(sousAnalyse: .corrections, etat: .enAttente, aDuNouveau: false),
+                ResumeSousAnalyse(sousAnalyse: .hyposCoucher, etat: .enAttente, aDuNouveau: false),
             ]
         )
     }
@@ -86,6 +86,43 @@ final class AnalyseBasaleService {
                 ? .collecte(actuel: analyse.nuitsAnalysees, requis: 3)
                 : .enAttente
         }
+    }
+
+    /// Surcharge de `resumeCoucher` reflétant l'état réel de la fusion B2+B3
+    /// (« Hypos au coucher ») une fois les services branchés — additive, ne
+    /// change rien pour les appelants de la propriété.
+    func resumeCoucher(endormissement: AnalyseEndormissement, corrections: AnalyseCorrections) -> ResumeAnalyseCoucher {
+        ResumeAnalyseCoucher(
+            verdictBasale: analyse.verdict,
+            sections: [
+                ResumeSousAnalyse(sousAnalyse: .basale, etat: etatBasale, aDuNouveau: estNouvelleTendance),
+                ResumeSousAnalyse(sousAnalyse: .hyposCoucher,
+                                  etat: etatHyposCoucher(endormissement: endormissement, corrections: corrections),
+                                  aDuNouveau: false),
+            ]
+        )
+    }
+
+    /// Seuil minimal de soirs analysés pour un premier aperçu exploitable
+    /// (cadrage B2 : « 10 nuits »).
+    private static let soirsRequisHyposCoucher = 10
+
+    /// État glance de la ligne fusionnée « Hypos au coucher » : hypos B2
+    /// (endormissement) + sur-corrections B3, sur la population totale.
+    private func etatHyposCoucher(
+        endormissement: AnalyseEndormissement, corrections: AnalyseCorrections
+    ) -> EtatSousAnalyse {
+        let totalSoirs = endormissement.nuits.count + corrections.nombre
+        let hypos = endormissement.nombreHypos
+            + corrections.corrections.filter { $0.issue == .surCorrection }.count
+        guard totalSoirs >= Self.soirsRequisHyposCoucher else {
+            return totalSoirs == 0
+                ? .enAttente
+                : .collecte(actuel: totalSoirs, requis: Self.soirsRequisHyposCoucher)
+        }
+        return hypos > 0
+            ? .resultat(libelle: "\(hypos) hypo\(hypos > 1 ? "s" : "")", ton: .attention)
+            : .resultat(libelle: "Aucune récente", ton: .positif)
     }
 
     // MARK: - Nouvelle tendance (badge navbar + insight accueil)

@@ -9,27 +9,25 @@ import SwiftUI
 
 // MARK: - Identité des sous-analyses
 
-/// Les trois sous-analyses fusionnées dans la page « Analyse du coucher » :
-/// B1 (tendance basale), B2 (glycémie au coucher), B3 (corrections du soir).
-/// Porte le libellé et le SF Symbol affichés sur chaque ligne glance.
+/// Les deux sous-analyses fusionnées dans la page « Analyse du coucher » :
+/// B1 (tendance basale) et « Hypos au coucher » (fusion B2 endormissement +
+/// B3 corrections, focus hypo). Porte le libellé et le SF Symbol affichés
+/// sur chaque ligne glance.
 enum SousAnalyseCoucher: String, CaseIterable, Sendable {
     case basale
-    case glycemie
-    case corrections
+    case hyposCoucher
 
     var titre: String {
         switch self {
-        case .basale:       return "Tendance basale"
-        case .glycemie:     return "Endormissement"
-        case .corrections:  return "Corrections du soir"
+        case .basale:        return "Tendance basale"
+        case .hyposCoucher:  return "Hypos au coucher"
         }
     }
 
     var icone: String {
         switch self {
-        case .basale:       return "syringe.fill"
-        case .glycemie:     return "bed.double.fill"
-        case .corrections:  return "plusminus"
+        case .basale:        return "syringe.fill"
+        case .hyposCoucher:  return "bed.double.fill"
         }
     }
 
@@ -37,9 +35,8 @@ enum SousAnalyseCoucher: String, CaseIterable, Sendable {
     /// pills de la page « Analyse du coucher ».
     var couleur: Color {
         switch self {
-        case .basale:       return .indigo
-        case .glycemie:     return .teal
-        case .corrections:  return .orange
+        case .basale:        return .indigo
+        case .hyposCoucher:  return .teal
         }
     }
 }
@@ -120,6 +117,10 @@ struct CarteAnalyseCoucher: View {
     /// carte retombe sur le snapshot mocké routé par le verdict.
     var analyse: AnalyseBasaleDetail? = nil
 
+    /// Analyses B2/B3 **réelles**. `nil` en preview → retombent sur `.mock`.
+    var endormissement: AnalyseEndormissement? = nil
+    var corrections: AnalyseCorrections? = nil
+
     /// Appelé quand le détail s'ouvre réellement (pas juste au survol de
     /// cette carte) — le parent y marque le verdict B1 comme vu, ce qui
     /// efface le badge de l'onglet Analyses.
@@ -127,10 +128,10 @@ struct CarteAnalyseCoucher: View {
 
     var body: some View {
         NavigationLink {
-            // TODO: remplacer par la page fusionnée « Analyse du coucher »
-            // une fois designée. En attendant, on ouvre le détail B1 existant.
             DetailAnalyseBasaleVue(
                 analyse: analyse ?? AnalyseBasaleServiceMock.charger(verdict: resume.verdictBasale),
+                endormissement: endormissement ?? .mock,
+                corrections: corrections ?? .mock,
                 onApparition: onOuvrirDetail
             )
         } label: {
@@ -246,7 +247,7 @@ struct CarteAnalyseCoucher: View {
 extension ResumeAnalyseCoucher {
 
     /// État courant typique : basale à revoir (nouveau verdict), hypos repérées
-    /// à l'endormissement, B3 pas encore démarrée. Usage réel à quelques semaines.
+    /// au coucher. Usage réel à quelques semaines.
     static var mockDefault: ResumeAnalyseCoucher {
         ResumeAnalyseCoucher(
             verdictBasale: .tropHaute,
@@ -254,17 +255,14 @@ extension ResumeAnalyseCoucher {
                 ResumeSousAnalyse(sousAnalyse: .basale,
                                   etat: .resultat(libelle: "À revoir", ton: .attention),
                                   aDuNouveau: true),
-                ResumeSousAnalyse(sousAnalyse: .glycemie,
+                ResumeSousAnalyse(sousAnalyse: .hyposCoucher,
                                   etat: .resultat(libelle: "2 hypos", ton: .attention),
-                                  aDuNouveau: false),
-                ResumeSousAnalyse(sousAnalyse: .corrections,
-                                  etat: .enAttente,
                                   aDuNouveau: false),
             ]
         )
     }
 
-    /// État mature : les trois sous-analyses produisent un résultat.
+    /// État mature : les deux sous-analyses produisent un résultat.
     static var mockMature: ResumeAnalyseCoucher {
         ResumeAnalyseCoucher(
             verdictBasale: .adaptee,
@@ -272,11 +270,8 @@ extension ResumeAnalyseCoucher {
                 ResumeSousAnalyse(sousAnalyse: .basale,
                                   etat: .resultat(libelle: "Adaptée", ton: .positif),
                                   aDuNouveau: false),
-                ResumeSousAnalyse(sousAnalyse: .glycemie,
+                ResumeSousAnalyse(sousAnalyse: .hyposCoucher,
                                   etat: .resultat(libelle: "Aucune récente", ton: .neutre),
-                                  aDuNouveau: false),
-                ResumeSousAnalyse(sousAnalyse: .corrections,
-                                  etat: .collecte(actuel: 12, requis: 15),
                                   aDuNouveau: false),
             ]
         )
@@ -290,10 +285,7 @@ extension ResumeAnalyseCoucher {
                 ResumeSousAnalyse(sousAnalyse: .basale,
                                   etat: .collecte(actuel: 2, requis: 3),
                                   aDuNouveau: false),
-                ResumeSousAnalyse(sousAnalyse: .glycemie,
-                                  etat: .enAttente,
-                                  aDuNouveau: false),
-                ResumeSousAnalyse(sousAnalyse: .corrections,
+                ResumeSousAnalyse(sousAnalyse: .hyposCoucher,
                                   etat: .enAttente,
                                   aDuNouveau: false),
             ]
