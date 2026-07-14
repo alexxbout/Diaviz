@@ -1,5 +1,6 @@
-# This workflow will build a Swift project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-swift
+# Diaviz is an Xcode project (.xcodeproj), not a Swift Package — there is no
+# Package.swift, so `swift build`/`swift test` always fail here. Build and
+# test via xcodebuild against the iOS Simulator instead.
 
 name: Swift
 
@@ -11,12 +12,26 @@ on:
 
 jobs:
   build:
-
-    runs-on: macos-latest
+    runs-on: macos-15
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: swift build -v
-    - name: Run tests
-      run: swift test -v
+      - uses: actions/checkout@v4
+
+      - name: Select an available iPhone simulator
+        id: sim
+        run: |
+          NAME=$(xcrun simctl list devices available | grep -m1 -oE '^\s*iPhone [^(]+' | sed -E 's/^\s+|\s+$//g')
+          echo "Using simulator: $NAME"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: |
+          xcodebuild -project Diaviz.xcodeproj -scheme Diaviz \
+            -destination "generic/platform=iOS Simulator" \
+            build
+
+      - name: Test
+        run: |
+          xcodebuild -project Diaviz.xcodeproj -scheme Diaviz \
+            -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.name }}" \
+            test
