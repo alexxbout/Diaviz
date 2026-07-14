@@ -60,20 +60,7 @@ final class AnalyseBasaleService {
         )
     }
 
-    // MARK: - Résumé pour la carte sommaire (B1 ligne)
-
-    /// `ResumeAnalyseCoucher` dérivé de l'analyse réelle. B1 reflète le verdict ;
-    /// la ligne « Hypos au coucher » reste en attente tant que les services
-    /// B2/B3 ne sont pas branchés (voir la surcharge ci-dessous).
-    var resumeCoucher: ResumeAnalyseCoucher {
-        ResumeAnalyseCoucher(
-            verdictBasale: analyse.verdict,
-            sections: [
-                ResumeSousAnalyse(sousAnalyse: .basale, etat: etatBasale, aDuNouveau: estNouvelleTendance),
-                ResumeSousAnalyse(sousAnalyse: .hyposCoucher, etat: .enAttente, aDuNouveau: false),
-            ]
-        )
-    }
+    // MARK: - Résumé pour la carte sommaire
 
     private var etatBasale: EtatSousAnalyse {
         switch analyse.verdict {
@@ -88,9 +75,9 @@ final class AnalyseBasaleService {
         }
     }
 
-    /// Surcharge de `resumeCoucher` reflétant l'état réel de la fusion B2+B3
-    /// (« Hypos au coucher ») une fois les services branchés — additive, ne
-    /// change rien pour les appelants de la propriété.
+    /// `ResumeAnalyseCoucher` complet — B1 reflète le verdict, la ligne
+    /// « Hypos au coucher » reflète l'état réel de la fusion B2+B3 fournie
+    /// par les services dédiés.
     func resumeCoucher(endormissement: AnalyseEndormissement, corrections: AnalyseCorrections) -> ResumeAnalyseCoucher {
         ResumeAnalyseCoucher(
             verdictBasale: analyse.verdict,
