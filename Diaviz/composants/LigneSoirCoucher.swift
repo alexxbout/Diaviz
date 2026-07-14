@@ -41,17 +41,17 @@ struct LigneSoirCoucher: View {
     /// carte **avant** que `FlowLayout` ait fini de replier ses chips sur
     /// plusieurs lignes — la carte se fige trop courte et coupe la dernière
     /// ligne. En overlay, la hauteur suit uniquement le `VStack` de contenu.
-    private var afficheContexte: Bool { !contexte.isEmpty || afficherCharge }
+    private var afficheContexte: Bool { !soir.chipsContexte.isEmpty || soir.chargeVisible }
 
     private var carte: some View {
         VStack(alignment: .leading, spacing: afficheContexte ? 9 : 0) {
             enTete
             if afficheContexte {
                 FlowLayout(spacing: 6) {
-                    if afficherCharge {
+                    if soir.chargeVisible {
                         ChipCharge(charge: soir.charge)
                     }
-                    ForEach(contexte) { chip in
+                    ForEach(soir.chipsContexte) { chip in
                         ChipContexte(chip: chip)
                     }
                 }
@@ -133,38 +133,15 @@ struct LigneSoirCoucher: View {
         return Issue(constat: "stable", precision: nil, couleur: .green)
     }
 
-    // MARK: - Chips de contexte
-
-    private var contexte: [ChipContexte.Modele] {
-        var chips: [ChipContexte.Modele] = []
-        if let dose = soir.correction {
-            chips.append(.init(symbole: "syringe.fill", texte: "correction +\(dose.formatted())u", accent: true))
-        }
-        if let iob = soir.iob {
-            chips.append(.init(symbole: "drop.fill", texte: "IOB \(String(format: "%.1f", iob))U", accent: false))
-        }
-        if let sport = soir.sport {
-            chips.append(.init(symbole: "figure.run", texte: "\(sport.type) · \(sport.dureeTexte)", accent: false))
-        }
-        if let g = soir.glucides {
-            chips.append(.init(symbole: "fork.knife", texte: "\(g.formatted())g", accent: false))
-        }
-        return chips
-    }
-
-    /// Charge affichée seulement quand elle « pèse » (modérée / intense) —
-    /// aucune / calme = contexte neutre, masqué pour ne pas noyer la ligne.
-    private var afficherCharge: Bool {
-        soir.charge == .moderee || soir.charge == .intense
-    }
+    // MARK: - Accessibilité
 
     private var libelleAccessible: String {
         var parts = ["\(soir.date.formatted(.dateTime.day().month(.wide).locale(Locale(identifier: "fr_FR"))))",
                      "couché à \(soir.glycemie) mg/dL",
                      issue.constat]
         if let p = issue.precision { parts.append(p) }
-        if afficherCharge { parts.append("activité de la semaine : \(soir.charge.libelle.lowercased())") }
-        parts += contexte.map { "\($0.texte)" }
+        if soir.chargeVisible { parts.append("activité de la semaine : \(soir.charge.libelle.lowercased())") }
+        parts += soir.chipsContexte.map { "\($0.texte)" }
         return parts.joined(separator: ", ")
     }
 }

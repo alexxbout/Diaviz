@@ -24,12 +24,16 @@ struct PageHyposCoucher: View {
     /// Analyse B2 brute — consommée par la sheet « Comparer à ce soir »
     /// existante (à faire évoluer vers les soirs fusionnés dans un second temps).
     let endormissement: AnalyseEndormissement
+    /// Nuits B1 (courbes, zones, events) — alimentent la sheet détail de
+    /// soirée. Vide en preview → sheet en dégradation gracieuse.
+    var nuitsB1: [NightChartData] = []
 
     /// Filtre de la liste des soirs. Défaut « hypos » quand il y en a, sinon
     /// « tous » (une liste vide sous un filtre sélectionné serait déroutante).
     enum FiltreSoirs { case hypos, tous }
     @State private var filtre: FiltreSoirs = .hypos
     @State private var afficherComparer = false
+    @State private var soirSelectionne: SoirCoucher?
 
     /// Filtre effectif : bascule sur « tous » s'il n'y a aucune hypo à montrer.
     private var filtreEffectif: FiltreSoirs {
@@ -48,6 +52,27 @@ struct PageHyposCoucher: View {
         .sheet(isPresented: $afficherComparer) {
             SheetComparerCeSoir(analyse: endormissement)
         }
+        .sheet(item: $soirSelectionne) { soir in
+            SheetDetailSoiree(
+                soir: soir,
+                nuitB1: nuitB1(pour: soir),
+                changementDoseRecent: analyse.changementDoseRecent
+            )
+        }
+    }
+
+    /// Nuit B1 correspondant à un soir : d'abord par contenance dans la
+    /// fenêtre de coucher (robuste aux corrections après minuit), sinon par
+    /// jour calendaire.
+    private func nuitB1(pour soir: SoirCoucher) -> NightChartData? {
+        let cal = Calendar.current
+        if let parFenetre = nuitsB1.first(where: { nuit in
+            let fenetre = nuit.basaleTime.addingTimeInterval(-3 * 3600)...nuit.basaleTime.addingTimeInterval(2 * 3600)
+            return fenetre.contains(soir.date)
+        }) {
+            return parFenetre
+        }
+        return nuitsB1.first { cal.isDate($0.date, inSameDayAs: soir.date) }
     }
 
     // MARK: - 1. Chiffre honnête
@@ -131,7 +156,7 @@ struct PageHyposCoucher: View {
             } else {
                 VStack(spacing: 8) {
                     ForEach(visibles) { soir in
-                        LigneSoirCoucher(soir: soir)
+                        LigneSoirCoucher(soir: soir, onTap: { soirSelectionne = soir })
                     }
                 }
             }

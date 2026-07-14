@@ -107,7 +107,12 @@ struct DetailAnalyseBasaleVue: View {
         VStack(spacing: 12) {
             switch pageCourante {
             case .basale:        contenuBasale
-            case .hyposCoucher:  PageHyposCoucher(analyse: hyposCoucher, endormissement: endormissement)
+            case .hyposCoucher:
+                PageHyposCoucher(
+                    analyse: hyposCoucher,
+                    endormissement: endormissement,
+                    nuitsB1: analyse.nightChartData
+                )
             }
         }
         .padding(.horizontal, 16)
