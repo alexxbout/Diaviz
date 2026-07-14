@@ -38,6 +38,18 @@ enum ChargeurFaitsCoucher {
         return ((try? contexte.fetch(d)) ?? []).map { (date: $0.date, valeur: $0.valeur, tendance: $0.tendance) }
     }
 
+    static func lentes(
+        _ contexte: ModelContext, depuis: Date
+    ) -> [(heure: Date, dose: Double)] {
+        let d = FetchDescriptor<Injection>(
+            predicate: #Predicate { $0.heure >= depuis },
+            sortBy: [SortDescriptor(\.heure, order: .forward)]
+        )
+        return ((try? contexte.fetch(d)) ?? [])
+            .filter { $0.type == .lente }
+            .map { (heure: $0.heure, dose: $0.dose) }
+    }
+
     static func rapides(
         _ contexte: ModelContext, depuis: Date
     ) -> [(heure: Date, dose: Double, correction: Bool)] {

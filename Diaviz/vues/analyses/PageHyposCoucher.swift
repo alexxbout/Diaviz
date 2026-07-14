@@ -21,9 +21,6 @@ import SwiftUI
 struct PageHyposCoucher: View {
 
     let analyse: AnalyseHyposCoucher
-    /// Analyse B2 brute — consommée par la sheet « Comparer à ce soir »
-    /// existante (à faire évoluer vers les soirs fusionnés dans un second temps).
-    let endormissement: AnalyseEndormissement
     /// Nuits B1 (courbes, zones, events) — alimentent la sheet détail de
     /// soirée. Vide en preview → sheet en dégradation gracieuse.
     var nuitsB1: [NightChartData] = []
@@ -50,7 +47,7 @@ struct PageHyposCoucher: View {
             boutonComparer
         }
         .sheet(isPresented: $afficherComparer) {
-            SheetComparerCeSoir(analyse: endormissement)
+            SheetComparerCeSoir(situations: analyse.situations, doseActuelle: analyse.doseActuelle)
         }
         .sheet(item: $soirSelectionne) { soir in
             SheetDetailSoiree(
@@ -237,18 +234,29 @@ struct PageHyposCoucher: View {
 struct CarteSituationCoucher: View {
 
     let situation: SituationCoucher
+    /// `true` → carte épinglée « ce soir » (bordure accent + badge) : le
+    /// contexte du moment correspond à cette situation (sheet Comparer).
+    var epinglee: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(situation.titre)
                     .font(.footnote.weight(.semibold))
-                if situation.estFacteurSeul {
+                if situation.estFacteurSeul && !epinglee {
                     Text("facteur seul")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
                 Spacer(minLength: 0)
+                if epinglee {
+                    Text("ce soir")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.indigo)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.indigo.opacity(0.14), in: Capsule())
+                }
             }
 
             barre(libelle: "cette situation",
@@ -268,6 +276,12 @@ struct CarteSituationCoucher: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
+        .overlay {
+            if epinglee {
+                RoundedRectangle(cornerRadius: Radius.medium, style: .continuous)
+                    .strokeBorder(Color.indigo.opacity(0.55), lineWidth: 1.5)
+            }
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(libelleAccessible)
     }
@@ -314,7 +328,7 @@ struct CarteSituationCoucher: View {
 
 #Preview("Hypos au coucher — mock") {
     ScrollView {
-        PageHyposCoucher(analyse: .mock, endormissement: .mock)
+        PageHyposCoucher(analyse: .mock)
             .padding(16)
     }
     .background(Color(.systemGroupedBackground))
@@ -325,8 +339,7 @@ struct CarteSituationCoucher: View {
         PageHyposCoucher(
             analyse: CalculSituationsCoucher.analyser(
                 endormissement: .mockSansHypo, corrections: AnalyseCorrections(corrections: []), timeline: []
-            ),
-            endormissement: .mockSansHypo
+            )
         )
         .padding(16)
     }
@@ -335,7 +348,7 @@ struct CarteSituationCoucher: View {
 
 #Preview("Hypos au coucher — situations riches (avec B1)") {
     ScrollView {
-        PageHyposCoucher(analyse: .mockRiche, endormissement: .mock)
+        PageHyposCoucher(analyse: .mockRiche)
             .padding(16)
     }
     .background(Color(.systemGroupedBackground))
@@ -347,8 +360,7 @@ struct CarteSituationCoucher: View {
             analyse: CalculSituationsCoucher.analyser(
                 endormissement: AnalyseEndormissement(seuilCoucher: 160, doseActuelle: 18, nuits: []),
                 corrections: .mock, timeline: []
-            ),
-            endormissement: AnalyseEndormissement(seuilCoucher: 160, doseActuelle: 18, nuits: [])
+            )
         )
         .padding(16)
     }

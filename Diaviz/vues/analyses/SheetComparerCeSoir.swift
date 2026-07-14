@@ -5,52 +5,66 @@
 //  Created by Alexandre on 31/05/2026.
 //
 
+import SwiftData
 import SwiftUI
 
-/// Sheet « Comparer à ce soir » — la surface de **recherche par similarité**
-/// (k-NN, V1.1) du coucher.
+/// Sheet **« Comparer à ce soir »** — la surface de recherche par similarité
+/// du coucher (fusion B2+B3).
 ///
-/// L'utilisateur saisit sa glycémie actuelle (le CGM ayant 3h de retard) ; le
-/// reste du contexte (sport, IOB, lente, charge) est déjà connu de l'app. La
-/// recherche remonte les nuits passées **proches**, scindées « fini en hypo /
-/// resté stable », pour répondre à : « est-ce que je peux me coucher comme ça ? »
+/// L'utilisateur saisit sa glycémie actuelle (le CGM ayant ~3h de retard,
+/// c'est la seule donnée que l'app ne connaît pas) ; le reste du contexte
+/// (dose de lente, charge 7 j, sport du jour, IOB) est **pré-rempli depuis le
+/// hub**. La recherche remonte les soirs passés dont la glycémie de coucher
+/// est dans une **bande réglable** (slider ±10…±30 mg/dL), scindés « fini en
+/// hypo / resté stable », sur **60 nuits glissantes toutes doses confondues**
+/// (corpus `RechercheCoucher`, distinct de la fenêtre de dose du tableau).
 ///
-/// **Glucose-agnostique** : route selon la glycémie saisie — basse → analogues
-/// d'endormissement (B2), haute → corrections (B3, à venir).
+/// Le contexte n'est **pas** un filtre : il est affiché sur chaque ligne pour
+/// comparaison humaine (transparence, pas de score). Le matching de contexte
+/// est porté par la **situation épinglée** : si la glycémie saisie + le
+/// contexte connu correspondent à une situation minée de la page, sa carte
+/// remonte avec le badge « ce soir ».
 ///
+/// Chaque soir est tappable → `SheetDetailSoiree` (sheet empilée).
 /// Des faits, jamais un conseil de glucides ou de dose.
 struct SheetComparerCeSoir: View {
 
-    let analyse: AnalyseEndormissement
+    /// Situations minées de la page (fenêtre de dose courante) — pour
+    /// l'épinglage après saisie.
+    var situations: [SituationCoucher] = []
+    /// Dose de lente courante (affichée dans le contexte de ce soir).
+    var doseActuelle: Double = 0
+    /// Corpus injecté — pour les previews (court-circuite le hub).
+    var corpusApercu: RechercheCoucher.Corpus? = nil
 
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
     @State private var glycemieTexte = ""
+    @State private var bande: Double = 15
     @State private var rechercheLancee = false
+    @State private var voirTousStables = false
+    @State private var corpus: RechercheCoucher.Corpus?
+    @State private var contexteCeSoir: RechercheCoucher.ContexteCeSoir?
+    @State private var soirDetail: SoirCoucher?
     @FocusState private var champFocus: Bool
-
-    // Contexte de « ce soir » — mocké en V0 (sera fourni par l'app).
-    private let sportCeSoir = false
-    private let iobCeSoir: Double? = nil
-    private let chargeCeSoir: ChargeActivite = .moderee
-
-    /// Demi-largeur de la bande de similarité sur la glycémie (mg/dL).
-    private let bande = 15
 
     private var glycemie: Int? { Int(glycemieTexte) }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 20) {
                     saisie
                     recapContexte
+                    reglageBande
                     boutonRecherche
                     if rechercheLancee { resultats }
                 }
                 .padding(20)
             }
             .scrollDismissesKeyboard(.interactively)
+            .background(Color(.systemGroupedBackground))
             .navigationTitle("Comparer à ce soir")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -59,6 +73,37 @@ struct SheetComparerCeSoir: View {
                 }
             }
         }
+        .task { charger() }
+        .sheet(item: $soirDetail) { soir in
+            SheetDetailSoiree(
+                soir: soir,
+                nuitB1: nuitB1(pour: soir),
+                changementDoseRecent: corpus?.changementDoseRecent
+            )
+        }
+    }
+
+    // MARK: - Chargement (corpus 60 nuits + contexte du soir)
+
+    private func charger() {
+        corpus = corpusApercu ?? RechercheCoucher.corpus(contexte: modelContext)
+        contexteCeSoir = corpusApercu == nil
+            ? RechercheCoucher.contexteCeSoir(contexte: modelContext, doseLente: doseActuelle)
+            : RechercheCoucher.ContexteCeSoir(doseLente: doseActuelle, charge: .moderee, sport: nil, iob: nil)
+    }
+
+    /// Nuit B1 du corpus correspondant à un soir (fenêtre de coucher, puis
+    /// jour calendaire) — même convention que `PageHyposCoucher`.
+    private func nuitB1(pour soir: SoirCoucher) -> NightChartData? {
+        guard let nuits = corpus?.nuits else { return nil }
+        let cal = Calendar.current
+        if let parFenetre = nuits.first(where: { nuit in
+            let fenetre = nuit.basaleTime.addingTimeInterval(-3 * 3600)...nuit.basaleTime.addingTimeInterval(2 * 3600)
+            return fenetre.contains(soir.date)
+        }) {
+            return parFenetre
+        }
+        return nuits.first { cal.isDate($0.date, inSameDayAs: soir.date) }
     }
 
     // MARK: - Saisie glycémie
@@ -85,36 +130,56 @@ struct SheetComparerCeSoir: View {
         .clipShape(RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
     }
 
-    // MARK: - Récap contexte de ce soir
+    // MARK: - Récap contexte de ce soir (pré-rempli depuis le hub)
 
     private var recapContexte: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Ce soir")
+            Text("Ce soir (connu de l'app)")
                 .font(.subheadline.weight(.medium))
-            HStack(spacing: 8) {
-                pastilleContexte(systeme: "syringe.fill", texte: "\(analyse.doseActuelle.formatted()) u")
-                BadgeChargeActivite(charge: chargeCeSoir)
-                if sportCeSoir {
-                    pastilleContexte(systeme: "figure.run", texte: "sport")
+                .foregroundStyle(.secondary)
+
+            FlowLayout(spacing: 6) {
+                if let contexte = contexteCeSoir {
+                    if contexte.doseLente > 0 {
+                        ChipContexte(chip: .init(symbole: "syringe.fill",
+                                                 texte: "lente \(contexte.doseLente.formatted())u",
+                                                 accent: false))
+                    }
+                    ChipCharge(charge: contexte.charge)
+                    if let sport = contexte.sport {
+                        ChipContexte(chip: .init(symbole: "figure.run",
+                                                 texte: "\(sport.type) · \(sport.dureeTexte)",
+                                                 accent: false))
+                    }
+                    if let iob = contexte.iob {
+                        ChipContexte(chip: .init(symbole: "drop.fill",
+                                                 texte: "IOB \(String(format: "%.1f", iob))U",
+                                                 accent: false))
+                    }
                 }
-                pastilleContexte(systeme: "drop.fill",
-                                 texte: iobCeSoir.map { String(format: "%.1fU", $0) } ?? "0 IOB")
-                Spacer(minLength: 0)
             }
         }
     }
 
-    private func pastilleContexte(systeme: String, texte: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: systeme)
-            Text(texte).monospacedDigit()
+    // MARK: - Bande de similarité (slider)
+
+    private var reglageBande: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Soirs à ±\(Int(bande)) mg/dL")
+                    .font(.subheadline.weight(.medium))
+                    .monospacedDigit()
+                Spacer()
+                if rechercheLancee, let g = glycemie {
+                    Text("\(max(0, g - Int(bande)))–\(g + Int(bande))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+            }
+            Slider(value: $bande, in: 10...30, step: 5)
+                .accessibilityLabel("Bande de similarité, plus ou moins \(Int(bande)) milligrammes par décilitre")
         }
-        .font(.caption.weight(.medium))
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(Color(.tertiarySystemFill))
-        .clipShape(Capsule(style: .continuous))
     }
 
     // MARK: - Bouton recherche
@@ -138,107 +203,121 @@ struct SheetComparerCeSoir: View {
     @ViewBuilder
     private var resultats: some View {
         if let g = glycemie {
-            if g > analyse.seuilCoucher {
-                messageInfo("Tu es au-dessus du seuil analysé (\(analyse.seuilCoucher) mg/dL). L'analyse des corrections du soir (B3) arrivera ici.")
+            let proches = soirsProches(de: g)
+
+            if let situation = situationEpinglee(glycemie: g) {
+                CarteSituationCoucher(situation: situation, epinglee: true)
+            }
+
+            if proches.isEmpty {
+                messageInfo("Aucun soir comparable à ±\(Int(bande)) mg/dL sur les \(RechercheCoucher.fenetreNuits) dernières nuits. Pas de quoi conclure.")
             } else {
-                let proches = analyse.nuits.filter { abs($0.glycemieCoucher - g) <= bande }
-                if proches.isEmpty {
-                    messageInfo("Aucune nuit comparable à ±\(bande) mg/dL. Pas de quoi conclure.")
-                } else {
-                    let hypos = proches.filter { $0.issue.estHypo }
-                    let stables = proches.filter { !$0.issue.estHypo }
+                let hypos = proches.filter(\.enHypo)
+                let stables = proches.filter { !$0.enHypo }
 
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("\(proches.count) nuits à ±\(bande) mg/dL de \(g)")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-
-                        if !hypos.isEmpty {
-                            groupe(titre: "Fini en hypo", n: hypos.count, couleur: .red, nuits: hypos)
-                        }
-                        if !stables.isEmpty {
-                            groupe(titre: "Resté stable", n: stables.count, couleur: .green, nuits: stables)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func groupe(titre: String, n: Int, couleur: Color, nuits: [NuitEndormissement]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(couleur)
-                    .frame(width: 9, height: 9)
-                Text(titre)
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(couleur)
-                Text("·").foregroundStyle(.tertiary)
-                Text("\(n)")
-                    .font(.title3.weight(.semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-                Spacer(minLength: 0)
-            }
-
-            VStack(spacing: 0) {
-                ForEach(Array(nuits.enumerated()), id: \.element.id) { index, nuit in
-                    if index > 0 { Divider().padding(.leading, 16) }
-                    ligneResultat(nuit)
-                }
-            }
-            .background(Color(.secondarySystemGroupedBackground))
-            .clipShape(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
-        }
-    }
-
-    private func ligneResultat(_ nuit: NuitEndormissement) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Ligne 1 — glycémie (titre) + délai d'hypo éventuel
-            HStack(spacing: 8) {
-                HStack(spacing: 5) {
-                    Text("\(nuit.glycemieCoucher)")
-                        .font(.body.weight(.semibold))
-                        .monospacedDigit()
-                        .foregroundStyle(.primary)
-                    Image(systemName: nuit.tendance.symbole)
-                        .font(.caption.weight(.semibold))
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("\(proches.count) soir\(proches.count > 1 ? "s" : "") à ±\(Int(bande)) mg/dL de \(g)")
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 8)
-                if case let .hypo(delai) = nuit.issue {
-                    Text(delaiRelatif(delai))
-                        .font(.caption.weight(.semibold))
                         .monospacedDigit()
-                        .foregroundStyle(.red)
-                }
-            }
-            // Ligne 2 — contexte (sous-titre nu)
-            HStack(spacing: 12) {
-                BadgeChargeActivite(charge: nuit.charge, avecLibelle: true)
-                if let s = nuit.sport {
-                    BadgeSport(seance: s)
-                }
-                if let iob = nuit.iob {
-                    contexteItem(systeme: "drop.fill", texte: String(format: "%.1fU", iob))
-                }
-                if let g = nuit.glucides {
-                    contexteItem(systeme: "fork.knife", texte: "\(g.formatted())g")
+
+                    if !hypos.isEmpty {
+                        groupe(titre: "Fini en hypo", couleur: .red, soirs: hypos)
+                    }
+                    if !stables.isEmpty {
+                        groupeStables(stables)
+                    }
+
+                    Text("Recherche sur les \(RechercheCoucher.fenetreNuits) dernières nuits, toutes doses de lente confondues. Le contexte affiché n'est pas un filtre — à toi de comparer.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
     }
 
-    private func contexteItem(systeme: String, texte: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: systeme)
-            Text(texte).monospacedDigit()
+    /// Soirs du corpus dont la glycémie est dans la bande, du plus proche au
+    /// plus éloigné de la saisie.
+    private func soirsProches(de g: Int) -> [SoirCoucher] {
+        (corpus?.soirs ?? [])
+            .filter { abs($0.glycemie - g) <= Int(bande) }
+            .sorted { abs($0.glycemie - g) < abs($1.glycemie - g) }
+    }
+
+    /// Situation minée correspondant au contexte de ce soir : tous ses
+    /// facteurs sont présents sur un **pseudo-soir** construit avec la
+    /// glycémie saisie + le contexte connu. Les facteurs inconnaissables ce
+    /// soir (catégorie B1, correction pas encore prise) ne matchent pas —
+    /// honnête par construction.
+    private func situationEpinglee(glycemie g: Int) -> SituationCoucher? {
+        guard let contexte = contexteCeSoir else { return nil }
+        let pseudoSoir = SoirCoucher(
+            id: UUID(), date: Date(), glycemie: g, tendance: .stable,
+            correction: nil, glucides: nil, sport: contexte.sport,
+            iob: contexte.iob, charge: contexte.charge, categorieB1: nil,
+            enHypo: false, delaiHypoMinutes: nil, issueCorrection: nil
+        )
+        return situations.first { situation in
+            situation.facteurs.allSatisfy { $0.present(dans: pseudoSoir) }
         }
-        .font(.caption.weight(.medium))
-        .foregroundStyle(.secondary)
+    }
+
+    // MARK: Groupes de résultats
+
+    private func groupe(titre: String, couleur: Color, soirs: [SoirCoucher]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            enTeteGroupe(titre: titre, n: soirs.count, couleur: couleur)
+            VStack(spacing: 8) {
+                ForEach(soirs) { soir in
+                    LigneSoirCoucher(soir: soir, onTap: { soirDetail = soir })
+                }
+            }
+        }
+    }
+
+    /// Groupe « resté stable » — tronqué à 3 soirs pour que les hypos
+    /// restent au premier plan ; dépliable.
+    private func groupeStables(_ soirs: [SoirCoucher]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            enTeteGroupe(titre: "Resté stable", n: soirs.count, couleur: .green)
+            let visibles = voirTousStables ? soirs : Array(soirs.prefix(3))
+            VStack(spacing: 8) {
+                ForEach(visibles) { soir in
+                    LigneSoirCoucher(soir: soir, onTap: { soirDetail = soir })
+                }
+            }
+            if soirs.count > 3 {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { voirTousStables.toggle() }
+                } label: {
+                    Text(voirTousStables
+                         ? "Réduire"
+                         : "+ \(soirs.count - 3) autres soirs stables")
+                        .font(.footnote.weight(.medium))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tint)
+            }
+        }
+    }
+
+    private func enTeteGroupe(titre: String, n: Int, couleur: Color) -> some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(couleur)
+                .frame(width: 9, height: 9)
+                .accessibilityHidden(true)
+            Text(titre)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(couleur)
+            Text("· \(n)")
+                .font(.subheadline.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(titre) : \(n) soirs")
     }
 
     private func messageInfo(_ texte: String) -> some View {
@@ -250,17 +329,19 @@ struct SheetComparerCeSoir: View {
             .background(Color(.secondarySystemGroupedBackground))
             .clipShape(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
     }
-
-    private func delaiRelatif(_ minutes: Int) -> String {
-        if minutes < 60 { return "t+\(minutes) min" }
-        let h = minutes / 60
-        let m = minutes % 60
-        return m == 0 ? "t+\(h) h" : "t+\(h) h \(m)"
-    }
 }
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Comparer à ce soir") {
-    SheetComparerCeSoir(analyse: .mock)
+    let fusion = AnalyseHyposCoucher.mock
+    return SheetComparerCeSoir(
+        situations: fusion.situations,
+        doseActuelle: 18,
+        corpusApercu: RechercheCoucher.Corpus(
+            soirs: fusion.soirs, nuits: [], changementDoseRecent: nil
+        )
+    )
 }
+#endif

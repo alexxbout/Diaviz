@@ -110,7 +110,6 @@ struct DetailAnalyseBasaleVue: View {
             case .hyposCoucher:
                 PageHyposCoucher(
                     analyse: hyposCoucher,
-                    endormissement: endormissement,
                     nuitsB1: analyse.nightChartData
                 )
             }
