@@ -34,68 +34,20 @@ struct BarreAGP: View {
 
     let faits: FaitsJour
 
-    private static let hauteur: CGFloat = 32
-    private static let coinArrondi: CGFloat = 8
-
     var body: some View {
-        GeometryReader { geo in
-            let segments = construireSegments(largeurTotale: geo.size.width)
-            HStack(spacing: 0) {
-                ForEach(Array(segments.enumerated()), id: \.offset) { (_, seg) in
-                    SegmentAGPVue(segment: seg)
-                }
-            }
-        }
-        .frame(height: Self.hauteur)
-        .clipShape(RoundedRectangle(cornerRadius: Self.coinArrondi, style: .continuous))
-        .accessibilityElement()
-        .accessibilityLabel(libelleAccessibilite)
-    }
-
-    /// Construit les 3 segments agrégés (hypo / cible / hyper) en
-    /// répartissant la largeur disponible au prorata des pourcentages.
-    ///
-    /// Normalisation par la somme réelle plutôt que par 100 fixe : si
-    /// le mock totalise 99.5 (à cause des arrondis de génération), la
-    /// barre remplit quand même toute la largeur — sans cette
-    /// normalisation un mince espace blanc apparaîtrait à droite.
-    private func construireSegments(largeurTotale: CGFloat) -> [SegmentAGP] {
-        let pctHypo = faits.tbrLevel2 + faits.tbrLevel1
-        let pctCible = faits.tir
-        let pctHyper = faits.tarLevel1 + faits.tarLevel2
-
-        let total = pctHypo + pctCible + pctHyper
-        let denominateur = max(total, 0.0001) // anti-div0 sur cas dégénéré
-        func largeur(_ pct: Double) -> CGFloat {
-            largeurTotale * CGFloat(pct / denominateur)
-        }
-
         // Couleurs système iOS — alignées sur celles utilisées par la
         // section DÉCOMPOSITION juste en dessous (`.red` pour la row
         // Hypo, `.green` pour Temps en cible, `.orange` pour Hyper).
         // Apple les a calibrées pour fonctionner ensemble : même
         // niveau de vivacité, accessibilité Dynamic Color (mode clair
         // / sombre, contraste élevé) gérée automatiquement.
-        return [
-            SegmentAGP(
-                pourcent: pctCible,
-                couleur: .green,
-                largeur: largeur(pctCible),
-                titre: "En cible"
-            ),
-            SegmentAGP(
-                pourcent: pctHyper,
-                couleur: .orange,
-                largeur: largeur(pctHyper),
-                titre: "Hyper"
-            ),
-            SegmentAGP(
-                pourcent: pctHypo,
-                couleur: .red,
-                largeur: largeur(pctHypo),
-                titre: "Hypo"
-            ),
-        ]
+        BarreSegments3(segments: [
+            SegmentBarre(couleur: .green, valeur: faits.tir),
+            SegmentBarre(couleur: .orange, valeur: faits.tarLevel1 + faits.tarLevel2),
+            SegmentBarre(couleur: .red, valeur: faits.tbrLevel2 + faits.tbrLevel1),
+        ])
+        .accessibilityElement()
+        .accessibilityLabel(libelleAccessibilite)
     }
 
     private var libelleAccessibilite: String {
@@ -109,46 +61,5 @@ struct BarreAGP: View {
         return lignes
             .map { String(format: "%@ %.0f pour cent", $0.0, $0.1) }
             .joined(separator: ", ")
-    }
-}
-
-/// Modèle interne d'un segment de la barre AGP.
-private struct SegmentAGP {
-    let pourcent: Double
-    let couleur: Color
-    let largeur: CGFloat
-    let titre: String
-}
-
-/// Vue d'un segment : remplissage couleur + label « XX % » blanc centré
-/// dont la taille de police s'adapte au poids du segment (voir
-/// `BarreAGP` pour les seuils). En deçà de 5 %, pas de texte du tout —
-/// un trait fin coloré reste visible grâce à la couleur de fond.
-private struct SegmentAGPVue: View {
-    let segment: SegmentAGP
-
-    var body: some View {
-        ZStack {
-            segment.couleur
-            if let police = policeTexte {
-                Text(String(format: "%.0f %%", segment.pourcent))
-                    .font(police)
-                    .foregroundStyle(.white)
-                    .monospacedDigit()
-                    .accessibilityHidden(true)
-            }
-        }
-        .frame(width: max(0, segment.largeur))
-    }
-
-    /// Mapping pourcentage → font, ou `nil` si le segment est trop
-    /// petit pour rendre du texte lisible. Calé sur les seuils
-    /// spec'd : ≥ 15 → caption bold, 5–14 → caption2, < 5 → rien.
-    private var policeTexte: Font? {
-        switch segment.pourcent {
-        case 15...:        return .caption.bold()
-        case 5..<15:       return .caption2
-        default:           return nil
-        }
     }
 }

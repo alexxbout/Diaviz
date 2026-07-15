@@ -205,7 +205,8 @@ struct RepartitionNuitsVue: View {
 
 // MARK: - Barre horizontale 3 segments
 
-/// Reprend le langage de la barre AGP du score : 3 segments accolés,
+/// Reprend le composant partagé `BarreSegments3` (même couleurs système et
+/// même rendu que la barre AGP de la page score) : 3 segments accolés,
 /// hauteur 32 pt, coin arrondi 8 pt, pourcentage en blanc centré si ≥ 15 %.
 ///
 /// **Différence avec V2** : on ne montre QUE les zones analysées
@@ -217,61 +218,21 @@ private struct BarreZones: View {
     let descendantes: Int
     let ascendantes: Int
 
-    private static let hauteur: CGFloat = 32
-    private static let coinArrondi: CGFloat = 8
-
     var body: some View {
-        GeometryReader { geo in
-            let total = max(1, stables + descendantes + ascendantes)
-            HStack(spacing: 0) {
-                Segment(couleur: Color(red: 0.114, green: 0.620, blue: 0.459),
-                        pourcent: pourcent(stables, sur: total))
-                    .frame(width: largeur(stables, sur: total, total: geo.size.width))
-                // Descendantes (vers l'hypo) → rouge ; ascendantes (vers
-                // l'hyper) → ambre.
-                Segment(couleur: Color(red: 0.886, green: 0.294, blue: 0.290),
-                        pourcent: pourcent(descendantes, sur: total))
-                    .frame(width: largeur(descendantes, sur: total, total: geo.size.width))
-                Segment(couleur: Color(red: 0.937, green: 0.624, blue: 0.153),
-                        pourcent: pourcent(ascendantes, sur: total))
-                    .frame(width: largeur(ascendantes, sur: total, total: geo.size.width))
-            }
-        }
-        .frame(height: Self.hauteur)
-        .clipShape(RoundedRectangle(cornerRadius: Self.coinArrondi, style: .continuous))
+        // Mêmes couleurs sémantiques que la barre AGP : vert = stable/en
+        // cible, orange = tendance haute/hyper, rouge = tendance basse/hypo.
+        BarreSegments3(segments: [
+            SegmentBarre(couleur: .green, valeur: Double(stables)),
+            SegmentBarre(couleur: .orange, valeur: Double(ascendantes)),
+            SegmentBarre(couleur: .red, valeur: Double(descendantes)),
+        ])
         .accessibilityElement()
         .accessibilityLabel(libelleAccessible)
-    }
-
-    private func pourcent(_ n: Int, sur total: Int) -> Double {
-        100 * Double(n) / Double(total)
-    }
-
-    private func largeur(_ n: Int, sur total: Int, total largeurTotale: CGFloat) -> CGFloat {
-        largeurTotale * CGFloat(n) / CGFloat(total)
     }
 
     private var libelleAccessible: String {
         let total = stables + descendantes + ascendantes
         return "Répartition sur \(total) zones analysées : \(stables) stables, \(descendantes) descendantes, \(ascendantes) ascendantes."
-    }
-}
-
-private struct Segment: View {
-    let couleur: Color
-    let pourcent: Double
-
-    var body: some View {
-        ZStack {
-            couleur
-            if pourcent >= 15 {
-                Text(String(format: "%.0f %%", pourcent))
-                    .font(.caption.bold())
-                    .foregroundStyle(.white)
-                    .monospacedDigit()
-                    .accessibilityHidden(true)
-            }
-        }
     }
 }
 
