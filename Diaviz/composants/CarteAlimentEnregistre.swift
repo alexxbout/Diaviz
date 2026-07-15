@@ -39,7 +39,6 @@ struct CarteAlimentEnregistre: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(nom)
-                    .fontWeight(.bold)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Text("\(quantite)g")

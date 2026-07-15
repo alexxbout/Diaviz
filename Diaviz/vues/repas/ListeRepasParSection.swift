@@ -18,10 +18,13 @@ struct ListeRepasParSection: View {
     @State private var selectedDate: Date = Calendar.current.startOfDay(for: Date())
 
     /// Sections du jour sélectionné, recalculées depuis le hub à chaque render
-    /// (les 4 tranches canoniques, vides comprises). Plus de copie `@State`
-    /// figée : la liste suit le service observable.
+    /// (les 4 tranches canoniques). Plus de copie `@State` figée : la liste
+    /// suit le service observable. Sections **sans repas enregistré** exclues
+    /// — pas de "Aucun repas enregistré" répété sur les tranches vides de la
+    /// journée, uniquement celles qui ont du contenu.
     private var sections: [(titre: String, repas: [Repas])] {
         repasService.sectionsDuJour(selectedDate)
+            .filter { section in section.repas.contains { !$0.aliments.isEmpty } }
     }
 
     /// Projection à plat des repas non vides en `RepasGraph`, **tous jours
@@ -67,39 +70,30 @@ struct ListeRepasParSection: View {
 
     @ViewBuilder
     private func contenuSection(_ section: (titre: String, repas: [Repas])) -> some View {
-        let repasAvecAliments = section.repas.filter { !$0.aliments.isEmpty }
+        // `sections` ne retient que les tranches ayant au moins un repas non
+        // vide — pas besoin de re-filtrer ni de message "vide" ici.
+        ForEach(section.repas.filter { !$0.aliments.isEmpty }) { unRepas in
+            // En-tête du repas : emoji + infos + mini-courbe glycémique.
+            // Tap → détail. Pas de swipe ici : on ne supprime pas un repas
+            // entier d'un geste depuis sa ligne d'en-tête.
+            LigneRepas(repas: unRepas, titreSection: section.titre)
 
-        if repasAvecAliments.isEmpty {
-            Text("Aucun repas enregistré")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.vertical, 4)
-                .listRowBackground(Color.clear)
-        } else {
-            ForEach(repasAvecAliments) { unRepas in
-                // En-tête du repas : emoji + infos + mini-courbe glycémique.
-                // Tap → détail. Pas de swipe ici : on ne supprime pas un repas
-                // entier d'un geste depuis sa ligne d'en-tête.
-                LigneRepas(repas: unRepas, titreSection: section.titre)
-
-                // Détail des aliments — swipe sur un aliment le retire du hub
-                // (et retire le repas s'il devient vide).
-                ForEach(unRepas.aliments) { aliment in
-                    CarteAlimentEnregistre(
-                        emoji: aliment.emoji,
-                        nom: aliment.nom,
-                        quantite: aliment.quantite,
-                        glucides: aliment.glucides,
-                        insuline: aliment.insuline,
-                        imageURL: aliment.imageURL
-                    )
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button(role: .destructive) {
-                            repasService.supprimerAliment(aliment, de: unRepas)
-                        } label: {
-                            Label("Supprimer", systemImage: "trash")
-                        }
+            // Détail des aliments — swipe sur un aliment le retire du hub
+            // (et retire le repas s'il devient vide).
+            ForEach(unRepas.aliments) { aliment in
+                CarteAlimentEnregistre(
+                    emoji: aliment.emoji,
+                    nom: aliment.nom,
+                    quantite: aliment.quantite,
+                    glucides: aliment.glucides,
+                    insuline: aliment.insuline,
+                    imageURL: aliment.imageURL
+                )
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) {
+                        repasService.supprimerAliment(aliment, de: unRepas)
+                    } label: {
+                        Label("Supprimer", systemImage: "trash")
                     }
                 }
             }
