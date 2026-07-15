@@ -58,6 +58,11 @@ struct RepasSheet: View {
     /// Contexte du hub — alimente les insights réels (sport récent, IOB).
     @Environment(\.modelContext) private var modelContext
 
+    /// Ferme la sheet automatiquement au dernier aliment supprimé — sans ça
+    /// le bouton "Enregistrer" est bien désactivé à 0 aliment, mais la sheet
+    /// reste ouverte sur un repas vide, ce qui n'a pas de sens.
+    @Environment(\.dismiss) private var dismiss
+
     /// Zone de la dernière injection rapide enregistrée, lue depuis le hub
     /// (bolus repas ou correction). `nil` si aucune — pas d'avertissement.
     private var derniereZoneRapide: ZoneInjection? {
@@ -147,6 +152,12 @@ struct RepasSheet: View {
                 nombreAliments: aliments.count,
                 onValider: { onValiderRepas(totalInjecte, siteInjection) }
             )
+        }
+        // Dernier aliment supprimé (swipe dans ListeAlimentsSection) → plus
+        // rien à composer, on referme au lieu de laisser la sheet ouverte
+        // sur un repas vide avec juste un bouton désactivé.
+        .onChange(of: aliments.isEmpty) { _, videMaintenant in
+            if videMaintenant { dismiss() }
         }
         // Sheet enfant — édition d'une entrée existante (tap sur une row).
         .sheet(item: $entreeEnEdition) { entree in
