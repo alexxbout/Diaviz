@@ -12,9 +12,12 @@ import Foundation
 // Génère des `ReponseGlycemique` synthétiques pour les previews et la
 // validation visuelle. Toutes les courbes sont déterministes : pas de
 // `random` — pour avoir des previews stables et comparables d'un build
-// à l'autre. Quand l'API backend sera branchée, ce service sera remplacé
-// par un vrai client réseau ; la signature publique restera la même
-// (Repas → EtatAnalyse).
+// à l'autre.
+//
+// **Preview uniquement.** En runtime, la réponse glycémique est dérivée du
+// vrai CGM du hub par `AssembleurReponseRepas` (via `RepasService`). Ce mock
+// ne sert plus que de fixture pour les `#Preview` (qui n'ont pas de CGM),
+// pour exercer visuellement tous les états et formes de courbe.
 enum ReponseGlycemiqueServiceMock {
 
     // Typealias dédié pour les points-clés des courbes complexes. Sans ça,

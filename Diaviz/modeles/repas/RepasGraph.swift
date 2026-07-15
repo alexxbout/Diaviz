@@ -61,30 +61,30 @@ struct RepasGraph: Identifiable, Hashable {
 }
 
 extension RepasGraph {
-    /// Convertit un `Repas` métier en projection pour le graphe.
-    /// Le verdict est mocké tant que la corrélation CGM n'est pas branchée.
+    /// Convertit un `Repas` métier en projection pour le graphe. Le verdict
+    /// provient de la réponse glycémique dérivée du CGM (`Repas.etatAnalyse`,
+    /// posée par `RepasService`) — `.indetermine` tant qu'elle n'est pas
+    /// disponible (repas récent, sans bolus, ou CGM manquant).
     init(_ repas: Repas, label: String) {
         self.init(
             id: repas.id,
             heure: repas.heure,
             glucides: Double(repas.totalGlucides),
             aInjection: repas.aliments.contains { $0.insuline > 0 },
-            verdict: Self.verdictMock(pour: repas),
+            verdict: Self.verdictDepuisEtat(pour: repas),
             label: label,
             emoji: repas.aliments.first?.emoji ?? "🍽️"
         )
     }
 
-    /// Mock déterministe pour donner du relief visuel en attendant le CGM.
-    private static func verdictMock(pour repas: Repas) -> VerdictGlycemique {
-        let cal = Calendar.current
-        let h = cal.component(.hour, from: repas.heure)
-        let m = cal.component(.minute, from: repas.heure)
-        switch (h * 60 + m) % 4 {
-        case 0: return .bon
-        case 1: return .indetermine
-        case 2: return .moyen
-        default: return .mauvais
+    /// Mappe l'`EtatAnalyse` du repas vers le verdict affiché : seule une
+    /// analyse `disponible` porte un verdict coloré, les autres états
+    /// (attente, données manquantes, sans injection, non calculé) restent
+    /// `.indetermine`.
+    private static func verdictDepuisEtat(pour repas: Repas) -> VerdictGlycemique {
+        if case .disponible(let reponse) = repas.etatAnalyse {
+            return reponse.verdict
         }
+        return .indetermine
     }
 }

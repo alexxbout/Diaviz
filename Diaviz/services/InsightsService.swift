@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftData
 
 // MARK: - Modèles d'insights
 
@@ -80,120 +81,136 @@ struct ContexteInsights {
 
 // MARK: - Service
 
-/// Source d'insights contextuels affichés dans `RepasSheet`.
+/// Source d'insights contextuels affichés dans la section « Alertes » de
+/// `RepasSheet`, dérivés **du hub** (aucun mock) :
+/// - **Validation ratio** : dose saisie vs dose issue du ratio *configuré* dans
+///   le profil pour le moment de la journée. Factuel — pas le « ratio optimal
+///   observé » (analyse R1, non implémentée).
+/// - **Sport** : présence d'une activité sportive dans les 3h précédant le
+///   repas. Le ratio ajusté post-sport (analyse R2) reste `nil`.
+/// - **IOB** : insuline rapide encore active, via `IOBCalculateur` et la DIA du
+///   profil — même modèle que la carte « Insuline active » de l'accueil.
 ///
-/// Pour le moment, toutes les valeurs sont **hardcodées et mockées** pour
-/// permettre de tester visuellement les différents états :
-/// - Les 3 variantes de `ValidationRatio` (cohérente / faible / élevée)
-/// - Sport détecté avec et sans ratio ajusté
-/// - IOB > 0 avec plusieurs injections actives
-///
-/// La logique réelle viendra plus tard (corrélation CGM + base de repas + ML).
-@Observable
-final class InsightsService {
+/// Calculateur sans état : chaque appel relit le hub. Toujours factuel, jamais
+/// un conseil de dose.
+enum InsightsService {
 
-    static let shared = InsightsService()
-
-    // MARK: État réglable
-
-    /// Quelle variante de validation simuler.
-    /// Le compositeur peut faire défiler les variantes pour vérifier l'UI.
-    var varianteValidationSimulee: VarianteValidation = .faible
-
-    /// Active/désactive le bloc sport simulé.
-    var sportSimuleActif: Bool = true
-
-    /// Active/désactive le bloc IOB simulé.
-    var iobSimuleActif: Bool = true
-
-    /// Si le sport simulé doit retourner un ratio ajusté ou non.
-    var sportAvecRatioAjuste: Bool = false
-
-    /// Profil ratio actif simulé (utilisé partout pour rester cohérent).
-    var profilActif: ProfilRatio = ProfilRatio(unitesPour10g: 1.0, libelle: "midi")
-
-    private init() {}
+    /// Fenêtre de détection d'un sport « récent » avant le repas (3h).
+    private static let fenetreSport: TimeInterval = 3 * 3600
 
     // MARK: API publique
 
-    /// Calcule la dose suggérée pour un total de glucides en grammes,
-    /// en utilisant le profil actif (sans ajustement sport).
-    func doseSuggeree(glucides: Double) -> Double {
-        (glucides / 10.0) * profilActif.unitesPour10g
-    }
-
-    /// Construit le contexte d'insights pour une dose saisie et un total de glucides.
-    /// Toutes les branches conditionnelles utilisent les flags réglables ci-dessus.
-    func contexte(doseSaisie: Double, glucides: Double) -> ContexteInsights {
+    /// Construit le contexte d'insights pour un repas en cours de composition.
+    ///
+    /// - Parameters:
+    ///   - doseSaisie: total d'insuline saisi (aliments + ajustements + correction).
+    ///   - glucides: total de glucides du repas (g).
+    ///   - heure: instant de référence (T0 — l'instant de saisie).
+    ///   - section: moment du repas, pour choisir le ratio en mode `.parMoment`.
+    ///   - contexte: contexte du hub (sport + IOB). `nil` → ces deux blocs absents.
+    static func contexte(
+        doseSaisie: Double,
+        glucides: Double,
+        heure: Date,
+        section: SectionRepas,
+        contexte: ModelContext?
+    ) -> ContexteInsights {
         ContexteInsights(
-            validation: validationMockee(doseSaisie: doseSaisie, glucides: glucides),
-            sport: sportSimuleActif ? sportMocke() : nil,
-            iob: iobSimuleActif ? iobMocke() : nil
+            validation: validation(doseSaisie: doseSaisie, glucides: glucides, section: section),
+            sport: sportRecent(avant: heure, contexte: contexte),
+            iob: iobActif(a: heure, contexte: contexte)
         )
     }
 
-    // MARK: Variantes simulables
+    // MARK: Validation ratio (profil configuré)
 
-    enum VarianteValidation {
-        /// Pas de dose saisie → carte non affichée.
-        case absente
-        /// Écart < 0.5u → carte verte 1 ligne.
-        case coherente
-        /// Dose < suggérée de plus de 0.5u → carte orange.
-        case faible
-        /// Dose > suggérée de plus de 0.5u → carte rouge.
-        case elevee
-    }
-
-    // MARK: Mocks
-
-    private func validationMockee(doseSaisie: Double, glucides: Double) -> ValidationRatio? {
-        let suggeree = doseSuggeree(glucides: glucides)
-        switch varianteValidationSimulee {
-        case .absente:
+    private static func validation(doseSaisie: Double, glucides: Double, section: SectionRepas) -> ValidationRatio? {
+        guard glucides > 0 else { return nil }
+        let profil = ProfilService.shared.profil
+        guard let grammesParUnite = ratioConfigure(section: section, profil: profil), grammesParUnite > 0 else {
+            // Ratio non renseigné dans le profil → pas de suggestion possible.
             return nil
-        case .coherente:
-            // On force la dose saisie à coller à la suggérée pour tomber dans l'état cohérent.
-            return ValidationRatio(doseSaisie: suggeree, doseSuggeree: suggeree, profil: profilActif)
-        case .faible:
-            // On simule un cas où l'utilisateur n'a quasi rien saisi.
-            return ValidationRatio(doseSaisie: 0, doseSuggeree: suggeree, profil: profilActif)
-        case .elevee:
-            // On simule une saisie 2u au-dessus de la suggestion.
-            return ValidationRatio(doseSaisie: suggeree + 2, doseSuggeree: suggeree, profil: profilActif)
         }
-    }
-
-    private func sportMocke() -> SportDetecte {
-        if sportAvecRatioAjuste {
-            return SportDetecte(
-                typeSport: "Yoga",
-                emoji: "🧘",
-                ilYAMinutes: 60,
-                ratioAjuste: ProfilRatio(unitesPour10g: 1.0 / 1.4, libelle: "post-yoga"),
-                nombreSeancesHistorique: 8
-            )
-        } else {
-            return SportDetecte(
-                typeSport: "Yoga",
-                emoji: "🧘",
-                ilYAMinutes: 60,
-                ratioAjuste: nil,
-                nombreSeancesHistorique: 2
-            )
-        }
-    }
-
-    private func iobMocke() -> IOB {
-        let maintenant = Date()
-        let il30min = maintenant.addingTimeInterval(-30 * 60)
-        let il4h30 = maintenant.addingTimeInterval(-4 * 3600 - 30 * 60)
-        return IOB(
-            unitesTotales: 1.8,
-            injections: [
-                InjectionActive(unitesInjectees: 2.0, heureInjection: il30min, unitesRestantes: 1.2),
-                InjectionActive(unitesInjectees: 1.0, heureInjection: il4h30, unitesRestantes: 0.6),
-            ]
+        let suggeree = glucides / grammesParUnite
+        let profilRatio = ProfilRatio(
+            unitesPour10g: 10 / grammesParUnite,
+            libelle: section.titre.lowercased()
         )
+        return ValidationRatio(doseSaisie: doseSaisie, doseSuggeree: suggeree, profil: profilRatio)
+    }
+
+    /// Ratio insuline/glucides configuré (grammes couverts par 1u) pour le
+    /// moment donné, selon le mode du profil. `nil` si non renseigné.
+    private static func ratioConfigure(section: SectionRepas, profil: ProfilUtilisateur) -> Double? {
+        switch profil.modeRatio {
+        case .unique:
+            return profil.ratioUnique
+        case .parMoment:
+            switch section {
+            case .petitDejeuner: return profil.ratiosParMoment.petitDejeuner
+            case .dejeuner:      return profil.ratiosParMoment.dejeuner
+            case .enCas:         return profil.ratiosParMoment.gouter
+            case .diner:         return profil.ratiosParMoment.diner
+            }
+        }
+    }
+
+    // MARK: Sport récent (présence uniquement)
+
+    private static func sportRecent(avant instant: Date, contexte: ModelContext?) -> SportDetecte? {
+        guard let contexte else { return nil }
+        let depuis = instant.addingTimeInterval(-fenetreSport)
+        let descripteur = FetchDescriptor<ActiviteSportive>(
+            predicate: #Predicate { $0.dateDebut >= depuis && $0.dateDebut <= instant },
+            sortBy: [SortDescriptor(\.dateDebut, order: .reverse)]
+        )
+        guard let activite = try? contexte.fetch(descripteur).first else { return nil }
+        let minutes = Int(instant.timeIntervalSince(activite.dateDebut) / 60)
+        return SportDetecte(
+            typeSport: activite.type.rawValue,
+            emoji: activite.type.emoji,
+            ilYAMinutes: minutes,
+            // Ratio ajusté post-sport = analyse R2, non implémentée → la carte
+            // affiche « pas assez de données pour ajuster le ratio ».
+            ratioAjuste: nil,
+            nombreSeancesHistorique: 0
+        )
+    }
+
+    // MARK: IOB (insuline rapide active)
+
+    private static func iobActif(a instant: Date, contexte: ModelContext?) -> IOB? {
+        guard let contexte else { return nil }
+        let profil = ProfilService.shared.profil
+        let dia = profil.dureeActionInsulineHeures
+        let pic = profil.insulineRapide.picActionMinutes
+        let depuis = instant.addingTimeInterval(-dia * 3600)
+        let descripteur = FetchDescriptor<Injection>(
+            predicate: #Predicate { $0.heure >= depuis && $0.heure < instant },
+            sortBy: [SortDescriptor(\.heure, order: .reverse)]
+        )
+        // Le filtre « rapide » se fait en Swift (comparer un enum en #Predicate
+        // SwiftData est fragile ; le volume est trivial) — même choix qu'`IOBService`.
+        let rapides = ((try? contexte.fetch(descripteur)) ?? []).filter { $0.type != .lente }
+        guard !rapides.isEmpty else { return nil }
+
+        let td = dia * 60
+        var actives: [InjectionActive] = []
+        var total = 0.0
+        for injection in rapides {
+            let minutes = instant.timeIntervalSince(injection.heure) / 60
+            let restant = injection.dose * IOBCalculateur.fractionRestante(
+                minutes: minutes, diaMinutes: td, picMinutes: pic
+            )
+            guard restant > 0.05 else { continue }
+            actives.append(InjectionActive(
+                unitesInjectees: injection.dose,
+                heureInjection: injection.heure,
+                unitesRestantes: restant
+            ))
+            total += restant
+        }
+        guard total > 0.05 else { return nil }
+        return IOB(unitesTotales: total, injections: actives)
     }
 }

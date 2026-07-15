@@ -213,12 +213,61 @@ final class RepasService {
         }
     }
 
+    /// Recalcule les réponses glycémiques des repas depuis le CGM du hub, sans
+    /// re-fetch des repas. À appeler quand de nouvelles `GlucoseReading` sont
+    /// arrivées (sync HealthKit) — au démarrage, le CGM n'est pas encore
+    /// synchronisé, donc les analyses seraient toutes en attente sinon.
+    func rafraichirAnalyses() {
+        annoterReponsesGlycemiques()
+    }
+
     // MARK: - Privé
 
     private func recharger() {
         guard let contexte else { return }
         let descripteur = FetchDescriptor<Repas>(sortBy: [SortDescriptor(\.heure)])
         repas = (try? contexte.fetch(descripteur)) ?? []
+        annoterReponsesGlycemiques()
+    }
+
+    /// Fenêtre au-delà de laquelle on ne calcule plus la réponse glycémique
+    /// d'un repas : sans CGM aussi ancien (backfill Dexcom borné à 7 jours),
+    /// l'analyse serait de toute façon `donneesManquantes`. Borne aussi le
+    /// volume du fetch CGM au rechargement.
+    private static let fenetreAnalyseJours = 45
+
+    /// Calcule et pose l'`EtatAnalyse` (`@Transient`) de chaque repas récent à
+    /// partir des `GlucoseReading` du hub. Un seul fetch CGM borné, puis
+    /// découpage en mémoire par repas via `AssembleurReponseRepas` (pur).
+    private func annoterReponsesGlycemiques() {
+        guard let contexte else { return }
+        let maintenant = Date()
+        let borneAnalyse = Calendar.current.date(
+            byAdding: .day, value: -Self.fenetreAnalyseJours, to: maintenant
+        ) ?? maintenant
+
+        let recents = repas.filter { $0.heure >= borneAnalyse }
+        guard let premier = recents.first?.heure, let dernier = recents.last?.heure else { return }
+
+        // Fetch unique sur [T-1h du premier repas, T+4h du dernier].
+        let borneBasse = premier.addingTimeInterval(AssembleurReponseRepas.debutFenetre)
+        let borneHaute = dernier.addingTimeInterval(AssembleurReponseRepas.finFenetre)
+        var descripteur = FetchDescriptor<GlucoseReading>(
+            predicate: #Predicate { $0.date >= borneBasse && $0.date <= borneHaute },
+            sortBy: [SortDescriptor(\.date, order: .forward)]
+        )
+        descripteur.propertiesToFetch = [\.date, \.valeur]
+        let echantillons = ((try? contexte.fetch(descripteur)) ?? [])
+            .map { (date: $0.date, valeur: $0.valeur) }
+
+        for unRepas in recents {
+            unRepas.etatAnalyse = AssembleurReponseRepas.analyser(
+                heureRepas: unRepas.heure,
+                aUneInjection: unRepas.aUneInjection,
+                echantillons: echantillons,
+                maintenant: maintenant
+            )
+        }
     }
 }
 

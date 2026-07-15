@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 /// Sheet "Repas en cours" présentée plein écran (`.large`) au-dessus de
 /// `AjouterRepasVue` quand l'utilisateur tape ou drag-up sur la bulle
@@ -54,7 +55,8 @@ struct RepasSheet: View {
     /// l'avertissement anti-lipodystrophie du sélecteur de site.
     @Environment(RepasService.self) private var repasService
 
-    private var insightsService: InsightsService { .shared }
+    /// Contexte du hub — alimente les insights réels (sport récent, IOB).
+    @Environment(\.modelContext) private var modelContext
 
     /// Zone de la dernière injection rapide enregistrée, lue depuis le hub
     /// (bolus repas ou correction). `nil` si aucune — pas d'avertissement.
@@ -81,9 +83,19 @@ struct RepasSheet: View {
     }
 
     private var contexteInsights: ContexteInsights {
-        insightsService.contexte(
+        // Le repas est composé « maintenant » : T0 = instant courant, et la
+        // section (pour le ratio par moment) en découle via les horaires du profil.
+        let maintenant = Date()
+        let section = SectionRepas(
+            heure: maintenant,
+            horaires: ProfilService.shared.profil.horairesRepas
+        )
+        return InsightsService.contexte(
             doseSaisie: totalInjecte,
-            glucides: glucidesTotal
+            glucides: glucidesTotal,
+            heure: maintenant,
+            section: section,
+            contexte: modelContext
         )
     }
 
@@ -239,6 +251,7 @@ private let _previewAlimentsRepas: [EntreeAliment] = [
         onValiderRepas: { _, _ in }
     )
     .environment(RepasService.apercu())
+    .modelContainer(for: [Injection.self, ActiviteSportive.self], inMemory: true)
 }
 
 #Preview("Repas vide") {
@@ -249,4 +262,5 @@ private let _previewAlimentsRepas: [EntreeAliment] = [
         onValiderRepas: { _, _ in }
     )
     .environment(RepasService.apercu())
+    .modelContainer(for: [Injection.self, ActiviteSportive.self], inMemory: true)
 }
