@@ -61,8 +61,6 @@ struct DetailAlimentSheet: View {
     @State private var afficherSaisieDose: Bool = false
     @State private var saisieDoseTexte: String = ""
 
-    @State private var detailsOuverts: Bool = false
-
     // MARK: - Valeurs calculées (proportionnelles à quantiteGrammes)
 
     private var glucides: Double  { aliment.glucides  * quantiteGrammes / 100 }
@@ -70,7 +68,6 @@ struct DetailAlimentSheet: View {
     private var proteines: Double { aliment.proteines * quantiteGrammes / 100 }
     private var lipides: Double   { aliment.lipides   * quantiteGrammes / 100 }
     private var calories: Double  { aliment.calories  * quantiteGrammes / 100 }
-    private var fibres: Double    { aliment.fibres    * quantiteGrammes / 100 }
 
     // MARK: - Corps
 
@@ -288,14 +285,6 @@ struct DetailAlimentSheet: View {
             // alignmentGuide force le séparateur du bas à partir du bord gauche (inset 0).
             rowNutritionPrincipale
                 .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
-
-            // DisclosureGroup infos secondaires.
-            // .hidden sur le bord bas supprime le séparateur superflu en bas de section.
-            DisclosureGroup("Plus d'infos nutritionnelles", isExpanded: $detailsOuverts) {
-                ligneNutriment(label: "Fibres", valeur: fibres, unite: "g")
-                    .padding(.top, 4)
-            }
-            .listRowSeparator(.hidden, edges: .bottom)
         }
     }
 
@@ -450,20 +439,6 @@ struct DetailAlimentSheet: View {
             }
         }
         .frame(maxWidth: .infinity)
-    }
-
-    /// Ligne horizontale label–valeur utilisée dans le DisclosureGroup.
-    @ViewBuilder
-    private func ligneNutriment(label: String, valeur: Double, unite: String) -> some View {
-        HStack {
-            Text(label)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Text(String(format: "%.1f %@", valeur, unite))
-                .bold()
-                .contentTransition(.numericText())
-                .animation(.spring(response: 0.3), value: valeur)
-        }
     }
 
     /// Bouton carré du stepper visuel (+ ou −).

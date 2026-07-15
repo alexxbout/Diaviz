@@ -97,9 +97,13 @@ struct AjouterRepasVue: View {
         // (la sheet `RepasSheet` est plein écran et bloque l'interaction
         // avec la barre de recherche → pas de conflit possible).
         .sheet(item: $alimentSelectionne) { aliment in
+            // Pas de `marquerUtilise` ici : l'aliment n'est encore
+            // qu'ajouté au repas EN COURS, pas persisté. Le flag "récemment
+            // ajouté" n'a de sens qu'après validation réelle du repas
+            // (`validerRepas`), sinon un aliment configuré puis abandonné
+            // (repas jamais validé) resterait marqué à tort.
             DetailAlimentSheet(aliment: aliment) { entree in
                 alimentsRepas.append(entree)
-                AlimentsRecentsService.shared.marquerUtilise(aliment)
             }
         }
         // RepasSheet — plein écran (`.large` only). L'utilisateur peut
@@ -138,6 +142,11 @@ struct AjouterRepasVue: View {
             doseInjectee: doseInjectee,
             site: site
         )
+        // Marqué "récemment ajouté" seulement maintenant, à la persistance
+        // réelle du repas — pas à la simple composition en cours.
+        for entree in alimentsRepas {
+            AlimentsRecentsService.shared.marquerUtilise(entree.aliment)
+        }
         alimentsRepas.removeAll()
         recherche = ""
         rechercheProduits.reinitialiserAffichage()
