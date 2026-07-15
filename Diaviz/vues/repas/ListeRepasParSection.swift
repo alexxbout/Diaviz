@@ -83,7 +83,7 @@ struct ListeRepasParSection: View {
                 // Détail des aliments — swipe sur un aliment le retire du hub
                 // (et retire le repas s'il devient vide).
                 ForEach(unRepas.aliments) { aliment in
-                    CarteAliment(
+                    CarteAlimentEnregistre(
                         emoji: aliment.emoji,
                         nom: aliment.nom,
                         quantite: aliment.quantite,

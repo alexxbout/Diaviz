@@ -36,14 +36,13 @@ struct DetailRepasVue: View {
     /// (pratique pour les previews qui n'ont pas de service à invoquer).
     var onSupprimer: (() -> Void)? = nil
 
-    /// Callback d'édition — déclenché par le menu « Modifier ». Comme
-    /// la sheet d'édition complète d'un repas n'est pas isolable du
-    /// flow d'`AjouterRepasVue`, on délègue au parent.
-    var onModifier: (() -> Void)? = nil
-
     // MARK: - Environnement
 
     @Environment(\.dismiss) private var dismiss
+
+    /// Service hub des repas — sert à rapatrier le site d'injection du bolus
+    /// lié à ce repas (le `Repas` lui-même ne stocke pas le site).
+    @Environment(RepasService.self) private var repasService
 
     // MARK: - État local
 
@@ -88,16 +87,9 @@ struct DetailRepasVue: View {
     private var menuActions: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
-                // Le bouton « Modifier » n'apparaît que si un callback d'édition
-                // est fourni — l'édition complète d'un repas n'est pas encore
-                // branchée, on n'affiche pas un bouton mort.
-                if onModifier != nil {
-                    Button {
-                        onModifier?()
-                    } label: {
-                        Label("Modifier", systemImage: "pencil")
-                    }
-                }
+                // Pas de « Modifier » ici : l'édition complète d'un repas n'est
+                // pas isolable du flow d'`AjouterRepasVue`, on n'affiche pas un
+                // bouton mort. Seule la suppression est proposée.
                 Button(role: .destructive) {
                     afficherConfirmationSuppression = true
                 } label: {
@@ -258,7 +250,7 @@ struct DetailRepasVue: View {
 
             CarteRegroupee {
                 ForEach(Array(repas.aliments.enumerated()), id: \.element.id) { index, aliment in
-                    CarteAliment(
+                    CarteAlimentEnregistre(
                         emoji: aliment.emoji,
                         nom: aliment.nom,
                         quantite: aliment.quantite,
@@ -312,7 +304,7 @@ struct DetailRepasVue: View {
             Divider().padding(.leading, 16)
             LigneMetrique(
                 libelle: "Site d'injection",
-                valeur: "—",
+                valeur: siteInjectionFormate,
                 sousValeur: nil
             )
         }
@@ -331,13 +323,18 @@ struct DetailRepasVue: View {
         return m == 0 ? "T+\(h)h" : "T+\(h)h\(m)"
     }
 
-    /// Insuline formatée : « 5u » si entier, « 3.5u » sinon.
+    /// Insuline formatée : « 5u » / « 3.5u », ou « — » si nulle. Le format
+    /// compact est mutualisé via `Double.doseInsulineFormatee`.
     private func formaterInsuline(_ dose: Double) -> String {
-        if dose == 0 { return "—" }
-        if dose.truncatingRemainder(dividingBy: 1) == 0 {
-            return "\(Int(dose))u"
-        }
-        return String(format: "%.1fu", dose)
+        dose == 0 ? "—" : dose.doseInsulineFormatee
+    }
+
+    /// Site d'injection du bolus lié à ce repas, lu depuis le hub via le
+    /// `RepasService` (« Ventre gauche »). « — » si le repas n'a pas de bolus
+    /// associé (repas logué sans dose) ou si le service n'est pas démarré.
+    private var siteInjectionFormate: String {
+        guard let site = repasService.siteBolus(repasId: repas.id) else { return "—" }
+        return site.libelle.capitalizedFirstLetter
     }
 
     /// Ratio insuline-glucides « 1u/18g » — dérivé de glucides/dose.
@@ -451,6 +448,7 @@ extension Repas {
             titreSection: "Petit-déjeuner"
         )
     }
+    .environment(RepasService.apercu())
 }
 
 #Preview("Repas en attente") {
@@ -460,6 +458,7 @@ extension Repas {
             titreSection: "Déjeuner"
         )
     }
+    .environment(RepasService.apercu())
 }
 
 #Preview("Repas sans injection") {
@@ -469,4 +468,5 @@ extension Repas {
             titreSection: "En-cas"
         )
     }
+    .environment(RepasService.apercu())
 }

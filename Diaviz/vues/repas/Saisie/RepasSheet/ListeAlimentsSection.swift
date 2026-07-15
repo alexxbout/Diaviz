@@ -27,7 +27,7 @@ struct ListeAlimentsSection: View {
     var body: some View {
         Section {
             ForEach(aliments) { entree in
-                LigneAlimentRepas(entree: entree)
+                LigneAlimentEnCours(entree: entree)
                     .contentShape(Rectangle())
                     .onTapGesture {
                         onEditer(entree)

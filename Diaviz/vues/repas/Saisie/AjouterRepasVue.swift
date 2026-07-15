@@ -243,7 +243,7 @@ struct AjouterRepasVue: View {
             )
         } else {
             List(Array(recents)) { aliment in
-                LigneAliment(aliment: aliment)
+                LigneResultatRecherche(aliment: aliment)
                     .simultaneousGesture(
                         TapGesture().onEnded {
                             alimentSelectionne = aliment
@@ -266,7 +266,7 @@ struct AjouterRepasVue: View {
     /// (recherche locale — pas de contrainte de quota).
     private var vueResultatsRecherche: some View {
         List(resultats) { aliment in
-            LigneAliment(aliment: .ciqual(aliment))
+            LigneResultatRecherche(aliment: .ciqual(aliment))
                 .simultaneousGesture(
                     TapGesture().onEnded {
                         alimentSelectionne = .ciqual(aliment)
@@ -307,7 +307,7 @@ struct AjouterRepasVue: View {
         } else {
             List {
                 ForEach(rechercheProduits.resultats) { produit in
-                    LigneAliment(aliment: .off(produit))
+                    LigneResultatRecherche(aliment: .off(produit))
                         .simultaneousGesture(
                             TapGesture().onEnded {
                                 alimentSelectionne = .off(produit)

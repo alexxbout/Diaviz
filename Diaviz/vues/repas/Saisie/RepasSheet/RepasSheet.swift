@@ -50,8 +50,17 @@ struct RepasSheet: View {
     /// connu des `.sheet` attachés à une `Section` à l'intérieur d'un Form.
     @State private var afficherSitePicker: Bool = false
 
+    /// Service hub des repas — expose la dérivation `derniereZoneRapide()` pour
+    /// l'avertissement anti-lipodystrophie du sélecteur de site.
+    @Environment(RepasService.self) private var repasService
+
     private var insightsService: InsightsService { .shared }
-    private let derniereZoneRapideMockee: ZoneInjection? = .ventre
+
+    /// Zone de la dernière injection rapide enregistrée, lue depuis le hub
+    /// (bolus repas ou correction). `nil` si aucune — pas d'avertissement.
+    private var derniereZoneRapide: ZoneInjection? {
+        repasService.derniereZoneRapide()
+    }
 
     // MARK: - Calculs
 
@@ -114,7 +123,7 @@ struct RepasSheet: View {
                 if totalInjecte > 0 {
                     DetailsSection(
                         siteInjection: $siteInjection,
-                        derniereZoneRapide: derniereZoneRapideMockee,
+                        derniereZoneRapide: derniereZoneRapide,
                         onOuvrirSitePicker: { afficherSitePicker = true }
                     )
                 }
@@ -166,7 +175,7 @@ struct RepasSheet: View {
         .sheet(isPresented: $afficherSitePicker) {
             SiteInjectionPicker(
                 site: $siteInjection,
-                derniereZoneRapide: derniereZoneRapideMockee
+                derniereZoneRapide: derniereZoneRapide
             )
         }
     }
@@ -229,6 +238,7 @@ private let _previewAlimentsRepas: [EntreeAliment] = [
         onAjouterUnAliment: {},
         onValiderRepas: { _, _ in }
     )
+    .environment(RepasService.apercu())
 }
 
 #Preview("Repas vide") {
@@ -238,4 +248,5 @@ private let _previewAlimentsRepas: [EntreeAliment] = [
         onAjouterUnAliment: {},
         onValiderRepas: { _, _ in }
     )
+    .environment(RepasService.apercu())
 }

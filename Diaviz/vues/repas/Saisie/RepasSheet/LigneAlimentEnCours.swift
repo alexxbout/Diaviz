@@ -1,5 +1,5 @@
 //
-//  LigneAlimentRepas.swift
+//  LigneAlimentEnCours.swift
 //  diaviz
 //
 //  Created by Alexandre on 29/04/2026.
@@ -7,10 +7,17 @@
 
 import SwiftUI
 
-/// Une row de la liste des aliments du repas en cours.
-/// Tappable pour éditer, swipe gauche → supprimer (action gérée par le parent
-/// via `.swipeActions` au niveau du `ForEach`).
-struct LigneAlimentRepas: View {
+/// Row d'un aliment déjà ajouté au repas **en cours de composition**
+/// (`RepasSheet`) — quantité et dose saisies, encore modifiables tant que le
+/// repas n'est pas validé. Tappable pour éditer, swipe gauche → supprimer
+/// (action gérée par le parent via `.swipeActions` au niveau du `ForEach`).
+///
+/// À ne pas confondre avec les deux autres rows du domaine repas :
+/// - `LigneResultatRecherche` (Saisie/) : un résultat de recherche, pas
+///   encore ajouté au repas.
+/// - `CarteAlimentEnregistre` (composants/) : l'aliment tel qu'affiché dans un
+///   repas déjà persisté dans le hub (journal, détail), en lecture seule.
+struct LigneAlimentEnCours: View {
 
     let entree: EntreeAliment
 
@@ -23,10 +30,7 @@ struct LigneAlimentRepas: View {
             ? "≈ \(Int(entree.quantiteGrammes))g"
             : "\(Int(entree.quantiteGrammes))g"
         if let dose = entree.doseInsuline, dose > 0 {
-            let formatte = dose == floor(dose)
-                ? String(format: "%.0fu", dose)
-                : String(format: "%.1fu", dose)
-            return "\(qte) · \(formatte)"
+            return "\(qte) · \(dose.doseInsulineFormatee)"
         } else {
             return qte
         }
@@ -121,7 +125,7 @@ struct LigneAlimentRepas: View {
     )
 
     List {
-        LigneAlimentRepas(entree: entree1)
-        LigneAlimentRepas(entree: entree2)
+        LigneAlimentEnCours(entree: entree1)
+        LigneAlimentEnCours(entree: entree2)
     }
 }

@@ -76,7 +76,7 @@ struct LigneRepas: View {
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
             if repas.aUneInjection {
-                Text(formatInsuline(repas.totalInsuline))
+                Text(repas.totalInsuline.doseInsulineFormatee)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
@@ -96,16 +96,6 @@ struct LigneRepas: View {
         MiniCourbeReponse(etat: repas.etatAnalyse ?? .donneesManquantes)
     }
 
-    // MARK: - Helpers
-
-    /// Formate la dose d'insuline : "4u" si entier, "3.5u" sinon.
-    /// On évite "4.0u" pour rester compact dans la sous-ligne.
-    private func formatInsuline(_ dose: Double) -> String {
-        if dose.truncatingRemainder(dividingBy: 1) == 0 {
-            return "\(Int(dose))u"
-        }
-        return String(format: "%.1fu", dose)
-    }
 }
 
 // MARK: - Aperçu

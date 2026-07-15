@@ -1,5 +1,5 @@
 //
-//  CarteAliment.swift
+//  CarteAlimentEnregistre.swift
 //  diaviz
 //
 //  Created by Alexandre on 22/04/2026.
@@ -7,7 +7,18 @@
 
 import SwiftUI
 
-struct CarteAliment: View {
+/// Card d'un aliment appartenant à un repas **déjà persisté** dans le hub
+/// (journal, détail d'un repas) — affichage de la forme finale résolue
+/// (emoji/photo, nom, quantité, glucides, insuline). Swipeable pour retirer
+/// l'aliment du hub selon le contexte parent, mais ne porte elle-même aucune
+/// logique d'édition.
+///
+/// À ne pas confondre avec les deux autres rows du domaine repas :
+/// - `LigneResultatRecherche` (Saisie/) : un résultat de recherche, pas
+///   encore ajouté à un repas.
+/// - `LigneAlimentEnCours` (RepasSheet/) : l'aliment dans un repas encore en
+///   cours de composition, non persisté.
+struct CarteAlimentEnregistre: View {
     let emoji: String
     let nom: String
     let quantite: Int
@@ -42,7 +53,7 @@ struct CarteAliment: View {
                 Text("\(glucides)g")
                     .fontWeight(.bold)
                     .foregroundStyle(.green)
-                Text(String(format: "%.1fu", insuline))
+                Text(insuline.doseInsulineFormatee)
                     .foregroundStyle(.secondary)
                     .font(.subheadline)
             }
@@ -52,10 +63,9 @@ struct CarteAliment: View {
 
 #Preview {
     VStack {
-        CarteAliment(emoji: "🍚", nom: "Riz basmati", quantite: 60, glucides: 27, insuline: 2.0)
+        CarteAlimentEnregistre(emoji: "🍚", nom: "Riz basmati", quantite: 60, glucides: 27, insuline: 2.0)
     }
     .padding()
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(Color(.secondarySystemBackground))
 }
-

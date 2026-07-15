@@ -61,9 +61,48 @@ final class RepasService {
     /// toucher à la signature de ces vues.
     func sectionsDuJour(_ jour: Date) -> [(titre: String, repas: [Repas])] {
         let duJour = repasDuJour(jour)
+        let horaires = horairesRepas
         return SectionRepas.allCases.map { section in
-            (titre: section.titre, repas: duJour.filter { SectionRepas(heure: $0.heure) == section })
+            (titre: section.titre, repas: duJour.filter { SectionRepas(heure: $0.heure, horaires: horaires) == section })
         }
+    }
+
+    /// Horaires de repas configurés dans le profil — sert à classer un repas
+    /// dans sa section (« Déjeuner »…) selon l'horaire habituel le plus proche,
+    /// plutôt que des seuils fixes en dur.
+    private var horairesRepas: HorairesRepas {
+        ProfilService.shared.profil.horairesRepas
+    }
+
+    // MARK: - Dérivations pour l'UI d'injection
+    //
+    // Le hub stocke le site d'injection sur l'`Injection`, jamais sur le
+    // `Repas`. Ces deux lectures rapatrient l'info côté repas au lieu de la
+    // dupliquer ou de la mocker.
+
+    /// Zone de la dernière injection **rapide** (bolus repas ou correction)
+    /// enregistrée dans le hub. Alimente l'avertissement anti-lipodystrophie du
+    /// sélecteur de site. `nil` si aucune injection rapide connue.
+    func derniereZoneRapide() -> ZoneInjection? {
+        guard let contexte else { return nil }
+        let descripteur = FetchDescriptor<Injection>(
+            sortBy: [SortDescriptor(\.heure, order: .reverse)]
+        )
+        let injections = (try? contexte.fetch(descripteur)) ?? []
+        return injections.first {
+            $0.type == .rapideRepas || $0.type == .rapideCorrection
+        }?.zoneInjection
+    }
+
+    /// Site (zone + côté) du bolus repas lié à un repas, s'il existe. Permet à
+    /// `DetailRepasVue` d'afficher le vrai site plutôt qu'un « — » permanent.
+    func siteBolus(repasId: UUID) -> SiteInjection? {
+        guard let contexte else { return nil }
+        let descripteur = FetchDescriptor<Injection>(
+            predicate: #Predicate { $0.repasAssocieId == repasId }
+        )
+        guard let bolus = try? contexte.fetch(descripteur).first else { return nil }
+        return SiteInjection(zone: bolus.zoneInjection, cote: bolus.coteInjection)
     }
 
     /// Nombre de repas (non vides) enregistrés aujourd'hui — alimente le
@@ -126,7 +165,7 @@ final class RepasService {
                 zoneInjection: site.zone,
                 coteInjection: site.cote,
                 repasAssocieId: nouveau.id,
-                labelRepas: SectionRepas(heure: heure).titre,
+                labelRepas: SectionRepas(heure: heure, horaires: horairesRepas).titre,
                 emojiRepas: nouveau.emojiPrincipal,
                 motif: .repas,
                 source: .manuel
@@ -216,9 +255,7 @@ extension Aliment {
 
 // MARK: - Sections de repas (dérivation d'affichage)
 
-/// Les 4 tranches canoniques du journal. Le découpage par heure est
-/// **provisoire** (seuils fixes) en attendant le branchement des horaires
-/// configurables du profil (`HorairesRepas`). Reste une dérivation d'affichage :
+/// Les 4 tranches canoniques du journal. Reste une dérivation d'affichage :
 /// le hub ne stocke pas la section, seulement l'heure absolue du repas.
 enum SectionRepas: CaseIterable {
     case petitDejeuner
@@ -236,16 +273,27 @@ enum SectionRepas: CaseIterable {
         }
     }
 
-    /// Classe une heure de repas dans une section. Petit déjeuner < 11h,
-    /// déjeuner 11h–14h, dîner ≥ 18h, en-cas le reste (creux de l'après-midi).
-    init(heure: Date) {
-        let h = Calendar.current.component(.hour, from: heure)
-        switch h {
-        case ..<11:    self = .petitDejeuner
-        case 11..<14:  self = .dejeuner
-        case 18...:    self = .diner
-        default:       self = .enCas
+    /// Classe une heure de repas dans une section selon les **horaires
+    /// habituels du profil** (`HorairesRepas`) : la section retenue est celle
+    /// dont l'horaire de référence est le plus proche de l'heure du repas
+    /// (comparaison sur la seule minute du jour). Le goûter du profil correspond
+    /// à la section « En-cas ».
+    init(heure: Date, horaires: HorairesRepas) {
+        let cal = Calendar.current
+        func minuteDuJour(_ date: Date) -> Int {
+            let c = cal.dateComponents([.hour, .minute], from: date)
+            return (c.hour ?? 0) * 60 + (c.minute ?? 0)
         }
+        let cible = minuteDuJour(heure)
+        let candidats: [(section: SectionRepas, minute: Int)] = [
+            (.petitDejeuner, minuteDuJour(horaires.petitDejeuner)),
+            (.dejeuner,      minuteDuJour(horaires.dejeuner)),
+            (.enCas,         minuteDuJour(horaires.gouter)),
+            (.diner,         minuteDuJour(horaires.diner)),
+        ]
+        self = candidats.min {
+            abs($0.minute - cible) < abs($1.minute - cible)
+        }?.section ?? .enCas
     }
 }
 
