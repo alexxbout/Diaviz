@@ -54,6 +54,12 @@ final class ActivitesSportService {
             .sorted { $0.dateDebut < $1.dateDebut }
     }
 
+    /// Nombre d'activités enregistrées aujourd'hui — alimente le sous-titre
+    /// de la carte « Activités sportives » du journal.
+    var nombreActivitesAujourdhui: Int {
+        activitesDuJour(Date()).count
+    }
+
     // MARK: - Dérivation (réponse glycémique)
 
     /// Réponse glycémique associée à une activité.

@@ -5,6 +5,7 @@
 //  Created by Alexandre on 19/04/2026.
 //
 
+import SwiftData
 import SwiftUI
 
 struct JournalVue: View {
@@ -17,6 +18,16 @@ struct JournalVue: View {
     /// `@Environment`. Alimente le badge rouge superposé à la carte « Activités
     /// sportives » quand des workouts sont en attente d'import.
     @Environment(HealthKitImportService.self) private var importService
+
+    /// Services médications/sport **locaux** — juste pour dériver les
+    /// compteurs du jour affichés en sous-titre (les vues détail
+    /// `MedicationsVue`/`SportVue` gardent leur propre instance, pas de
+    /// partage nécessaire ici). Avant, ces cartes affichaient un texte figé
+    /// « Aucune... aujourd'hui » qui ne reflétait jamais le hub.
+    @State private var injectionsService = InjectionsService()
+    @State private var sportService = ActivitesSportService()
+
+    @Environment(\.modelContext) private var modelContext
 
     var body: some View {
         NavigationStack {
@@ -41,7 +52,7 @@ struct JournalVue: View {
                         CarteSection(
                             icone: "syringe",
                             titre: "Médications",
-                            sousTitre: "Aucune médication aujourd'hui",
+                            sousTitre: sousTitreMedications,
                             couleur: .green
                         )
                     }
@@ -51,7 +62,7 @@ struct JournalVue: View {
                         CarteSection(
                             icone: "figure.run",
                             titre: "Activités sportives",
-                            sousTitre: "Aucune activité aujourd'hui",
+                            sousTitre: sousTitreSport,
                             couleur: .orange
                         )
                         .overlay(alignment: .topTrailing) { badgeImport }
@@ -63,12 +74,32 @@ struct JournalVue: View {
             }
             .background(Color(.systemGroupedBackground))
         }
+        .task {
+            injectionsService.demarrer(contexte: modelContext)
+            sportService.demarrer(contexte: modelContext)
+        }
     }
 
     /// Sous-titre de la carte « Repas » — compteur du jour, accordé au pluriel.
     private var sousTitreRepas: String {
         let n = repasService.nombreRepasAujourdhui
         return "\(n) repas enregistré\(n > 1 ? "s" : "") aujourd'hui"
+    }
+
+    /// Sous-titre de la carte « Médications » — compteur du jour, accordé au
+    /// pluriel. Message dédié quand le compteur est à zéro.
+    private var sousTitreMedications: String {
+        let n = injectionsService.nombreInjectionsAujourdhui
+        guard n > 0 else { return "Aucune médication aujourd'hui" }
+        return "\(n) médication\(n > 1 ? "s" : "") enregistrée\(n > 1 ? "s" : "") aujourd'hui"
+    }
+
+    /// Sous-titre de la carte « Activités sportives » — compteur du jour,
+    /// accordé au pluriel. Message dédié quand le compteur est à zéro.
+    private var sousTitreSport: String {
+        let n = sportService.nombreActivitesAujourdhui
+        guard n > 0 else { return "Aucune activité aujourd'hui" }
+        return "\(n) activité\(n > 1 ? "s" : "") enregistrée\(n > 1 ? "s" : "") aujourd'hui"
     }
 
     /// Pastille « à importer » en haut à droite de la carte sport —

@@ -55,6 +55,12 @@ final class InjectionsService {
         injectionsDuJour(jour).first { $0.type == .lente }
     }
 
+    /// Nombre d'injections enregistrées aujourd'hui — alimente le sous-titre
+    /// de la carte « Médications » du journal.
+    var nombreInjectionsAujourdhui: Int {
+        injectionsDuJour(Date()).count
+    }
+
     // MARK: - Écriture
 
     /// Enregistre une injection (création ou édition). **Upsert par `id`** : si
