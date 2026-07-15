@@ -66,9 +66,14 @@ final class AlimentsRecentsService {
     }
 
     /// Aliments récents résolus, ordre MRU. Une clé irrésoluble (aliment
-    /// disparu de la base CIQUAL, snapshot OFF manquant) est ignorée.
+    /// disparu de la base CIQUAL, snapshot OFF manquant) est ignorée, de même
+    /// qu'un aliment CIQUAL masqué par l'utilisateur.
     var alimentsRecents: [ResultatRechercheAliment] {
         clesRecentes.compactMap { resoudre(cle: $0) }
+            .filter { aliment in
+                guard case .ciqual(let a) = aliment else { return true }
+                return !AlimentsCachesService.shared.estCache(a.id)
+            }
     }
 
     func effacer() {

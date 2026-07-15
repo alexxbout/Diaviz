@@ -64,7 +64,8 @@ final class CiqualService {
         var contientTerme: [AlimentCiqual] = []
         var tousMots: [AlimentCiqual] = []
 
-        for aliment in aliments {
+        let cachesService = AlimentsCachesService.shared
+        for aliment in aliments where !cachesService.estCache(aliment.id) {
             let nom = aliment.nom.normaliser()
             if nom == termeNormalise {
                 correspondanceExacte.append(aliment)

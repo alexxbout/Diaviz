@@ -57,6 +57,9 @@ struct AjouterRepasVue: View {
     /// Présentation de `RepasSheet` (déclenchée par tap/drag sur la bulle).
     @State private var repasSheetPresentee: Bool = false
 
+    /// Présentation de la sheet listant les aliments CIQUAL masqués.
+    @State private var alimentsCachesPresentee: Bool = false
+
     /// Focus de la barre de recherche — réactivé quand l'utilisateur tape
     /// "Ajouter un aliment" depuis la `RepasSheet`.
     @FocusState private var rechercheActive: Bool
@@ -110,6 +113,9 @@ struct AjouterRepasVue: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
             .presentationBackground(Color(.systemGroupedBackground))
+        }
+        .sheet(isPresented: $alimentsCachesPresentee) {
+            AlimentsCachesSheet()
         }
     }
 
@@ -246,12 +252,7 @@ struct AjouterRepasVue: View {
             )
         } else {
             List(Array(recents)) { aliment in
-                LigneResultatRecherche(aliment: aliment)
-                    .simultaneousGesture(
-                        TapGesture().onEnded {
-                            alimentSelectionne = aliment
-                        }
-                    )
+                ligneAvecMasquage(aliment) { alimentSelectionne = aliment }
             }
             .scrollDismissesKeyboard(.immediately)
             // Padding en bas pour ne pas que la bulle cache le dernier
@@ -269,12 +270,11 @@ struct AjouterRepasVue: View {
     /// (recherche locale — pas de contrainte de quota).
     private var vueResultatsRecherche: some View {
         List(resultats) { aliment in
-            LigneResultatRecherche(aliment: .ciqual(aliment))
-                .simultaneousGesture(
-                    TapGesture().onEnded {
-                        alimentSelectionne = .ciqual(aliment)
-                    }
-                )
+            ligneAvecMasquage(.ciqual(aliment)) {
+                alimentSelectionne = .ciqual(aliment)
+            } onMasque: {
+                resultats.removeAll { $0.id == aliment.id }
+            }
         }
         .scrollDismissesKeyboard(.immediately)
         .safeAreaPadding(.bottom, alimentsRepas.isEmpty ? 0 : 100)
@@ -344,29 +344,59 @@ struct AjouterRepasVue: View {
         }
     }
 
-    /// Menu toolbar : visible quand au moins une action est applicable —
-    /// repas en cours à supprimer, ou suggestions à effacer.
+    /// Ligne de résultat avec, pour les aliments **CIQUAL uniquement**, un
+    /// swipe pour masquer l'aliment des suggestions (recherche + récents).
+    /// Les produits Open Food Facts n'ont pas ce geste — l'utilisateur les a
+    /// déjà choisis explicitement via une recherche, pas de bruit à filtrer.
+    @ViewBuilder
+    private func ligneAvecMasquage(
+        _ aliment: ResultatRechercheAliment,
+        onTap: @escaping () -> Void,
+        onMasque: (() -> Void)? = nil
+    ) -> some View {
+        let ligne = LigneResultatRecherche(aliment: aliment)
+            .simultaneousGesture(TapGesture().onEnded(onTap))
+
+        if case .ciqual(let a) = aliment {
+            ligne.swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                Button(role: .destructive) {
+                    AlimentsCachesService.shared.cacher(a.id)
+                    onMasque?()
+                } label: {
+                    Label("Masquer", systemImage: "eye.slash")
+                }
+            }
+        } else {
+            ligne
+        }
+    }
+
+    /// Menu toolbar : toujours accessible (accès permanent aux aliments
+    /// masqués), avec des entrées additionnelles selon le contexte.
     @ToolbarContentBuilder
     private var menuToolbar: some ToolbarContent {
         let aUnRepas = !alimentsRepas.isEmpty
         let peutEffacerRecents = recherche.isEmpty && !AlimentsRecentsService.shared.clesRecentes.isEmpty
 
-        if aUnRepas || peutEffacerRecents {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    if aUnRepas {
-                        Button("Supprimer le repas en cours", role: .destructive) {
-                            alimentsRepas.removeAll()
-                        }
+        ToolbarItem(placement: .topBarTrailing) {
+            Menu {
+                if aUnRepas {
+                    Button("Supprimer le repas en cours", role: .destructive) {
+                        alimentsRepas.removeAll()
                     }
-                    if peutEffacerRecents {
-                        Button("Effacer les suggestions", role: .destructive) {
-                            AlimentsRecentsService.shared.effacer()
-                        }
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
                 }
+                if peutEffacerRecents {
+                    Button("Effacer les suggestions", role: .destructive) {
+                        AlimentsRecentsService.shared.effacer()
+                    }
+                }
+                Button {
+                    alimentsCachesPresentee = true
+                } label: {
+                    Label("Aliments masqués", systemImage: "eye.slash")
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
             }
         }
     }
