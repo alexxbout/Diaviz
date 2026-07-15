@@ -39,18 +39,8 @@ struct LigneAlimentRepas: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            // Emoji ou icône de fallback.
-            Group {
-                if let emoji = entree.aliment.emoji {
-                    Text(emoji)
-                        .font(.system(size: 32))
-                } else {
-                    Image(systemName: "fork.knife")
-                        .font(.system(size: 24))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 32, height: 32)
-                }
-            }
+            // Emoji, photo produit (OFF) ou icône de fallback.
+            VignetteAliment(aliment: entree.aliment, taille: 40)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(entree.aliment.nom)
@@ -122,11 +112,11 @@ struct LigneAlimentRepas: View {
         emoji: "🍞"
     )
     let entree1 = EntreeAliment(
-        aliment: aliment, quantiteGrammes: 60,
+        aliment: .ciqual(aliment), quantiteGrammes: 60,
         quantiteApproximative: false, doseInsuline: 2.5, note: ""
     )
     let entree2 = EntreeAliment(
-        aliment: aliment, quantiteGrammes: 80,
+        aliment: .ciqual(aliment), quantiteGrammes: 80,
         quantiteApproximative: true, doseInsuline: nil, note: ""
     )
 

@@ -207,7 +207,9 @@ extension Aliment {
             nom: entree.aliment.nom,
             quantite: Int(entree.quantiteGrammes.rounded()),
             glucides: Int(entree.glucides.rounded()),
-            insuline: entree.doseInsuline ?? 0
+            insuline: entree.doseInsuline ?? 0,
+            // Miniature 200 px : suffisante pour les rows du journal.
+            imageURL: entree.aliment.imagePetiteURL
         )
     }
 }

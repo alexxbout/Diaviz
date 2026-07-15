@@ -263,7 +263,8 @@ struct DetailRepasVue: View {
                         nom: aliment.nom,
                         quantite: aliment.quantite,
                         glucides: aliment.glucides,
-                        insuline: aliment.insuline
+                        insuline: aliment.insuline,
+                        imageURL: aliment.imageURL
                     )
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)

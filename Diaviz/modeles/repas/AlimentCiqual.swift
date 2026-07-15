@@ -87,7 +87,7 @@ final class CiqualService {
 
         return Array(
             ordonnes.sorted { lhs, rhs in
-                switch (recentsService.position(lhs), recentsService.position(rhs)) {
+                switch (recentsService.position(.ciqual(lhs)), recentsService.position(.ciqual(rhs))) {
                 case (let a?, let b?): return a < b
                 case (_?, nil):        return true
                 case (nil, _?):        return false

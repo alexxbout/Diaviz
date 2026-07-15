@@ -19,6 +19,9 @@ final class Aliment {
     var quantite: Int
     var glucides: Int
     var insuline: Double
+    /// Photo du produit (Open Food Facts) — `nil` pour un aliment CIQUAL ou
+    /// les repas antérieurs à l'ajout du champ (migration légère).
+    var imageURL: URL?
 
     init(
         id: UUID = UUID(),
@@ -26,7 +29,8 @@ final class Aliment {
         nom: String,
         quantite: Int,
         glucides: Int,
-        insuline: Double
+        insuline: Double,
+        imageURL: URL? = nil
     ) {
         self.id = id
         self.emoji = emoji
@@ -34,6 +38,7 @@ final class Aliment {
         self.quantite = quantite
         self.glucides = glucides
         self.insuline = insuline
+        self.imageURL = imageURL
     }
 }
 

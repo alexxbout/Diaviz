@@ -8,14 +8,15 @@
 import Foundation
 
 /// Représente un aliment ajouté à un repas avec sa quantité et ses paramètres.
-/// Contrairement à `AlimentCiqual` qui décrit un aliment générique dans la base CIQUAL,
-/// `EntreeAliment` est une instance concrète dans un repas : on sait combien de grammes
-/// l'utilisateur en a mangé, si la quantité est approximative, etc.
+/// Contrairement à `ResultatRechercheAliment` qui décrit un aliment générique
+/// (base CIQUAL ou produit Open Food Facts), `EntreeAliment` est une instance
+/// concrète dans un repas : on sait combien de grammes l'utilisateur en a
+/// mangé, si la quantité est approximative, etc.
 struct EntreeAliment: Identifiable {
     let id = UUID()
 
-    /// L'aliment de référence issu de la base CIQUAL.
-    let aliment: AlimentCiqual
+    /// L'aliment de référence (brut CIQUAL ou produit OFF).
+    let aliment: ResultatRechercheAliment
 
     /// Quantité consommée en grammes.
     var quantiteGrammes: Double

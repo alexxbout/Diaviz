@@ -200,21 +200,21 @@ private enum SheetAjustement: Identifiable {
 
 private let _previewAlimentsRepas: [EntreeAliment] = [
     EntreeAliment(
-        aliment: AlimentCiqual(id: 1, nom: "Pâtes complètes cuites", calories: 124, glucides: 25, sucres: 1, proteines: 5, lipides: 0.8, fibres: 3, emoji: "🍝"),
+        aliment: .ciqual(AlimentCiqual(id: 1, nom: "Pâtes complètes cuites", calories: 124, glucides: 25, sucres: 1, proteines: 5, lipides: 0.8, fibres: 3, emoji: "🍝")),
         quantiteGrammes: 200,
         quantiteApproximative: false,
         doseInsuline: 5.0,
         note: ""
     ),
     EntreeAliment(
-        aliment: AlimentCiqual(id: 2, nom: "Poulet grillé", calories: 165, glucides: 0, sucres: 0, proteines: 31, lipides: 3.6, fibres: 0, emoji: "🍗"),
+        aliment: .ciqual(AlimentCiqual(id: 2, nom: "Poulet grillé", calories: 165, glucides: 0, sucres: 0, proteines: 31, lipides: 3.6, fibres: 0, emoji: "🍗")),
         quantiteGrammes: 150,
         quantiteApproximative: false,
         doseInsuline: 0.0,
         note: ""
     ),
     EntreeAliment(
-        aliment: AlimentCiqual(id: 3, nom: "Yaourt nature", calories: 60, glucides: 5, sucres: 5, proteines: 4, lipides: 3, fibres: 0, emoji: "🥛"),
+        aliment: .ciqual(AlimentCiqual(id: 3, nom: "Yaourt nature", calories: 60, glucides: 5, sucres: 5, proteines: 4, lipides: 3, fibres: 0, emoji: "🥛")),
         quantiteGrammes: 125,
         quantiteApproximative: true,
         doseInsuline: 0.5,

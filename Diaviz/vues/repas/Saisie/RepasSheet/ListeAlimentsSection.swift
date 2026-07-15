@@ -78,7 +78,7 @@ private let _previewAlimentsCiqual: [AlimentCiqual] = [
 
 #Preview("Liste avec aliments") {
     @Previewable @State var aliments: [EntreeAliment] = _previewAlimentsCiqual.map {
-        EntreeAliment(aliment: $0, quantiteGrammes: 100, quantiteApproximative: false, doseInsuline: 1.0, note: "")
+        EntreeAliment(aliment: .ciqual($0), quantiteGrammes: 100, quantiteApproximative: false, doseInsuline: 1.0, note: "")
     }
     Form {
         ListeAlimentsSection(

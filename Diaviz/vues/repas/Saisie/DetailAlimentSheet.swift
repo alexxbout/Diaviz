@@ -14,7 +14,7 @@ struct DetailAlimentSheet: View {
 
     // MARK: - Paramètres
 
-    let aliment: AlimentCiqual
+    let aliment: ResultatRechercheAliment
 
     /// Entrée pré-existante quand on est en mode édition (tap sur une row
     /// dans `RepasSheet`). nil → mode ajout (ouverture depuis la recherche).
@@ -27,7 +27,7 @@ struct DetailAlimentSheet: View {
     // MARK: - Init custom (pour pré-remplir l'état en mode édition)
 
     init(
-        aliment: AlimentCiqual,
+        aliment: ResultatRechercheAliment,
         entreeExistante: EntreeAliment? = nil,
         onValider: @escaping (EntreeAliment) -> Void
     ) {
@@ -186,11 +186,14 @@ struct DetailAlimentSheet: View {
     /// Emoji + nom de l'aliment, centré, affiché avant les sections.
     private var entete: some View {
         VStack(spacing: 8) {
-            // Emoji ou SF Symbol de fallback
+            // Emoji, photo du produit (OFF) ou SF Symbol de fallback
             Group {
                 if let emoji = aliment.emoji {
                     Text(emoji)
                         .font(.system(size: 80))
+                } else if let url = aliment.imageURL {
+                    ImageProduit(url: url, coinArrondi: 16)
+                        .frame(width: 140, height: 140)
                 } else {
                     Image(systemName: "fork.knife")
                         .font(.system(size: 60))
@@ -204,6 +207,21 @@ struct DetailAlimentSheet: View {
                 .font(.title2.bold())
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
+
+            // Marque du produit (OFF uniquement)
+            if let marque = aliment.marque {
+                Text(marque)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            // Produit OFF sans glucides renseignés : signalement factuel —
+            // les valeurs affichées comptent 0, à vérifier sur l'emballage.
+            if !aliment.glucidesRenseignes {
+                Label("Glucides non renseignés — vérifier l'emballage", systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.bottom, 24)
@@ -477,7 +495,7 @@ struct DetailAlimentSheet: View {
         emoji: "🍎"
     )
 
-    DetailAlimentSheet(aliment: aliment) { entree in
+    DetailAlimentSheet(aliment: .ciqual(aliment)) { entree in
         print("Validé : \(entree.aliment.nom) — \(entree.quantiteGrammes)g")
     }
 }

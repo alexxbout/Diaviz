@@ -46,12 +46,10 @@ struct BulleRepasEnCours: View {
         aliments.reduce(0) { $0 + Int($1.aliment.glucides * $1.quantiteGrammes / 100) }
     }
 
-    /// Emoji courant à afficher selon l'index actif.
-    /// Fallback sur 🍽️ si la liste est vide ou l'aliment n'a pas d'emoji.
-    private var emojiCourant: String {
-        guard !aliments.isEmpty else { return "🍽️" }
-        let index = min(emojiActuelIndex, aliments.count - 1)
-        return aliments[index].aliment.emoji ?? "🍽️"
+    /// Aliment courant de l'alternance, `nil` si la liste est vide.
+    private var alimentCourant: ResultatRechercheAliment? {
+        guard !aliments.isEmpty else { return nil }
+        return aliments[min(emojiActuelIndex, aliments.count - 1)].aliment
     }
 
     var body: some View {
@@ -87,13 +85,20 @@ struct BulleRepasEnCours: View {
     /// externe évite que la capsule touche les bords de l'écran.
     private var contenuBulle: some View {
         HStack(spacing: 16) {
-            // Emoji animé — alterne entre les aliments si plusieurs.
-            // L'`.id(emojiActuelIndex)` force SwiftUI à recréer la vue
-            // lors du changement, déclenchant la transition .scale + .opacity.
-            Text(emojiCourant)
-                .font(.title2)
-                .id(emojiActuelIndex)
-                .transition(.scale(scale: 0.5).combined(with: .opacity))
+            // Vignette animée (emoji ou photo produit) — alterne entre les
+            // aliments si plusieurs. L'`.id(emojiActuelIndex)` force SwiftUI
+            // à recréer la vue lors du changement, déclenchant la transition
+            // .scale + .opacity.
+            Group {
+                if let aliment = alimentCourant {
+                    VignetteAliment(aliment: aliment, taille: 32)
+                } else {
+                    Text("🍽️")
+                        .font(.title2)
+                }
+            }
+            .id(emojiActuelIndex)
+            .transition(.scale(scale: 0.5).combined(with: .opacity))
 
             // Résumé textuel du repas.
             VStack(alignment: .leading, spacing: 2) {
@@ -153,11 +158,11 @@ struct BulleRepasEnCours: View {
 #Preview {
     @Previewable @State var alimentsRepas: [EntreeAliment] = [
         EntreeAliment(
-            aliment: AlimentCiqual(id: 1, nom: "Pomme", calories: 52, glucides: 14, sucres: 10, proteines: 0.3, lipides: 0.2, fibres: 2.4, emoji: "🍎"),
+            aliment: .ciqual(AlimentCiqual(id: 1, nom: "Pomme", calories: 52, glucides: 14, sucres: 10, proteines: 0.3, lipides: 0.2, fibres: 2.4, emoji: "🍎")),
             quantiteGrammes: 150, quantiteApproximative: false, doseInsuline: nil, note: ""
         ),
         EntreeAliment(
-            aliment: AlimentCiqual(id: 2, nom: "Pain complet", calories: 247, glucides: 45, sucres: 3, proteines: 9, lipides: 3, fibres: 6, emoji: "🍞"),
+            aliment: .ciqual(AlimentCiqual(id: 2, nom: "Pain complet", calories: 247, glucides: 45, sucres: 3, proteines: 9, lipides: 3, fibres: 6, emoji: "🍞")),
             quantiteGrammes: 60, quantiteApproximative: true, doseInsuline: 2.0, note: ""
         ),
     ]

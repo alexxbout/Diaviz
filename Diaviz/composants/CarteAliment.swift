@@ -13,11 +13,18 @@ struct CarteAliment: View {
     let quantite: Int
     let glucides: Int
     let insuline: Double
+    /// Photo du produit (OFF) — prioritaire sur l'emoji quand présente.
+    var imageURL: URL? = nil
 
     var body: some View {
         HStack {
-            Text(emoji)
-                .font(.largeTitle)
+            if let imageURL {
+                ImageProduit(url: imageURL)
+                    .frame(width: 40, height: 40)
+            } else {
+                Text(emoji)
+                    .font(.largeTitle)
+            }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(nom)

@@ -9,7 +9,8 @@ import SwiftUI
 import SwiftData
 
 /// Catégories de filtrage disponibles dans la barre de segmentation.
-/// Pour le moment, seul `.bruts` est branché sur la recherche CIQUAL.
+/// `.bruts` → recherche CIQUAL locale (à la frappe), `.produits` → recherche
+/// Open Food Facts (déclenchement explicite), `.mesAliments` → pas encore branché.
 enum FiltreAliment: String, CaseIterable {
     case bruts = "Bruts"
     case produits = "Produits"
@@ -42,12 +43,16 @@ struct AjouterRepasVue: View {
     @State private var filtre: FiltreAliment = .bruts
     @State private var scannerCodeBarres = false
 
+    /// État de la recherche Open Food Facts (onglet « Produits ») :
+    /// résultats, chargement, erreur et cache session.
+    @State private var rechercheProduits = RechercheProduitsService()
+
     /// Aliments du repas en cours. Tant que vide, la bulle ne s'affiche pas.
     @State private var alimentsRepas: [EntreeAliment] = []
 
     /// Aliment sélectionné depuis la liste de recherche — déclenche
     /// `DetailAlimentSheet` pour configurer la quantité, la dose, etc.
-    @State private var alimentSelectionne: AlimentCiqual? = nil
+    @State private var alimentSelectionne: ResultatRechercheAliment? = nil
 
     /// Présentation de `RepasSheet` (déclenchée par tap/drag sur la bulle).
     @State private var repasSheetPresentee: Bool = false
@@ -129,6 +134,7 @@ struct AjouterRepasVue: View {
         )
         alimentsRepas.removeAll()
         recherche = ""
+        rechercheProduits.reinitialiserAffichage()
         repasSheetPresentee = false
     }
 
@@ -147,10 +153,21 @@ struct AjouterRepasVue: View {
                     .font(.system(size: 17))
                     .submitLabel(.search)
                     .focused($rechercheActive)
+                    // Recherche OFF déclenchée explicitement (bouton
+                    // « rechercher » du clavier) — jamais à la frappe,
+                    // l'API externe est sous quota (10 req/min).
+                    .onSubmit {
+                        if filtre == .produits {
+                            rechercheProduits.rechercher(recherche)
+                        }
+                    }
 
                 if !recherche.isEmpty {
                     Button {
                         recherche = ""
+                        // Texte effacé → l'affichage OFF repart de zéro
+                        // (le cache session, lui, est conservé).
+                        rechercheProduits.reinitialiserAffichage()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.secondary)
@@ -190,14 +207,24 @@ struct AjouterRepasVue: View {
         .pickerStyle(.segmented)
         .padding(.horizontal)
         .padding(.bottom, 12)
+        // Bascule vers « Produits » avec un texte déjà saisi → recherche OFF.
+        // Le cache session du service évite tout appel réseau si le terme n'a
+        // pas changé entre deux bascules (Produits → Bruts → Produits).
+        .onChange(of: filtre) { _, nouveau in
+            if nouveau == .produits && !recherche.isEmpty {
+                rechercheProduits.rechercher(recherche)
+            }
+        }
     }
 
     /// Contenu principal : résultats de recherche, aliments récents,
-    /// ou état vide selon le contexte.
+    /// ou état vide selon le contexte et l'onglet.
     @ViewBuilder
     private var contenuPrincipal: some View {
         if recherche.isEmpty {
             vueRecents
+        } else if filtre == .produits {
+            vueResultatsProduits
         } else {
             vueResultatsRecherche
         }
@@ -235,13 +262,14 @@ struct AjouterRepasVue: View {
         }
     }
 
-    /// Liste des résultats de recherche filtrés en temps réel.
+    /// Liste des résultats de recherche CIQUAL, filtrés en temps réel
+    /// (recherche locale — pas de contrainte de quota).
     private var vueResultatsRecherche: some View {
         List(resultats) { aliment in
-            LigneAliment(aliment: aliment)
+            LigneAliment(aliment: .ciqual(aliment))
                 .simultaneousGesture(
                     TapGesture().onEnded {
-                        alimentSelectionne = aliment
+                        alimentSelectionne = .ciqual(aliment)
                     }
                 )
         }
@@ -255,12 +283,70 @@ struct AjouterRepasVue: View {
         }
     }
 
+    /// Résultats de l'onglet « Produits » (Open Food Facts) : chargement,
+    /// erreur, invite à lancer la recherche, ou liste de produits.
+    @ViewBuilder
+    private var vueResultatsProduits: some View {
+        if rechercheProduits.enChargement {
+            ProgressView("Recherche des produits…")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if let erreur = rechercheProduits.erreur {
+            ContentUnavailableView(
+                "Recherche impossible",
+                systemImage: "wifi.exclamationmark",
+                description: Text(erreur.messageUtilisateur)
+            )
+        } else if rechercheProduits.termeAffiche.isEmpty {
+            ContentUnavailableView(
+                "Rechercher un produit",
+                systemImage: "magnifyingglass",
+                description: Text("Appuie sur « rechercher » sur le clavier pour interroger Open Food Facts")
+            )
+        } else if rechercheProduits.resultats.isEmpty {
+            ContentUnavailableView.search(text: rechercheProduits.termeAffiche)
+        } else {
+            List {
+                ForEach(rechercheProduits.resultats) { produit in
+                    LigneAliment(aliment: .off(produit))
+                        .simultaneousGesture(
+                            TapGesture().onEnded {
+                                alimentSelectionne = .off(produit)
+                            }
+                        )
+                }
+                // Pagination : une page de plus à chaque tap (10 produits).
+                if rechercheProduits.peutChargerPlus {
+                    Button {
+                        rechercheProduits.chargerPlus()
+                    } label: {
+                        HStack {
+                            Spacer()
+                            if rechercheProduits.chargementPagePlus {
+                                ProgressView()
+                            } else {
+                                Text("Afficher plus de produits")
+                                    .foregroundStyle(.tint)
+                            }
+                            Spacer()
+                        }
+                    }
+                    .disabled(rechercheProduits.chargementPagePlus)
+                }
+            }
+            .scrollDismissesKeyboard(.immediately)
+            .safeAreaPadding(.bottom, alimentsRepas.isEmpty ? 0 : 100)
+            .transaction(value: alimentsRepas.isEmpty) { transaction in
+                transaction.animation = nil
+            }
+        }
+    }
+
     /// Menu toolbar : visible quand au moins une action est applicable —
     /// repas en cours à supprimer, ou suggestions à effacer.
     @ToolbarContentBuilder
     private var menuToolbar: some ToolbarContent {
         let aUnRepas = !alimentsRepas.isEmpty
-        let peutEffacerRecents = recherche.isEmpty && !AlimentsRecentsService.shared.idsRecents.isEmpty
+        let peutEffacerRecents = recherche.isEmpty && !AlimentsRecentsService.shared.clesRecentes.isEmpty
 
         if aUnRepas || peutEffacerRecents {
             ToolbarItem(placement: .topBarTrailing) {
