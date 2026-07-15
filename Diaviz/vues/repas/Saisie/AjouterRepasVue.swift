@@ -177,7 +177,10 @@ struct AjouterRepasVue: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Color(.systemBackground))
+            // `secondarySystemGroupedBackground` plutôt que `systemBackground` :
+            // en mode sombre les deux valent noir sur ce fond groupé
+            // (`systemGroupedBackground`), la capsule devenait invisible.
+            .background(Color(.secondarySystemGroupedBackground))
             .clipShape(Capsule())
 
             Button {

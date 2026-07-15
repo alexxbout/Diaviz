@@ -152,7 +152,7 @@ struct GrapheJourneeRepas: View {
                 .padding(.bottom, 16)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.systemBackground))
+        .background(Color(.secondarySystemGroupedBackground))
     }
 
     private var contenu: some View {
@@ -162,7 +162,7 @@ struct GrapheJourneeRepas: View {
             pages
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.systemBackground))
+        .background(Color(.secondarySystemGroupedBackground))
         .onAppear {
             if dateScroll == nil { dateScroll = jours.last }
         }
@@ -354,7 +354,7 @@ struct GrapheJourneeRepas: View {
         }
         .frame(width: legendWidth)
         .padding(.trailing, legendMarge)
-        .background(Color(.systemBackground))
+        .background(Color(.secondarySystemGroupedBackground))
         .allowsHitTesting(false)
     }
 
