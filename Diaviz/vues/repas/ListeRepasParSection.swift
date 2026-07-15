@@ -24,14 +24,17 @@ struct ListeRepasParSection: View {
         repasService.sectionsDuJour(selectedDate)
     }
 
-    /// Projection à plat des repas non vides en `RepasGraph`, avec leur libellé
-    /// de section. Format consommé par le graphe.
+    /// Projection à plat des repas non vides en `RepasGraph`, **tous jours
+    /// confondus**. Le graphe est multi-jours (il filtre lui-même par jour) :
+    /// ne lui passer que le jour sélectionné le ferait basculer sur son état
+    /// vide `carteVide` (statique, sans scroll) dès qu'on atterrit sur une
+    /// journée sans repas — impossible alors de re-scroller. On alimente donc
+    /// depuis l'historique complet du hub, indépendamment de `selectedDate`.
     private var repasGraph: [RepasGraph] {
-        sections.flatMap { section in
-            section.repas
-                .filter { !$0.aliments.isEmpty }
-                .map { RepasGraph($0, label: section.titre) }
-        }
+        let horaires = ProfilService.shared.profil.horairesRepas
+        return repasService.repas
+            .filter { !$0.aliments.isEmpty }
+            .map { RepasGraph($0, label: SectionRepas(heure: $0.heure, horaires: horaires).titre) }
     }
 
     var body: some View {
