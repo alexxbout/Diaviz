@@ -28,6 +28,8 @@ enum OFFError: Error {
             return "Trop de recherches d'affilée — réessaie dans une minute."
         case .reseau:
             return "Impossible de joindre Open Food Facts. Vérifie ta connexion."
+        case .statutHTTP(let code) where code >= 500:
+            return "Open Food Facts est momentanément indisponible. Réessaie dans un instant."
         case .urlInvalide, .statutHTTP, .decodage:
             return "La recherche de produits a échoué. Réessaie plus tard."
         }
@@ -61,10 +63,44 @@ final class OpenFoodFactsAPIClient: Sendable {
     /// demandée mappés en `AlimentOFF` (y compris ceux sans glucides
     /// renseignés, signalés à l'affichage — mais pas ceux sans nom
     /// exploitable) et le nombre total de pages.
+    ///
+    /// Search-a-licious renvoie sporadiquement des 502 (passerelle instable) :
+    /// jusqu'à 2 retries automatiques sur erreur 5xx ou erreur réseau, avec
+    /// délai croissant (0,5 s puis 1,5 s). Jamais de retry sur 429 (quota) ni
+    /// sur les erreurs de décodage.
     func rechercher(
         _ terme: String,
         page: Int = 1,
         parPage: Int = 10
+    ) async throws(OFFError) -> PageResultatsOFF {
+        var derniereErreur: OFFError = .urlInvalide
+        for tentative in 0...2 {
+            if tentative > 0 {
+                try? await Task.sleep(for: .milliseconds(500 * (1 << (tentative - 1))))
+                if Task.isCancelled { throw derniereErreur }
+                logger.info("Recherche OFF « \(terme) » — retry \(tentative)")
+            }
+            do {
+                return try await effectuerRecherche(terme, page: page, parPage: parPage)
+            } catch {
+                derniereErreur = error
+                switch error {
+                case .statutHTTP(let code) where code >= 500:
+                    continue
+                case .reseau:
+                    continue
+                default:
+                    throw error
+                }
+            }
+        }
+        throw derniereErreur
+    }
+
+    private func effectuerRecherche(
+        _ terme: String,
+        page: Int,
+        parPage: Int
     ) async throws(OFFError) -> PageResultatsOFF {
         var composants = URLComponents(string: Self.baseRecherche)
         composants?.queryItems = [
