@@ -26,6 +26,10 @@ struct CarteAlimentEnregistre: View {
     let insuline: Double
     /// Photo du produit (OFF) — prioritaire sur l'emoji quand présente.
     var imageURL: URL? = nil
+    /// Pris pour traiter une hypoglycémie plutôt qu'un aliment de repas
+    /// ordinaire — affiché en rouge, même traitement visuel que "sans
+    /// insuline" dans `LigneRepas`.
+    var resucrage: Bool = false
 
     var body: some View {
         HStack {
@@ -41,9 +45,14 @@ struct CarteAlimentEnregistre: View {
                 Text(nom)
                     .lineLimit(1)
                     .truncationMode(.tail)
-                Text("\(quantite)g")
-                    .foregroundStyle(.secondary)
-                    .font(.subheadline)
+                HStack(spacing: 6) {
+                    Text("\(quantite)g")
+                        .foregroundStyle(.secondary)
+                        .font(.subheadline)
+                    if resucrage {
+                        badgeResucrage
+                    }
+                }
             }
 
             Spacer()
@@ -58,11 +67,24 @@ struct CarteAlimentEnregistre: View {
             }
         }
     }
+
+    /// Badge capsule rouge signalant un aliment de resucrage — même logique
+    /// de lecture immédiate qu'un tag iOS natif (Rappels, Mail).
+    private var badgeResucrage: some View {
+        Text("Resucrage")
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .background(Color.red, in: Capsule())
+            .layoutPriority(1)
+    }
 }
 
 #Preview {
     VStack {
         CarteAlimentEnregistre(emoji: "🍚", nom: "Riz basmati", quantite: 60, glucides: 27, insuline: 2.0)
+        CarteAlimentEnregistre(emoji: "🍬", nom: "Sucre blanc", quantite: 10, glucides: 10, insuline: 0, resucrage: true)
     }
     .padding()
     .frame(maxWidth: .infinity, maxHeight: .infinity)

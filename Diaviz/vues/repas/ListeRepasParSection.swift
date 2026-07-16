@@ -87,7 +87,8 @@ struct ListeRepasParSection: View {
                     quantite: aliment.quantite,
                     glucides: aliment.glucides,
                     insuline: aliment.insuline,
-                    imageURL: aliment.imageURL
+                    imageURL: aliment.imageURL,
+                    resucrage: aliment.resucrage
                 )
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) {
