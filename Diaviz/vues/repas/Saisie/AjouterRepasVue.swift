@@ -112,7 +112,9 @@ struct AjouterRepasVue: View {
             RepasSheet(
                 aliments: $alimentsRepas,
                 onAjouterUnAliment: tapperAjouterAliment,
-                onValiderRepas: { dose, site in validerRepas(doseInjectee: dose, site: site) }
+                onValiderRepas: { dose, site, heure in
+                    validerRepas(doseInjectee: dose, site: site, heure: heure)
+                }
             )
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
@@ -133,12 +135,14 @@ struct AjouterRepasVue: View {
     }
 
     /// Validation finale du repas : persiste le repas dans le hub puis reset
-    /// l'état de saisie. L'horodatage du repas est l'instant de validation
-    /// (`Date()`) — c'est le fait brut horodaté attendu par le hub. La réponse
-    /// glycémique (`etatAnalyse`) reste une dérivation non calculée ici.
-    private func validerRepas(doseInjectee: Double, site: SiteInjection) {
+    /// l'état de saisie. L'horodatage du repas est l'**heure choisie dans la
+    /// sheet** (préremplie à l'instant courant, réglable pour une saisie
+    /// rétroactive) — c'est le fait brut horodaté attendu par le hub. La
+    /// réponse glycémique (`etatAnalyse`) reste une dérivation non calculée ici.
+    private func validerRepas(doseInjectee: Double, site: SiteInjection, heure: Date) {
         repasService.enregistrerDepuisSaisie(
             entrees: alimentsRepas,
+            heure: heure,
             doseInjectee: doseInjectee,
             site: site
         )

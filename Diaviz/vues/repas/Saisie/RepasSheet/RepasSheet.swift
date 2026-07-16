@@ -29,15 +29,23 @@ struct RepasSheet: View {
     let onAjouterUnAliment: () -> Void
 
     /// Validation finale du repas. Transmet la **dose réellement injectée**
-    /// (aliments + ajustements + correction) et le **site**, pour que le parent
-    /// crée le bolus repas dans le hub. Le parent reset l'état.
-    let onValiderRepas: (_ doseInjectee: Double, _ site: SiteInjection) -> Void
+    /// (aliments + ajustements + correction), le **site** et l'**heure**
+    /// (réglable, préremplie à l'heure actuelle), pour que le parent crée le
+    /// bolus repas dans le hub. Le parent reset l'état.
+    let onValiderRepas: (_ doseInjectee: Double, _ site: SiteInjection, _ heure: Date) -> Void
 
     // MARK: - État interne
 
     @State private var ajustements: [Ajustement] = []
     @State private var correctionHyper: Double = 0
     @State private var siteInjection: SiteInjection = .parDefaut
+
+    /// Heure du repas — préremplie à l'heure actuelle, réglable pour les
+    /// saisies rétroactives (ex. repas oublié, saisi plus tard). Alimente
+    /// aussi `contexteInsights` : les insights et le snapshot d'IOB doivent
+    /// être calculés à l'heure du repas, pas à l'heure de saisie si elles
+    /// diffèrent.
+    @State private var heureRepas: Date = Date()
 
     /// Entrée actuellement en cours d'édition (déclenche la sheet enfant).
     @State private var entreeEnEdition: EntreeAliment? = nil
@@ -88,17 +96,16 @@ struct RepasSheet: View {
     }
 
     private var contexteInsights: ContexteInsights {
-        // Le repas est composé « maintenant » : T0 = instant courant, et la
+        // T0 = heure du repas (réglable, préremplie à l'heure actuelle), et la
         // section (pour le ratio par moment) en découle via les horaires du profil.
-        let maintenant = Date()
         let section = SectionRepas(
-            heure: maintenant,
+            heure: heureRepas,
             horaires: ProfilService.shared.profil.horairesRepas
         )
         return InsightsService.contexte(
             doseSaisie: totalInjecte,
             glucides: glucidesTotal,
-            heure: maintenant,
+            heure: heureRepas,
             section: section,
             contexte: modelContext
         )
@@ -118,6 +125,8 @@ struct RepasSheet: View {
             )
 
             Form {
+                HeureRepasSection(heure: $heureRepas)
+
                 ListeAlimentsSection(
                     aliments: $aliments,
                     onEditer: { entreeEnEdition = $0 },
@@ -150,7 +159,7 @@ struct RepasSheet: View {
         .safeAreaInset(edge: .bottom) {
             BoutonValiderRepas(
                 nombreAliments: aliments.count,
-                onValider: { onValiderRepas(totalInjecte, siteInjection) }
+                onValider: { onValiderRepas(totalInjecte, siteInjection, heureRepas) }
             )
         }
         // Dernier aliment supprimé (swipe dans ListeAlimentsSection) → plus
@@ -259,7 +268,7 @@ private let _previewAlimentsRepas: [EntreeAliment] = [
     RepasSheet(
         aliments: $aliments,
         onAjouterUnAliment: {},
-        onValiderRepas: { _, _ in }
+        onValiderRepas: { _, _, _ in }
     )
     .environment(RepasService.apercu())
     .modelContainer(for: [Injection.self, ActiviteSportive.self], inMemory: true)
@@ -270,7 +279,7 @@ private let _previewAlimentsRepas: [EntreeAliment] = [
     RepasSheet(
         aliments: $aliments,
         onAjouterUnAliment: {},
-        onValiderRepas: { _, _ in }
+        onValiderRepas: { _, _, _ in }
     )
     .environment(RepasService.apercu())
     .modelContainer(for: [Injection.self, ActiviteSportive.self], inMemory: true)
