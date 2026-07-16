@@ -30,8 +30,11 @@ struct CarteInsulineLente: View {
 
     enum Etat: Equatable {
         case enregistree(Injection)
-        case aPrendre(heureHabituelle: HeureDuJour)
-        case prochainePrevue(heureHabituelle: HeureDuJour)
+        /// `heureHabituelle` est une date pleine (pas juste une heure du
+        /// jour) : elle est dérivée de la dernière dose + l'intervalle
+        /// minimum du profil, donc peut glisser d'un jour à l'autre.
+        case aPrendre(heureHabituelle: Date)
+        case prochainePrevue(heureHabituelle: Date)
     }
 
     // MARK: - Paramètres
@@ -159,13 +162,13 @@ struct CarteInsulineLente: View {
     }
 
     @ViewBuilder
-    private func contenuAPrendre(_ heure: HeureDuJour) -> some View {
+    private func contenuAPrendre(_ heure: Date) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("À prendre")
                 .font(.title.bold())
                 .foregroundStyle(.orange)
 
-            Text("Heure habituelle : \(heure.libelle)")
+            Text("Heure habituelle : \(libelleHeure(heure))")
                 .font(.body)
                 .foregroundStyle(.secondary)
 
@@ -176,13 +179,13 @@ struct CarteInsulineLente: View {
     }
 
     @ViewBuilder
-    private func contenuProchaine(_ heure: HeureDuJour) -> some View {
+    private func contenuProchaine(_ heure: Date) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Prochaine injection")
                 .font(.title.bold())
                 .foregroundStyle(.primary)
 
-            Text("Prévue à \(heure.libelle)")
+            Text("Prévue à \(libelleHeure(heure))")
                 .font(.body)
                 .foregroundStyle(.secondary)
         }
@@ -226,9 +229,9 @@ struct CarteInsulineLente: View {
         case .enregistree(let inj):
             return "Insuline lente enregistrée. \(formate(inj.dose)) unités, \(inj.libelleSite), à \(inj.heure.formatted(date: .omitted, time: .shortened))."
         case .aPrendre(let h):
-            return "Insuline lente à prendre. Heure habituelle : \(h.libelle)."
+            return "Insuline lente à prendre. Heure habituelle : \(libelleHeure(h))."
         case .prochainePrevue(let h):
-            return "Prochaine insuline lente prévue à \(h.libelle)."
+            return "Prochaine insuline lente prévue à \(libelleHeure(h))."
         }
     }
 
@@ -253,6 +256,18 @@ struct CarteInsulineLente: View {
         return "\(heure) · \(injection.libelleSite)"
     }
 
+    /// Formate une heure habituelle adaptative : heure seule si elle tombe
+    /// aujourd'hui, sinon heure + jour (ex. « 23h10 demain ») — l'ancrage
+    /// dérivé de la dernière dose peut glisser sur un autre jour calendaire.
+    private func libelleHeure(_ date: Date) -> String {
+        let heure = date.formatted(date: .omitted, time: .shortened)
+        if Calendar.current.isDateInToday(date) {
+            return heure
+        }
+        let jour = date.formatted(.dateTime.weekday(.wide).locale(Locale(identifier: "fr_FR")))
+        return "\(heure) \(jour.lowercased())"
+    }
+
 }
 
 // MARK: - Aperçu
@@ -273,7 +288,7 @@ struct CarteInsulineLente: View {
 
 #Preview("État à prendre") {
     CarteInsulineLente(
-        etat: .aPrendre(heureHabituelle: HeureDuJour(heure: 22, minute: 0)),
+        etat: .aPrendre(heureHabituelle: HeureDuJour(heure: 22, minute: 0).date()),
         onTap: {}
     )
     .padding()
@@ -282,7 +297,7 @@ struct CarteInsulineLente: View {
 
 #Preview("État prochaine prévue") {
     CarteInsulineLente(
-        etat: .prochainePrevue(heureHabituelle: HeureDuJour(heure: 22, minute: 0)),
+        etat: .prochainePrevue(heureHabituelle: HeureDuJour(heure: 22, minute: 0).date()),
         onTap: {}
     )
     .padding()

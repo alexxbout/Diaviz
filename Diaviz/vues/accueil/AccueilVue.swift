@@ -283,38 +283,28 @@ struct AccueilVue: View {
     }
 
     /// Construit le contexte du rappel de lente depuis le hub (dernière injection
-    /// lente) et le profil. Heure habituelle = 22h en V1 (à terme depuis le profil).
+    /// lente) et le profil.
     ///
-    /// **Ancrage intelligent** (corrige les bugs de frontière minuit) : on vise
-    /// la **dernière** occurrence de 22h tant que sa prise n'est pas faite (un
-    /// oubli reste donc en alerte, même après minuit) ; dès qu'elle est faite, on
-    /// vise la **prochaine** (rappel doux anticipé le soir suivant). Le masquage
-    /// découle entièrement de cet ancrage via `EtatRappelLente.calculer`
-    /// (`priseAujourdhui` n'est plus utilisé pour masquer).
+    /// **Ancrage adaptatif** : l'heure habituelle n'est plus une heure de mur
+    /// fixe (22h chaque jour) mais `dernière prise + intervalle minimum du
+    /// profil` — si la dernière dose a été prise à 23h10, la prochaine est
+    /// attendue à 23h10 + intervalle le lendemain, pas à une heure figée. Ça
+    /// suit naturellement les horaires réels de l'utilisateur au lieu de
+    /// désynchroniser le rappel dès qu'une dose est prise en avance ou en
+    /// retard. Tant qu'aucune lente n'a jamais été enregistrée, on retombe
+    /// sur 22h comme amorce — pas de dose dont dériver l'ancrage.
     private func construireContexteLente() -> ContexteLente {
-        let cal = Calendar.current
-        let now = Date()
-
-        // Dernière / prochaine occurrence de l'heure habituelle (22h).
-        let heure22Aujourdhui = HeureDuJour(heure: 22, minute: 0).date(pour: now)
-        let derniere22h = now >= heure22Aujourdhui
-            ? heure22Aujourdhui
-            : (cal.date(byAdding: .day, value: -1, to: heure22Aujourdhui) ?? heure22Aujourdhui)
-        let prochaine22h = cal.date(byAdding: .day, value: 1, to: derniere22h) ?? derniere22h
-
         // Dernière injection lente du hub.
         let descripteur = FetchDescriptor<Injection>(
             sortBy: [SortDescriptor(\.heure, order: .reverse)]
         )
         let derniereLente = (try? modelContext.fetch(descripteur))?.first { $0.type == .lente }
 
-        // La prise de la fenêtre courante (à partir de derniere22h − 1h) est-elle
-        // faite ? Si oui, on cible la prochaine ; sinon on reste sur la courante.
-        let debutFenetre = cal.date(byAdding: .hour, value: -1, to: derniere22h) ?? derniere22h
-        let priseCouranteFaite = (derniereLente?.heure).map { $0 >= debutFenetre } ?? false
-        let heureCible = priseCouranteFaite ? prochaine22h : derniere22h
-
         let profil = ProfilService.shared.profil
+        let heureCible = derniereLente
+            .map { $0.heure.addingTimeInterval(profil.intervalleMinimumLenteEffectif * 3600) }
+            ?? HeureDuJour(heure: 22, minute: 0).date()
+
         return ContexteLente(
             heureHabituelle: heureCible,
             nomInsuline: derniereLente?.nomMedicament ?? profil.insulineLente.rawValue,

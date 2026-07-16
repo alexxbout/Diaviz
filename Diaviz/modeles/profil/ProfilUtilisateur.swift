@@ -45,6 +45,20 @@ struct ProfilUtilisateur: Codable, Equatable, Sendable {
     /// Range UI : 3–6h, pas 0,5h.
     var dureeActionInsulineHeures: Double
 
+    /// Intervalle minimum que l'utilisateur s'autorise entre deux doses de
+    /// lente, en heures. Pilote l'heure « habituelle » adaptative du rappel
+    /// (accueil + carte médications) : `dernière prise + cet intervalle`,
+    /// plutôt qu'une heure fixe chaque jour. Optionnel avec fallback
+    /// `intervalleMinimumLenteEffectif` — même pattern que `photoData` —
+    /// pour rester rétrocompatible avec les profils déjà persistés.
+    var intervalleMinimumLenteHeures: Double? = nil
+
+    /// Valeur effective de l'intervalle minimum lente — 22h30 par défaut
+    /// tant que l'utilisateur n'a rien réglé.
+    var intervalleMinimumLenteEffectif: Double {
+        intervalleMinimumLenteHeures ?? 22.5
+    }
+
     // MARK: - Ratios glucides / insuline
 
     var modeRatio: ModeRatio

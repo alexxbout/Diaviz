@@ -68,10 +68,44 @@ struct SectionInsuline: View {
                 }
             }
             .pickerStyle(.menu)
+
+            // Intervalle minimum entre deux doses de lente — pilote l'heure
+            // « habituelle » adaptative des rappels (accueil + carte
+            // médications) : dernière prise + cet intervalle, pas une heure
+            // fixe chaque jour.
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Intervalle minimum")
+                    Spacer()
+                    Text(formateHeures(service.profil.intervalleMinimumLenteEffectif))
+                        .fontWeight(.bold)
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                        .animation(.easeOut(duration: 0.2),
+                                   value: service.profil.intervalleMinimumLenteEffectif)
+                }
+
+                Slider(
+                    value: bindingIntervalleLente,
+                    in: 18...30,
+                    step: 0.5
+                )
+
+                HStack {
+                    Text("18h")
+                    Spacer()
+                    Text("22h30 (standard)")
+                    Spacer()
+                    Text("30h")
+                }
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+            }
+            .padding(.vertical, 4)
         } header: {
             Text("Insuline")
         } footer: {
-            Text("La durée d'action concerne l'insuline rapide : elle détermine la durée de calcul de l'insuline active (IOB).")
+            Text("La durée d'action concerne l'insuline rapide : elle détermine la durée de calcul de l'insuline active (IOB). L'intervalle minimum lente pilote l'heure de rappel adaptative, calculée depuis ta dernière dose.")
         }
     }
 
@@ -91,6 +125,15 @@ struct SectionInsuline: View {
             get: { service.profil.insulineLente },
             set: { nouveau in
                 service.mettreAJour { $0.insulineLente = nouveau }
+            }
+        )
+    }
+
+    private var bindingIntervalleLente: Binding<Double> {
+        Binding(
+            get: { service.profil.intervalleMinimumLenteEffectif },
+            set: { nouveau in
+                service.mettreAJour { $0.intervalleMinimumLenteHeures = nouveau }
             }
         )
     }

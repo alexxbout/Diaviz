@@ -85,17 +85,24 @@ struct MedicationsVue: View {
     }
 
     /// État de la carte lente — calculé depuis le service et l'horloge.
+    ///
+    /// L'heure « habituelle » est **adaptative** : dérivée de la dernière
+    /// dose de lente enregistrée + l'intervalle minimum du profil, plutôt
+    /// qu'une heure fixe chaque jour (`InjectionsService.prochaineLenteAttendue`).
+    /// Tant qu'aucune lente n'a jamais été enregistrée, on retombe sur 22h
+    /// comme amorce — il n'y a pas encore de dose dont dériver l'ancrage.
     private var etatCarteLente: CarteInsulineLente.Etat {
         if let lente = lenteDuJour {
             return .enregistree(lente)
         }
-        let heureHabit = service.heureHabituelleLente
-        let dateHabituelle = heureHabit.date(pour: selectedDate)
+        let intervalle = ProfilService.shared.profil.intervalleMinimumLenteEffectif
+        let dateHabituelle = service.prochaineLenteAttendue(intervalleHeures: intervalle)
+            ?? HeureDuJour(heure: 22, minute: 0).date(pour: selectedDate)
         let estAujourdhui = Calendar.current.isDateInToday(selectedDate)
         if estAujourdhui && Date.now > dateHabituelle {
-            return .aPrendre(heureHabituelle: heureHabit)
+            return .aPrendre(heureHabituelle: dateHabituelle)
         }
-        return .prochainePrevue(heureHabituelle: heureHabit)
+        return .prochainePrevue(heureHabituelle: dateHabituelle)
     }
 
     /// La carte lente n'est rendue que si elle apporte de l'info :

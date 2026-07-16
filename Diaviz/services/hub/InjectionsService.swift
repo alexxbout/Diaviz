@@ -27,10 +27,6 @@ final class InjectionsService {
     /// depuis le store après chaque écriture.
     private(set) var injections: [Injection] = []
 
-    /// Heure habituelle de la lente. Hardcodée 22:00 pour l'instant ; viendra
-    /// du profil quand la config d'analyse sera branchée.
-    let heureHabituelleLente = HeureDuJour(heure: 22, minute: 0)
-
     // MARK: - Démarrage
 
     /// Branche le service sur le contexte du hub et charge les données. Idempotent.
@@ -59,6 +55,22 @@ final class InjectionsService {
     /// de la carte « Médications » du journal.
     var nombreInjectionsAujourdhui: Int {
         injectionsDuJour(Date()).count
+    }
+
+    /// Date de la prochaine dose de lente **attendue**, dérivée de la
+    /// **dernière injection lente enregistrée** (n'importe quel jour) +
+    /// l'intervalle minimum du profil. Adaptatif plutôt qu'ancré sur une
+    /// heure fixe chaque jour : si la dernière dose a été prise à 23h10,
+    /// la prochaine est attendue à 23h10 + intervalle le lendemain — pas à
+    /// une heure de mur figée.
+    ///
+    /// `nil` si aucune lente n'a jamais été enregistrée — pas d'ancrage
+    /// possible tant qu'il n'y a pas de première dose à partir de laquelle
+    /// dériver.
+    func prochaineLenteAttendue(intervalleHeures: Double) -> Date? {
+        let lentes: [Injection] = injections.filter { $0.type == .lente }
+        guard let derniere = lentes.max(by: { $0.heure < $1.heure }) else { return nil }
+        return derniere.heure.addingTimeInterval(intervalleHeures * 3600)
     }
 
     // MARK: - Écriture
