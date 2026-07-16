@@ -32,6 +32,12 @@ struct EntreeAliment: Identifiable {
     /// Note libre associée à l'entrée (contexte, texture, ressenti, etc.).
     var note: String
 
+    /// Aliment pris pour traiter une hypoglycémie (resucrage), plutôt qu'un
+    /// aliment de repas ordinaire. Fait déclaré par l'utilisateur — sert de
+    /// signal factuel pour les analyses futures (ex. distinguer un aliment
+    /// de repas d'un resucrage dans le détail d'une nuit).
+    var resucrage: Bool = false
+
     /// Glucides calculés proportionnellement à la quantité consommée.
     var glucides: Double {
         aliment.glucides * quantiteGrammes / 100

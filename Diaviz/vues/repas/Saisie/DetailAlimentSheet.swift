@@ -40,6 +40,7 @@ struct DetailAlimentSheet: View {
         _quantiteApproximative = State(initialValue: entreeExistante?.quantiteApproximative ?? false)
         _doseInsuline = State(initialValue: entreeExistante?.doseInsuline)
         _note = State(initialValue: entreeExistante?.note ?? "")
+        _resucrage = State(initialValue: entreeExistante?.resucrage ?? false)
     }
 
     /// Vrai en mode édition (l'aliment fait déjà partie d'un repas).
@@ -55,6 +56,7 @@ struct DetailAlimentSheet: View {
     @State private var quantiteApproximative: Bool
     @State private var doseInsuline: Double?
     @State private var note: String
+    @State private var resucrage: Bool
 
     @State private var afficherSaisieQuantite: Bool = false
     @State private var saisieQuantiteTexte: String = ""
@@ -144,6 +146,7 @@ struct DetailAlimentSheet: View {
             copie.quantiteApproximative = quantiteApproximative
             copie.doseInsuline = doseInsuline
             copie.note = note
+            copie.resucrage = resucrage
             entree = copie
         } else {
             entree = EntreeAliment(
@@ -151,7 +154,8 @@ struct DetailAlimentSheet: View {
                 quantiteGrammes: quantiteGrammes,
                 quantiteApproximative: quantiteApproximative,
                 doseInsuline: doseInsuline,
-                note: note
+                note: note,
+                resucrage: resucrage
             )
         }
         onValider(entree)
@@ -235,7 +239,9 @@ struct DetailAlimentSheet: View {
             // Row quantité avec slider intégré
             rowQuantite
 
-            // Row toggle approximatif
+            // Row toggle approximatif — même orange que la valeur de
+            // quantité quand actif (rowQuantite), pour une lecture cohérente
+            // du statut "approximatif" dans toute la sheet.
             Toggle(isOn: $quantiteApproximative) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Quantité approximative")
@@ -245,6 +251,20 @@ struct DetailAlimentSheet: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .tint(.orange)
+
+            // Row toggle resucrage — rouge : signale un usage distinct d'un
+            // aliment de repas ordinaire (traitement d'une hypoglycémie).
+            Toggle(isOn: $resucrage) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Resucrage")
+                        .font(.body)
+                    Text("Pris pour traiter une hypoglycémie")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .tint(.red)
         }
     }
 

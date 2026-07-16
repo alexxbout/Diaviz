@@ -297,7 +297,8 @@ extension Aliment {
             glucides: Int(entree.glucides.rounded()),
             insuline: entree.doseInsuline ?? 0,
             // Miniature 200 px : suffisante pour les rows du journal.
-            imageURL: entree.aliment.imagePetiteURL
+            imageURL: entree.aliment.imagePetiteURL,
+            resucrage: entree.resucrage
         )
     }
 }

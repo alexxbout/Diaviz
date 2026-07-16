@@ -22,6 +22,10 @@ final class Aliment {
     /// Photo du produit (Open Food Facts) — `nil` pour un aliment CIQUAL ou
     /// les repas antérieurs à l'ajout du champ (migration légère).
     var imageURL: URL?
+    /// Pris pour traiter une hypoglycémie (resucrage) plutôt qu'un aliment de
+    /// repas ordinaire. `false` par défaut (migration légère des repas
+    /// antérieurs à l'ajout du champ).
+    var resucrage: Bool = false
 
     init(
         id: UUID = UUID(),
@@ -30,7 +34,8 @@ final class Aliment {
         quantite: Int,
         glucides: Int,
         insuline: Double,
-        imageURL: URL? = nil
+        imageURL: URL? = nil,
+        resucrage: Bool = false
     ) {
         self.id = id
         self.emoji = emoji
@@ -39,6 +44,7 @@ final class Aliment {
         self.glucides = glucides
         self.insuline = insuline
         self.imageURL = imageURL
+        self.resucrage = resucrage
     }
 }
 
