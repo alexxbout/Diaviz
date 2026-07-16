@@ -119,7 +119,7 @@ struct DetailAlimentSheet: View {
             Button("OK") { appliquerSaisieQuantite() }
             Button("Annuler", role: .cancel) { saisieQuantiteTexte = "" }
         } message: {
-            Text("Entrez la quantité en grammes (5–300)")
+            Text("Entrez la quantité en grammes (5–2000)")
         }
         // Alerte — saisie manuelle de la dose d'insuline
         .alert("Dose d'insuline", isPresented: $afficherSaisieDose) {
@@ -162,7 +162,11 @@ struct DetailAlimentSheet: View {
         let texte = saisieQuantiteTexte.replacingOccurrences(of: ",", with: ".")
         if let valeur = Double(texte), valeur > 0 {
             withAnimation(.spring(response: 0.3)) {
-                quantiteGrammes = max(5, min(300, valeur))
+                // Plafond relevé à 2000g (portions type plat familial /
+                // batch cooking) — le slider, lui, garde une plage courte
+                // pour rester précis au pas de 5g, et s'étend dynamiquement
+                // si la valeur saisie le dépasse (cf. `rowQuantite`).
+                quantiteGrammes = max(5, min(2000, valeur))
             }
         }
         saisieQuantiteTexte = ""
@@ -269,7 +273,11 @@ struct DetailAlimentSheet: View {
                 .buttonStyle(.plain)
             }
 
-            Slider(value: $quantiteGrammes, in: 5...300, step: 5)
+            // Borne haute dynamique : 300g par défaut (pas de 5g précis pour
+            // les portions courantes), étendue à la valeur courante si une
+            // saisie manuelle la dépasse — sinon le slider clippait
+            // silencieusement toute quantité au-delà de 300g.
+            Slider(value: $quantiteGrammes, in: 5...max(300, quantiteGrammes), step: 5)
                 .tint(quantiteApproximative ? .orange : .accentColor)
                 .animation(.easeInOut(duration: 0.2), value: quantiteApproximative)
         }
