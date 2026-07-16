@@ -62,6 +62,9 @@ struct SheetCorrection: View {
 
     @State private var afficherSitePicker: Bool = false
 
+    /// Trigger du retour haptique de succès à l'enregistrement.
+    @State private var triggerHaptique: Int = 0
+
     // MARK: - Corps
 
     var body: some View {
@@ -91,6 +94,7 @@ struct SheetCorrection: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationBackground(Color(.systemGroupedBackground))
+        .sensoryFeedback(.success, trigger: triggerHaptique)
         .sheet(isPresented: $afficherSitePicker) {
             SiteInjectionPicker(
                 site: $site,
@@ -244,6 +248,7 @@ struct SheetCorrection: View {
             labelRepas: nil,
             emojiRepas: nil
         )
+        triggerHaptique += 1
         onValider(injection)
         dismiss()
     }

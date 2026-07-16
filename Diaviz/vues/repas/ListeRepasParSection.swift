@@ -17,6 +17,9 @@ struct ListeRepasParSection: View {
     /// Sert à filtrer les sections affichées en dessous.
     @State private var selectedDate: Date = Calendar.current.startOfDay(for: Date())
 
+    /// Trigger du retour haptique à la suppression d'un aliment (swipe).
+    @State private var triggerSuppression: Int = 0
+
     /// Sections du jour sélectionné, recalculées depuis le hub à chaque render
     /// (les 4 tranches canoniques). Plus de copie `@State` figée : la liste
     /// suit le service observable. Sections **sans repas enregistré** exclues
@@ -59,6 +62,7 @@ struct ListeRepasParSection: View {
         .listStyle(.insetGrouped)
         .navigationTitle("Repas")
         .navigationBarTitleDisplayMode(.large)
+        .sensoryFeedback(.warning, trigger: triggerSuppression)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 NavigationLink(destination: AjouterRepasVue()) {
@@ -93,6 +97,7 @@ struct ListeRepasParSection: View {
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) {
                         repasService.supprimerAliment(aliment, de: unRepas)
+                        triggerSuppression += 1
                     } label: {
                         Label("Supprimer", systemImage: "trash")
                     }

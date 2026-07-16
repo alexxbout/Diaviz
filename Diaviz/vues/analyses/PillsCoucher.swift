@@ -59,6 +59,9 @@ struct PillsCoucher: View {
         }
         .frame(height: Self.hauteur)
         .accessibilityElement(children: .contain)
+        // Retour haptique au snap sur une nouvelle pill — cohérent avec les
+        // autres pickers segmentés de l'app (même sémantique de sélection).
+        .sensoryFeedback(.selection, trigger: selection)
     }
 
     private func pill(_ item: PillCoucher, largeurPill: CGFloat, position: Double) -> some View {

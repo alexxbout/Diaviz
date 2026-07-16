@@ -92,6 +92,9 @@ struct SheetInsulineLente: View {
 
     @State private var afficherSitePicker: Bool = false
 
+    /// Trigger du retour haptique de succès à l'enregistrement.
+    @State private var triggerHaptique: Int = 0
+
     // MARK: - Corps
 
     var body: some View {
@@ -120,6 +123,7 @@ struct SheetInsulineLente: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationBackground(Color(.systemGroupedBackground))
+        .sensoryFeedback(.success, trigger: triggerHaptique)
         // Sheet du sélecteur de site — hostée à la racine pour éviter
         // que le rebuild du Form la démonte au premier tap (bug connu
         // des `.sheet` posés sur une `Section`).
@@ -267,6 +271,7 @@ struct SheetInsulineLente: View {
             labelRepas: nil,
             emojiRepas: nil
         )
+        triggerHaptique += 1
         onValider(injection)
         dismiss()
     }

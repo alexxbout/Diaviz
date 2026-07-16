@@ -88,6 +88,7 @@ struct RepartitionNuitsVue: View {
             }
         }
         .pickerStyle(.segmented)
+        .sensoryFeedback(.selection, trigger: periode)
         .accessibilityLabel("Période d'analyse de la répartition")
     }
 

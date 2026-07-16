@@ -22,6 +22,12 @@ struct AppTabVues: View {
 
     @State private var showingSearch = false
 
+    /// Onglet actif — sert uniquement à déclencher le retour haptique au
+    /// changement d'onglet (`.sensoryFeedback` a besoin d'une valeur
+    /// observable à surveiller). Aucun contrôle programmatique de la
+    /// navigation n'en dépend.
+    @State private var ongletActif: String = "accueil"
+
     /// Service hub des repas — source de vérité de l'onglet Journal. Démarré
     /// au boot via `.task` (contexte du hub), il fournit les sections du jour
     /// et le compteur de repas. En prod le hub est vide au départ → état vide
@@ -77,26 +83,30 @@ struct AppTabVues: View {
     @State private var jourDetailScore: Date?
 
     var body: some View {
-        TabView {
-            Tab("Accueil", systemImage: "house") {
+        TabView(selection: $ongletActif) {
+            Tab("Accueil", systemImage: "house", value: "accueil") {
                 AccueilVue(jourDetailScore: $jourDetailScore)
             }
 
-            Tab("Journal", systemImage: "long.text.page.and.pencil") {
+            Tab("Journal", systemImage: "long.text.page.and.pencil", value: "journal") {
                 JournalVue()
             }
             .badge(importService.nombreEnAttente)
 
-            Tab("Analyses", systemImage: "chart.dots.scatter") {
+            Tab("Analyses", systemImage: "chart.dots.scatter", value: "analyses") {
                 AnalysesVue()
             }
             .badge(analyseBasaleService.estNouvelleTendance ? "•" : "")
 
-            Tab("Recherche", systemImage: "bubble.left.and.text.bubble.right", role: TabRole.search) {
+            Tab("Recherche", systemImage: "bubble.left.and.text.bubble.right", value: "recherche", role: TabRole.search) {
                 RecercheVue()
             }
         }
         .tabBarMinimizeBehavior(.onScrollDown)
+        // Léger retour haptique au changement d'onglet — cohérent avec les
+        // autres `.sensoryFeedback` déjà présents (site d'injection, timeline
+        // basale, bouton valider repas).
+        .sensoryFeedback(.selection, trigger: ongletActif)
         // Injection de la racine — toutes les vues filles consomment le
         // même service via `@Environment(HealthKitImportService.self)`,
         // ce qui rend les previews capable de fournir un mock isolé.

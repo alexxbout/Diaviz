@@ -60,6 +60,9 @@ struct AjouterRepasVue: View {
     /// Présentation de la sheet listant les aliments CIQUAL masqués.
     @State private var alimentsCachesPresentee: Bool = false
 
+    /// Trigger du retour haptique au masquage d'un aliment (swipe).
+    @State private var triggerMasquage: Int = 0
+
     /// Focus de la barre de recherche — réactivé quand l'utilisateur tape
     /// "Ajouter un aliment" depuis la `RepasSheet`.
     @FocusState private var rechercheActive: Bool
@@ -69,6 +72,7 @@ struct AjouterRepasVue: View {
             barreRecherche
             filtreSegmente
             contenuPrincipal
+                .sensoryFeedback(.success, trigger: triggerMasquage)
         }
         .background(Color(.systemGroupedBackground), ignoresSafeAreaEdges: .all)
         // Bulle en overlay : composant SwiftUI normal (pas dans une sheet),
@@ -227,6 +231,7 @@ struct AjouterRepasVue: View {
         }
         .controlSize(.large)
         .pickerStyle(.segmented)
+        .sensoryFeedback(.selection, trigger: filtre)
         .padding(.horizontal)
         .padding(.bottom, 12)
         // Bascule vers « Produits » avec un texte déjà saisi → recherche OFF.
@@ -374,6 +379,7 @@ struct AjouterRepasVue: View {
             ligne.swipeActions(edge: .trailing, allowsFullSwipe: true) {
                 Button(role: .destructive) {
                     AlimentsCachesService.shared.cacher(a.id)
+                    triggerMasquage += 1
                     onMasque?()
                 } label: {
                     Label("Masquer", systemImage: "eye.slash")

@@ -21,6 +21,9 @@ struct ListeCorrections: View {
     let onTap: (Injection) -> Void
     let onSupprimer: (Injection) -> Void
 
+    /// Trigger du retour haptique à la suppression (swipe).
+    @State private var triggerSuppression: Int = 0
+
     var body: some View {
         ForEach(corrections) { c in
             ligne(c)
@@ -28,11 +31,13 @@ struct ListeCorrections: View {
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) {
                         onSupprimer(c)
+                        triggerSuppression += 1
                     } label: {
                         Label("Supprimer", systemImage: "trash")
                     }
                 }
         }
+        .sensoryFeedback(.warning, trigger: triggerSuppression)
     }
 
     @ViewBuilder

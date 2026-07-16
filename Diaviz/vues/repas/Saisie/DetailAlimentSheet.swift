@@ -93,6 +93,7 @@ struct DetailAlimentSheet: View {
             // Le clavier se ferme dès qu'on commence à scroller — utile
             // notamment dans la section Note quand on saisit une note longue.
             .scrollDismissesKeyboard(.immediately)
+            .sensoryFeedback(.selection, trigger: quantiteApproximative)
             // Pas de navigationTitle : le titre est dans le contenu.
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

@@ -206,6 +206,7 @@ struct CourbesNocturnesChart: View {
             }
         }
         .pickerStyle(.segmented)
+        .sensoryFeedback(.selection, trigger: mode)
     }
 
     // MARK: - Bascule vue courante
@@ -292,6 +293,7 @@ private struct VueGraphiqueToutes: View {
             }
         }
         .pickerStyle(.segmented)
+        .sensoryFeedback(.selection, trigger: periode)
     }
 
 /// Nuits du dataset restreintes à la fenêtre sélectionnée. Le
