@@ -8,8 +8,15 @@
 import SwiftUI
 
 /// Section « HORAIRES DES REPAS » — quatre `DatePicker` compacts en
-/// `.hourAndMinute` pour les horaires habituels du petit-déjeuner,
+/// `.hourAndMinute` pour les heures de **début** du petit-déjeuner,
 /// déjeuner, goûter et dîner.
+///
+/// Ces heures sont des **bornes de début**, pas des points de référence :
+/// un repas est classé dans la section dont le début est le dernier
+/// atteint avant son heure. La fenêtre entre la fin du dîner (+3h fixe,
+/// non réglable) et le début du petit-déjeuner forme automatiquement une
+/// 5ᵉ section « Nuit », pour ne pas classer à tort un repas de milieu de
+/// nuit dans « Dîner ».
 ///
 /// Forcés en `Locale("fr_FR")` pour garantir le format 24h
 /// indépendamment des préférences système — un build de l'utilisateur
@@ -28,8 +35,10 @@ struct SectionHorairesRepas: View {
             Text("Horaires des repas")
         } footer: {
             Text("""
-            Permet de catégoriser automatiquement vos repas selon \
-            l'heure de saisie.
+            Heure de **début** de chaque section — un repas saisi est classé \
+            dans la dernière section commencée avant son heure. La nuit \
+            (entre la fin du dîner et le petit-déjeuner) forme sa propre \
+            section automatiquement.
             """)
         }
         .environment(\.locale, Locale(identifier: "fr_FR"))

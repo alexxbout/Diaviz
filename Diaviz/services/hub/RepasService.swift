@@ -68,7 +68,7 @@ final class RepasService {
     }
 
     /// Horaires de repas configurés dans le profil — sert à classer un repas
-    /// dans sa section (« Déjeuner »…) selon l'horaire habituel le plus proche,
+    /// dans sa section (« Déjeuner »…) selon les heures de début réglées,
     /// plutôt que des seuils fixes en dur.
     private var horairesRepas: HorairesRepas {
         ProfilService.shared.profil.horairesRepas
@@ -304,13 +304,17 @@ extension Aliment {
 
 // MARK: - Sections de repas (dérivation d'affichage)
 
-/// Les 4 tranches canoniques du journal. Reste une dérivation d'affichage :
+/// Les 5 tranches canoniques du journal. Reste une dérivation d'affichage :
 /// le hub ne stocke pas la section, seulement l'heure absolue du repas.
 enum SectionRepas: CaseIterable {
     case petitDejeuner
     case dejeuner
     case enCas
     case diner
+    /// Fenêtre nocturne entre la fin du dîner et le début du petit-déjeuner
+    /// — évite qu'un repas de milieu de nuit soit classé à tort dans
+    /// « Dîner » (nearest-anchor le ferait si le dîner est tardif).
+    case nuit
 
     /// Libellé exact attendu par `ListeRepasParSection` (mêmes chaînes).
     var titre: String {
@@ -319,14 +323,23 @@ enum SectionRepas: CaseIterable {
         case .dejeuner:      return "Déjeuner"
         case .enCas:         return "En-cas"
         case .diner:         return "Dîner"
+        case .nuit:          return "Nuit"
         }
     }
 
-    /// Classe une heure de repas dans une section selon les **horaires
-    /// habituels du profil** (`HorairesRepas`) : la section retenue est celle
-    /// dont l'horaire de référence est le plus proche de l'heure du repas
-    /// (comparaison sur la seule minute du jour). Le goûter du profil correspond
-    /// à la section « En-cas ».
+    /// Délai après le **début** du dîner marquant le passage à la section
+    /// « Nuit » — fixe (pas un réglage utilisateur séparé), pour ne pas
+    /// ajouter un 5ᵉ champ dans les réglages horaires du profil.
+    private static let delaiNuitApresDinerMinutes = 180 // 3h
+
+    /// Classe une heure de repas dans une section selon les **heures de
+    /// début du profil** (`HorairesRepas`) : chaque horaire marque le
+    /// **début** de sa section (pas un point de référence le plus proche),
+    /// la section retenue est celle dont le début est le dernier atteint
+    /// avant l'heure du repas — journée traitée en cercle (24h), donc le
+    /// passage minuit est géré sans cas particulier. Le goûter du profil
+    /// correspond à la section « En-cas » ; « Nuit » démarre automatiquement
+    /// `delaiNuitApresDinerMinutes` après le début du dîner.
     init(heure: Date, horaires: HorairesRepas) {
         let cal = Calendar.current
         func minuteDuJour(_ date: Date) -> Int {
@@ -334,15 +347,33 @@ enum SectionRepas: CaseIterable {
             return (c.hour ?? 0) * 60 + (c.minute ?? 0)
         }
         let cible = minuteDuJour(heure)
-        let candidats: [(section: SectionRepas, minute: Int)] = [
+        let debutDiner = minuteDuJour(horaires.diner)
+        let debutNuit = (debutDiner + Self.delaiNuitApresDinerMinutes) % (24 * 60)
+
+        let bornes: [(section: SectionRepas, debut: Int)] = [
             (.petitDejeuner, minuteDuJour(horaires.petitDejeuner)),
             (.dejeuner,      minuteDuJour(horaires.dejeuner)),
             (.enCas,         minuteDuJour(horaires.gouter)),
-            (.diner,         minuteDuJour(horaires.diner)),
+            (.diner,         debutDiner),
+            (.nuit,          debutNuit),
         ]
-        self = candidats.min {
-            abs($0.minute - cible) < abs($1.minute - cible)
-        }?.section ?? .enCas
+        self = Self.section(pour: cible, bornes: bornes)
+    }
+
+    /// Trouve la section dont le début est le **dernier atteint avant**
+    /// `cible`, bornes traitées de façon circulaire (24h). Si `cible` est
+    /// avant toutes les bornes du jour (ex. 00h30 alors que la plus petite
+    /// borne est à 01h), la section active est celle qui a commencé la
+    /// veille — la dernière borne une fois triées.
+    private static func section(
+        pour cible: Int,
+        bornes: [(section: SectionRepas, debut: Int)]
+    ) -> SectionRepas {
+        let triees = bornes.sorted { $0.debut < $1.debut }
+        if let trouvee = triees.last(where: { $0.debut <= cible }) {
+            return trouvee.section
+        }
+        return triees.last?.section ?? .petitDejeuner
     }
 }
 

@@ -150,7 +150,10 @@ enum InsightsService {
             case .petitDejeuner: return profil.ratiosParMoment.petitDejeuner
             case .dejeuner:      return profil.ratiosParMoment.dejeuner
             case .enCas:         return profil.ratiosParMoment.gouter
-            case .diner:         return profil.ratiosParMoment.diner
+            // Pas de ratio dédié pour « Nuit » (pas de champ profil) — on
+            // retombe sur celui du dîner, la période temporellement la plus
+            // proche.
+            case .diner, .nuit:  return profil.ratiosParMoment.diner
             }
         }
     }
