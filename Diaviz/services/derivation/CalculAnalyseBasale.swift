@@ -181,10 +181,18 @@ nonisolated enum CalculAnalyseBasale {
         let finJour = debutJourMetabolique.addingTimeInterval(24 * 3600)
         let dateSoir = cal.startOfDay(for: debutJourMetabolique)
 
-        // Lente du soir = dernière lente du jour métabolique à heure « du soir ».
+        // Lente du soir = dernière lente de la nuit du jour métabolique :
+        // prise le soir (≥ heureSoir) **ou après minuit** avant la fin du
+        // jour métabolique (ex. 00h30 — c'est toujours la basale de cette
+        // nuit, pas celle du lendemain). Sans la branche après-minuit, une
+        // lente saisie à 00h01 rendait la nuit « sans lente ».
+        let heureFinJour = cal.component(.hour, from: finJour)
         let lenteDuSoir = entrees.lentes
-            .filter { $0.heure >= debutJourMetabolique && $0.heure < finJour
-                && (cal.component(.hour, from: $0.heure) >= config.heureSoir) }
+            .filter { l in
+                guard l.heure >= debutJourMetabolique && l.heure < finJour else { return false }
+                let h = cal.component(.hour, from: l.heure)
+                return h >= config.heureSoir || h < heureFinJour
+            }
             .max(by: { $0.heure < $1.heure })
 
         // Bornes du graphique : 21h00 du soir → +10h (07h lendemain). Fixe, pour
