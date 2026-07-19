@@ -29,6 +29,12 @@ struct PageHyposCoucher: View {
     /// « tous » (une liste vide sous un filtre sélectionné serait déroutante).
     enum FiltreSoirs { case hypos, tous }
     @State private var filtre: FiltreSoirs = .hypos
+
+    /// Tri de la liste — date (plus récent d'abord, défaut) ou glycémie
+    /// (croissante).
+    enum TriSoirs { case date, glycemie }
+    @State private var tri: TriSoirs = .date
+
     @State private var afficherComparer = false
     @State private var soirSelectionne: SoirCoucher?
 
@@ -131,9 +137,14 @@ struct PageHyposCoucher: View {
     // MARK: - 3. Soirs (filtre segmenté hypos / tous)
 
     private var soirsVisibles: [SoirCoucher] {
+        let base: [SoirCoucher]
         switch filtreEffectif {
-        case .hypos: return analyse.soirsEnHypo
-        case .tous:  return analyse.soirs.sorted { $0.glycemie < $1.glycemie }
+        case .hypos: base = analyse.soirsEnHypo
+        case .tous:  base = analyse.soirs
+        }
+        switch tri {
+        case .date:     return base.sorted { $0.date > $1.date }
+        case .glycemie: return base.sorted { $0.glycemie < $1.glycemie }
         }
     }
 
@@ -160,10 +171,10 @@ struct PageHyposCoucher: View {
         }
     }
 
-    /// Titre + filtre segmenté « Hypos · N / Tous · M » (n'apparaît que s'il y
-    /// a au moins une hypo à distinguer du reste).
+    /// Titre + filtre segmenté « Hypos · N / Tous · M » + tri (glycémie /
+    /// date), tout à droite sur la même ligne.
     private var enTeteSoirs: some View {
-        HStack(alignment: .firstTextBaseline) {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text("Soirs analysés")
                 .font(.subheadline.bold())
                 .foregroundStyle(.secondary)
@@ -172,7 +183,27 @@ struct PageHyposCoucher: View {
             if analyse.totalHypos > 0 {
                 segmentFiltre
             }
+            menuTri
         }
+    }
+
+    /// Menu de tri compact (icône seule) — « Glycémie » (croissante) ou
+    /// « Date » (plus récent d'abord, défaut).
+    private var menuTri: some View {
+        Menu {
+            Picker("Trier par", selection: $tri) {
+                Label("Date", systemImage: "calendar").tag(TriSoirs.date)
+                Label("Glycémie", systemImage: "drop").tag(TriSoirs.glycemie)
+            }
+        } label: {
+            Image(systemName: "arrow.up.arrow.down")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(6)
+                .background(Color(.tertiarySystemFill), in: Circle())
+        }
+        .accessibilityLabel("Trier les soirs")
+        .accessibilityValue(tri == .date ? "Par date" : "Par glycémie")
     }
 
     private var segmentFiltre: some View {
