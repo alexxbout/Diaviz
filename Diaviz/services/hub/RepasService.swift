@@ -140,11 +140,19 @@ final class RepasService {
         entrees: [EntreeAliment],
         heure: Date = Date(),
         doseInjectee: Double = 0,
-        site: SiteInjection = .parDefaut
+        site: SiteInjection = .parDefaut,
+        doseGlobale: Double? = nil
     ) -> Repas? {
         let alimentsHub = entrees.map(Aliment.init(depuis:))
         guard !alimentsHub.isEmpty else { return nil }
-        let nouveau = Repas(heure: heure, aliments: alimentsHub)
+        // Mode « dose globale » : la dose vit sur le repas, pas sur les
+        // aliments — on neutralise d'éventuelles doses par aliment saisies
+        // avant la bascule, sinon `CarteAlimentEnregistre` afficherait une
+        // ventilation qui ne correspond plus à rien.
+        if doseGlobale != nil {
+            for aliment in alimentsHub { aliment.insuline = 0 }
+        }
+        let nouveau = Repas(heure: heure, aliments: alimentsHub, doseGlobale: doseGlobale)
         // IOB actif juste avant le repas — snapshot figé du contexte insuline
         // (dérivé du hub à la saisie, donc avant le bolus de ce repas). `nil` si
         // négligeable, pour ne pas afficher un badge « 0u ».

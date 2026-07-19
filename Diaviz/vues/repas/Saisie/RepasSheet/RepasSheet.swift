@@ -29,16 +29,28 @@ struct RepasSheet: View {
     let onAjouterUnAliment: () -> Void
 
     /// Validation finale du repas. Transmet la **dose réellement injectée**
-    /// (aliments + ajustements + correction), le **site** et l'**heure**
-    /// (réglable, préremplie à l'heure actuelle), pour que le parent crée le
-    /// bolus repas dans le hub. Le parent reset l'état.
-    let onValiderRepas: (_ doseInjectee: Double, _ site: SiteInjection, _ heure: Date) -> Void
+    /// (aliments ou dose globale + ajustements + correction), le **site**,
+    /// l'**heure** (réglable, préremplie à l'heure actuelle) et la **dose
+    /// globale** (`nil` = mode par aliment), pour que le parent crée le repas
+    /// et son bolus dans le hub. Le parent reset l'état.
+    let onValiderRepas: (
+        _ doseInjectee: Double,
+        _ site: SiteInjection,
+        _ heure: Date,
+        _ doseGlobale: Double?
+    ) -> Void
 
     // MARK: - État interne
 
     @State private var ajustements: [Ajustement] = []
     @State private var correctionHyper: Double = 0
     @State private var siteInjection: SiteInjection = .parDefaut
+
+    /// Mode « dose globale » : une seule dose pour tout le repas au lieu
+    /// d'une ventilation par aliment. `nil` = mode classique. Activé via le
+    /// toggle de `InsulineSection`, qui préremplit avec la somme des doses
+    /// par aliment.
+    @State private var doseGlobale: Double? = nil
 
     /// Heure du repas — préremplie à l'heure actuelle, réglable pour les
     /// saisies rétroactives (ex. repas oublié, saisi plus tard). Alimente
@@ -91,8 +103,14 @@ struct RepasSheet: View {
         ajustements.reduce(0) { $0 + $1.valeur }
     }
 
+    /// Dose de base du repas selon le mode actif : dose globale si le toggle
+    /// est activé, sinon somme des doses par aliment.
+    private var doseBaseRepas: Double {
+        doseGlobale ?? doseTotaleRepas
+    }
+
     private var totalInjecte: Double {
-        max(0, doseTotaleRepas + totalAjustements + correctionHyper)
+        max(0, doseBaseRepas + totalAjustements + correctionHyper)
     }
 
     /// Dose couvrant les glucides du repas — c'est elle qu'on confronte au
@@ -106,8 +124,10 @@ struct RepasSheet: View {
     ///   faussait le constat de cohérence dès qu'on ajoutait une correction
     ///   (la dose totale ne respectait alors plus le ratio, alors que la
     ///   part "repas" le respectait toujours).
+    /// En mode dose globale, la base est la dose globale — la validation du
+    /// ratio fonctionne à l'identique (glucides totaux vs dose unique).
     private var doseCouvrantGlucides: Double {
-        max(0, doseTotaleRepas + totalAjustements)
+        max(0, doseBaseRepas + totalAjustements)
     }
 
     private var contexteInsights: ContexteInsights {
@@ -154,6 +174,7 @@ struct RepasSheet: View {
                     doseRepas: doseTotaleRepas,
                     ajustements: $ajustements,
                     correctionHyper: $correctionHyper,
+                    doseGlobale: $doseGlobale,
                     totalInjecte: totalInjecte,
                     onAjouterAjustement: { sheetAjustement = .ajout },
                     onEditerAjustement: { sheetAjustement = .edition($0) }
@@ -174,7 +195,7 @@ struct RepasSheet: View {
         .safeAreaInset(edge: .bottom) {
             BoutonValiderRepas(
                 nombreAliments: aliments.count,
-                onValider: { onValiderRepas(totalInjecte, siteInjection, heureRepas) }
+                onValider: { onValiderRepas(totalInjecte, siteInjection, heureRepas, doseGlobale) }
             )
         }
         // Dernier aliment supprimé (swipe dans ListeAlimentsSection) → plus
@@ -283,7 +304,7 @@ private let _previewAlimentsRepas: [EntreeAliment] = [
     RepasSheet(
         aliments: $aliments,
         onAjouterUnAliment: {},
-        onValiderRepas: { _, _, _ in }
+        onValiderRepas: { _, _, _, _ in }
     )
     .environment(RepasService.apercu())
     .modelContainer(for: [Injection.self, ActiviteSportive.self], inMemory: true)
@@ -294,7 +315,7 @@ private let _previewAlimentsRepas: [EntreeAliment] = [
     RepasSheet(
         aliments: $aliments,
         onAjouterUnAliment: {},
-        onValiderRepas: { _, _, _ in }
+        onValiderRepas: { _, _, _, _ in }
     )
     .environment(RepasService.apercu())
     .modelContainer(for: [Injection.self, ActiviteSportive.self], inMemory: true)

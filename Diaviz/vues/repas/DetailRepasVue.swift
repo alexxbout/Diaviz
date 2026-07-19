@@ -282,7 +282,10 @@ struct DetailRepasVue: View {
             LigneMetrique(
                 libelle: "Insuline totale",
                 valeur: formaterInsuline(repas.totalInsuline),
-                sousValeur: nil
+                // Repas saisi en mode « dose globale » : signale que la dose
+                // n'est pas ventilée par aliment (les rows aliments affichent
+                // 0u, c'est normal).
+                sousValeur: repas.doseGlobale != nil ? "Dose globale" : nil
             )
             Divider().padding(.leading, 16)
             LigneMetrique(

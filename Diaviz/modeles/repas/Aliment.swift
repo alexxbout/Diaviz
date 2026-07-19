@@ -65,6 +65,13 @@ final class Repas {
     /// figé à la saisie ; `nil` si non calculé (legacy ou pas de bolus récent).
     var iobAuDebut: Double?
 
+    /// Dose unique saisie pour l'ensemble du repas (mode « dose globale »),
+    /// quand l'utilisateur connaît les quantités mais ne veut pas ventiler la
+    /// dose aliment par aliment. `nil` = mode classique (dose par aliment) —
+    /// la valeur EST le flag, pas de booléen séparé à désynchroniser. Dans ce
+    /// mode les `Aliment.insuline` valent 0 (pas d'attribution par aliment).
+    var doseGlobale: Double?
+
     /// État du pré-calcul de la réponse glycémique. **Dérivation non persistée**
     /// (`@Transient`) : recalculée à la volée depuis le CGM, et `EtatAnalyse`
     /// embarque une courbe non stockable. Renseignée à l'affichage / en preview.
@@ -75,22 +82,26 @@ final class Repas {
         heure: Date,
         aliments: [Aliment],
         etatAnalyse: EtatAnalyse? = nil,
-        iobAuDebut: Double? = nil
+        iobAuDebut: Double? = nil,
+        doseGlobale: Double? = nil
     ) {
         self.id = id
         self.heure = heure
         self.aliments = aliments
         self.etatAnalyse = etatAnalyse
         self.iobAuDebut = iobAuDebut
+        self.doseGlobale = doseGlobale
     }
 
     var totalGlucides: Int {
         aliments.reduce(0) { $0 + $1.glucides }
     }
 
-    /// Total d'insuline injectée pour le repas, somme des doses par aliment.
+    /// Total d'insuline du repas : la dose globale quand le repas a été saisi
+    /// dans ce mode, sinon la somme des doses par aliment. Tout l'affichage
+    /// (journal, détail, ratio) passe par ici et suit automatiquement.
     var totalInsuline: Double {
-        aliments.reduce(0) { $0 + $1.insuline }
+        doseGlobale ?? aliments.reduce(0) { $0 + $1.insuline }
     }
 
     /// Indique si au moins un aliment a une dose d'insuline associée. Sert à

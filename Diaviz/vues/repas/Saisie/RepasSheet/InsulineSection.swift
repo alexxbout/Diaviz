@@ -23,6 +23,11 @@ struct InsulineSection: View {
     let doseRepas: Double
     @Binding var ajustements: [Ajustement]
     @Binding var correctionHyper: Double
+    /// Dose unique pour tout le repas — `nil` = mode classique (dose par
+    /// aliment). La valeur EST le flag : le toggle la crée (préremplie avec
+    /// la somme des doses par aliment, rien n'est perdu en basculant) et la
+    /// remet à `nil` en se désactivant.
+    @Binding var doseGlobale: Double?
     /// Pré-calculé par le parent pour rester cohérent avec ses propres calculs.
     let totalInjecte: Double
 
@@ -32,7 +37,12 @@ struct InsulineSection: View {
 
     var body: some View {
         Section {
-            doseRepasRow
+            toggleDoseGlobale
+            if doseGlobale != nil {
+                doseGlobaleRow
+            } else {
+                doseRepasRow
+            }
             ajustementsRows
             boutonAjouterAjustement
             correctionHyperRow
@@ -44,6 +54,24 @@ struct InsulineSection: View {
 
     // MARK: - Rows
 
+    /// Bascule entre dose ventilée par aliment et dose unique pour le repas.
+    private var toggleDoseGlobale: some View {
+        Toggle(isOn: Binding(
+            get: { doseGlobale != nil },
+            set: { actif in
+                doseGlobale = actif ? doseRepas : nil
+            }
+        )) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Dose globale")
+                    .font(.body)
+                Text("Une seule dose pour tout le repas")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     private var doseRepasRow: some View {
         LabeledContent {
             Text(formate(doseRepas) + "u")
@@ -53,6 +81,46 @@ struct InsulineSection: View {
                 .animation(.spring(response: 0.3), value: doseRepas)
         } label: {
             Text("Dose des aliments")
+        }
+    }
+
+    /// Row de saisie de la dose globale — stepper 0,5u, même layout que la
+    /// correction d'hyper juste en dessous.
+    private var doseGlobaleRow: some View {
+        let dose = doseGlobale ?? 0
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Dose du repas")
+                    .font(.body)
+                Spacer()
+                Text(formate(dose) + "u")
+                    .font(.body.bold())
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                    .animation(.easeOut(duration: 0.2), value: dose)
+            }
+
+            HStack {
+                Text("Pour l'ensemble des glucides du repas")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Stepper("", value: Binding(
+                    get: { doseGlobale ?? 0 },
+                    set: { doseGlobale = $0 }
+                ), in: 0...30, step: 0.5)
+                .labelsHidden()
+            }
+        }
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Dose globale du repas : \(formate(dose)) unités")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: if dose < 30 { doseGlobale = dose + 0.5 }
+            case .decrement: if dose > 0 { doseGlobale = dose - 0.5 }
+            @unknown default: break
+            }
         }
     }
 
@@ -208,11 +276,13 @@ struct InsulineSection: View {
 #Preview("Sans ajustements") {
     @Previewable @State var ajustements: [Ajustement] = []
     @Previewable @State var correction: Double = 0
+    @Previewable @State var doseGlobale: Double? = nil
     Form {
         InsulineSection(
             doseRepas: 4.5,
             ajustements: $ajustements,
             correctionHyper: $correction,
+            doseGlobale: $doseGlobale,
             totalInjecte: 4.5,
             onAjouterAjustement: {},
             onEditerAjustement: { _ in }
@@ -227,12 +297,32 @@ struct InsulineSection: View {
         Ajustement(raison: .repasGras, valeur: 1.0),
     ]
     @Previewable @State var correction: Double = 1.5
+    @Previewable @State var doseGlobale: Double? = nil
     Form {
         InsulineSection(
             doseRepas: 4.5,
             ajustements: $ajustements,
             correctionHyper: $correction,
+            doseGlobale: $doseGlobale,
             totalInjecte: 6.5,
+            onAjouterAjustement: {},
+            onEditerAjustement: { _ in }
+        )
+    }
+    .formStyle(.grouped)
+}
+
+#Preview("Dose globale") {
+    @Previewable @State var ajustements: [Ajustement] = []
+    @Previewable @State var correction: Double = 0
+    @Previewable @State var doseGlobale: Double? = 6.0
+    Form {
+        InsulineSection(
+            doseRepas: 0,
+            ajustements: $ajustements,
+            correctionHyper: $correction,
+            doseGlobale: $doseGlobale,
+            totalInjecte: 6.0,
             onAjouterAjustement: {},
             onEditerAjustement: { _ in }
         )

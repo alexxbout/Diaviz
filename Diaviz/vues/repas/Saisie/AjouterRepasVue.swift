@@ -116,8 +116,13 @@ struct AjouterRepasVue: View {
             RepasSheet(
                 aliments: $alimentsRepas,
                 onAjouterUnAliment: tapperAjouterAliment,
-                onValiderRepas: { dose, site, heure in
-                    validerRepas(doseInjectee: dose, site: site, heure: heure)
+                onValiderRepas: { dose, site, heure, doseGlobale in
+                    validerRepas(
+                        doseInjectee: dose,
+                        site: site,
+                        heure: heure,
+                        doseGlobale: doseGlobale
+                    )
                 }
             )
             .presentationDetents([.large])
@@ -143,12 +148,18 @@ struct AjouterRepasVue: View {
     /// sheet** (préremplie à l'instant courant, réglable pour une saisie
     /// rétroactive) — c'est le fait brut horodaté attendu par le hub. La
     /// réponse glycémique (`etatAnalyse`) reste une dérivation non calculée ici.
-    private func validerRepas(doseInjectee: Double, site: SiteInjection, heure: Date) {
+    private func validerRepas(
+        doseInjectee: Double,
+        site: SiteInjection,
+        heure: Date,
+        doseGlobale: Double?
+    ) {
         repasService.enregistrerDepuisSaisie(
             entrees: alimentsRepas,
             heure: heure,
             doseInjectee: doseInjectee,
-            site: site
+            site: site,
+            doseGlobale: doseGlobale
         )
         // Marqué "récemment ajouté" seulement maintenant, à la persistance
         // réelle du repas — pas à la simple composition en cours.
