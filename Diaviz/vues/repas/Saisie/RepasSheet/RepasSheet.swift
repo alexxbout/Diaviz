@@ -95,6 +95,21 @@ struct RepasSheet: View {
         max(0, doseTotaleRepas + totalAjustements + correctionHyper)
     }
 
+    /// Dose couvrant les glucides du repas — c'est elle qu'on confronte au
+    /// ratio, pas `totalInjecte`. Le repas peut porter **deux ajustements
+    /// distincts**, à traiter différemment vis-à-vis du ratio :
+    /// - `ajustements` (`[Ajustement]`, ex. "sport récent") : modulent la
+    ///   dose *pour les glucides* (le repas en nécessite moins/plus dans ce
+    ///   contexte) → **inclus** ici.
+    /// - `correctionHyper` : répond à la glycémie du moment, pas aux
+    ///   glucides du repas ; **exclu**, positif ou négatif. L'inclure
+    ///   faussait le constat de cohérence dès qu'on ajoutait une correction
+    ///   (la dose totale ne respectait alors plus le ratio, alors que la
+    ///   part "repas" le respectait toujours).
+    private var doseCouvrantGlucides: Double {
+        max(0, doseTotaleRepas + totalAjustements)
+    }
+
     private var contexteInsights: ContexteInsights {
         // T0 = heure du repas (réglable, préremplie à l'heure actuelle), et la
         // section (pour le ratio par moment) en découle via les horaires du profil.
@@ -103,7 +118,7 @@ struct RepasSheet: View {
             horaires: ProfilService.shared.profil.horairesRepas
         )
         return InsightsService.contexte(
-            doseSaisie: totalInjecte,
+            doseSaisie: doseCouvrantGlucides,
             glucides: glucidesTotal,
             heure: heureRepas,
             section: section,
