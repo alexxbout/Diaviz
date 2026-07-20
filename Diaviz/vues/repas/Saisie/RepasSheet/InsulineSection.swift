@@ -147,7 +147,7 @@ struct InsulineSection: View {
 
     private func ligneAjustement(_ aj: Ajustement) -> some View {
         HStack(spacing: 12) {
-            Text(aj.raison.emoji)
+            Image(systemName: aj.raison.icone)
                 .font(.title3)
                 .frame(width: 28)
 

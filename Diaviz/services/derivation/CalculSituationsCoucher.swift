@@ -86,15 +86,27 @@ nonisolated enum FacteurCoucher: Hashable, Sendable {
         }
     }
 
-    /// Libellé factuel court, avec pictogramme.
+    /// Libellé factuel court.
     var libelle: String {
         switch self {
-        case .tranche(let t):   return "🩸 \(t.libelle)"
-        case .sportJour:        return "🏃 sport le jour même"
-        case .insulineActive:   return "⚡ insuline encore active"
-        case .chargeIntense:    return "🔥 semaine intense"
-        case .nuitDescendante:  return "📉 nuit « descendante » (B1)"
-        case .correctionPrise:  return "💉 correction prise"
+        case .tranche(let t):   return t.libelle
+        case .sportJour:        return "sport le jour même"
+        case .insulineActive:   return "insuline encore active"
+        case .chargeIntense:    return "semaine intense"
+        case .nuitDescendante:  return "nuit « descendante » (B1)"
+        case .correctionPrise:  return "correction prise"
+        }
+    }
+
+    /// SF Symbol associé, affiché en tête du libellé.
+    var icone: String {
+        switch self {
+        case .tranche:          return "drop.fill"
+        case .sportJour:        return "figure.run"
+        case .insulineActive:   return "bolt.fill"
+        case .chargeIntense:    return "flame.fill"
+        case .nuitDescendante:  return "chart.line.downtrend.xyaxis"
+        case .correctionPrise:  return "syringe.fill"
         }
     }
 

@@ -1285,7 +1285,7 @@ private struct DetailZonesNuit: View {
     @ViewBuilder
     private func ligneZone(_ z: ZoneData) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            Text(z.zone.emoji)
+            Image(systemName: z.zone.icone)
                 .font(.body)
                 .frame(width: 24)
 
@@ -1878,10 +1878,6 @@ private struct PopoverEventDetail: View {
 
     private var corps: String {
         let cleaned = event.detail
-            .replacingOccurrences(of: "💉 ", with: "")
-            .replacingOccurrences(of: "🍬 ", with: "")
-            .replacingOccurrences(of: "🍽️ ", with: "")
-            .replacingOccurrences(of: "⚠️ ", with: "")
         switch event.type {
         case .rapide, .lente:
             return cleaned.replacingOccurrences(of: "u à", with: " unités à")
@@ -1925,10 +1921,9 @@ private extension EventType {
         }
     }
 
-    /// Label compact pour la pill — extrait `detail` la partie avant
-    /// le « à » et **retire les emojis** (« 1.5u », « 15g », « 58 »).
-    /// Pour l'hypo on retire aussi « mg/dL » qui prendrait trop de
-    /// place.
+    /// Label compact pour la pill — extrait de `detail` la partie avant
+    /// le « à » (« 1.5u », « 15g », « 58 »). Pour l'hypo on retire aussi
+    /// « mg/dL » qui prendrait trop de place.
     func pillLabel(detail: String) -> String {
         var label = detail
         if let aRange = label.range(of: " à ") {
@@ -1936,10 +1931,6 @@ private extension EventType {
         }
         if self == .hypo {
             label = label.replacingOccurrences(of: " mg/dL", with: "")
-        }
-        // Strip emojis utilisés en préfixe sémantique de `detail`.
-        for emoji in ["💉 ", "🍬 ", "🍽️ ", "⚠️ "] {
-            label = label.replacingOccurrences(of: emoji, with: "")
         }
         return label.trimmingCharacters(in: .whitespaces)
     }

@@ -158,15 +158,15 @@ nonisolated enum NightZone: String, CaseIterable, Sendable {
     case nuitProfonde
     case dawnPhenomenon
 
-    /// Emoji affiché en permanence dans le segment de la barre zones
+    /// SF Symbol affiché en permanence dans le segment de la barre zones
     /// (visible centré quand le segment est compressé, juxtaposé au
     /// label quand le segment est sélectionné).
-    var emoji: String {
+    var icone: String {
         switch self {
-        case .preEndormissement:  return "🌙"
-        case .endormissement:     return "💉"
-        case .nuitProfonde:       return "😴"
-        case .dawnPhenomenon:     return "🌅"
+        case .preEndormissement:  return "moon.fill"
+        case .endormissement:     return "syringe.fill"
+        case .nuitProfonde:       return "bed.double.fill"
+        case .dawnPhenomenon:     return "sunrise.fill"
         }
     }
 
@@ -1143,7 +1143,7 @@ enum AnalyseBasaleServiceMock {
             type: .lente,
             time: basaleTime,
             value: 0,
-            detail: "💉 \(formate(doseLente))u à \(heureCourte(basaleTime))"
+            detail: "\(formate(doseLente))u à \(heureCourte(basaleTime))"
         ))
         // Encas tardif ~21h30 (pré-endormissement) — sert à donner du
         // contexte sur la zone 1 et à montrer les points repas sur le
@@ -1154,7 +1154,7 @@ enum AnalyseBasaleServiceMock {
                 type: .repas,
                 time: repasTime,
                 value: repasValeur,
-                detail: "🍽️ 20g à \(heureCourte(repasTime))"
+                detail: "20g à \(heureCourte(repasTime))"
             ))
         }
         // Rapide post-dîner ~22h45.
@@ -1164,7 +1164,7 @@ enum AnalyseBasaleServiceMock {
                 type: .rapide,
                 time: rapideTime,
                 value: rapideValeur,
-                detail: "💉 1.5u à \(heureCourte(rapideTime))"
+                detail: "1.5u à \(heureCourte(rapideTime))"
             ))
         }
         // Hypo — point le plus bas en zone 3 si pattern .basseAvecHypo.
@@ -1175,7 +1175,7 @@ enum AnalyseBasaleServiceMock {
                     type: .hypo,
                     time: pire.time,
                     value: pire.value,
-                    detail: "⚠️ \(Int(pire.value)) mg/dL à \(heureCourte(pire.time))"
+                    detail: "\(Int(pire.value)) mg/dL à \(heureCourte(pire.time))"
                 ))
             }
         }
@@ -1187,7 +1187,7 @@ enum AnalyseBasaleServiceMock {
                     type: .resucrage,
                     time: tempsResucrage,
                     value: valeur,
-                    detail: "🍬 15g à \(heureCourte(tempsResucrage))"
+                    detail: "15g à \(heureCourte(tempsResucrage))"
                 ))
             }
         }

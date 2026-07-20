@@ -33,14 +33,14 @@ enum RaisonAjustement: String, CaseIterable, Identifiable, Equatable {
         }
     }
 
-    var emoji: String {
+    var icone: String {
         switch self {
-        case .sportRecent:         return "🏃"
-        case .glycemieBasse:       return "📉"
-        case .repasGras:           return "🧈"
-        case .incertitudeGlucides: return "❓"
-        case .insulineActive:      return "💧"
-        case .autre:                return "💭"
+        case .sportRecent:         return "figure.run"
+        case .glycemieBasse:       return "chart.line.downtrend.xyaxis"
+        case .repasGras:           return "drop.triangle"
+        case .incertitudeGlucides: return "questionmark.circle"
+        case .insulineActive:      return "syringe"
+        case .autre:                return "ellipsis.circle"
         }
     }
 }
@@ -140,8 +140,9 @@ struct AjustementSheet: View {
                     raisonChoisie = raison
                 } label: {
                     HStack(spacing: 12) {
-                        Text(raison.emoji)
+                        Image(systemName: raison.icone)
                             .font(.title3)
+                            .frame(width: 24)
                         Text(raison.libelle)
                             .font(.body)
                             .foregroundStyle(.primary)

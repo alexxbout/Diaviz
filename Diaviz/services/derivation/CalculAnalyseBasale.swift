@@ -736,25 +736,25 @@ private nonisolated extension CalculAnalyseBasale {
 
         if let lente {
             events.append(NightEvent(type: .lente, time: lente.heure, value: 0,
-                                     detail: "💉 \(doseFmt(lente.dose))u à \(heureFr(lente.heure))"))
+                                     detail: "\(doseFmt(lente.dose))u à \(heureFr(lente.heure))"))
         }
         for r in rapides where plage.contains(r.heure) {
             let v = valeurProche(cgm, a: r.heure)
             events.append(NightEvent(type: .rapide, time: r.heure, value: v,
-                                     detail: "💉 \(doseFmt(r.dose))u à \(heureFr(r.heure))"))
+                                     detail: "\(doseFmt(r.dose))u à \(heureFr(r.heure))"))
         }
 
         // Hypos : un point par épisode contigu sous le seuil (le minimum local).
         for h in episodesHypo(cgm, seuil: config.seuilHypo) {
             events.append(NightEvent(type: .hypo, time: h.date, value: Double(h.valeur),
-                                     detail: "⚠️ \(h.valeur) mg/dL à \(heureFr(h.date))"))
+                                     detail: "\(h.valeur) mg/dL à \(heureFr(h.date))"))
         }
 
         // Repas nocturnes (contexte). Le « resucrage avec rechute » est détecté
         // séparément sur la courbe CGM (double hypo), pas via un repas loggé.
         for m in repas where plage.contains(m.heure) {
             events.append(NightEvent(type: .repas, time: m.heure, value: valeurProche(cgm, a: m.heure),
-                                     detail: "🍽️ \(m.glucides)g à \(heureFr(m.heure))"))
+                                     detail: "\(m.glucides)g à \(heureFr(m.heure))"))
         }
         return events
     }

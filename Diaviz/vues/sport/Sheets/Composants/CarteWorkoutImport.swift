@@ -114,7 +114,7 @@ struct CarteWorkoutImport: View {
     }
 
     private var titreSport: some View {
-        Text("\(workout.typeSport.emoji) \(workout.typeSport.rawValue)")
+        Label(workout.typeSport.rawValue, systemImage: workout.typeSport.icone)
             .font(.body.bold())
             .lineLimit(1)
     }

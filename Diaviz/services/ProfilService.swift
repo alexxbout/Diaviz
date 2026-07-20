@@ -100,7 +100,7 @@ final class ProfilService {
             // Profil corrompu (changement de schéma cassant, données
             // bidouillées) : on log et on retourne nil pour retomber
             // sur la valeur par défaut, plutôt que de planter le démarrage.
-            print("⚠️ ProfilService: décodage échoué (\(error)) — fallback défaut.")
+            print("ProfilService: décodage échoué (\(error)) — fallback défaut.")
             return nil
         }
     }
@@ -113,7 +113,7 @@ final class ProfilService {
             // Encodage qui échoue est extrêmement improbable pour des
             // types `Codable` triviaux — on log seulement, sans casser
             // l'UI. Le prochain `mettreAJour` retentera.
-            print("⚠️ ProfilService: encodage échoué (\(error)).")
+            print("ProfilService: encodage échoué (\(error)).")
         }
     }
 }

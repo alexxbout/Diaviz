@@ -112,7 +112,15 @@ struct SheetEditionActiviteHealthKit: View {
 
     private var sectionDonneesObjectives: some View {
         Section {
-            ligneDonnee("Type", valeur: "\(activite.type.emoji) \(activite.type.rawValue)")
+            HStack {
+                Text("Type")
+                    .foregroundStyle(.primary)
+                Spacer()
+                Label(activite.type.rawValue, systemImage: activite.type.icone)
+                    .foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Type : \(activite.type.rawValue)")
             ligneDonnee("Heure de début", valeur: heureFormatee)
             ligneDonnee("Durée", valeur: dureeFormatee)
             if let fc = activite.healthKitData?.fcMoyenne {

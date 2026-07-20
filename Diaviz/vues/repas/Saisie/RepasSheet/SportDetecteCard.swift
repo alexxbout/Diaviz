@@ -57,7 +57,7 @@ struct SportDetecteCard: View {
 
     private var contenu: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("\(sport.emoji) \(sport.typeSport) détecté il y a \(libelleTemps)")
+            Label("\(sport.typeSport) détecté il y a \(libelleTemps)", systemImage: sport.icone)
                 .font(.body.bold())
                 .foregroundStyle(.primary)
                 .multilineTextAlignment(.leading)
@@ -114,7 +114,9 @@ private struct FeuilleExplicationSport: View {
         NavigationStack {
             Form {
                 Section("Activité détectée") {
-                    LabeledContent("Type", value: "\(sport.emoji) \(sport.typeSport)")
+                    LabeledContent("Type") {
+                        Label(sport.typeSport, systemImage: sport.icone)
+                    }
                     LabeledContent("Il y a", value: "\(sport.ilYAMinutes) min")
                     LabeledContent("Historique", value: "\(sport.nombreSeancesHistorique) séances")
                 }
@@ -145,12 +147,12 @@ private struct FeuilleExplicationSport: View {
 
 #Preview {
     let avec = SportDetecte(
-        typeSport: "Yoga", emoji: "🧘", ilYAMinutes: 60,
+        typeSport: "Yoga", icone: "figure.yoga", ilYAMinutes: 60,
         ratioAjuste: ProfilRatio(unitesPour10g: 1.0 / 1.4, libelle: "post-yoga"),
         nombreSeancesHistorique: 8
     )
     let sans = SportDetecte(
-        typeSport: "Yoga", emoji: "🧘", ilYAMinutes: 60,
+        typeSport: "Yoga", icone: "figure.yoga", ilYAMinutes: 60,
         ratioAjuste: nil, nombreSeancesHistorique: 2
     )
 

@@ -83,7 +83,7 @@ private let _previewProfil = ProfilRatio(unitesPour10g: 1.0, libelle: "midi")
 
 private let _previewContexteComplet = ContexteInsights(
     validation: ValidationRatio(doseSaisie: 0, doseSuggeree: 4.5, profil: _previewProfil),
-    sport: SportDetecte(typeSport: "Yoga", emoji: "🧘", ilYAMinutes: 60, ratioAjuste: nil, nombreSeancesHistorique: 2),
+    sport: SportDetecte(typeSport: "Yoga", icone: "figure.yoga", ilYAMinutes: 60, ratioAjuste: nil, nombreSeancesHistorique: 2),
     iob: IOB(
         unitesTotales: 1.8,
         injections: [

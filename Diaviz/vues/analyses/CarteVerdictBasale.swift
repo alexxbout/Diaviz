@@ -54,8 +54,9 @@ struct CarteVerdictBasale: View {
     private var contenuSufficient: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                Text(iconeConstat)
+                Image(systemName: iconeConstat)
                     .font(.title3)
+                    .foregroundStyle(couleurConstat)
                     .accessibilityHidden(true)
                 Text(libelleConstat)
                     .font(.title3.weight(.medium))
@@ -106,7 +107,7 @@ struct CarteVerdictBasale: View {
     private var contenuRecentChange: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                Text("⏳")
+                Image(systemName: "hourglass")
                     .font(.title3)
                     .accessibilityHidden(true)
                 Text("Nouvelle dose en observation")
@@ -140,7 +141,7 @@ struct CarteVerdictBasale: View {
     private var contenuNoData: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                Text("⏳")
+                Image(systemName: "hourglass")
                     .font(.title3)
                     .accessibilityHidden(true)
                 Text("En attente de données")
@@ -166,7 +167,7 @@ struct CarteVerdictBasale: View {
 
     /// L'état « en amélioration » prime sur la tendance brute : la situation
     /// penchait « à revoir » mais les nuits récentes sont redevenues stables.
-    private var iconeConstat: String { verdict.enAmelioration ? "🟢" : iconeTendance }
+    private var iconeConstat: String { verdict.enAmelioration ? "checkmark.circle.fill" : iconeTendance }
     private var libelleConstat: String { verdict.enAmelioration ? "En amélioration" : libelleTendance }
     private var couleurConstat: Color { verdict.enAmelioration ? .green : couleurTendance }
 
@@ -174,9 +175,9 @@ struct CarteVerdictBasale: View {
 
     private var iconeTendance: String {
         switch verdict.trend {
-        case .descending, .ascending:  return "⚠️"
-        case .stable:                  return "✅"
-        case .none:                    return "⏳"
+        case .descending, .ascending:  return "exclamationmark.triangle.fill"
+        case .stable:                  return "checkmark.circle.fill"
+        case .none:                    return "hourglass"
         }
     }
 

@@ -8,8 +8,8 @@
 import SwiftUI
 
 /// Case tappable de la grille de types de sport, utilisée dans
-/// `SheetNouvelleActivite`. Carré ~80pt avec emoji + libellé centrés ;
-/// bordure et fond accent en sélection.
+/// `SheetNouvelleActivite`. Carré ~80pt avec icône SF Symbol + libellé
+/// centrés ; bordure et fond accent en sélection.
 struct BoutonTypeSport: View {
     let type: TypeSport
     let selectionne: Bool
@@ -18,8 +18,9 @@ struct BoutonTypeSport: View {
     var body: some View {
         Button(action: action) {
             VStack(spacing: 6) {
-                Text(type.emoji)
-                    .font(.system(size: 30))
+                Image(systemName: type.icone)
+                    .font(.system(size: 26, weight: .medium))
+                    .foregroundStyle(selectionne ? Color.accentColor : .primary)
                 Text(type.rawValue)
                     .font(.caption2)
                     .foregroundStyle(.primary)

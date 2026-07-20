@@ -83,7 +83,7 @@ struct LigneActiviteSport: View {
     //   distinguer une saisie manuelle d'un import automatique)
     private var zoneInfos: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("\(activite.type.emoji) \(activite.type.rawValue)")
+            Label(activite.type.rawValue, systemImage: activite.type.icone)
                 .font(.body)
                 .lineLimit(1)
             sousLigneInfos

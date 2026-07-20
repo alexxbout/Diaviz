@@ -9,8 +9,8 @@ import Foundation
 
 /// Type de sport pratiqué — discriminant métier (impact glycémique
 /// différent selon la nature de l'effort) et source d'attributs visuels
-/// (emoji, libellé, catégorie) pour la liste, la sheet de saisie et le
-/// graphe de la page Sport.
+/// (icône SF Symbol, libellé, catégorie) pour la liste, la sheet de saisie
+/// et le graphe de la page Sport.
 ///
 /// Le `rawValue` est la forme « titre » française pour réutilisation
 /// directe en UI sans table de correspondance supplémentaire.
@@ -26,20 +26,20 @@ enum TypeSport: String, CaseIterable, Codable, Sendable, Hashable {
 
     // MARK: - Présentation
 
-    /// Emoji représentatif — utilisé en tête de la `LigneActiviteSport`
-    /// et dans la grille de la sheet de saisie. Pas de SF Symbol ici :
-    /// l'emoji est plus reconnaissable et cohérent avec l'usage des
-    /// emojis pour les aliments dans la page Repas.
-    var emoji: String {
+    /// Nom du SF Symbol représentatif — utilisé en tête de la
+    /// `LigneActiviteSport` et dans la grille de la sheet de saisie
+    /// (`Image(systemName:)`, pas d'emoji : cohérence avec le reste de l'UI
+    /// de l'app, qui n'utilise plus que des SF Symbols hors emoji d'aliments).
+    var icone: String {
         switch self {
-        case .course:          "🏃"
-        case .velo:            "🚴"
-        case .natation:        "🏊"
-        case .marche:          "🚶"
-        case .musculation:     "🏋"
-        case .yoga:            "🧘"
-        case .sportCollectif:  "⚽"
-        case .autre:           "🏅"
+        case .course:          "figure.run"
+        case .velo:            "figure.outdoor.cycle"
+        case .natation:        "figure.pool.swim"
+        case .marche:          "figure.walk"
+        case .musculation:     "figure.strengthtraining.traditional"
+        case .yoga:            "figure.yoga"
+        case .sportCollectif:  "figure.soccer"
+        case .autre:           "medal.fill"
         }
     }
 

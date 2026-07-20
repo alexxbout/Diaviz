@@ -50,7 +50,7 @@ struct ValidationRatio {
 /// pour proposer un ratio personnalisé après ce type d'activité.
 struct SportDetecte {
     let typeSport: String
-    let emoji: String
+    let icone: String
     let ilYAMinutes: Int
     let ratioAjuste: ProfilRatio?
     let nombreSeancesHistorique: Int
@@ -171,7 +171,7 @@ enum InsightsService {
         let minutes = Int(instant.timeIntervalSince(activite.dateDebut) / 60)
         return SportDetecte(
             typeSport: activite.type.rawValue,
-            emoji: activite.type.emoji,
+            icone: activite.type.icone,
             ilYAMinutes: minutes,
             // Ratio ajusté post-sport = analyse R2, non implémentée → la carte
             // affiche « pas assez de données pour ajuster le ratio ».

@@ -266,7 +266,7 @@ private struct CourbeDisponible: View {
 
             ForEach(Array(activites), id: \.id) { activite in
                 HStack {
-                    Text("\(activite.type.emoji) \(activite.type.rawValue)")
+                    Label(activite.type.rawValue, systemImage: activite.type.icone)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .frame(width: 160, alignment: .leading)

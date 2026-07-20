@@ -131,7 +131,7 @@ struct DetailActiviteVue: View {
 
     private var sectionEntete: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("\(activite.type.emoji) \(activite.type.rawValue)")
+            Label(activite.type.rawValue, systemImage: activite.type.icone)
                 .font(.title2.bold())
                 .foregroundStyle(.primary)
             Text(sousLigneEntete)

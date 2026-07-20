@@ -272,7 +272,7 @@ struct CarteSituationCoucher: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(situation.titre)
+                titreSituation
                     .font(.footnote.weight(.semibold))
                 if situation.estFacteurSeul && !epinglee {
                     Text("facteur seul")
@@ -298,7 +298,7 @@ struct CarteSituationCoucher: View {
                   couleur: .green, accent: false)
 
             if situation.fragile {
-                Text("⚠︎ \(situation.total) soirs seulement — encore fragile")
+                Label("\(situation.total) soirs seulement — encore fragile", systemImage: "exclamationmark.triangle.fill")
                     .font(.caption2)
                     .foregroundStyle(.orange)
             }
@@ -315,6 +315,20 @@ struct CarteSituationCoucher: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(libelleAccessible)
+    }
+
+    /// Titre composé des facteurs, chacun préfixé de son SF Symbol, joints
+    /// par « · » — remplace l'ancien libellé à base d'emoji tout en gardant
+    /// un rendu inline dans un seul `Text`.
+    private var titreSituation: Text {
+        let morceaux = situation.facteurs.map { facteur in
+            Text(Image(systemName: facteur.icone)) + Text(" \(facteur.libelle)")
+        }
+        guard var texte = morceaux.first else { return Text("") }
+        for morceau in morceaux.dropFirst() {
+            texte = texte + Text(" · ") + morceau
+        }
+        return texte
     }
 
     private func barre(libelle: String, hypos: Int, total: Int, couleur: Color, accent: Bool) -> some View {
