@@ -59,6 +59,13 @@ struct AnalysesVue: View {
         coucherOverride == nil ? correctionsService.analyse : nil
     }
 
+    /// `true` tant qu'au moins une des 3 analyses recalcule — remplace le
+    /// chevron de la carte par un spinner (`CarteAnalyseCoucher.chargement`).
+    private var chargementEnCours: Bool {
+        coucherOverride == nil
+            && (basaleService.enCalcul || endormissementService.enCalcul || correctionsService.enCalcul)
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -73,6 +80,7 @@ struct AnalysesVue: View {
                             analyse: analyseReelle,
                             endormissement: endormissementReel,
                             corrections: correctionsReelles,
+                            chargement: chargementEnCours,
                             onOuvrirDetail: { basaleService.marquerVerdictCommeVu() }
                         )
                     }
@@ -81,20 +89,30 @@ struct AnalysesVue: View {
             }
             .background(Color(.systemGroupedBackground))
         }
-        // Re-sync automatique : on recalcule à chaque retour sur la page
-        // (ajout d'une lente/CGM depuis un autre onglet → l'analyse se met à
-        // jour sans action). Le premier passage démarre le service (qui calcule
-        // déjà) ; les suivants forcent un `recharger()`.
+        // On arrive sur la page **immédiatement** (le VStack ci-dessus rend
+        // avec l'état déjà connu des services, même stale) ; le recalcul tourne
+        // en tâche de fond — c'est le calcul (segmentation des nuits), pas
+        // l'affichage, qui causait le lag perçu au changement d'onglet. Seul
+        // le chevron de la carte devient un spinner pendant ce temps.
+        //
+        // Re-sync à chaque retour sur la page (ajout d'une lente/CGM depuis un
+        // autre onglet → l'analyse se met à jour sans action). `Task` dans
+        // `onAppear` est un choix délibéré ici (pas `.task`) : on veut relancer
+        // le recalcul à **chaque** apparition, pas seulement à la première.
         .onAppear {
             guard coucherOverride == nil else { return }
             let premierBoot = !basaleService.estDemarre
-            basaleService.demarrer(contexte: modelContext)
-            endormissementService.demarrer(contexte: modelContext, basale: basaleService)
-            correctionsService.demarrer(contexte: modelContext, basale: basaleService)
-            if !premierBoot {
-                basaleService.recharger()
-                endormissementService.recharger()
-                correctionsService.recharger()
+            Task {
+                await basaleService.demarrer(contexte: modelContext)
+                async let endo: Void = endormissementService.demarrer(contexte: modelContext, basale: basaleService)
+                async let corr: Void = correctionsService.demarrer(contexte: modelContext, basale: basaleService)
+                _ = await (endo, corr)
+
+                guard !premierBoot else { return }
+                await basaleService.recharger()
+                async let endoR: Void = endormissementService.recharger()
+                async let corrR: Void = correctionsService.recharger()
+                _ = await (endoR, corrR)
             }
         }
     }

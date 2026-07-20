@@ -21,6 +21,9 @@ final class AnalyseEndormissementService {
 
     private(set) var analyse: AnalyseEndormissement
 
+    /// `true` pendant le recalcul — pilote le loader de la page Analyses.
+    private(set) var enCalcul = false
+
     private var contexte: ModelContext?
     private weak var basale: AnalyseBasaleService?
 
@@ -32,31 +35,38 @@ final class AnalyseEndormissementService {
 
     // MARK: - Boot
 
-    /// Branche le service sur le hub et sur l'analyse B1 (déjà démarrée par
-    /// l'appelant). Idempotent.
-    func demarrer(contexte: ModelContext, basale: AnalyseBasaleService) {
+    /// Branche le service sur le hub et sur l'analyse B1 (déjà démarrée et
+    /// **attendue** par l'appelant — `basale.analyse` doit être à jour).
+    /// Idempotent.
+    func demarrer(contexte: ModelContext, basale: AnalyseBasaleService) async {
         guard self.contexte == nil else { return }
         self.contexte = contexte
         self.basale = basale
-        recharger()
+        await recharger()
     }
 
     /// Recalcule depuis le hub et depuis l'analyse B1 courante. Idempotent :
-    /// à rappeler après une ingestion CGM ou une mise à jour de B1.
-    func recharger() {
+    /// à rappeler après une ingestion CGM ou une mise à jour de B1. Le fetch
+    /// reste `MainActor` ; l'assemblage pur est déporté (voir `AnalyseBasaleService.recharger`).
+    func recharger() async {
         guard let contexte, let basale else { return }
+        enCalcul = true
         let profil = ProfilService.shared.profil
         let config = ConfigEndormissement(
             seuilHypo: Int(profil.seuilsGlycemiques.hypoglycemie),
             diaHeures: profil.dureeActionInsulineHeures,
             picMinutes: profil.insulineRapide.picActionMinutes
         )
-        analyse = CalculAnalyseEndormissement.analyser(
-            entrees: chargerEntrees(contexte: contexte, basale: basale),
-            doseActuelle: basale.analyse.doseActuelle,
-            changementDoseRecent: basale.analyse.changementDoseRecent,
-            config: config
-        )
+        let entrees = chargerEntrees(contexte: contexte, basale: basale)
+        let doseActuelle = basale.analyse.doseActuelle
+        let changementDoseRecent = basale.analyse.changementDoseRecent
+        analyse = await Task.detached(priority: .userInitiated) {
+            CalculAnalyseEndormissement.analyser(
+                entrees: entrees, doseActuelle: doseActuelle,
+                changementDoseRecent: changementDoseRecent, config: config
+            )
+        }.value
+        enCalcul = false
     }
 
     // MARK: - Accès au hub (fetchs partagés `ChargeurFaitsCoucher`)

@@ -19,6 +19,9 @@ final class AnalyseCorrectionsService {
 
     private(set) var analyse: AnalyseCorrections
 
+    /// `true` pendant le recalcul — pilote le loader de la page Analyses.
+    private(set) var enCalcul = false
+
     private var contexte: ModelContext?
     private weak var basale: AnalyseBasaleService?
 
@@ -30,15 +33,18 @@ final class AnalyseCorrectionsService {
 
     // MARK: - Boot
 
-    func demarrer(contexte: ModelContext, basale: AnalyseBasaleService) {
+    func demarrer(contexte: ModelContext, basale: AnalyseBasaleService) async {
         guard self.contexte == nil else { return }
         self.contexte = contexte
         self.basale = basale
-        recharger()
+        await recharger()
     }
 
-    func recharger() {
+    /// Le fetch reste `MainActor` ; l'assemblage pur est déporté (voir
+    /// `AnalyseBasaleService.recharger`).
+    func recharger() async {
         guard let contexte, let basale else { return }
+        enCalcul = true
         let profil = ProfilService.shared.profil
         let config = ConfigCorrections(
             cibleHaute: Int(profil.seuilsGlycemiques.hyperglycemie),
@@ -46,11 +52,14 @@ final class AnalyseCorrectionsService {
             diaHeures: profil.dureeActionInsulineHeures,
             picMinutes: profil.insulineRapide.picActionMinutes
         )
-        analyse = CalculAnalyseCorrections.analyser(
-            entrees: chargerEntrees(contexte: contexte, basale: basale),
-            changementDoseRecent: basale.analyse.changementDoseRecent,
-            config: config
-        )
+        let entrees = chargerEntrees(contexte: contexte, basale: basale)
+        let changementDoseRecent = basale.analyse.changementDoseRecent
+        analyse = await Task.detached(priority: .userInitiated) {
+            CalculAnalyseCorrections.analyser(
+                entrees: entrees, changementDoseRecent: changementDoseRecent, config: config
+            )
+        }.value
+        enCalcul = false
     }
 
     // MARK: - Accès au hub (fetchs partagés `ChargeurFaitsCoucher`)

@@ -26,6 +26,11 @@ final class AnalyseBasaleService {
     /// insuffisantes) avant le premier chargement.
     private(set) var analyse: AnalyseBasaleDetail
 
+    /// `true` pendant le recalcul — pilote le loader de la page Analyses.
+    /// La donnée affichée reste l'ancien `analyse` pendant ce temps
+    /// (dégradation gracieuse, pas d'écran vide).
+    private(set) var enCalcul = false
+
     private var contexte: ModelContext?
 
     /// `true` une fois `demarrer(contexte:)` appelé — permet à la vue de
@@ -39,25 +44,33 @@ final class AnalyseBasaleService {
     // MARK: - Boot
 
     /// Branche le service sur le hub et calcule une première fois. Idempotent.
-    func demarrer(contexte: ModelContext) {
+    func demarrer(contexte: ModelContext) async {
         guard self.contexte == nil else { return }
         self.contexte = contexte
-        recharger()
+        await recharger()
     }
 
     /// Recharge les faits bruts depuis le hub et reconstruit l'analyse.
     /// Idempotent : peut être rappelé après une ingestion CGM.
-    func recharger() {
+    ///
+    /// Le fetch (I/O, a besoin du `ModelContext`) reste sur le
+    /// `MainActor` ; l'assemblage (`CalculAnalyseBasale.analyser`, pur et
+    /// `Sendable`) est déporté sur une tâche détachée pour ne pas bloquer le
+    /// thread principal pendant la segmentation des nuits — c'est ce calcul,
+    /// pas le fetch, qui causait le lag perçu au changement d'onglet.
+    func recharger() async {
         guard let contexte else { return }
+        enCalcul = true
         let profil = ProfilService.shared.profil
         let config = ConfigBasale(
             diaHeures: profil.dureeActionInsulineHeures,
             picMinutes: profil.insulineRapide.picActionMinutes
         )
-        analyse = CalculAnalyseBasale.analyser(
-            entrees: chargerEntrees(contexte: contexte),
-            config: config
-        )
+        let entrees = chargerEntrees(contexte: contexte)
+        analyse = await Task.detached(priority: .userInitiated) {
+            CalculAnalyseBasale.analyser(entrees: entrees, config: config)
+        }.value
+        enCalcul = false
     }
 
     // MARK: - Résumé pour la carte sommaire

@@ -119,9 +119,12 @@ struct AppTabVues: View {
         .task {
             repasService.demarrer(contexte: modelContext)
             scoreService.demarrer(contexte: modelContext)
-            analyseBasaleService.demarrer(contexte: modelContext)
-            analyseEndormissementService.demarrer(contexte: modelContext, basale: analyseBasaleService)
-            analyseCorrectionsService.demarrer(contexte: modelContext, basale: analyseBasaleService)
+            // B1 doit être démarré (et son `analyse` à jour) avant B2/B3, qui
+            // lisent `analyseBasaleService.analyse` — d'où l'attente séquentielle.
+            await analyseBasaleService.demarrer(contexte: modelContext)
+            async let endo: Void = analyseEndormissementService.demarrer(contexte: modelContext, basale: analyseBasaleService)
+            async let corr: Void = analyseCorrectionsService.demarrer(contexte: modelContext, basale: analyseBasaleService)
+            _ = await (endo, corr)
             // Sheet du matin : seulement après 6h, une fois par jour, et s'il
             // existe un score de la veille consolidé.
             if doitAfficherSheetMatin() {

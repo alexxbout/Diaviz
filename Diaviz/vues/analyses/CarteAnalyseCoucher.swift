@@ -121,6 +121,10 @@ struct CarteAnalyseCoucher: View {
     var endormissement: AnalyseEndormissement? = nil
     var corrections: AnalyseCorrections? = nil
 
+    /// `true` pendant le recalcul des 3 analyses — remplace le chevron par un
+    /// spinner (la carte reste tappable, elle ouvre les données déjà connues).
+    var chargement: Bool = false
+
     /// Appelé quand le détail s'ouvre réellement (pas juste au survol de
     /// cette carte) — le parent y marque le verdict B1 comme vu, ce qui
     /// efface le badge de l'onglet Analyses.
@@ -177,10 +181,16 @@ struct CarteAnalyseCoucher: View {
 
             Spacer()
 
-            Image(systemName: "chevron.right")
-                .font(.body)
-                .foregroundStyle(.tertiary)
-                .accessibilityHidden(true)
+            if chargement {
+                ProgressView()
+                    .controlSize(.small)
+                    .accessibilityHidden(true)
+            } else {
+                Image(systemName: "chevron.right")
+                    .font(.body)
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
+            }
         }
     }
 
