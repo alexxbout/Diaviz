@@ -62,18 +62,43 @@ final class ActivitesSportService {
 
     // MARK: - Dérivation (réponse glycémique)
 
-    /// Réponse glycémique associée à une activité.
+    /// Fenêtre observée autour de l'activité (marge avant/après la séance).
+    private static let margeFenetre: TimeInterval = 30 * 60
+
+    /// Nombre minimum de `GlucoseReading` sur la fenêtre pour considérer la
+    /// courbe fiable. En dessous, capteur absent/déconnecté probable — on
+    /// retourne `nil` plutôt qu'une courbe trouée.
+    private static let minimumPointsCgm = 3
+
+    /// Réponse glycémique associée à une activité — **dérivation calculée à
+    /// la volée** depuis les `GlucoseReading` réels du hub sur la fenêtre de
+    /// l'activité, jamais persistée (« un hub, des dérivations »).
     ///
-    /// **Provisoire (dérivation, assembleur à venir)** — calculée à la volée
-    /// à chaque accès, jamais persistée (« un hub, des dérivations »). La
-    /// génération est déterministe (pas de `random`), donc cohérente d'un
-    /// appel à l'autre.
-    ///
-    /// Pour l'instant : modèle synthétique 3-phases hérité du mock.
-    /// L'assembleur réel (corrélation avec les glycémies du hub sur la fenêtre
-    /// de l'activité) remplacera cette génération sans changer la signature.
+    /// `nil` si trop peu de mesures sur la fenêtre (capteur absent, activité
+    /// trop ancienne) — dégradation gracieuse plutôt que fausse courbe.
     func reponse(pour activite: ActiviteSportive) -> ReponseGlycemiqueSport? {
-        Self.genererReponse(pour: activite)
+        guard let contexte else { return nil }
+        let debut = activite.dateDebut.addingTimeInterval(-Self.margeFenetre)
+        let fin = activite.dateDebut
+            .addingTimeInterval(TimeInterval(activite.dureeMinutes * 60) + Self.margeFenetre)
+        let descripteur = FetchDescriptor<GlucoseReading>(
+            predicate: #Predicate { $0.date >= debut && $0.date <= fin },
+            sortBy: [SortDescriptor(\.date)]
+        )
+        let mesures = (try? contexte.fetch(descripteur)) ?? []
+        guard mesures.count >= Self.minimumPointsCgm else { return nil }
+
+        let points = mesures.map {
+            PointCgmSport(secondesDepuisDebut: $0.date.timeIntervalSince(activite.dateDebut), valeur: Double($0.valeur))
+        }
+        let glycemieDebut = points.first?.valeur ?? 0
+        let glycemieFin = points.last?.valeur ?? 0
+        return ReponseGlycemiqueSport(
+            pointsCgm: points,
+            glycemieDebut: glycemieDebut,
+            glycemieFin: glycemieFin,
+            deltaMgDl: glycemieFin - glycemieDebut
+        )
     }
 
     // MARK: - Écriture
@@ -117,21 +142,19 @@ final class ActivitesSportService {
     }
 }
 
-// MARK: - Génération de courbe glycémique (dérivation provisoire)
+// MARK: - Génération de courbe glycémique synthétique (previews uniquement)
 //
 // Modèle synthétique 3-phases hérité de l'ancien `ActivitesSportServiceMock`.
-// Conservé tel quel comme dérivation calculée tant que l'assembleur réel
-// (corrélation avec les `GlucoseReading` du hub) n'est pas branché. Statique
-// et pur — pas d'état, donc réutilisable depuis les previews.
+// `reponse(pour:)` utilise désormais les vraies `GlucoseReading` du hub ;
+// ce générateur ne sert plus qu'à peupler les previews SwiftUI avec des
+// courbes plausibles sans dépendre de CGM réel. Statique et pur.
 
+#if DEBUG
 extension ActivitesSportService {
 
     /// Pas d'échantillonnage en secondes (5 minutes — résolution typique
     /// du CGM Dexcom ONE+).
     private static let pasEchantillonnage: TimeInterval = 5 * 60
-
-    /// Marge avant et après la session sur la fenêtre observée.
-    private static let margeFenetre: TimeInterval = 30 * 60
 
     /// Construit une courbe synthétique cohérente avec le type et
     /// l'intensité de l'activité.
@@ -290,6 +313,7 @@ extension ActivitesSportService {
         }
     }
 }
+#endif
 
 #if DEBUG
 extension ActivitesSportService {
