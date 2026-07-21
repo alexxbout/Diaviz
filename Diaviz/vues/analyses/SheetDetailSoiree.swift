@@ -92,6 +92,17 @@ struct SheetDetailSoiree: View {
     @ViewBuilder
     private func contenu(_ detail: DetailSoiree) -> some View {
         VStack(alignment: .leading, spacing: 20) {
+            // Hero : la courbe de glycémie de la nuit en vedette, pleine
+            // largeur sans carte, tout en haut (même langage visuel que les
+            // détails repas/sport). La courbe IOB agrandie la suit — les deux
+            // graphiques racontent la nuit, la timeline détaille en dessous.
+            if !detail.courbe.isEmpty {
+                sectionGlycemie(detail)
+            }
+            if !detail.courbeIOB.isEmpty {
+                sectionIOB(detail)
+            }
+
             if detail.evenements.isEmpty {
                 Text("Pas assez de données CGM pour reconstruire cette nuit.")
                     .font(.subheadline)
@@ -101,12 +112,6 @@ struct SheetDetailSoiree: View {
                 timeline(detail)
             }
 
-            if !detail.courbe.isEmpty {
-                sectionGlycemie(detail)
-            }
-            if !detail.courbeIOB.isEmpty {
-                sectionIOB(detail)
-            }
             sectionConstatB1(detail.constatB1)
             sectionContexte
         }
@@ -134,7 +139,7 @@ struct SheetDetailSoiree: View {
     // MARK: - Courbe glycémie
 
     private func sectionGlycemie(_ detail: DetailSoiree) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             Text("Glycémie · 21h → 07h")
                 .font(.subheadline.bold())
                 .foregroundStyle(.secondary)
@@ -180,13 +185,24 @@ struct SheetDetailSoiree: View {
                     AxisValueLabel(format: .dateTime.hour().locale(Locale(identifier: "fr_FR")))
                 }
             }
-            .frame(height: 150)
+            .chartYAxis {
+                AxisMarks(position: .trailing) { valeur in
+                    AxisGridLine()
+                    AxisTick()
+                    AxisValueLabel {
+                        if let v = valeur.as(Double.self) {
+                            Text("\(Int(v))").font(.caption2).monospacedDigit()
+                        }
+                    }
+                }
+            }
+            .chartPlotStyle { plot in
+                plot.padding(.top, 12).padding(.bottom, 6)
+            }
+            .frame(height: 260)
             .accessibilityLabel(accessibiliteCourbe(detail))
         }
-        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
     }
 
     private struct Marqueur {
@@ -216,11 +232,12 @@ struct SheetDetailSoiree: View {
         }
     }
 
-    /// Domaine Y englobant courbe + seuil hypo, avec marge.
+    /// Domaine Y englobant courbe + seuil hypo, avec marge de 20 mg/dL
+    /// pour que la ligne de seuil ne colle jamais au bord du cadre.
     private func domaineY(_ detail: DetailSoiree) -> ClosedRange<Double> {
         let valeurs = detail.courbe.map(\.value)
-        let bas = min(valeurs.min() ?? 70, Double(detail.seuilHypo)) - 15
-        let haut = (valeurs.max() ?? 180) + 15
+        let bas = min(valeurs.min() ?? 70, Double(detail.seuilHypo)) - 20
+        let haut = (valeurs.max() ?? 180) + 20
         return max(35, bas)...haut
     }
 
@@ -237,7 +254,7 @@ struct SheetDetailSoiree: View {
     // MARK: - Courbe IOB
 
     private func sectionIOB(_ detail: DetailSoiree) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             Text("Insuline active (rapide)")
                 .font(.subheadline.bold())
                 .foregroundStyle(.secondary)
@@ -272,9 +289,30 @@ struct SheetDetailSoiree: View {
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 2]))
                 }
             }
-            .chartXAxis(.hidden)
-            .chartYAxis(.hidden)
-            .frame(height: 56)
+            // Même axe horloge que le hero glycémie au-dessus, pour lire les
+            // deux graphiques alignés dans le temps. Axe Y « u » léger.
+            .chartXAxis {
+                AxisMarks(values: .stride(by: .hour, count: 2)) { _ in
+                    AxisGridLine()
+                    AxisValueLabel(format: .dateTime.hour().locale(Locale(identifier: "fr_FR")))
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .trailing) { valeur in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let v = valeur.as(Double.self) {
+                            Text(v == 0 ? "0" : "\(v.formatted(.number.precision(.fractionLength(0...1))))u")
+                                .font(.caption2)
+                                .monospacedDigit()
+                        }
+                    }
+                }
+            }
+            .chartPlotStyle { plot in
+                plot.padding(.top, 8).padding(.bottom, 6)
+            }
+            .frame(height: 130)
             .accessibilityHidden(true)
 
             if let iobHypo = detail.iobAuMomentHypo,
@@ -286,10 +324,7 @@ struct SheetDetailSoiree: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
     }
 
     // MARK: - Constat B1
