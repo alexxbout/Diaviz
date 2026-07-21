@@ -28,7 +28,9 @@ struct GraphiqueGlycemique: View {
 
     let etat: Etat
 
-    private static let hauteur: CGFloat = 220
+    /// Hauteur du graphique. Par défaut agrandie pour les pages détail
+    /// (le graph y est la vedette, pleine largeur sans carte).
+    var hauteur: CGFloat = 280
 
     var body: some View {
         Group {
@@ -55,7 +57,7 @@ struct GraphiqueGlycemique: View {
                 )
             }
         }
-        .frame(height: Self.hauteur)
+        .frame(height: hauteur)
     }
 }
 
@@ -290,6 +292,11 @@ extension GraphiqueGlycemique.Configuration {
             )
         }
 
+        let (domaineY, yMarques) = Self.echelleY(
+            pointsCourbe: pointsCourbe,
+            marqueurs: marqueurs
+        )
+
         return Self(
             header: "Réponse glycémique",
             pointsCourbe: pointsCourbe,
@@ -297,8 +304,8 @@ extension GraphiqueGlycemique.Configuration {
             domaineX: debut...fin,
             xMarques: Self.marquesTempsRepas(debut: debut, fin: fin),
             formatLabelTemps: Self.libelleTempsRepas,
-            domaineY: 50...280,
-            yMarques: [70, 100, 140, 180, 240],
+            domaineY: domaineY,
+            yMarques: yMarques,
             zoneActivite: nil,
             marqueurs: marqueurs
         )
@@ -405,9 +412,12 @@ extension GraphiqueGlycemique.Configuration {
 
         var marqueurs: [GraphiqueGlycemique.Marqueur] = []
 
-        // Marqueur Début — cercle ouvert gris, label « Début » + valeur
-        // sur deux lignes au-dessus, aligné à gauche pour ne pas
-        // déborder à gauche du cadre.
+        // Marqueur Début — cercle ouvert gris, label sur **une ligne**
+        // (juste la valeur, comme le marqueur T0 côté repas). Le mot
+        // « Début » est redondant : la métrique est déjà nommée juste en
+        // dessous dans les cartes ; un libellé sur deux lignes prenait
+        // trop de hauteur et chevauchait le label « T0 » de l'axe X
+        // quand le point était bas dans le domaine.
         marqueurs.append(
             .init(
                 temps: 0,
@@ -415,15 +425,15 @@ extension GraphiqueGlycemique.Configuration {
                 couleur: .secondary,
                 style: .cercleOuvert,
                 label: .init(
-                    texte: "Début\n\(Int(reponse.glycemieDebut))",
+                    texte: "\(Int(reponse.glycemieDebut))",
                     position: .haut,
                     alignement: .leading
                 )
             )
         )
 
-        // Marqueur Fin — cercle plein, couleur verdict, label « Fin »
-        // + valeur sur deux lignes, aligné à droite.
+        // Marqueur Fin — cercle plein, couleur verdict, label une ligne
+        // (même raison que Début).
         marqueurs.append(
             .init(
                 temps: dureeSec,
@@ -431,7 +441,7 @@ extension GraphiqueGlycemique.Configuration {
                 couleur: couleurVerdict,
                 style: .cerclePlein(taille: 80),
                 label: .init(
-                    texte: "Fin\n\(Int(reponse.glycemieFin))",
+                    texte: "\(Int(reponse.glycemieFin))",
                     position: .haut,
                     alignement: .trailing
                 )
@@ -455,6 +465,11 @@ extension GraphiqueGlycemique.Configuration {
             )
         }
 
+        let (domaineY, yMarques) = Self.echelleY(
+            pointsCourbe: pointsCourbe,
+            marqueurs: marqueurs
+        )
+
         return Self(
             header: "Glycémie pendant l'activité",
             pointsCourbe: pointsCourbe,
@@ -462,11 +477,51 @@ extension GraphiqueGlycemique.Configuration {
             domaineX: debut...fin,
             xMarques: Self.marquesTempsSport(debut: debut, dureeSec: dureeSec, fin: fin),
             formatLabelTemps: Self.libelleTempsSport,
-            domaineY: 50...220,
-            yMarques: [70, 100, 140, 180],
+            domaineY: domaineY,
+            yMarques: yMarques,
             zoneActivite: 0...dureeSec,
             marqueurs: marqueurs
         )
+    }
+
+    /// Échelle Y qui **colle aux données** : le domaine englobe exactement
+    /// les mesures réelles et les marqueurs (dont la valeur porte le point),
+    /// avec une marge de respiration de 15 mg/dL arrondie à la dizaine.
+    ///
+    /// Data-driven plutôt que fixe [50, 220] : sinon un plancher à 50 laisse
+    /// une large bande vide sous une courbe qui reste au-dessus de 110 (la
+    /// « marge » visible sous le graphique). En hypo la borne basse descend
+    /// naturellement pour capturer le creux ; en rebond muscu la borne haute
+    /// monte au-delà de 180. Repères cliniques 70/100/140/180 affichés
+    /// uniquement s'ils tombent dans le domaine, plus des paliers de 40
+    /// au-delà de 180.
+    static func echelleY(
+        pointsCourbe: [GraphiqueGlycemique.PointCourbe],
+        marqueurs: [GraphiqueGlycemique.Marqueur]
+    ) -> (domaine: ClosedRange<Double>, marques: [Double]) {
+        let valeurs = pointsCourbe.map(\.valeur) + marqueurs.map(\.valeur)
+        let minData = valeurs.min() ?? 70
+        let maxData = valeurs.max() ?? 180
+
+        var bas = floor((minData - 15) / 10) * 10
+        var haut = max(bas + 40, ceil((maxData + 15) / 10) * 10)
+
+        // Marge minimale autour des lignes de seuil 70/180 : si les données
+        // amènent une borne à moins de 20 mg/dL d'un seuil, on écarte encore
+        // la borne. Sans ça, la ligne pointillée d'hypo/hyper se retrouve
+        // collée au bord du cadre — visuellement un bloc épais (bord +
+        // teinte de zone + ligne, tous au même endroit) au lieu d'un simple
+        // repère au milieu du tracé.
+        if (70 - bas) < 20 { bas -= 20 }
+        if (haut - 180) < 20 && haut > 180 { haut += 20 }
+
+        var marques: [Double] = [70, 100, 140, 180].filter { $0 >= bas && $0 <= haut }
+        var palier = 220.0
+        while palier <= haut {
+            marques.append(palier)
+            palier += 40
+        }
+        return (bas...haut, marques)
     }
 
     /// Marques de l'axe X côté sport : début de fenêtre, T0, milieu

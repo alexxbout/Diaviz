@@ -18,7 +18,7 @@ struct CourbeGlycemiqueDetaillee: View {
     let config: GraphiqueGlycemique.Configuration
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 20) {
             entete
             chart
         }
@@ -45,7 +45,13 @@ struct CourbeGlycemiqueDetaillee: View {
         .chartXAxis { axeXContent }
         .chartYAxis { axeYContent }
         .chartPlotStyle { plot in
-            plot.padding(.vertical, 16)
+            // Asymétrique : marge haute généreuse pour les annotations sur
+            // deux lignes (« Fin\n235 » côté sport dépasse davantage au-dessus
+            // du point qu'un simple « 246 » côté repas — 24pt suffisait pour
+            // une ligne mais laissait le libellé déborder du cadre et chevaucher
+            // le header au-dessus pour les labels à deux lignes). Marge basse
+            // réduite pour ne pas laisser d'espace vide sous l'axe X.
+            plot.padding(.top, 40).padding(.bottom, 6)
         }
         .accessibilityElement()
         .accessibilityLabel(Text(config.header))

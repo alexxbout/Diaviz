@@ -53,8 +53,10 @@ struct DetailRepasVue: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
+                // Graphique en vedette : pleine largeur, sans carte, tout
+                // en haut. Le contexte (nom, date) descend juste en dessous.
+                sectionGraphique
                 sectionEntete
-                cardGraphique
                 // Section IOB juste sous le graphique : pour un repas
                 // pris alors qu'un bolus précédent est encore en train
                 // d'agir, le risque de surdosage est immédiat — l'info
@@ -164,19 +166,14 @@ struct DetailRepasVue: View {
         return f
     }()
 
-    // MARK: - Section 2 — Card graphique
+    // MARK: - Section 2 — Graphique (pleine largeur, sans carte)
     //
-    // Card pleine largeur avec fond `secondarySystemGroupedBackground`,
-    // cornerRadius 16, padding interne 16, margin externe 16. Le composant
-    // `GraphiqueGlycemiqueRepas` gère lui-même les états dégradés.
+    // Graph pleine largeur posé directement sur le fond de page (plus de
+    // carte), en tête de la page pour en faire la vedette. Le composant
+    // `GraphiqueGlycemique` gère lui-même les états dégradés.
 
-    private var cardGraphique: some View {
+    private var sectionGraphique: some View {
         GraphiqueGlycemique.pourRepas(etat: etatAnalyseEffectif)
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color(.secondarySystemGroupedBackground))
-            )
             .padding(.horizontal, 16)
     }
 

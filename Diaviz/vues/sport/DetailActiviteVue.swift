@@ -59,8 +59,10 @@ struct DetailActiviteVue: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
+                // Graphique en vedette : pleine largeur, sans carte, tout
+                // en haut. Le contexte (type, date) descend juste en dessous.
+                sectionGraphique
                 sectionEntete
-                cardGraphique
                 // Section IOB juste sous le graphique : info critique
                 // (risque d'hypo si insuline active forte au démarrage),
                 // doit être visible sans scroller au-delà des métriques.
@@ -187,17 +189,12 @@ struct DetailActiviteVue: View {
         return f
     }()
 
-    // MARK: - Section 2 — Card graphique
+    // MARK: - Section 2 — Graphique (pleine largeur, sans carte)
 
-    private var cardGraphique: some View {
+    private var sectionGraphique: some View {
         GraphiqueGlycemique.pourSport(
             etat: etatGraphique,
             dureeMinutes: activite.dureeMinutes
-        )
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
         )
         .padding(.horizontal, 16)
     }
