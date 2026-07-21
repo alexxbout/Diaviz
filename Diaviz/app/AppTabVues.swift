@@ -93,12 +93,12 @@ struct AppTabVues: View {
             }
             .badge(importService.nombreEnAttente)
 
-            Tab("Analyses", systemImage: "chart.dots.scatter", value: "analyses") {
+            Tab("Analyses", systemImage: "chart.bar.fill", value: "analyses") {
                 AnalysesVue()
             }
             .badge(analyseBasaleService.estNouvelleTendance ? "•" : "")
 
-            Tab("Recherche", systemImage: "bubble.left.and.text.bubble.right", value: "recherche", role: TabRole.search) {
+            Tab("Recherche", systemImage: "sparkle.magnifyingglass", value: "recherche", role: TabRole.search) {
                 RecercheVue()
             }
         }
