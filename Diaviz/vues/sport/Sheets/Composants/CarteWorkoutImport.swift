@@ -40,7 +40,7 @@ struct EtatSelectionWorkout: Hashable {
 /// `SheetNouvelleActivite`).
 struct CarteWorkoutImport: View {
 
-    let workout: WorkoutHealthKitMock
+    let workout: WorkoutHealthKitCandidat
 
     /// État de sélection — propriété du parent pour permettre au
     /// bouton « Importer » de connaître la liste complète des choix.

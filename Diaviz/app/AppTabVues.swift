@@ -137,6 +137,8 @@ struct AppTabVues: View {
             await healthKit.demanderAcces()
             await healthKit.synchroniser(container: modelContext.container)
             healthKit.demarrerSurveillance(container: modelContext.container)
+            await importService.demanderAcces()
+            await importService.rafraichir()
             // Le CGM vient d'être synchronisé : recalcule les réponses
             // glycémiques des repas (au démarrage elles étaient toutes en
             // attente, faute de glycémies encore chargées).

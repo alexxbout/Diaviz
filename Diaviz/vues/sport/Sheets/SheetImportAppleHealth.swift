@@ -63,7 +63,7 @@ struct SheetImportAppleHealth: View {
 
     // MARK: - Calculs dérivés
 
-    private var workouts: [WorkoutHealthKitMock] {
+    private var workouts: [WorkoutHealthKitCandidat] {
         service.workoutsEnAttente
     }
 
