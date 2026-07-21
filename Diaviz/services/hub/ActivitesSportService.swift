@@ -91,8 +91,17 @@ final class ActivitesSportService {
         let points = mesures.map {
             PointCgmSport(secondesDepuisDebut: $0.date.timeIntervalSince(activite.dateDebut), valeur: Double($0.valeur))
         }
-        let glycemieDebut = points.first?.valeur ?? 0
-        let glycemieFin = points.last?.valeur ?? 0
+
+        // Glycémies « début » et « fin » = mesures les plus proches du
+        // **début de la séance** (t=0) et de la **fin de la séance**
+        // (t=dureeSec), PAS des bords de la fenêtre (±30min). Sinon la
+        // variation affichée engloberait le plateau pré-effort et le
+        // rebond post-effort, faussant le delta réel de la séance et
+        // détachant les marqueurs de la courbe (les marqueurs sont
+        // tracés à t=0 et t=dureeSec).
+        let dureeSec = TimeInterval(activite.dureeMinutes * 60)
+        let glycemieDebut = points.min(by: { abs($0.secondesDepuisDebut) < abs($1.secondesDepuisDebut) })?.valeur ?? 0
+        let glycemieFin = points.min(by: { abs($0.secondesDepuisDebut - dureeSec) < abs($1.secondesDepuisDebut - dureeSec) })?.valeur ?? 0
         return ReponseGlycemiqueSport(
             pointsCgm: points,
             glycemieDebut: glycemieDebut,
