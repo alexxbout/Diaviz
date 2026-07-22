@@ -159,7 +159,9 @@ struct SheetNouvelleActivite: View {
                 Text("Saisie manuelle").tag(ModeCreation.manuel)
             }
             .pickerStyle(.segmented)
-            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            .padding(.vertical, 4)
+            .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
+            .listRowBackground(Color.clear)
         }
     }
 
@@ -174,16 +176,22 @@ struct SheetNouvelleActivite: View {
                 demarrer()
             } label: {
                 Label(
-                    typeSelectionne.map { "Démarrer — \($0.rawValue.lowercased())" } ?? "Démarrer la séance",
+                    typeSelectionne.map { "Démarrer : \($0.rawValue.lowercased())" } ?? "Démarrer la séance",
                     systemImage: "play.fill"
                 )
                 .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .multilineTextAlignment(.center)
+                .padding(.vertical, 10)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.plain)
+            .foregroundStyle(typeSelectionne == nil ? Color.secondary : Color.accentColor)
             .disabled(typeSelectionne == nil)
-            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            // Fond plein pleine largeur (teinte accent) sans capsule ni carte
+            // flottante : c'est la row groupée elle-même qui porte la teinte.
+            .listRowBackground(
+                (typeSelectionne == nil ? Color.gray : Color.accentColor).opacity(0.15)
+            )
         } footer: {
             Text("L'heure de début et la durée sont capturées automatiquement. Tu enregistreras les détails à la fin.")
         }

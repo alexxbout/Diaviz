@@ -5,45 +5,60 @@
 //  Live Activity + Dynamic Island d'une séance sportive chronométrée.
 //  Cible : widget extension `DiavizSportWidget`.
 //
-//  ⚠️ Ce fichier a besoin du type partagé `ActiviteSportiveAttributes`
-//  (défini dans Diaviz/modeles/sport/ActiviteSportiveAttributes.swift) —
-//  ajoute ce fichier à la Target Membership du widget dans Xcode.
+//  ⚠️ A besoin des types partagés (Target Membership sur les deux cibles) :
+//  ActiviteSportiveAttributes, et les intents des boutons
+//  (BasculerPauseSeanceIntent / TerminerSeanceIntent).
 //
 
 import ActivityKit
+import AppIntents
 import SwiftUI
 import WidgetKit
 
 struct SeanceSportiveLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ActiviteSportiveAttributes.self) { contexte in
-            // Bannière écran verrouillé.
             LockScreenSeance(contexte: contexte)
                 .activityBackgroundTint(Color.black.opacity(0.55))
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { contexte in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label {
-                        Text(contexte.attributes.typeLabel)
-                            .font(.headline)
-                    } icon: {
-                        Image(systemName: contexte.attributes.iconeSF)
-                            .foregroundStyle(.tint)
-                    }
-                    .padding(.leading, 4)
+                    Image(systemName: contexte.attributes.iconeSF)
+                        .font(.title2)
+                        .foregroundStyle(.tint)
+                        .padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    chrono(contexte.state)
-                        .font(.title2.weight(.semibold))
-                        .monospacedDigit()
-                        .foregroundStyle(.white)
-                        .padding(.trailing, 4)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        chrono(contexte.state)
+                            .font(.title2.weight(.semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(.white)
+                        Text("démarré à \(heure(contexte.attributes.dateDebut))")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.trailing, 4)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    Text(contexte.state.enPause ? "En pause" : "En cours")
-                        .font(.caption)
-                        .foregroundStyle(contexte.state.enPause ? .orange : .green)
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Text(contexte.attributes.typeLabel)
+                                .font(.title.bold())
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
+                                .foregroundStyle(.white)
+                            Spacer(minLength: 8)
+                            badgeStatut(contexte.state)
+                        }
+                        HStack(spacing: 10) {
+                            boutonPause(contexte.state)
+                            boutonTerminer()
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                    .padding(.top, 2)
                 }
             } compactLeading: {
                 Image(systemName: contexte.attributes.iconeSF)
@@ -60,8 +75,44 @@ struct SeanceSportiveLiveActivity: Widget {
         }
     }
 
-    /// Chrono : count-up piloté par le système quand la séance tourne, valeur
-    /// figée pendant une pause.
+    // MARK: - Boutons interactifs
+
+    /// Badge de statut mis en avant (capsule teintée).
+    private func badgeStatut(_ etat: ActiviteSportiveAttributes.ContentState) -> some View {
+        let enPause = etat.enPause
+        return Text(statut(etat))
+            .font(.caption.weight(.bold))
+            .foregroundStyle(enPause ? .orange : .green)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background((enPause ? Color.orange : Color.green).opacity(0.22), in: Capsule())
+    }
+
+    private func boutonPause(_ etat: ActiviteSportiveAttributes.ContentState) -> some View {
+        Button(intent: BasculerPauseSeanceIntent()) {
+            Label(etat.enPause ? "Reprendre" : "Pause",
+                  systemImage: etat.enPause ? "play.fill" : "pause.fill")
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 2)
+                .contentTransition(.identity)
+        }
+        .tint(etat.enPause ? .green : .gray)
+        .transaction { $0.animation = nil }
+    }
+
+    private func boutonTerminer() -> some View {
+        Button(intent: TerminerSeanceIntent()) {
+            Label("Terminer", systemImage: "stop.fill")
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 2)
+        }
+        .tint(.red)
+    }
+
+    // MARK: - Chrono
+
     @ViewBuilder
     private func chrono(_ etat: ActiviteSportiveAttributes.ContentState) -> some View {
         if etat.enPause {
@@ -71,14 +122,6 @@ struct SeanceSportiveLiveActivity: Widget {
                 .multilineTextAlignment(.trailing)
         }
     }
-
-    private func dureeFormatee(_ secondes: TimeInterval) -> String {
-        let total = Int(secondes)
-        let h = total / 3600, m = (total % 3600) / 60, s = total % 60
-        return h > 0
-            ? String(format: "%d:%02d:%02d", h, m, s)
-            : String(format: "%02d:%02d", m, s)
-    }
 }
 
 // MARK: - Bannière écran verrouillé
@@ -87,45 +130,75 @@ private struct LockScreenSeance: View {
     let contexte: ActivityViewContext<ActiviteSportiveAttributes>
 
     var body: some View {
-        HStack {
-            Label {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(contexte.attributes.typeLabel)
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                    Text(contexte.state.enPause ? "En pause" : "En cours")
-                        .font(.caption)
-                        .foregroundStyle(contexte.state.enPause ? .orange : .green)
+        VStack(spacing: 12) {
+            HStack {
+                Label {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(contexte.attributes.typeLabel)
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                        Text("\(statut(contexte.state)) · démarré à \(heure(contexte.attributes.dateDebut))")
+                            .font(.caption)
+                            .foregroundStyle(contexte.state.enPause ? .orange : .secondary)
+                    }
+                } icon: {
+                    Image(systemName: contexte.attributes.iconeSF)
+                        .font(.title2)
+                        .foregroundStyle(.tint)
                 }
-            } icon: {
-                Image(systemName: contexte.attributes.iconeSF)
-                    .font(.title2)
-                    .foregroundStyle(.tint)
+
+                Spacer()
+
+                Group {
+                    if contexte.state.enPause {
+                        Text(dureeFormatee(contexte.state.secondesFigees))
+                    } else {
+                        Text(contexte.state.dateReference, style: .timer)
+                            .multilineTextAlignment(.trailing)
+                    }
+                }
+                .font(.system(size: 28, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(.white)
+                .frame(maxWidth: 120, alignment: .trailing)
             }
 
-            Spacer()
-
-            Group {
-                if contexte.state.enPause {
-                    Text(dureeFormatee(contexte.state.secondesFigees))
-                } else {
-                    Text(contexte.state.dateReference, style: .timer)
-                        .multilineTextAlignment(.trailing)
+            HStack(spacing: 10) {
+                Button(intent: BasculerPauseSeanceIntent()) {
+                    Label(contexte.state.enPause ? "Reprendre" : "Pause",
+                          systemImage: contexte.state.enPause ? "play.fill" : "pause.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
                 }
+                .tint(contexte.state.enPause ? .green : .gray)
+                Button(intent: TerminerSeanceIntent()) {
+                    Label("Terminer", systemImage: "stop.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .tint(.red)
             }
-            .font(.system(size: 30, weight: .semibold, design: .rounded))
-            .monospacedDigit()
-            .foregroundStyle(.white)
-            .frame(maxWidth: 130, alignment: .trailing)
+            .buttonStyle(.borderedProminent)
         }
         .padding(16)
     }
+}
 
-    private func dureeFormatee(_ secondes: TimeInterval) -> String {
-        let total = Int(secondes)
-        let h = total / 3600, m = (total % 3600) / 60, s = total % 60
-        return h > 0
-            ? String(format: "%d:%02d:%02d", h, m, s)
-            : String(format: "%02d:%02d", m, s)
-    }
+// MARK: - Helpers partagés (fichier)
+
+private func statut(_ etat: ActiviteSportiveAttributes.ContentState) -> String {
+    etat.enPause ? "En pause" : "En cours"
+}
+
+private func heure(_ date: Date) -> String {
+    let c = Calendar.current.dateComponents([.hour, .minute], from: date)
+    return String(format: "%dh%02d", c.hour ?? 0, c.minute ?? 0)
+}
+
+private func dureeFormatee(_ secondes: TimeInterval) -> String {
+    let total = Int(secondes)
+    let h = total / 3600, m = (total % 3600) / 60, s = total % 60
+    return h > 0
+        ? String(format: "%d:%02d:%02d", h, m, s)
+        : String(format: "%d:%02d", m, s)
 }

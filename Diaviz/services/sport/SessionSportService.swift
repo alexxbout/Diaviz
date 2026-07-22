@@ -27,7 +27,6 @@ final class SessionSportService {
 
     static let shared = SessionSportService()
 
-    private let cle = "sport.session.encours"
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "fr.al3xdre.diaviz", category: "SessionSport")
 
     /// Séance en cours, `nil` si aucune. Observé par l'UI (cover plein écran).
@@ -39,9 +38,9 @@ final class SessionSportService {
     var aUneSeanceEnCours: Bool { session != nil }
 
     private init() {
-        session = charger()
-        if let session {
-            reconnecterActivity(pour: session)
+        session = ControleurSeanceLive.charger()
+        if session != nil {
+            activity = ControleurSeanceLive.activiteCourante
         }
     }
 
@@ -50,21 +49,18 @@ final class SessionSportService {
     func demarrer(type: TypeSport) {
         let nouvelle = SessionSportiveEnCours(type: type)
         session = nouvelle
-        sauvegarder(nouvelle)
+        ControleurSeanceLive.sauvegarder(nouvelle)
         demarrerActivity(nouvelle)
     }
 
     func pause() {
-        guard var s = session, !s.enPause else { return }
-        s.debutPauseCourante = Date()
-        appliquer(s)
+        guard let s = session, !s.enPause else { return }
+        Task { session = await ControleurSeanceLive.basculerPause() ?? session }
     }
 
     func reprendre() {
-        guard var s = session, let debut = s.debutPauseCourante else { return }
-        s.secondesPauseCumulees += Date().timeIntervalSince(debut)
-        s.debutPauseCourante = nil
-        appliquer(s)
+        guard let s = session, s.enPause else { return }
+        Task { session = await ControleurSeanceLive.basculerPause() ?? session }
     }
 
     /// Termine la séance et renvoie un **brouillon** d'`ActiviteSportive`
@@ -73,53 +69,57 @@ final class SessionSportService {
     /// confirme la sauvegarde.
     func terminer() -> ActiviteSportive? {
         guard let s = session else { return nil }
-        let brouillon = ActiviteSportive(
+        session = nil
+        ControleurSeanceLive.effacer()
+        ControleurSeanceLive.effacerTerminee()
+        activity = nil
+        Task { await ControleurSeanceLive.finirActivite() }
+        return brouillon(depuis: s)
+    }
+
+    /// Abandonne la séance sans rien enregistrer.
+    func annuler() {
+        session = nil
+        ControleurSeanceLive.effacer()
+        ControleurSeanceLive.effacerTerminee()
+        activity = nil
+        Task { await ControleurSeanceLive.finirActivite() }
+    }
+
+    // MARK: - Réconciliation au premier plan
+    //
+    // Les boutons de la Dynamic Island (Pause/Terminer) mutent la séance
+    // persistée depuis un `LiveActivityIntent`, hors de cette instance
+    // observable. Au retour au premier plan on resynchronise : d'abord une
+    // éventuelle séance terminée depuis l'île (→ brouillon à enregistrer),
+    // sinon on recharge l'état pause/reprise.
+
+    /// Recharge l'état depuis le store. Renvoie un brouillon si la séance a
+    /// été terminée depuis l'île (à enregistrer côté UI), `nil` sinon.
+    @discardableResult
+    func reconcilier() -> ActiviteSportive? {
+        if let terminee = ControleurSeanceLive.chargerTerminee() {
+            ControleurSeanceLive.effacerTerminee()
+            session = nil
+            activity = nil
+            return brouillon(depuis: terminee)
+        }
+        session = ControleurSeanceLive.charger()
+        if session != nil, activity == nil {
+            activity = ControleurSeanceLive.activiteCourante
+        }
+        return nil
+    }
+
+    // MARK: - Privé
+
+    private func brouillon(depuis s: SessionSportiveEnCours) -> ActiviteSportive {
+        ActiviteSportive(
             type: s.type,
             dateDebut: s.dateDebut,
             dureeMinutes: s.dureeMinutesArrondie,
             intensite: .moderee,
             source: .manuel
-        )
-        nettoyer()
-        return brouillon
-    }
-
-    /// Abandonne la séance sans rien enregistrer.
-    func annuler() {
-        nettoyer()
-    }
-
-    // MARK: - Privé — mutation + persistance
-
-    private func appliquer(_ s: SessionSportiveEnCours) {
-        session = s
-        sauvegarder(s)
-        majActivity(s)
-    }
-
-    private func nettoyer() {
-        session = nil
-        UserDefaults.standard.removeObject(forKey: cle)
-        finirActivity()
-    }
-
-    private func sauvegarder(_ s: SessionSportiveEnCours) {
-        guard let data = try? JSONEncoder().encode(s) else { return }
-        UserDefaults.standard.set(data, forKey: cle)
-    }
-
-    private func charger() -> SessionSportiveEnCours? {
-        guard let data = UserDefaults.standard.data(forKey: cle) else { return nil }
-        return try? JSONDecoder().decode(SessionSportiveEnCours.self, from: data)
-    }
-
-    // MARK: - Privé — Live Activity
-
-    private func etat(_ s: SessionSportiveEnCours) -> ActiviteSportiveAttributes.ContentState {
-        .init(
-            enPause: s.enPause,
-            dateReference: s.dateReference,
-            secondesFigees: s.secondesEcoulees()
         )
     }
 
@@ -128,31 +128,18 @@ final class SessionSportService {
             logger.info("Live Activities désactivées — chrono en direct sans Dynamic Island.")
             return
         }
-        let attributs = ActiviteSportiveAttributes(typeLabel: s.type.rawValue, iconeSF: s.type.icone)
+        let attributs = ActiviteSportiveAttributes(
+            typeLabel: s.type.rawValue,
+            iconeSF: s.type.icone,
+            dateDebut: s.dateDebut
+        )
         do {
             activity = try Activity.request(
                 attributes: attributs,
-                content: .init(state: etat(s), staleDate: nil)
+                content: .init(state: ControleurSeanceLive.etat(s), staleDate: nil)
             )
         } catch {
             logger.error("Démarrage Live Activity impossible : \(error.localizedDescription, privacy: .public)")
         }
-    }
-
-    private func majActivity(_ s: SessionSportiveEnCours) {
-        let contenu = ActivityContent(state: etat(s), staleDate: nil)
-        Task { await activity?.update(contenu) }
-    }
-
-    private func finirActivity() {
-        let handle = activity
-        activity = nil
-        Task { await handle?.end(nil, dismissalPolicy: .immediate) }
-    }
-
-    /// Rebranche le service sur une Live Activity encore vivante après un
-    /// relaunch (l'app a été tuée mais le système garde l'activité).
-    private func reconnecterActivity(pour s: SessionSportiveEnCours) {
-        activity = Activity<ActiviteSportiveAttributes>.activities.first
     }
 }

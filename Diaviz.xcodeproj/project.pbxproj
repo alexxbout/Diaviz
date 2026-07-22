@@ -6,7 +6,20 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		ACA3F30130116F2700BC62D0 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = ACA3F30030116F2700BC62D0 /* WidgetKit.framework */; };
+		ACA3F30330116F2700BC62D0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = ACA3F30230116F2700BC62D0 /* SwiftUI.framework */; };
+		ACA3F31230116F2800BC62D0 /* DiavizSportWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = ACA3F2FE30116F2700BC62D0 /* DiavizSportWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
+		ACA3F31030116F2800BC62D0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = ACE15C4A2F94FC0B00F08D3A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = ACA3F2FD30116F2700BC62D0;
+			remoteInfo = DiavizSportWidgetExtension;
+		};
 		ACE15C622F94FC0C00F08D3A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = ACE15C4A2F94FC0B00F08D3A /* Project object */;
@@ -23,16 +36,66 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		ACA3F31330116F2800BC62D0 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				ACA3F31230116F2800BC62D0 /* DiavizSportWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		ACA3F2FE30116F2700BC62D0 /* DiavizSportWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DiavizSportWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		ACA3F30030116F2700BC62D0 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		ACA3F30230116F2700BC62D0 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		ACE15C522F94FC0B00F08D3A /* Diaviz.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Diaviz.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		ACE15C612F94FC0C00F08D3A /* DiavizTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DiavizTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		ACE15C6B2F94FC0D00F08D3A /* DiavizUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DiavizUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		ACE15CA72F99569000F08D3A /* CLAUDE.md */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLAUDE.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		ACA3F31630116F2800BC62D0 /* Exceptions for "DiavizSportWidget" folder in "DiavizSportWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = ACA3F2FD30116F2700BC62D0 /* DiavizSportWidgetExtension */;
+		};
+		ACA3F31B3011703B00BC62D0 /* Exceptions for "Diaviz" folder in "DiavizSportWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				modeles/sport/ActiviteSportiveAttributes.swift,
+				modeles/sport/SessionSportiveEnCours.swift,
+				modeles/sport/TypeSport.swift,
+				modeles/sport/CategorieSport.swift,
+				services/sport/ControleurSeanceLive.swift,
+				services/sport/SeanceLiveActivityIntents.swift,
+			);
+			target = ACA3F2FD30116F2700BC62D0 /* DiavizSportWidgetExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		ACA3F30430116F2700BC62D0 /* DiavizSportWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				ACA3F31630116F2800BC62D0 /* Exceptions for "DiavizSportWidget" folder in "DiavizSportWidgetExtension" target */,
+			);
+			path = DiavizSportWidget;
+			sourceTree = "<group>";
+		};
 		ACE15C542F94FC0B00F08D3A /* Diaviz */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				ACA3F31B3011703B00BC62D0 /* Exceptions for "Diaviz" folder in "DiavizSportWidgetExtension" target */,
+			);
 			path = Diaviz;
 			sourceTree = "<group>";
 		};
@@ -49,6 +112,15 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		ACA3F2FB30116F2700BC62D0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				ACA3F30330116F2700BC62D0 /* SwiftUI.framework in Frameworks */,
+				ACA3F30130116F2700BC62D0 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		ACE15C4F2F94FC0B00F08D3A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -73,6 +145,15 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		ACA3F2FF30116F2700BC62D0 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				ACA3F30030116F2700BC62D0 /* WidgetKit.framework */,
+				ACA3F30230116F2700BC62D0 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		ACE15C492F94FC0B00F08D3A = {
 			isa = PBXGroup;
 			children = (
@@ -80,6 +161,8 @@
 				ACE15C542F94FC0B00F08D3A /* Diaviz */,
 				ACE15C642F94FC0C00F08D3A /* DiavizTests */,
 				ACE15C6E2F94FC0D00F08D3A /* DiavizUITests */,
+				ACA3F30430116F2700BC62D0 /* DiavizSportWidget */,
+				ACA3F2FF30116F2700BC62D0 /* Frameworks */,
 				ACE15C532F94FC0B00F08D3A /* Products */,
 			);
 			sourceTree = "<group>";
@@ -90,6 +173,7 @@
 				ACE15C522F94FC0B00F08D3A /* Diaviz.app */,
 				ACE15C612F94FC0C00F08D3A /* DiavizTests.xctest */,
 				ACE15C6B2F94FC0D00F08D3A /* DiavizUITests.xctest */,
+				ACA3F2FE30116F2700BC62D0 /* DiavizSportWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -97,6 +181,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		ACA3F2FD30116F2700BC62D0 /* DiavizSportWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = ACA3F31730116F2800BC62D0 /* Build configuration list for PBXNativeTarget "DiavizSportWidgetExtension" */;
+			buildPhases = (
+				ACA3F2FA30116F2700BC62D0 /* Sources */,
+				ACA3F2FB30116F2700BC62D0 /* Frameworks */,
+				ACA3F2FC30116F2700BC62D0 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				ACA3F30430116F2700BC62D0 /* DiavizSportWidget */,
+			);
+			name = DiavizSportWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = DiavizSportWidgetExtension;
+			productReference = ACA3F2FE30116F2700BC62D0 /* DiavizSportWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		ACE15C512F94FC0B00F08D3A /* Diaviz */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = ACE15C752F94FC0D00F08D3A /* Build configuration list for PBXNativeTarget "Diaviz" */;
@@ -104,10 +210,12 @@
 				ACE15C4E2F94FC0B00F08D3A /* Sources */,
 				ACE15C4F2F94FC0B00F08D3A /* Frameworks */,
 				ACE15C502F94FC0B00F08D3A /* Resources */,
+				ACA3F31330116F2800BC62D0 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				ACA3F31130116F2800BC62D0 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				ACE15C542F94FC0B00F08D3A /* Diaviz */,
@@ -175,6 +283,9 @@
 				LastSwiftUpdateCheck = 2640;
 				LastUpgradeCheck = 2640;
 				TargetAttributes = {
+					ACA3F2FD30116F2700BC62D0 = {
+						CreatedOnToolsVersion = 26.4;
+					};
 					ACE15C512F94FC0B00F08D3A = {
 						CreatedOnToolsVersion = 26.4;
 					};
@@ -205,11 +316,19 @@
 				ACE15C512F94FC0B00F08D3A /* Diaviz */,
 				ACE15C602F94FC0C00F08D3A /* DiavizTests */,
 				ACE15C6A2F94FC0D00F08D3A /* DiavizUITests */,
+				ACA3F2FD30116F2700BC62D0 /* DiavizSportWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		ACA3F2FC30116F2700BC62D0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		ACE15C502F94FC0B00F08D3A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -234,6 +353,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		ACA3F2FA30116F2700BC62D0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		ACE15C4E2F94FC0B00F08D3A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -258,6 +384,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		ACA3F31130116F2800BC62D0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = ACA3F2FD30116F2700BC62D0 /* DiavizSportWidgetExtension */;
+			targetProxy = ACA3F31030116F2800BC62D0 /* PBXContainerItemProxy */;
+		};
 		ACE15C632F94FC0C00F08D3A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = ACE15C512F94FC0B00F08D3A /* Diaviz */;
@@ -271,6 +402,66 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		ACA3F31430116F2800BC62D0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 76DQF9D5W2;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DiavizSportWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = DiavizSportWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = fr.al3xdre.diaviz.DiavizSportWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		ACA3F31530116F2800BC62D0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 76DQF9D5W2;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DiavizSportWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = DiavizSportWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = fr.al3xdre.diaviz.DiavizSportWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		ACE15C732F94FC0D00F08D3A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -559,6 +750,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		ACA3F31730116F2800BC62D0 /* Build configuration list for PBXNativeTarget "DiavizSportWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ACA3F31430116F2800BC62D0 /* Debug */,
+				ACA3F31530116F2800BC62D0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		ACE15C4D2F94FC0B00F08D3A /* Build configuration list for PBXProject "Diaviz" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

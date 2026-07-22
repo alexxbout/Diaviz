@@ -183,12 +183,17 @@ struct SeanceEnCoursVue: View {
         return f
     }()
 
+    /// Format aligné sur `Text(_, style: .timer)` (utilisé quand la séance
+    /// tourne) : « m:ss » sous une heure, « h:mm:ss » au-delà. Sans ça, le
+    /// passage en pause changeait de format (« 0:32 » → « 00:00:33 »).
     private func chronoFormate(_ secondes: TimeInterval) -> String {
-        let total = Int(secondes)
+        let total = Int(secondes.rounded())
         let h = total / 3600
         let m = (total % 3600) / 60
         let s = total % 60
-        return String(format: "%02d:%02d:%02d", h, m, s)
+        return h > 0
+            ? String(format: "%d:%02d:%02d", h, m, s)
+            : String(format: "%d:%02d", m, s)
     }
 }
 

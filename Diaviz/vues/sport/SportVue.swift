@@ -23,6 +23,10 @@ struct SportVue: View {
     /// Contexte du hub SwiftData — passé au service au démarrage de la vue.
     @Environment(\.modelContext) private var modelContext
 
+    /// Phase de scène — au retour au premier plan on resynchronise l'état de
+    /// séance (les boutons de la Dynamic Island mutent hors de l'app).
+    @Environment(\.scenePhase) private var scenePhase
+
     @State private var service = ActivitesSportService()
 
     /// Service de séance chronométrée « en direct » (singleton, survit au
@@ -106,6 +110,12 @@ struct SportVue: View {
                     onTerminer: { brouillon in brouillonSession = BrouillonSession(activite: brouillon) },
                     onAnnuler: { sessionService.annuler() }
                 )
+            }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .active else { return }
+                if let brouillon = sessionService.reconcilier() {
+                    brouillonSession = BrouillonSession(activite: brouillon)
+                }
             }
             .onChange(of: scrollCible) { _, nouvelle in
                 guard let nouvelle else { return }

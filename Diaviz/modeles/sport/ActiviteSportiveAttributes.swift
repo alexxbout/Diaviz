@@ -33,4 +33,6 @@ struct ActiviteSportiveAttributes: ActivityAttributes {
     var typeLabel: String
     /// Nom du SF Symbol du sport, ex. « figure.run ».
     var iconeSF: String
+    /// Instant de démarrage — affiché « démarré à HH'h'mm » dans l'île.
+    var dateDebut: Date
 }
