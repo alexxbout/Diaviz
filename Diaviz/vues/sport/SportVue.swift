@@ -25,6 +25,18 @@ struct SportVue: View {
 
     @State private var service = ActivitesSportService()
 
+    /// Service de séance chronométrée « en direct » (singleton, survit au
+    /// relaunch). Observé pour présenter l'écran plein écran quand une séance
+    /// tourne — y compris au retour dans l'onglet après un kill de l'app.
+    @State private var sessionService = SessionSportService.shared
+
+    /// Brouillon d'activité à enregistrer après l'arrêt d'une séance
+    /// chronométrée — pilote la sheet d'enregistrement pré-remplie.
+    /// Enveloppé dans un wrapper `Identifiable` car `ActiviteSportive` est un
+    /// `@Model` (conformance `Identifiable` explicite impossible : conflit
+    /// isolation MainActor / SendableMetatype).
+    @State private var brouillonSession: BrouillonSession?
+
     /// Service d'import HealthKit — injecté depuis la racine de l'app
     /// via `@Environment`. Observé pour afficher la bannière d'accès
     /// à la sheet d'import en tête de page.
@@ -46,6 +58,16 @@ struct SportVue: View {
 
     private var activitesDuJour: [ActiviteSportive] {
         service.activitesDuJour(selectedDate)
+    }
+
+    /// Binding vers la séance en cours pour piloter le `fullScreenCover`.
+    /// `set` : seule la mise à `nil` (dismiss système) est relayée en abandon
+    /// — le service reste la source de vérité pour les transitions internes.
+    private var bindingSession: Binding<SessionSportiveEnCours?> {
+        Binding(
+            get: { sessionService.session },
+            set: { nouvelle in if nouvelle == nil { sessionService.annuler() } }
+        )
     }
 
     private var etatsCourbes: [UUID: EtatMiniCourbeSport] {
@@ -71,6 +93,19 @@ struct SportVue: View {
             .toolbar { boutonAjouter }
             .sheet(item: $sheetActive) { sheet in
                 sheetVue(pour: sheet)
+            }
+            .sheet(item: $brouillonSession) { brouillon in
+                SheetNouvelleActivite(
+                    preremplissage: brouillon.activite,
+                    onValider: { service.enregistrer($0) }
+                )
+            }
+            .fullScreenCover(item: bindingSession) { session in
+                SeanceEnCoursVue(
+                    session: session,
+                    onTerminer: { brouillon in brouillonSession = BrouillonSession(activite: brouillon) },
+                    onAnnuler: { sessionService.annuler() }
+                )
             }
             .onChange(of: scrollCible) { _, nouvelle in
                 guard let nouvelle else { return }
@@ -221,7 +256,10 @@ struct SportVue: View {
     private func sheetVue(pour sheet: SheetSport) -> some View {
         switch sheet {
         case .creation:
-            SheetNouvelleActivite(onValider: { service.enregistrer($0) })
+            SheetNouvelleActivite(
+                onValider: { service.enregistrer($0) },
+                onDemarrer: { type in sessionService.demarrer(type: type) }
+            )
         case .importHealthKit:
             SheetImportAppleHealth(
                 service: importService,
@@ -238,6 +276,13 @@ struct SportVue: View {
 /// Discrimine création et import HealthKit au niveau d'un seul
 /// `.sheet(item:)`. L'édition d'une activité existante se fait
 /// désormais depuis sa page détail (push) — plus depuis cette page.
+/// Enveloppe `Identifiable` d'un brouillon d'activité — `ActiviteSportive`
+/// étant un `@Model`, il ne peut pas conformer `Identifiable` directement.
+private struct BrouillonSession: Identifiable {
+    let id = UUID()
+    let activite: ActiviteSportive
+}
+
 private enum SheetSport: Identifiable {
     case creation
     case importHealthKit
