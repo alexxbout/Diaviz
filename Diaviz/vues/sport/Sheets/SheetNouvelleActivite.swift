@@ -107,7 +107,7 @@ struct SheetNouvelleActivite: View {
                 }
                 sectionType
                 if mode == .manuel {
-                    sectionHeure
+                    SectionDateHeure(date: $dateDebut)
                     sectionDuree
                     sectionIntensite
                     sectionGlucides
@@ -223,18 +223,6 @@ struct SheetNouvelleActivite: View {
             .padding(.vertical, 8)
         } header: {
             Text("Type de sport")
-        }
-    }
-
-    // MARK: - Section heure
-    private var sectionHeure: some View {
-        Section("Heure de début") {
-            DatePicker(
-                "Heure",
-                selection: $dateDebut,
-                displayedComponents: [.date, .hourAndMinute]
-            )
-            .environment(\.locale, Locale(identifier: "fr_FR"))
         }
     }
 

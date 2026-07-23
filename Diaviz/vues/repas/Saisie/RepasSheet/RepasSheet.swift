@@ -160,7 +160,7 @@ struct RepasSheet: View {
             )
 
             Form {
-                HeureRepasSection(heure: $heureRepas)
+                SectionDateHeure(date: $heureRepas)
 
                 ListeAlimentsSection(
                     aliments: $aliments,

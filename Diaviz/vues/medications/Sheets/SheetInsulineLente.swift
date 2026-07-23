@@ -101,7 +101,7 @@ struct SheetInsulineLente: View {
         NavigationStack {
             Form {
                 sectionDose
-                sectionHeure
+                SectionDateHeure(date: $heure)
                 sectionSite
                 sectionNote
             }
@@ -190,17 +190,6 @@ struct SheetInsulineLente: View {
                 @unknown default: break
                 }
             }
-        }
-    }
-
-    private var sectionHeure: some View {
-        Section("Date et heure") {
-            DatePicker(
-                "Date et heure",
-                selection: $heure,
-                in: ...Date(),
-                displayedComponents: [.date, .hourAndMinute]
-            )
         }
     }
 

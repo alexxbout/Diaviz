@@ -72,7 +72,7 @@ struct SheetCorrection: View {
             Form {
                 sectionDose
                 sectionGlycemie
-                sectionHeure
+                SectionDateHeure(date: $heure)
                 sectionSite
                 sectionNote
             }
@@ -173,16 +173,6 @@ struct SheetCorrection: View {
             Text("Glycémie avant")
         } footer: {
             Text("Le CGM a un délai de 3h, vous pouvez saisir la valeur capillaire actuelle.")
-        }
-    }
-
-    private var sectionHeure: some View {
-        Section("Heure") {
-            DatePicker(
-                "Heure",
-                selection: $heure,
-                displayedComponents: [.hourAndMinute]
-            )
         }
     }
 

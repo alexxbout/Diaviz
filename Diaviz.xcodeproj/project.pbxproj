@@ -72,9 +72,9 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				modeles/sport/ActiviteSportiveAttributes.swift,
+				modeles/sport/CategorieSport.swift,
 				modeles/sport/SessionSportiveEnCours.swift,
 				modeles/sport/TypeSport.swift,
-				modeles/sport/CategorieSport.swift,
 				services/sport/ControleurSeanceLive.swift,
 				services/sport/SeanceLiveActivityIntents.swift,
 			);
