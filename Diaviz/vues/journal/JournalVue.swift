@@ -34,43 +34,51 @@ struct JournalVue: View {
             VStack(spacing: 0) {
                 EnTetePage(titre: "Journal")
 
-                VStack(alignment: .leading, spacing: 16) {
-                    // `.buttonStyle(.plain)` empêche le `NavigationLink` d'appliquer
-                    // sa teinte par défaut, qui surchargerait le blanc/coloré de
-                    // notre carte plein fond.
-                    NavigationLink(destination: ListeRepasParSection()) {
-                        CarteSection(
-                            icone: "fork.knife",
-                            titre: "Repas",
-                            sousTitre: sousTitreRepas,
-                            couleur: .blue
-                        )
-                    }
-                    .buttonStyle(.plain)
+                // `GlassEffectContainer` : blend cohérent du Liquid Glass des
+                // trois cartes (iOS 26). Cartes à hauteur intrinsèque, groupe
+                // aligné en haut sous l'en-tête (pattern standard iOS) — le
+                // `Spacer` en dessous absorbe l'espace restant sans pousser
+                // le contenu à un centrage artificiel.
+                GlassEffectContainer(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        // `.buttonStyle(.plain)` empêche le `NavigationLink` d'appliquer
+                        // sa teinte par défaut, qui surchargerait le coloré de la carte.
+                        NavigationLink(destination: ListeRepasParSection()) {
+                            CarteSection(
+                                icone: "fork.knife",
+                                titre: "Repas",
+                                sousTitre: sousTitreRepas,
+                                couleur: .blue
+                            )
+                        }
+                        .buttonStyle(.plain)
 
-                    NavigationLink(destination: MedicationsVue()) {
-                        CarteSection(
-                            icone: "syringe",
-                            titre: "Médications",
-                            sousTitre: sousTitreMedications,
-                            couleur: .green
-                        )
-                    }
-                    .buttonStyle(.plain)
+                        NavigationLink(destination: MedicationsVue()) {
+                            CarteSection(
+                                icone: "syringe",
+                                titre: "Médications",
+                                sousTitre: sousTitreMedications,
+                                couleur: .green
+                            )
+                        }
+                        .buttonStyle(.plain)
 
-                    NavigationLink(destination: SportVue()) {
-                        CarteSection(
-                            icone: "figure.run",
-                            titre: "Activités sportives",
-                            sousTitre: sousTitreSport,
-                            couleur: .orange
-                        )
-                        .overlay(alignment: .topTrailing) { badgeImport }
+                        NavigationLink(destination: SportVue()) {
+                            CarteSection(
+                                icone: "figure.run",
+                                titre: "Activités sportives",
+                                sousTitre: sousTitreSport,
+                                couleur: .orange
+                            )
+                            .overlay(alignment: .topTrailing) { badgeImport }
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
-                .padding()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.horizontal)
+                .padding(.top, 20)
+
+                Spacer(minLength: 0)
             }
             .background(Color(.systemGroupedBackground))
         }

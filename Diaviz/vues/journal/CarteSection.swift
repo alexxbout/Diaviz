@@ -7,21 +7,18 @@
 
 import SwiftUI
 
-/// Carte de section plein hauteur, style **surface claire + accents
-/// colorés** :
+/// Carte de section compacte, style **Liquid Glass teinté** (iOS 26) :
 ///
-/// - **Fond** : surface neutre (`secondarySystemGroupedBackground`) +
-///   ombre douce neutre → la carte se détache nettement du fond et lit
-///   comme « tappable ».
-/// - **Icône** : SF Symbol en couleur d'accent dans un disque
-///   `couleur.opacity(0.18)`.
-/// - **Texte** : titre en couleur d'accent (lisible sur surface claire),
-///   sous-titre en `.secondary` neutre pour la hiérarchie.
+/// - **Fond** : `.glassEffect(.regular.tint(couleur…))` → matière en verre
+///   translucide légèrement colorée à l'accent de la section, qui donne de
+///   la profondeur au lieu d'une surface plate opaque.
+/// - **Icône** : badge circulaire plein `couleur.gradient`, SF Symbol blanc.
+/// - **Texte** : titre en couleur d'accent, sous-titre en `.secondary`.
 /// - **Chevron** : `chevron.right` teinté à droite → affordance de nav.
 ///
-/// Layout "héro éditorial" conservé : icône en haut à gauche, titre +
-/// sous-titre en bas à gauche, chevron centré à droite, carte étirée
-/// pour partager toute la hauteur disponible avec ses sœurs.
+/// Layout **horizontal compact** : icône à gauche, titre + sous-titre au
+/// centre, chevron à droite. Hauteur intrinsèque (plus de `maxHeight:
+/// .infinity` qui étirait la carte et laissait un grand vide au milieu).
 struct CarteSection: View {
     let icone: String
     let titre: String
@@ -29,57 +26,55 @@ struct CarteSection: View {
     let couleur: Color
 
     var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 0) {
-                iconeCirculaire
+        HStack(spacing: 16) {
+            iconeBadge
 
-                Spacer(minLength: 12)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(titre)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(couleur)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(titre)
-                        .font(.title.weight(.bold))
-                        .foregroundStyle(couleur)
-
-                    Text(sousTitre)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+                Text(sousTitre)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
-            // Chevron centré à droite — affordance de navigation, teinté
-            // à l'accent (légèrement atténué pour rester sous le titre).
+            Spacer(minLength: 8)
+
             Image(systemName: "chevron.right")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(couleur.opacity(0.7))
+                .font(.body.weight(.semibold))
+                .foregroundStyle(couleur.opacity(0.55))
                 .accessibilityHidden(true)
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        // Surface claire + ombre douce neutre : la carte se détache du
-        // fond et reste très lisible ; l'accent reste porté par le titre,
-        // l'icône et le chevron.
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
-        .shadow(color: .black.opacity(0.10), radius: 8, x: 0, y: 3)
+        .padding(.vertical, 20)
+        .padding(.horizontal, 20)
+        // `minHeight` fixe : le sous-titre peut faire 1 ou 2 lignes selon le
+        // compteur du jour (« Aucune activité » vs « 3 médications
+        // enregistrées aujourd'hui ») — sans plancher commun les trois
+        // cartes n'avaient pas la même hauteur.
+        .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
+        // Verre translucide teinté à l'accent de la section : profondeur
+        // Liquid Glass tout en gardant l'identité couleur de chaque section.
+        .glassEffect(
+            .regular.tint(couleur.opacity(0.18)),
+            in: RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
+        )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(titre), \(sousTitre)")
         .accessibilityAddTraits(.isButton)
     }
 
-    /// Disque coloré (accent à 18 %) contenant l'icône SF Symbol en
-    /// couleur d'accent pleine. Diamètre 64 / icône 30 pour l'échelle
-    /// carte hero.
-    private var iconeCirculaire: some View {
-        ZStack {
-            Circle()
-                .fill(couleur.opacity(0.18))
-                .frame(width: 64, height: 64)
-
-            Image(systemName: icone)
-                .font(.system(size: 30, weight: .bold))
-                .foregroundStyle(couleur)
-        }
-        .accessibilityHidden(true)
+    /// Badge circulaire plein (dégradé de l'accent) avec l'icône SF Symbol
+    /// blanche — contraste franc sur le verre teinté de la carte.
+    private var iconeBadge: some View {
+        Image(systemName: icone)
+            .font(.system(size: 24, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 54, height: 54)
+            .background(couleur.gradient, in: Circle())
+            .accessibilityHidden(true)
     }
 
 }
