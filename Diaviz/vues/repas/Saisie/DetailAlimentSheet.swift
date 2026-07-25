@@ -198,8 +198,14 @@ struct DetailAlimentSheet: View {
                     Text(emoji)
                         .font(.system(size: 80))
                 } else if let url = aliment.imageURL {
-                    ImageProduit(url: url, coinArrondi: 16)
-                        .frame(width: 140, height: 140)
+                    // Mode `ajuster` (pas de recadrage, contrairement aux
+                    // vignettes carrées des listes) : préserve l'aspect naturel
+                    // de la photo produit. `maxWidth`/`maxHeight` + `.clipped()`
+                    // bornent la taille finale pour qu'elle ne chevauche jamais
+                    // le titre en dessous, quel que soit le ratio de la photo.
+                    ImageProduit(url: url, coinArrondi: 16, remplir: false)
+                        .frame(maxWidth: 280, maxHeight: 280)
+                        .clipped()
                 } else {
                     Image(systemName: "fork.knife")
                         .font(.system(size: 60))
