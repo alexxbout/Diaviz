@@ -56,9 +56,33 @@ struct ListeAlimentsSection: View {
             }
             .buttonStyle(.plain)
         } header: {
-            Text("Aliments")
-                // En-tête de section style Form natif iOS, déjà en uppercase.
+            enTeteSection
         }
+    }
+
+    /// En-tête custom : titre de section + total glucides en gros — reprend
+    /// l'info qu'affichait `EnTeteSheet` en `.caption` (trop petit pour être
+    /// utile), au plus près des aliments qu'elle résume.
+    private var enTeteSection: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("Aliments")
+            Spacer()
+            HStack(alignment: .lastTextBaseline, spacing: 2) {
+                Text(String(format: "%.0f", totalGlucides))
+                    .font(.title3.bold())
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                    .animation(.spring(response: 0.3), value: totalGlucides)
+                Text("g glucides")
+                    .font(.caption)
+            }
+            .foregroundStyle(.secondary)
+            .textCase(nil)
+        }
+    }
+
+    private var totalGlucides: Double {
+        aliments.reduce(0) { $0 + $1.glucides }
     }
 
     private func supprimer(_ entree: EntreeAliment) {

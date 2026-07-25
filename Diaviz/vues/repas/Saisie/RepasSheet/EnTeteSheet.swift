@@ -8,7 +8,9 @@
 import SwiftUI
 
 /// En-tête de la `RepasSheet` quand elle est étendue (medium / large).
-/// Contient le titre principal et un récap rapide aliments + glucides.
+/// Contient uniquement le titre principal — le récap aliments/glucides
+/// (trop petit ici pour être utile) est maintenant affiché en gros dans
+/// `ListeAlimentsSection`, au plus près des aliments qu'il résume.
 ///
 /// La poignée de drag est gérée par la sheet elle-même via
 /// `.presentationDragIndicator(.visible)` — on n'en ajoute pas ici.
@@ -18,29 +20,13 @@ struct EnTeteSheet: View {
     let totalGlucides: Double
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Repas en cours")
-                .font(.title2.bold())
-                // VoiceOver lit déjà le texte, mais on précise le rôle d'en-tête.
-                .accessibilityAddTraits(.isHeader)
-
-            Text(sousTitre)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                // Anime le changement de chiffre comme un compteur.
-                .contentTransition(.numericText())
-                .animation(.spring(response: 0.3), value: totalGlucides)
-                .animation(.spring(response: 0.3), value: nombreAliments)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
-    }
-
-    /// "X aliments • Y.Yg glucides"
-    private var sousTitre: String {
-        let mot = nombreAliments == 1 ? "aliment" : "aliments"
-        return "\(nombreAliments) \(mot) • \(String(format: "%.1f", totalGlucides))g glucides"
+        Text("Repas en cours")
+            .font(.title2.bold())
+            // VoiceOver lit déjà le texte, mais on précise le rôle d'en-tête.
+            .accessibilityAddTraits(.isHeader)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
     }
 }
 
