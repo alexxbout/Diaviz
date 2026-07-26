@@ -53,6 +53,12 @@ final class OpenFoodFactsAPIClient: Sendable {
     private let logger = Logger(subsystem: "com.diaviz", category: "OpenFoodFacts")
 
     private static let baseRecherche = "https://search.openfoodfacts.org/search"
+    /// Endpoint Produit standard OFF (v2) — différent de Search-a-licious : un
+    /// lookup direct par code-barres (clé primaire de la base OFF), pas une
+    /// recherche texte. Pas de quota documenté aussi strict que les 10
+    /// req/min de la recherche — à revérifier si le scan devient un usage
+    /// intensif.
+    private static let baseProduit = "https://world.openfoodfacts.org/api/v2/product"
     private static let userAgent = "Diaviz/1.0 (+https://github.com/alexxbout/Diaviz)"
 
     init(session: URLSession = .shared) {
@@ -95,6 +101,78 @@ final class OpenFoodFactsAPIClient: Sendable {
             }
         }
         throw derniereErreur
+    }
+
+    /// Lookup d'un produit par code-barres (scan). `nil` — **pas une erreur**
+    /// — si ce code-barres n'existe pas dans la base OFF (fréquent : base
+    /// collaborative, couverture inégale selon marques/pays).
+    ///
+    /// Même stratégie de retry que `rechercher(_:page:parPage:)` sur les
+    /// erreurs 5xx/réseau (passerelle OFF parfois instable).
+    func produit(codeBarres: String) async throws(OFFError) -> AlimentOFF? {
+        var derniereErreur: OFFError = .urlInvalide
+        for tentative in 0...2 {
+            if tentative > 0 {
+                try? await Task.sleep(for: .milliseconds(500 * (1 << (tentative - 1))))
+                if Task.isCancelled { throw derniereErreur }
+                logger.info("Lookup OFF « \(codeBarres) » — retry \(tentative)")
+            }
+            do {
+                return try await effectuerLookupProduit(codeBarres)
+            } catch {
+                derniereErreur = error
+                switch error {
+                case .statutHTTP(let code) where code >= 500:
+                    continue
+                case .reseau:
+                    continue
+                default:
+                    throw error
+                }
+            }
+        }
+        throw derniereErreur
+    }
+
+    private func effectuerLookupProduit(_ codeBarres: String) async throws(OFFError) -> AlimentOFF? {
+        var composants = URLComponents(string: "\(Self.baseProduit)/\(codeBarres).json")
+        composants?.queryItems = [
+            URLQueryItem(name: "fields", value: "code,status,product_name,product_name_fr,brands,nutriments,image_front_small_url,image_front_url"),
+        ]
+        guard let url = composants?.url else { throw .urlInvalide }
+
+        var requete = URLRequest(url: url)
+        requete.setValue(Self.userAgent, forHTTPHeaderField: "User-Agent")
+
+        let data: Data
+        let reponse: URLResponse
+        do {
+            (data, reponse) = try await session.data(for: requete)
+        } catch {
+            logger.error("Lookup OFF « \(codeBarres) » — erreur réseau : \(error)")
+            throw .reseau(error)
+        }
+
+        if let http = reponse as? HTTPURLResponse, http.statusCode != 200 {
+            // OFF renvoie 404 quand le code-barres est inconnu — pas une
+            // erreur applicative, juste "pas de produit à ce code".
+            if http.statusCode == 404 { return nil }
+            logger.error("Lookup OFF « \(codeBarres) » — HTTP \(http.statusCode)")
+            throw http.statusCode == 429 ? .rateLimite : .statutHTTP(http.statusCode)
+        }
+
+        do {
+            let decodee = try JSONDecoder().decode(ReponseProduitOFF.self, from: data)
+            guard decodee.status == 1, let produit = decodee.product else {
+                logger.info("Lookup OFF « \(codeBarres) » — produit introuvable")
+                return nil
+            }
+            logger.info("Lookup OFF « \(codeBarres) » — trouvé")
+            return produit.versAlimentOFF()
+        } catch {
+            logger.error("Lookup OFF « \(codeBarres) » — décodage impossible : \(error)")
+            throw .decodage(error)
+        }
     }
 
     private func effectuerRecherche(
@@ -153,6 +231,14 @@ struct PageResultatsOFF: Sendable {
 }
 
 // MARK: - Décodage de la réponse Search-a-licious
+
+/// Enveloppe de la réponse `GET /api/v2/product/{code}.json` (endpoint
+/// Produit standard, distinct de Search-a-licious). `status == 1` signifie
+/// que le produit existe ; `0` = code-barres inconnu de la base OFF.
+private struct ReponseProduitOFF: Decodable {
+    let status: Int
+    let product: ProduitOFF?
+}
 
 /// Enveloppe de la réponse `GET /search` de Search-a-licious.
 private struct ReponseRechercheOFF: Decodable {

@@ -1,0 +1,10 @@
+/*
+  Localizable.strings (fr)
+
+  Aucune chaîne de l'app n'est extraite ici — tout le texte français est
+  écrit en dur directement dans le code Swift. Ce fichier existe uniquement
+  pour déclarer une vraie ressource de localisation française : sa présence
+  fait passer "fr" dans le CFBundleLocalizations généré par Xcode, ce qui
+  fait suivre les composants système embarqués (VisionKit, etc.) sur le
+  français au lieu de retomber sur l'anglais par défaut.
+*/

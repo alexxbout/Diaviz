@@ -304,6 +304,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				fr,
 				Base,
 			);
 			mainGroup = ACE15C492F94FC0B00F08D3A;
@@ -595,6 +596,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Diaviz;
+				INFOPLIST_KEY_CFBundleLocalizations = "fr en";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Diaviz utilise la caméra pour scanner le code-barres d'un produit et retrouver ses informations nutritionnelles sur Open Food Facts.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Diaviz lit tes glycémies et tes séances sportives depuis Apple Santé pour les analyser localement sur ton iPhone.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -635,6 +638,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Diaviz;
+				INFOPLIST_KEY_CFBundleLocalizations = "fr en";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Diaviz utilise la caméra pour scanner le code-barres d'un produit et retrouver ses informations nutritionnelles sur Open Food Facts.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Diaviz lit tes glycémies et tes séances sportives depuis Apple Santé pour les analyser localement sur ton iPhone.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

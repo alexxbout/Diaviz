@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import VisionKit
 
 /// Catégories de filtrage disponibles dans la barre de segmentation.
 /// `.bruts` → recherche CIQUAL locale (à la frappe), `.produits` → recherche
@@ -63,6 +64,21 @@ struct AjouterRepasVue: View {
     /// Trigger du retour haptique au masquage d'un aliment (swipe).
     @State private var triggerMasquage: Int = 0
 
+    /// Message d'échec du scan (code introuvable sur OFF, erreur réseau) —
+    /// affiché après fermeture de la sheet caméra, jamais par-dessus.
+    @State private var erreurScan: String? = nil
+
+    /// Produit scanné trouvé mais sans glucides renseignés : bascule vers une
+    /// recherche par nom (voir `lancerRechercheSecours`) et explique pourquoi.
+    @State private var infoGlucidesManquants: String? = nil
+
+    /// Triggers de retour haptique du scan — succès (produit exploitable
+    /// trouvé), attention (introuvable ou glucides manquants, pas bloquant),
+    /// erreur (réseau/API).
+    @State private var triggerScanTrouve: Int = 0
+    @State private var triggerScanAttention: Int = 0
+    @State private var triggerScanErreur: Int = 0
+
     /// Focus de la barre de recherche — réactivé quand l'utilisateur tape
     /// "Ajouter un aliment" depuis la `RepasSheet`.
     @FocusState private var rechercheActive: Bool
@@ -73,6 +89,9 @@ struct AjouterRepasVue: View {
             filtreSegmente
             contenuPrincipal
                 .sensoryFeedback(.success, trigger: triggerMasquage)
+                .sensoryFeedback(.success, trigger: triggerScanTrouve)
+                .sensoryFeedback(.warning, trigger: triggerScanAttention)
+                .sensoryFeedback(.error, trigger: triggerScanErreur)
         }
         .background(Color(.systemGroupedBackground), ignoresSafeAreaEdges: .all)
         // Bulle en overlay : composant SwiftUI normal (pas dans une sheet),
@@ -93,8 +112,34 @@ struct AjouterRepasVue: View {
         .navigationTitle("Nouveau repas")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $scannerCodeBarres) {
-            Text("Scanner un code-barres")
-                .presentationDetents([.medium])
+            scannerContenu
+        }
+        // Message d'échec du scan (introuvable sur OFF, réseau) — affiché
+        // sur l'écran principal, une fois la sheet caméra refermée.
+        .alert(
+            "Scan impossible",
+            isPresented: Binding(
+                get: { erreurScan != nil },
+                set: { present in if !present { erreurScan = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(erreurScan ?? "")
+        }
+        // Produit scanné trouvé mais sans glucides renseignés — bascule déjà
+        // faite vers l'onglet Produits avec une recherche par nom au moment
+        // où l'alerte s'affiche (voir `lancerRechercheSecours`).
+        .alert(
+            "Glucides non renseignés",
+            isPresented: Binding(
+                get: { infoGlucidesManquants != nil },
+                set: { present in if !present { infoGlucidesManquants = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(infoGlucidesManquants ?? "")
         }
         // Sheet de détail d'un aliment — déclenchée à chaque sélection
         // depuis la barre de recherche. Plus besoin de filtre conditionnel
@@ -117,12 +162,7 @@ struct AjouterRepasVue: View {
                 aliments: $alimentsRepas,
                 onAjouterUnAliment: tapperAjouterAliment,
                 onValiderRepas: { dose, site, heure, doseGlobale in
-                    validerRepas(
-                        doseInjectee: dose,
-                        site: site,
-                        heure: heure,
-                        doseGlobale: doseGlobale
-                    )
+                    validerRepas(doseInjectee: dose, site: site, heure: heure, doseGlobale: doseGlobale)
                 }
             )
             .presentationDetents([.large])
@@ -170,6 +210,57 @@ struct AjouterRepasVue: View {
         recherche = ""
         rechercheProduits.reinitialiserAffichage()
         repasSheetPresentee = false
+    }
+
+    /// Code-barres détecté par `ScannerCodeBarresVue` : ferme la sheet caméra
+    /// immédiatement (scan unique) puis lance le lookup OFF en tâche de fond.
+    ///
+    /// Trois issues :
+    /// - Trouvé avec glucides renseignés → même flux que la recherche texte
+    ///   (`alimentSelectionne`, `DetailAlimentSheet`).
+    /// - Trouvé **sans** glucides renseignés → `lancerRechercheSecours` : le
+    ///   même produit existe souvent sous une autre fiche (emballage
+    ///   différent) mieux renseignée, plutôt qu'ouvrir un détail inexploitable.
+    /// - Introuvable ou erreur réseau/API → alerte sur l'écran principal,
+    ///   jamais superposée à la caméra (déjà fermée).
+    private func traiterCodeScanne(_ code: String) {
+        scannerCodeBarres = false
+        Task {
+            do {
+                if let produit = try await OpenFoodFactsAPIClient.shared.produit(codeBarres: code) {
+                    if produit.glucidesRenseignes {
+                        triggerScanTrouve += 1
+                        alimentSelectionne = .off(produit)
+                    } else {
+                        triggerScanAttention += 1
+                        lancerRechercheSecours(nom: produit.nom, marque: produit.marque)
+                    }
+                } else {
+                    triggerScanAttention += 1
+                    erreurScan = "Ce code-barres n'est pas dans la base Open Food Facts. Essaie la recherche par nom dans l'onglet « Produits »."
+                }
+            } catch let e as OFFError {
+                triggerScanErreur += 1
+                erreurScan = e.messageUtilisateur
+            } catch {
+                triggerScanErreur += 1
+                erreurScan = "La recherche du produit a échoué. Réessaie plus tard."
+            }
+        }
+    }
+
+    /// Bascule vers l'onglet Produits avec une recherche par nom (+ marque si
+    /// connue, pour affiner) : un produit scanné sans glucides renseignés
+    /// (donnée vitale de l'app) n'est pas exploitable tel quel, mais le même
+    /// produit apparaît souvent sous une autre fiche OFF (emballage
+    /// différent, contribution communautaire plus complète) qui a les
+    /// nutriments.
+    private func lancerRechercheSecours(nom: String, marque: String?) {
+        let terme = [nom, marque].compactMap { $0 }.joined(separator: " ")
+        filtre = .produits
+        recherche = terme
+        rechercheProduits.rechercher(terme)
+        infoGlucidesManquants = "Le produit scanné n'a pas ses glucides renseignés sur Open Food Facts. Voici des résultats pour « \(terme) » — choisis la fiche la mieux renseignée."
     }
 
     // MARK: - Barre de recherche
@@ -231,6 +322,21 @@ struct AjouterRepasVue: View {
         .padding(.horizontal)
         .padding(.top, 12)
         .padding(.bottom, 8)
+    }
+
+    /// Contenu de la sheet caméra : scanner réel si l'appareil le permet
+    /// (`DataScannerViewController` indisponible sur simulateur ou device
+    /// trop ancien), sinon état de repli explicite plutôt qu'un écran noir.
+    @ViewBuilder
+    private var scannerContenu: some View {
+        if DataScannerViewController.isSupported && DataScannerViewController.isAvailable {
+            ScannerCodeBarresVue(onCodeDetecte: traiterCodeScanne)
+                .ignoresSafeArea()
+        } else {
+            ScannerIndisponibleVue(
+                raison: "Le scan de code-barres nécessite un iPhone récent avec caméra. Utilise la recherche par nom dans l'onglet « Produits »."
+            )
+        }
     }
 
     /// Filtre par catégorie d'aliment (non encore branché sur les résultats).
