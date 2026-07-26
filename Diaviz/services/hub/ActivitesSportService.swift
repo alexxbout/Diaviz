@@ -127,9 +127,24 @@ final class ActivitesSportService {
         let cible = activite.id
         let descripteur = FetchDescriptor<ActiviteSportive>(predicate: #Predicate { $0.id == cible })
         if let existant = try? contexte.fetch(descripteur).first, existant !== activite {
-            contexte.delete(existant)
+            // Mutation en place plutôt que delete+insert : un appelant (ex.
+            // `DetailActiviteVue`) peut détenir une référence à `existant` (l'objet
+            // affiché avant l'édition). Le supprimer puis insérer un nouvel objet
+            // avec le même `id` invaliderait cette référence — tout accès à ses
+            // propriétés pendant le pop de la vue (avant que `dismiss()` ait fini
+            // son animation) crashe avec « This model instance was invalidated ».
+            existant.type = activite.type
+            existant.dateDebut = activite.dateDebut
+            existant.dureeMinutes = activite.dureeMinutes
+            existant.intensite = activite.intensite
+            existant.glucidesPreSport = activite.glucidesPreSport
+            existant.note = activite.note
+            existant.source = activite.source
+            existant.healthKitData = activite.healthKitData
+            existant.iobAuDebut = activite.iobAuDebut
+        } else {
+            contexte.insert(activite)
         }
-        contexte.insert(activite)
         try? contexte.save()
         recharger()
     }
