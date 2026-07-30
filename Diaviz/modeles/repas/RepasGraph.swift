@@ -70,7 +70,12 @@ extension RepasGraph {
             id: repas.id,
             heure: repas.heure,
             glucides: Double(repas.totalGlucides),
-            aInjection: repas.aliments.contains { $0.insuline > 0 },
+            // `repas.aUneInjection` (pas un recalcul local) : en mode dose
+            // globale, `enregistrerDepuisSaisie` remet `insuline = 0` sur
+            // chaque aliment (la dose vit sur `doseGlobale`) — un check
+            // `aliments.contains { $0.insuline > 0 }` ratait alors tous les
+            // repas saisis en dose globale, quelle que soit la dose réelle.
+            aInjection: repas.aUneInjection,
             verdict: Self.verdictDepuisEtat(pour: repas),
             label: label,
             emoji: repas.aliments.first?.emoji ?? "🍽️"
