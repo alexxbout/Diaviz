@@ -39,6 +39,10 @@ struct AjouterRepasVue: View {
     /// et l'enregistre via ce service.
     @Environment(RepasService.self) private var repasService
 
+    /// Mining R1 (ratio observé) — recalculé après chaque repas validé, comme
+    /// les autres services dérivés du hub (metriquesService, iobService…).
+    @Environment(AnalyseRatioService.self) private var analyseRatioService
+
     @State private var recherche: String = ""
     @State private var resultats: [AlimentCiqual] = []
     @State private var filtre: FiltreAliment = .bruts
@@ -161,8 +165,17 @@ struct AjouterRepasVue: View {
             RepasSheet(
                 aliments: $alimentsRepas,
                 onAjouterUnAliment: tapperAjouterAliment,
-                onValiderRepas: { dose, site, heure, doseGlobale in
-                    validerRepas(doseInjectee: dose, site: site, heure: heure, doseGlobale: doseGlobale)
+                onValiderRepas: { dose, site, heure, doseGlobale, doseCorrection, ajustements, contexteLibre, exclureDesAnalyses in
+                    validerRepas(
+                        doseInjectee: dose,
+                        site: site,
+                        heure: heure,
+                        doseGlobale: doseGlobale,
+                        doseCorrection: doseCorrection,
+                        ajustements: ajustements,
+                        contexteLibre: contexteLibre,
+                        exclureDesAnalyses: exclureDesAnalyses
+                    )
                 }
             )
             .presentationDetents([.large])
@@ -192,19 +205,35 @@ struct AjouterRepasVue: View {
         doseInjectee: Double,
         site: SiteInjection,
         heure: Date,
-        doseGlobale: Double?
+        doseGlobale: Double?,
+        doseCorrection: Double = 0,
+        ajustements: [Ajustement] = [],
+        contexteLibre: String? = nil,
+        exclureDesAnalyses: Bool = false
     ) {
         repasService.enregistrerDepuisSaisie(
             entrees: alimentsRepas,
             heure: heure,
             doseInjectee: doseInjectee,
             site: site,
-            doseGlobale: doseGlobale
+            doseGlobale: doseGlobale,
+            doseCorrection: doseCorrection,
+            ajustements: ajustements,
+            contexteLibre: contexteLibre,
+            exclureDesAnalyses: exclureDesAnalyses
         )
+        // Le verdict de ce repas n'est pas encore connu (CGM pas encore
+        // rempli), mais un repas plus ancien a pu changer de statut entre
+        // deux ouvertures — remine par précaution, coût négligeable.
+        analyseRatioService.recalculer(depuis: repasService.repas)
         // Marqué "récemment ajouté" seulement maintenant, à la persistance
         // réelle du repas — pas à la simple composition en cours.
+        // La quantité est mémorisée en même temps : elle prérempli la
+        // prochaine saisie du même aliment (`DetailAlimentSheet`).
         for entree in alimentsRepas {
-            AlimentsRecentsService.shared.marquerUtilise(entree.aliment)
+            AlimentsRecentsService.shared.marquerUtilise(
+                entree.aliment, quantite: entree.quantiteGrammes
+            )
         }
         alimentsRepas.removeAll()
         recherche = ""
@@ -543,4 +572,5 @@ struct AjouterRepasVue: View {
         AjouterRepasVue()
     }
     .environment(RepasService.apercu())
+    .environment(AnalyseRatioService())
 }

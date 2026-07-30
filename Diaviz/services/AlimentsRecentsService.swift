@@ -28,6 +28,8 @@ final class AlimentsRecentsService {
     private let cleStockageV2 = "alimentsRecentsV2"
     /// Snapshots des produits OFF récents — `[code: JSON(AlimentOFF)]`.
     private let cleSnapshotsOFF = "alimentsRecentsSnapshotsOFF"
+    /// Dernière quantité saisie par aliment — `[cléComposite: grammes]`.
+    private let cleQuantites = "alimentsRecentsQuantites"
     private let limiteRecents = 50
 
     /// Clés composites des aliments récents, du plus récent au plus ancien.
@@ -36,13 +38,21 @@ final class AlimentsRecentsService {
     /// Snapshots des produits OFF, indexés par code-barres.
     private var snapshotsOFF: [String: AlimentOFF] = [:]
 
+    /// Dernière quantité (grammes) utilisée pour chaque aliment. Une portion
+    /// est très stable d'un repas à l'autre (le même yaourt, le même bol de
+    /// pâtes) — la repropose évite de re-régler le slider à chaque fois.
+    private var quantites: [String: Double] = [:]
+
     private init() {
         charger()
     }
 
     // MARK: - API
 
-    func marquerUtilise(_ aliment: ResultatRechercheAliment) {
+    /// Marque un aliment comme utilisé. `quantite` (grammes) est mémorisée
+    /// pour préremplir la prochaine saisie du même aliment — passer `nil` la
+    /// laisse inchangée plutôt que de l'effacer.
+    func marquerUtilise(_ aliment: ResultatRechercheAliment, quantite: Double? = nil) {
         clesRecentes.removeAll { $0 == aliment.id }
         clesRecentes.insert(aliment.id, at: 0)
         if clesRecentes.count > limiteRecents {
@@ -51,8 +61,17 @@ final class AlimentsRecentsService {
         if case .off(let produit) = aliment {
             snapshotsOFF[produit.code] = produit
         }
+        if let quantite, quantite > 0 {
+            quantites[aliment.id] = quantite
+        }
         nettoyerSnapshots()
         sauvegarder()
+    }
+
+    /// Dernière quantité (grammes) saisie pour cet aliment, `nil` s'il n'a
+    /// jamais été enregistré dans un repas validé.
+    func derniereQuantite(_ aliment: ResultatRechercheAliment) -> Double? {
+        quantites[aliment.id]
     }
 
     func estRecent(_ aliment: ResultatRechercheAliment) -> Bool {
@@ -79,8 +98,10 @@ final class AlimentsRecentsService {
     func effacer() {
         clesRecentes = []
         snapshotsOFF = [:]
+        quantites = [:]
         UserDefaults.standard.removeObject(forKey: cleStockageV2)
         UserDefaults.standard.removeObject(forKey: cleSnapshotsOFF)
+        UserDefaults.standard.removeObject(forKey: cleQuantites)
         UserDefaults.standard.removeObject(forKey: cleStockageV1)
     }
 
@@ -106,13 +127,18 @@ final class AlimentsRecentsService {
         return Int(cle.dropFirst("ciqual:".count))
     }
 
-    /// Supprime les snapshots OFF orphelins (produit sorti de la liste MRU).
+    /// Supprime les snapshots OFF et les quantités orphelins (aliment sorti
+    /// de la liste MRU) — sans ça, les deux dictionnaires grossiraient
+    /// indéfiniment alors que la liste MRU, elle, est plafonnée.
     private func nettoyerSnapshots() {
         let codesActifs = Set(clesRecentes.compactMap { cle -> String? in
             guard cle.hasPrefix("off:") else { return nil }
             return String(cle.dropFirst("off:".count))
         })
         snapshotsOFF = snapshotsOFF.filter { codesActifs.contains($0.key) }
+
+        let clesActives = Set(clesRecentes)
+        quantites = quantites.filter { clesActives.contains($0.key) }
     }
 
     // MARK: - Persistance
@@ -133,6 +159,10 @@ final class AlimentsRecentsService {
            let snapshots = try? JSONDecoder().decode([String: AlimentOFF].self, from: data) {
             snapshotsOFF = snapshots
         }
+
+        if let stockees = defaults.dictionary(forKey: cleQuantites) as? [String: Double] {
+            quantites = stockees
+        }
     }
 
     private func sauvegarder() {
@@ -141,5 +171,6 @@ final class AlimentsRecentsService {
         if let data = try? JSONEncoder().encode(snapshotsOFF) {
             defaults.set(data, forKey: cleSnapshotsOFF)
         }
+        defaults.set(quantites, forKey: cleQuantites)
     }
 }

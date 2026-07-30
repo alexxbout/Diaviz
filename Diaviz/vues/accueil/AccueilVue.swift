@@ -56,6 +56,11 @@ struct AccueilVue: View {
     /// en tête de la pile d'insights quand le verdict vient de changer.
     @Environment(AnalyseBasaleService.self) private var analyseBasaleService
 
+    /// Service hub des repas — source réelle de « Repas à revoir » et
+    /// « Repas avec contexte » (courbes CGM encore en mémoire pour les repas
+    /// récents).
+    @Environment(RepasService.self) private var repasService
+
     /// Identifiants des insights supprimés par l'utilisateur (swipe gauche /
     /// appui long + confirmation). Persisté en UserDefaults : un insight au
     /// même contenu (même `id`, dérivé de son contenu pour l'observation
@@ -75,10 +80,25 @@ struct AccueilVue: View {
         return (reels + insights).filter { !idsInsightsSupprimes.contains($0.id) }
     }
 
-    /// Repas signalés « à revoir » (sortis de cible, contenant au
-    /// moins un aliment estimé, hors fenêtre de sport). Service mock
-    /// le temps que la couche ML produise la vraie liste.
-    @State private var repasARevoir: [RepasARevoir] = RepasAReevoirServiceMock.mock()
+    /// Repas signalés « à revoir » — groupes de repas similaires récurrents
+    /// dont la dernière occurrence est sortie de cible (`CalculRepasARevoir`).
+    /// Masquée tant que l'historique global n'atteint pas le seuil R1 (30
+    /// repas analysés, gate appliquée dans le calculateur).
+    private var repasARevoir: [RepasARevoir] {
+        CalculRepasARevoir.analyser(
+            repas: repasService.repas,
+            horairesRepas: ProfilService.shared.profil.horairesRepas
+        )
+    }
+
+    /// Repas isolés avec contexte libre et verdict mauvais — aucun seuil de
+    /// données (ce n'est pas une inférence statistique, juste un fait affiché).
+    private var repasAvecContexte: [RepasARevoir] {
+        CalculRepasContexte.analyser(
+            repas: repasService.repas,
+            horairesRepas: ProfilService.shared.profil.horairesRepas
+        )
+    }
 
     /// Contexte de la carte « Insuline lente » — **réel**, construit depuis la
     /// dernière injection lente du hub + le profil (`construireContexteLente()`).
@@ -189,6 +209,22 @@ struct AccueilVue: View {
                         // vide. Le scroll déborde edge-to-edge en
                         // annulant le padding 16pt du VStack parent.
                         SectionRepasARevoir(repas: repasARevoir)
+                            // Anime uniquement l'apparition/disparition de
+                            // cette section — pas tout le VStack — pour que
+                            // le peuplement post-fetch (RepasService charge
+                            // en arrière-plan, ne bloque jamais l'affichage
+                            // initial de la page) se voie comme un fondu
+                            // doux plutôt qu'un saut de layout brutal.
+                            .animation(
+                                reduceMotion ? nil : .easeOut(duration: 0.3),
+                                value: repasARevoir.count
+                            )
+
+                        SectionRepasContexte(repas: repasAvecContexte)
+                            .animation(
+                                reduceMotion ? nil : .easeOut(duration: 0.3),
+                                value: repasAvecContexte.count
+                            )
 
                         // Grille de 4 cartes métriques — aperçu
                         // instantané de l'état courant. Le service
@@ -352,6 +388,8 @@ struct AccueilVue: View {
     AccueilVue()
         .environment(ProfilService.mockComplet())
         .environment(AnalyseBasaleService())
+        .environment(RepasService.apercu())
+        .environment(AnalyseRatioService())
         .modelContainer(ScoreService.conteneurApercu())
 }
 
@@ -359,6 +397,8 @@ struct AccueilVue: View {
     AccueilVue()
         .environment(ProfilService.mockVide())
         .environment(AnalyseBasaleService())
+        .environment(RepasService.apercu())
+        .environment(AnalyseRatioService())
         .modelContainer(ScoreService.conteneurApercu())
 }
 #endif

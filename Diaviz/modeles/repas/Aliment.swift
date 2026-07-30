@@ -72,6 +72,56 @@ final class Repas {
     /// mode les `Aliment.insuline` valent 0 (pas d'attribution par aliment).
     var doseGlobale: Double?
 
+    /// Dose de correction d'hyperglycémie, distincte de la dose couvrant les
+    /// glucides (répond à la glycémie du moment, pas au repas — même exclusion
+    /// que `RepasSheet.doseCouvrantGlucides`). `nil` pour les repas enregistrés
+    /// avant l'ajout de ce champ : leur `totalInsuline` reste global, une
+    /// éventuelle correction potentiellement incluse (proxy, limite connue
+    /// pour l'analyse R1 du ratio observé).
+    var doseCorrection: Double?
+
+    /// Verdict de la réponse glycémique, **persisté** une fois calculé —
+    /// contrairement à `etatAnalyse` qui reste `@Transient` (et porte la
+    /// courbe, non stockable). Alimente le mining R1 (analyse du ratio
+    /// observé) sur tout l'historique, sans dépendre du CGM en mémoire.
+    var verdictPersiste: VerdictGlycemique?
+
+    /// Ratio effectif appliqué (grammes de glucides par unité), figé quand
+    /// `verdictPersiste` est renseigné. Calculé sur la dose couvrant les
+    /// glucides (`totalInsuline - doseCorrection`), pas sur la dose totale.
+    var ratioEffectifPersiste: Double?
+
+    /// Ajustements intentionnels appliqués (sport récent, glycémie basse avant
+    /// repas, repas gras…). **Jamais** utilisés pour exclure ce repas d'un
+    /// affichage (journal, Repas à revoir) — seulement pour regrouper le
+    /// mining R1 à part du ratio de base (`CalculRatioObserve`) et pour les
+    /// badges factuels. Vide par défaut (repas sans ajustement).
+    var ajustements: [Ajustement] = []
+
+    /// Événement contextuel en texte libre, saisi par l'utilisateur (ex.
+    /// « je prends la voiture »). Non structuré : exclu de tout mining
+    /// (ratio observé + regroupement composition de Repas à revoir) tant
+    /// qu'il n'est pas normalisé, mais affiché tel quel si le verdict est
+    /// mauvais. `nil` = pas de contexte particulier.
+    var contexteLibre: String?
+
+    /// Libellé normalisé + emoji, résolu en tâche de fond par
+    /// `ReferentielContextesService` après l'enregistrement du repas (jamais
+    /// à la saisie). `nil` tant que non résolu (ou si la résolution échoue
+    /// définitivement) : l'affichage retombe alors sur `contexteLibre` brut.
+    /// N'affecte JAMAIS le mining — `AnalyseRatioService`/`CalculRatioObserve`
+    /// excluent toujours sur la seule présence de `contexteLibre`.
+    var contexteNormalise: String?
+
+    /// `true` si l'utilisateur a explicitement demandé à exclure ce repas de
+    /// toute analyse automatique (mining R1, regroupement composition de
+    /// Repas à revoir, Repas avec contexte) — même principe que le mode
+    /// pause du hub (`PeriodePause`), mais à l'échelle d'un seul repas plutôt
+    /// qu'une période entière. Réglable depuis `DetailRepasVue`. Le repas
+    /// reste visible partout ailleurs (journal, détail) — seulement ignoré
+    /// par les calculs statistiques.
+    var exclureDesAnalyses: Bool = false
+
     /// État du pré-calcul de la réponse glycémique. **Dérivation non persistée**
     /// (`@Transient`) : recalculée à la volée depuis le CGM, et `EtatAnalyse`
     /// embarque une courbe non stockable. Renseignée à l'affichage / en preview.
@@ -83,7 +133,14 @@ final class Repas {
         aliments: [Aliment],
         etatAnalyse: EtatAnalyse? = nil,
         iobAuDebut: Double? = nil,
-        doseGlobale: Double? = nil
+        doseGlobale: Double? = nil,
+        doseCorrection: Double? = nil,
+        verdictPersiste: VerdictGlycemique? = nil,
+        ratioEffectifPersiste: Double? = nil,
+        ajustements: [Ajustement] = [],
+        contexteLibre: String? = nil,
+        contexteNormalise: String? = nil,
+        exclureDesAnalyses: Bool = false
     ) {
         self.id = id
         self.heure = heure
@@ -91,6 +148,13 @@ final class Repas {
         self.etatAnalyse = etatAnalyse
         self.iobAuDebut = iobAuDebut
         self.doseGlobale = doseGlobale
+        self.doseCorrection = doseCorrection
+        self.verdictPersiste = verdictPersiste
+        self.ratioEffectifPersiste = ratioEffectifPersiste
+        self.ajustements = ajustements
+        self.contexteLibre = contexteLibre
+        self.contexteNormalise = contexteNormalise
+        self.exclureDesAnalyses = exclureDesAnalyses
     }
 
     var totalGlucides: Int {

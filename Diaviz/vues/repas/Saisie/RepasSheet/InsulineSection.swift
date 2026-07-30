@@ -84,49 +84,29 @@ struct InsulineSection: View {
         }
     }
 
-    /// Row de saisie de la dose globale — gros boutons `BoutonStepper` (comme
-    /// les sheets lente/correction) plutôt qu'un `Stepper` natif minuscule.
+    /// Row de saisie de la dose globale — `StepperDose` partagé (tap au centre
+    /// pour saisir la dose au clavier plutôt que 20 taps sur « + »).
     private var doseGlobaleRow: some View {
-        let dose = doseGlobale ?? 0
-        return VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("Dose du repas")
                 .font(.body)
             Text("Pour l'ensemble des glucides du repas")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            HStack {
-                BoutonStepper(systemImage: "minus") {
-                    if dose >= 0.5 { doseGlobale = dose - 0.5 }
-                }
-                .disabled(dose < 0.5)
-
-                Spacer()
-
-                Text(formate(dose) + "u")
-                    .font(.title3.bold())
-                    .monospacedDigit()
-                    .contentTransition(.numericText())
-                    .animation(.easeOut(duration: 0.2), value: dose)
-
-                Spacer()
-
-                BoutonStepper(systemImage: "plus") {
-                    if dose < 30 { doseGlobale = dose + 0.5 }
-                }
-                .disabled(dose >= 30)
-            }
+            StepperDose(
+                // Le mode dose globale garantit `doseGlobale != nil` (c'est
+                // le toggle qui la crée) — le `?? 0` n'est qu'un repli
+                // défensif, jamais atteint tant que cette row est affichée.
+                valeur: Binding(
+                    get: { doseGlobale ?? 0 },
+                    set: { doseGlobale = $0 }
+                ),
+                plage: 0...30,
+                titreSaisie: "Dose du repas"
+            )
         }
         .padding(.vertical, 4)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Dose globale du repas : \(formate(dose)) unités")
-        .accessibilityAdjustableAction { direction in
-            switch direction {
-            case .increment: if dose < 30 { doseGlobale = dose + 0.5 }
-            case .decrement: if dose > 0 { doseGlobale = dose - 0.5 }
-            @unknown default: break
-            }
-        }
     }
 
     /// Liste des ajustements existants. Tap pour éditer, swipe pour supprimer.
@@ -191,8 +171,8 @@ struct InsulineSection: View {
         .buttonStyle(.plain)
     }
 
-    /// Gros boutons `BoutonStepper` — même pattern que `doseGlobaleRow` et
-    /// que les sheets lente/correction, au lieu du `Stepper` natif minuscule.
+    /// `StepperDose` partagé — signe explicite (une correction s'ajoute
+    /// toujours) et tap au centre pour la saisie directe.
     private var correctionHyperRow: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Correction hyperglycémie")
@@ -201,42 +181,15 @@ struct InsulineSection: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            HStack {
-                BoutonStepper(systemImage: "minus") {
-                    if correctionHyper >= 0.5 { correctionHyper -= 0.5 }
-                }
-                .disabled(correctionHyper < 0.5)
-
-                Spacer()
-
-                Text("+\(formate(correctionHyper))u")
-                    .font(.title3.bold())
-                    .monospacedDigit()
-                    .foregroundStyle(correctionHyper > 0 ? .red : .secondary)
-                    .contentTransition(.numericText())
-                    // easeOut plutôt que spring : évite l'overshoot qui
-                    // affiche des valeurs intermédiaires fantômes lors
-                    // de taps rapides sur le stepper.
-                    .animation(.easeOut(duration: 0.2), value: correctionHyper)
-
-                Spacer()
-
-                BoutonStepper(systemImage: "plus") {
-                    if correctionHyper < 10 { correctionHyper += 0.5 }
-                }
-                .disabled(correctionHyper >= 10)
-            }
+            StepperDose(
+                valeur: $correctionHyper,
+                plage: 0...10,
+                titreSaisie: "Correction hyperglycémie",
+                afficheSigne: true,
+                couleur: { $0 > 0 ? .red : .secondary }
+            )
         }
         .padding(.vertical, 4)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Correction hyperglycémie : \(formate(correctionHyper)) unités")
-        .accessibilityAdjustableAction { direction in
-            switch direction {
-            case .increment: if correctionHyper < 10 { correctionHyper += 0.5 }
-            case .decrement: if correctionHyper > 0 { correctionHyper -= 0.5 }
-            @unknown default: break
-            }
-        }
     }
 
     /// Row "Total injecté" mise en avant (titre bold, valeur en title3 verte).

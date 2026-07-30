@@ -12,7 +12,7 @@ import SwiftUI
 /// Raisons possibles pour ajuster intentionnellement la dose d'insuline
 /// par rapport à ce que le ratio recommanderait. Distinct d'une correction
 /// d'hyperglycémie (gérée séparément dans `InsulineSection`).
-enum RaisonAjustement: String, CaseIterable, Identifiable, Equatable {
+enum RaisonAjustement: String, CaseIterable, Identifiable, Equatable, Codable {
     case sportRecent
     case glycemieBasse
     case repasGras
@@ -51,10 +51,15 @@ enum RaisonAjustement: String, CaseIterable, Identifiable, Equatable {
 ///
 /// `Identifiable` pour permettre une liste éditable de plusieurs ajustements.
 /// L'`id` est préservé via copie de struct lors d'une édition.
-struct Ajustement: Identifiable, Equatable {
+struct Ajustement: Identifiable, Equatable, Codable {
     var id: UUID = UUID()
     var raison: RaisonAjustement
     var valeur: Double
+    /// Type de sport détecté au moment de la saisie (ex. « Course à pied »),
+    /// rempli automatiquement pour un ajustement `.sportRecent` quand une
+    /// activité récente est présente dans le hub (`InsightsService.sportRecent`).
+    /// `nil` pour toute autre raison, ou si aucun sport n'a été détecté.
+    var typeSportDetecte: String? = nil
 }
 
 // MARK: - Sheet
@@ -113,6 +118,11 @@ struct AjustementSheet: View {
                         var maj = ajustementInitial
                         maj.raison = raisonChoisie
                         maj.valeur = valeur
+                        // Le type de sport détecté n'a de sens que pour la
+                        // raison « sport récent » — un changement de raison
+                        // via le picker ne doit pas le laisser traîner.
+                        maj.typeSportDetecte = raisonChoisie == .sportRecent
+                            ? ajustementInitial.typeSportDetecte : nil
                         onValider(maj)
                         dismiss()
                     }
@@ -160,55 +170,24 @@ struct AjustementSheet: View {
         }
     }
 
+    /// `StepperDose` partagé — plage signée (un ajustement retranche ou ajoute
+    /// de la dose) et tap au centre pour la saisie directe au clavier.
     private var sectionValeur: some View {
         Section("Valeur") {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Ajustement")
                     .font(.body)
 
-                HStack {
-                    boutonStepper(systemImage: "minus") {
-                        if valeur > -5 { valeur -= 0.5 }
-                    }
-                    .disabled(valeur <= -5)
-
-                    Spacer()
-
-                    HStack(alignment: .lastTextBaseline, spacing: 2) {
-                        Text(formatSigne(valeur))
-                            .font(.title2.bold())
-                            .foregroundStyle(couleurValeur)
-                            .contentTransition(.numericText())
-                            .animation(.easeOut(duration: 0.2), value: valeur)
-                        Text("u")
-                            .font(.body.bold())
-                            .foregroundStyle(.secondary)
-                    }
-                    .monospacedDigit()
-
-                    Spacer()
-
-                    boutonStepper(systemImage: "plus") {
-                        if valeur < 5 { valeur += 0.5 }
-                    }
-                    .disabled(valeur >= 5)
-                }
+                StepperDose(
+                    valeur: $valeur,
+                    plage: -5...5,
+                    titreSaisie: "Valeur de l'ajustement",
+                    afficheSigne: true,
+                    couleur: { $0 < 0 ? .orange : ($0 > 0 ? .red : .secondary) }
+                )
             }
             .padding(.vertical, 4)
         }
-    }
-
-    /// Bouton carré du stepper visuel (+ ou −), même style que DetailAlimentSheet.
-    @ViewBuilder
-    private func boutonStepper(systemImage: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.body.bold())
-                .frame(width: 36, height: 36)
-                .background(Color(.tertiarySystemFill))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-        }
-        .buttonStyle(.plain)
     }
 
     private func sectionSuppression(onSupprimer: @escaping () -> Void) -> some View {
@@ -220,23 +199,6 @@ struct AjustementSheet: View {
         }
     }
 
-    // MARK: - Helpers
-
-    private func formatSigne(_ v: Double) -> String {
-        let absVal = abs(v)
-        let formatte = absVal == floor(absVal)
-            ? String(format: "%.0f", absVal)
-            : String(format: "%.1f", absVal)
-        if v < 0 { return "-\(formatte)" }
-        if v > 0 { return "+\(formatte)" }
-        return "0"
-    }
-
-    private var couleurValeur: Color {
-        if valeur < 0 { return .orange }
-        if valeur > 0 { return .red }
-        return .secondary
-    }
 }
 
 #Preview {

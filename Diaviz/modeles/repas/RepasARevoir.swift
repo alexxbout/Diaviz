@@ -22,6 +22,18 @@ struct PointCourbeRepas: Identifiable, Sendable {
     let glycemie: Double
 }
 
+// MARK: - Badge d'ajustement
+
+/// Un badge d'ajustement affichable sur la carte — porte sa catégorie pour
+/// que la vue applique la bonne couleur (bleu pour le sport, violet pour les
+/// autres raisons). Le contexte libre (orange) est un champ séparé
+/// (`RepasARevoir.contexteAffiche`), pas structuré de la même façon.
+struct BadgeAjustement: Identifiable {
+    let id = UUID()
+    let libelle: String
+    let estSport: Bool
+}
+
 // MARK: - RepasARevoir
 
 /// Repas signalé comme « à revoir » sur l'accueil : au moins un
@@ -71,6 +83,49 @@ struct RepasARevoir: Identifiable {
     /// repas — l'écart reflète l'incertitude liée aux aliments estimés.
     let glucidesMin: Int
     let glucidesMax: Int
+
+    /// Libellé du moment (« Déjeuner »…) du **dernier** repas du groupe —
+    /// affiché en badge. Jamais utilisé pour exclure la carte de l'affichage.
+    let libelleSection: String
+
+    /// Badges des raisons d'ajustement présentes sur le dernier repas
+    /// (« Sport récent · Course à pied », « Repas gras »…) — un badge par
+    /// raison, affiché systématiquement (bon, moyen ou mauvais verdict).
+    let badgesAjustements: [BadgeAjustement]
+
+    /// Événement contextuel en texte libre (`Repas.contexteLibre`), affiché
+    /// tel quel — porté par les cartes de « Repas avec contexte » (occurrence
+    /// unique, `contexteLibre` exclut ce repas de la récurrence). `nil` pour
+    /// les cartes « Repas à revoir » classiques.
+    let contexteAffiche: String?
+
+    init(
+        aliments: [Aliment],
+        nombreOccurrences: Int,
+        pointsOccurrencesPassees: [[PointCourbeRepas]],
+        pointsDerniereFois: [PointCourbeRepas],
+        evenementMinutes: Int,
+        evenementValeur: Double,
+        estHypo: Bool,
+        glucidesMin: Int,
+        glucidesMax: Int,
+        libelleSection: String = "",
+        badgesAjustements: [BadgeAjustement] = [],
+        contexteAffiche: String? = nil
+    ) {
+        self.aliments = aliments
+        self.nombreOccurrences = nombreOccurrences
+        self.pointsOccurrencesPassees = pointsOccurrencesPassees
+        self.pointsDerniereFois = pointsDerniereFois
+        self.evenementMinutes = evenementMinutes
+        self.evenementValeur = evenementValeur
+        self.estHypo = estHypo
+        self.glucidesMin = glucidesMin
+        self.glucidesMax = glucidesMax
+        self.libelleSection = libelleSection
+        self.badgesAjustements = badgesAjustements
+        self.contexteAffiche = contexteAffiche
+    }
 
     // MARK: Computed
 

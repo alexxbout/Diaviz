@@ -141,7 +141,11 @@ final class RepasService {
         heure: Date = Date(),
         doseInjectee: Double = 0,
         site: SiteInjection = .parDefaut,
-        doseGlobale: Double? = nil
+        doseGlobale: Double? = nil,
+        doseCorrection: Double = 0,
+        ajustements: [Ajustement] = [],
+        contexteLibre: String? = nil,
+        exclureDesAnalyses: Bool = false
     ) -> Repas? {
         let alimentsHub = entrees.map(Aliment.init(depuis:))
         guard !alimentsHub.isEmpty else { return nil }
@@ -152,7 +156,13 @@ final class RepasService {
         if doseGlobale != nil {
             for aliment in alimentsHub { aliment.insuline = 0 }
         }
-        let nouveau = Repas(heure: heure, aliments: alimentsHub, doseGlobale: doseGlobale)
+        let nouveau = Repas(
+            heure: heure, aliments: alimentsHub, doseGlobale: doseGlobale,
+            doseCorrection: doseCorrection > 0 ? doseCorrection : nil,
+            ajustements: ajustements,
+            contexteLibre: (contexteLibre?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 },
+            exclureDesAnalyses: exclureDesAnalyses
+        )
         // IOB actif juste avant le repas — snapshot figé du contexte insuline
         // (dérivé du hub à la saisie, donc avant le bolus de ce repas). `nil` si
         // négligeable, pour ne pas afficher un badge « 0u ».
@@ -161,6 +171,22 @@ final class RepasService {
             nouveau.iobAuDebut = iob > 0.05 ? iob : nil
         }
         enregistrer(nouveau)
+
+        // Normalisation différée du contexte libre — jamais bloquante pour la
+        // validation du repas (la sheet peut déjà être fermée). Rien si
+        // `contexteLibre` est nil. Si la résolution échoue (modèle
+        // indisponible, erreur de génération), le badge reste sur le texte
+        // brut indéfiniment — dégradation gracieuse, pas de retry
+        // automatique. `nouveau` est un `@Model` (référence) déjà inséré
+        // dans `contexte` : le muter ici suffit, SwiftData notifie la vue
+        // automatiquement (pas de `recharger()` requis).
+        if let texteContexte = nouveau.contexteLibre {
+            Task {
+                guard let resultat = await ReferentielContextesService.shared.resoudre(texte: texteContexte) else { return }
+                nouveau.contexteNormalise = resultat.affichage
+                try? contexte?.save()
+            }
+        }
 
         // Bolus repas → `Injection` rapide liée au repas dans le hub. C'est elle
         // que lisent l'IOB et la section « Bolus repas » de Médications (le hub
@@ -268,14 +294,32 @@ final class RepasService {
         let echantillons = ((try? contexte.fetch(descripteur)) ?? [])
             .map { (date: $0.date, valeur: $0.valeur) }
 
+        var doseASauvegarder = false
         for unRepas in recents {
-            unRepas.etatAnalyse = AssembleurReponseRepas.analyser(
+            let etat = AssembleurReponseRepas.analyser(
                 heureRepas: unRepas.heure,
                 aUneInjection: unRepas.aUneInjection,
                 echantillons: echantillons,
                 maintenant: maintenant
             )
+            unRepas.etatAnalyse = etat
+
+            // Persiste le verdict + ratio effectif dès qu'ils sont connus —
+            // contrairement à `etatAnalyse` (transient, courbe non stockable),
+            // ces deux valeurs survivent au relancement de l'app et alimentent
+            // le mining R1 (CalculRatioObserve) sur tout l'historique, pas
+            // seulement la fenêtre récente gardée en mémoire ici.
+            guard case .disponible(let reponse) = etat else { continue }
+            let doseCouvrante = unRepas.totalInsuline - (unRepas.doseCorrection ?? 0)
+            let ratio = unRepas.totalGlucides > 0 && doseCouvrante > 0
+                ? Double(unRepas.totalGlucides) / doseCouvrante : nil
+            if unRepas.verdictPersiste != reponse.verdict || unRepas.ratioEffectifPersiste != ratio {
+                unRepas.verdictPersiste = reponse.verdict
+                unRepas.ratioEffectifPersiste = ratio
+                doseASauvegarder = true
+            }
         }
+        if doseASauvegarder { try? contexte.save() }
     }
 }
 

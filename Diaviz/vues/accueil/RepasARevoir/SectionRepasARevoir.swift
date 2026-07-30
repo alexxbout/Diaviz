@@ -59,6 +59,12 @@ struct SectionRepasARevoir: View {
                 // doit déborder edge-to-edge, pas le titre.
                 .padding(.horizontal, -16)
             }
+            // La liste réelle (RepasService) se peuple après le fetch
+            // SwiftData initial, un instant après l'affichage de l'accueil —
+            // sans transition, la section « pop » brutalement et pousse
+            // « Aperçu du jour » d'un coup. Fondu + glissement doux à la
+            // place, piloté par `.animation(value: repas.count)` côté parent.
+            .transition(.opacity.combined(with: .move(edge: .top)))
         }
     }
 }

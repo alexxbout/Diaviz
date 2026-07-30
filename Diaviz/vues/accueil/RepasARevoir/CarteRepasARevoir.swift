@@ -30,12 +30,12 @@ struct CarteRepasARevoir: View {
         VStack(alignment: .leading, spacing: 6) {
 
             // MARK: Titre
-            // Une seule ligne — emoji + nom du plat principal. On ne
-            // mentionne plus le compte d'aliments supplémentaires :
-            // l'info utile sur la carte est le repas lui-même et son
-            // pattern glycémique, pas la liste d'ingrédients.
-            if let principal = repas.alimentPrincipal {
-                HStack(spacing: 4) {
+            // Emoji + nom du plat principal à gauche, nombre d'occurrences
+            // en fin de ligne à droite (uniquement si le repas est
+            // effectivement récurrent — une carte « Repas avec contexte »,
+            // toujours à occurrence unique, n'affiche rien ici).
+            HStack(spacing: 4) {
+                if let principal = repas.alimentPrincipal {
                     Text(principal.emoji)
                         .font(.subheadline)
                         .accessibilityHidden(true)
@@ -45,12 +45,33 @@ struct CarteRepasARevoir: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
                 }
+                Spacer(minLength: 4)
+                if repas.nombreOccurrences > 1 {
+                    Text("×\(repas.nombreOccurrences)")
+                        .font(.caption.bold())
+                        .foregroundStyle(.tertiary)
+                }
             }
 
-            // MARK: Sous-titre occurrences
-            Text("\(repas.nombreOccurrences) fois enregistré")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+            // MARK: Badges — moment+ratio (neutre), ajustements (bleu sport /
+            // violet classique), contexte libre (orange). Toujours affichés,
+            // quel que soit le verdict — jamais un filtre, juste le contexte
+            // factuel.
+            if !repas.libelleSection.isEmpty || !repas.badgesAjustements.isEmpty || repas.contexteAffiche != nil {
+                HStack(spacing: 4) {
+                    if !repas.libelleSection.isEmpty {
+                        badge(repas.libelleSection, background: Color(.tertiarySystemFill), foreground: .secondary)
+                    }
+                    ForEach(repas.badgesAjustements) { item in
+                        badge(item.libelle, background: (item.estSport ? Color.blue : Color.purple).opacity(0.15),
+                              foreground: item.estSport ? .blue : .purple)
+                    }
+                    if let contexte = repas.contexteAffiche {
+                        badge(contexte, background: Color.orange.opacity(0.18), foreground: .orange)
+                    }
+                }
+                .lineLimit(1)
+            }
 
             // MARK: Mini-graphique
             // 12pt d'air au-dessus pour que les annotations du pic ne
@@ -88,6 +109,18 @@ struct CarteRepasARevoir: View {
         .surfaceCarte()
         .accessibilityElement(children: .combine)
         .accessibilityLabel(libelleAccessibilite)
+    }
+
+    /// Badge compact commun (moment, ajustement, contexte) — capsule teintée,
+    /// texte tronqué à une ligne pour rester dans les 200pt de large.
+    private func badge(_ texte: String, background: Color, foreground: Color) -> some View {
+        Text(texte)
+            .font(.caption2)
+            .foregroundStyle(foreground)
+            .lineLimit(1)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(background, in: Capsule())
     }
 
     // MARK: - Mini-graphique
@@ -177,7 +210,12 @@ struct CarteRepasARevoir: View {
     /// et fourchette de glucides. Évite de naviguer les sous-éléments.
     private var libelleAccessibilite: String {
         let nom = repas.alimentPrincipal?.nom ?? "Repas"
-        return "\(nom). \(repas.nombreOccurrences) fois enregistré. "
+        let badges = ([repas.libelleSection] + repas.badgesAjustements.map(\.libelle) + [repas.contexteAffiche])
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
+        let contexte = badges.isEmpty ? "" : " \(badges)."
+        return "\(nom). \(repas.nombreOccurrences) fois enregistré.\(contexte) "
             + "\(repas.libelleEvenement). Glucides déclarés "
             + "\(repas.glucidesMin) à \(repas.glucidesMax) grammes."
     }

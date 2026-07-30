@@ -34,9 +34,15 @@ struct DetailAlimentSheet: View {
         self.aliment = aliment
         self.entreeExistante = entreeExistante
         self.onValider = onValider
-        // Pré-remplissage des @State quand on édite. En ajout, on conserve
-        // les valeurs par défaut historiques (100g, pas de dose, etc.).
-        _quantiteGrammes = State(initialValue: entreeExistante?.quantiteGrammes ?? 100)
+        // Pré-remplissage des @State quand on édite. En ajout, la quantité
+        // reprend celle utilisée la dernière fois pour cet aliment (une
+        // portion varie peu d'un repas à l'autre), et retombe sur 100g pour
+        // un aliment jamais enregistré.
+        _quantiteGrammes = State(
+            initialValue: entreeExistante?.quantiteGrammes
+                ?? AlimentsRecentsService.shared.derniereQuantite(aliment)
+                ?? 100
+        )
         _quantiteApproximative = State(initialValue: entreeExistante?.quantiteApproximative ?? false)
         _doseInsuline = State(initialValue: entreeExistante?.doseInsuline)
         _note = State(initialValue: entreeExistante?.note ?? "")
@@ -60,8 +66,6 @@ struct DetailAlimentSheet: View {
 
     @State private var afficherSaisieQuantite: Bool = false
     @State private var saisieQuantiteTexte: String = ""
-    @State private var afficherSaisieDose: Bool = false
-    @State private var saisieDoseTexte: String = ""
 
     // MARK: - Valeurs calculées (proportionnelles à quantiteGrammes)
 
@@ -124,15 +128,6 @@ struct DetailAlimentSheet: View {
         } message: {
             Text("Entrez la quantité en grammes (5–2000)")
         }
-        // Alerte — saisie manuelle de la dose d'insuline
-        .alert("Dose d'insuline", isPresented: $afficherSaisieDose) {
-            TextField("ex : 2.5", text: $saisieDoseTexte)
-                .keyboardType(.decimalPad)
-            Button("OK") { appliquerSaisieDose() }
-            Button("Annuler", role: .cancel) { saisieDoseTexte = "" }
-        } message: {
-            Text("Entrez la dose en unités (0–30)")
-        }
     }
 
     // MARK: - Actions
@@ -175,16 +170,6 @@ struct DetailAlimentSheet: View {
             }
         }
         saisieQuantiteTexte = ""
-    }
-
-    private func appliquerSaisieDose() {
-        let texte = saisieDoseTexte.replacingOccurrences(of: ",", with: ".")
-        if let valeur = Double(texte), valeur > 0 {
-            doseInsuline = min(30, valeur)
-        } else {
-            doseInsuline = nil
-        }
-        saisieDoseTexte = ""
     }
 
     // MARK: - En-tête
@@ -381,62 +366,15 @@ struct DetailAlimentSheet: View {
         }
     }
 
-    /// Row dose : stepper visuel − / valeur tappable / +.
+    /// Row dose — `StepperDose` partagé (même geste que la dose globale du
+    /// repas, la correction et les ajustements). Dose optionnelle : revenir à
+    /// 0 efface la dose (« — ») plutôt que d'afficher « 0u ».
     private var rowDose: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Dose")
                 .font(.body)
 
-            HStack {
-                // Bouton moins
-                boutonStepper(systemImage: "minus") {
-                    let actuelle = doseInsuline ?? 0
-                    let nouvelle = actuelle - 0.5
-                    doseInsuline = nouvelle < 0.5 ? nil : nouvelle
-                }
-                .disabled((doseInsuline ?? 0) < 0.5)
-
-                Spacer()
-
-                // Valeur centrale tappable
-                Button {
-                    saisieDoseTexte = doseInsuline.map { String(format: "%.1f", $0) } ?? ""
-                    afficherSaisieDose = true
-                } label: {
-                    HStack(alignment: .lastTextBaseline, spacing: 2) {
-                        if let dose = doseInsuline {
-                            Text(String(format: "%.1f", dose))
-                                .font(.title2.bold())
-                                .foregroundStyle(.primary)
-                                .contentTransition(.numericText())
-                                // easeOut au lieu de spring : un spring même
-                                // léger overshoote, et avec
-                                // `.contentTransition(.numericText())` cet
-                                // overshoot affichait des valeurs
-                                // intermédiaires fantômes (ex : 1.5
-                                // pendant la transition 0.5 → 1.0).
-                                .animation(.easeOut(duration: 0.2), value: doseInsuline)
-                            Text("u")
-                                .font(.body.bold())
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Text("—")
-                                .font(.title2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-
-                Spacer()
-
-                // Bouton plus
-                boutonStepper(systemImage: "plus") {
-                    let nouvelle = (doseInsuline ?? 0) + 0.5
-                    if nouvelle <= 30 { doseInsuline = nouvelle }
-                }
-                .disabled((doseInsuline ?? 0) >= 30)
-            }
+            StepperDose(valeur: $doseInsuline, plage: 0...30)
         }
         .padding(.vertical, 4)
     }
@@ -476,18 +414,6 @@ struct DetailAlimentSheet: View {
         .frame(maxWidth: .infinity)
     }
 
-    /// Bouton carré du stepper visuel (+ ou −).
-    @ViewBuilder
-    private func boutonStepper(systemImage: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.body.bold())
-                .frame(width: 36, height: 36)
-                .background(Color(.tertiarySystemFill))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-        }
-        .buttonStyle(.plain)
-    }
 }
 
 // MARK: - Prévisualisation

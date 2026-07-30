@@ -37,13 +37,28 @@ struct RepasSheet: View {
         _ doseInjectee: Double,
         _ site: SiteInjection,
         _ heure: Date,
-        _ doseGlobale: Double?
+        _ doseGlobale: Double?,
+        _ doseCorrection: Double,
+        _ ajustements: [Ajustement],
+        _ contexteLibre: String?,
+        _ exclureDesAnalyses: Bool
     ) -> Void
 
     // MARK: - État interne
 
     @State private var ajustements: [Ajustement] = []
     @State private var correctionHyper: Double = 0
+    /// Événement contextuel en texte libre — saisie ajoutée en lot 2 (section
+    /// UI dédiée) ; câblé dès maintenant pour ne toucher la signature de
+    /// validation qu'une seule fois.
+    @State private var contexteLibre: String = ""
+    /// Choix **explicite** de l'utilisateur sur l'exclusion des analyses.
+    /// `nil` = jamais touché, la valeur suit alors la suggestion automatique
+    /// (`exclusionSuggeree`). Un `Bool` simple ne suffit pas : il faut
+    /// distinguer « décoché parce que l'utilisateur l'a décoché » de
+    /// « décoché par défaut », sinon la suggestion automatique écraserait le
+    /// choix manuel à chaque changement d'aliment.
+    @State private var exclusionManuelle: Bool? = nil
     @State private var siteInjection: SiteInjection = .parDefaut
 
     /// Mode « dose globale » : une seule dose pour tout le repas au lieu
@@ -74,6 +89,10 @@ struct RepasSheet: View {
     /// Service hub des repas — expose la dérivation `derniereZoneRapide()` pour
     /// l'avertissement anti-lipodystrophie du sélecteur de site.
     @Environment(RepasService.self) private var repasService
+
+    /// Mining R1 (ratio observé) — cache déjà calculé, lu tel quel (pas de
+    /// recalcul à chaque frappe de saisie, voir `AnalyseRatioService`).
+    @Environment(AnalyseRatioService.self) private var analyseRatioService
 
     /// Contexte du hub — alimente les insights réels (sport récent, IOB).
     @Environment(\.modelContext) private var modelContext
@@ -130,6 +149,47 @@ struct RepasSheet: View {
         max(0, doseBaseRepas + totalAjustements)
     }
 
+    // MARK: - Exclusion des analyses
+
+    /// Repas sans aucune insuline : la réponse glycémique n'est pas
+    /// interprétable (c'est exactement le cas `EtatAnalyse.sansInjection` de
+    /// l'assembleur), donc l'exclure des analyses n'est pas un choix mais un
+    /// constat — le toggle est forcé et désactivé.
+    private var exclusionForcee: Bool {
+        !aliments.isEmpty && totalInjecte == 0
+    }
+
+    /// Repas de pur resucrage : tous les aliments sont marqués « pris pour
+    /// traiter une hypoglycémie » et aucun ne porte de dose. Ce n'est pas un
+    /// repas ordinaire, sa réponse glycémique polluerait le mining du ratio —
+    /// on le pré-coche, mais l'utilisateur reste libre de décocher.
+    /// La condition « aucune insuline par aliment » est explicite : un
+    /// resucrage bolusé (rare mais possible) reste un repas analysable.
+    private var exclusionSuggeree: Bool {
+        !aliments.isEmpty
+            && aliments.allSatisfy { $0.resucrage }
+            && aliments.allSatisfy { ($0.doseInsuline ?? 0) == 0 }
+    }
+
+    /// Valeur effective du toggle : le forçage prime, puis le choix manuel,
+    /// puis la suggestion automatique.
+    private var exclureDesAnalyses: Bool {
+        if exclusionForcee { return true }
+        return exclusionManuelle ?? exclusionSuggeree
+    }
+
+    /// Explication affichée sous le toggle — `nil` quand l'état courant n'a
+    /// rien d'automatique à justifier.
+    private var raisonExclusionAuto: String? {
+        if exclusionForcee {
+            return "Ce repas n'a aucune dose d'insuline : sa réponse glycémique n'est pas analysable."
+        }
+        if exclusionManuelle == nil && exclusionSuggeree {
+            return "Tous les aliments sont marqués comme resucrage — pré-coché, décochable si besoin."
+        }
+        return nil
+    }
+
     private var contexteInsights: ContexteInsights {
         // T0 = heure du repas (réglable, préremplie à l'heure actuelle), et la
         // section (pour le ratio par moment) en découle via les horaires du profil.
@@ -142,7 +202,9 @@ struct RepasSheet: View {
             glucides: glucidesTotal,
             heure: heureRepas,
             section: section,
-            contexte: modelContext
+            contexte: modelContext,
+            analyseRatioObserve: analyseRatioService.analyse,
+            ajustements: ajustements
         )
     }
 
@@ -153,6 +215,9 @@ struct RepasSheet: View {
         // compris la section "Alertes". Les cartes ont une cornerRadius
         // qui matche le clip arrondi des sections de `Form.grouped` (~10pt)
         // pour que leurs bordures ne soient pas coupées aux coins.
+        //
+        // Ordre voulu : ce qu'on saisit (date, aliments, contexte), puis la
+        // dose, puis ce qui la commente (alertes), puis le site d'injection.
         VStack(spacing: 0) {
             EnTeteSheet(
                 nombreAliments: aliments.count,
@@ -168,7 +233,9 @@ struct RepasSheet: View {
                     onAjouterUnAliment: onAjouterUnAliment
                 )
 
-                InsightsSection(contexte: contexteInsights)
+                SectionContexteRepas(contexteLibre: $contexteLibre)
+
+                sectionExclusionAnalyses
 
                 InsulineSection(
                     doseRepas: doseTotaleRepas,
@@ -179,6 +246,13 @@ struct RepasSheet: View {
                     onAjouterAjustement: { sheetAjustement = .ajout },
                     onEditerAjustement: { sheetAjustement = .edition($0) }
                 )
+
+                // Alertes placées juste **après** la section insuline : elles
+                // commentent la dose (écart au ratio, sport récent, IOB), et
+                // en haut du formulaire elles étaient hors écran au moment
+                // précis où on saisit cette dose — donc invisibles quand
+                // elles comptent le plus.
+                InsightsSection(contexte: contexteInsights)
 
                 // Site d'injection : visible seulement si une dose effective
                 // est prévue. Sans injection, la zone n'a pas de sens.
@@ -191,11 +265,17 @@ struct RepasSheet: View {
                 }
             }
             .formStyle(.grouped)
+            .scrollDismissesKeyboard(.interactively)
         }
         .safeAreaInset(edge: .bottom) {
             BoutonValiderRepas(
                 nombreAliments: aliments.count,
-                onValider: { onValiderRepas(totalInjecte, siteInjection, heureRepas, doseGlobale) }
+                onValider: {
+                    onValiderRepas(
+                        totalInjecte, siteInjection, heureRepas, doseGlobale, correctionHyper,
+                        ajustements, contexteLibre.isEmpty ? nil : contexteLibre, exclureDesAnalyses
+                    )
+                }
             )
         }
         // Dernier aliment supprimé (swipe dans ListeAlimentsSection) → plus
@@ -218,7 +298,10 @@ struct RepasSheet: View {
             switch item {
             case .ajout:
                 AjustementSheet(
-                    ajustementInitial: Ajustement(raison: .sportRecent, valeur: -0.5),
+                    ajustementInitial: Ajustement(
+                        raison: .sportRecent, valeur: -0.5,
+                        typeSportDetecte: contexteInsights.sport?.typeSport
+                    ),
                     onValider: { nouveau in
                         ajustements.append(nouveau)
                     }
@@ -245,6 +328,32 @@ struct RepasSheet: View {
                 site: $siteInjection,
                 derniereZoneRapide: derniereZoneRapide
             )
+        }
+    }
+
+    // MARK: - Section exclusion des analyses
+
+    /// Toggle d'exclusion + son explication quand l'état est automatique.
+    /// Désactivé (et forcé à « oui ») quand le repas n'a aucune dose : il n'y
+    /// a alors rien à analyser, laisser le choix serait trompeur.
+    private var sectionExclusionAnalyses: some View {
+        Section {
+            Toggle(
+                "Exclure des analyses",
+                isOn: Binding(
+                    get: { exclureDesAnalyses },
+                    set: { exclusionManuelle = $0 }
+                )
+            )
+            .disabled(exclusionForcee)
+        } footer: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Ignore ce repas dans les analyses statistiques (ratio observé, repas à revoir) — il reste visible partout ailleurs.")
+                if let raison = raisonExclusionAuto {
+                    Text(raison)
+                        .foregroundStyle(.orange)
+                }
+            }
         }
     }
 
@@ -304,9 +413,10 @@ private let _previewAlimentsRepas: [EntreeAliment] = [
     RepasSheet(
         aliments: $aliments,
         onAjouterUnAliment: {},
-        onValiderRepas: { _, _, _, _ in }
+        onValiderRepas: { _, _, _, _, _, _, _, _ in }
     )
     .environment(RepasService.apercu())
+    .environment(AnalyseRatioService())
     .modelContainer(for: [Injection.self, ActiviteSportive.self], inMemory: true)
 }
 
@@ -315,8 +425,9 @@ private let _previewAlimentsRepas: [EntreeAliment] = [
     RepasSheet(
         aliments: $aliments,
         onAjouterUnAliment: {},
-        onValiderRepas: { _, _, _, _ in }
+        onValiderRepas: { _, _, _, _, _, _, _, _ in }
     )
     .environment(RepasService.apercu())
+    .environment(AnalyseRatioService())
     .modelContainer(for: [Injection.self, ActiviteSportive.self], inMemory: true)
 }

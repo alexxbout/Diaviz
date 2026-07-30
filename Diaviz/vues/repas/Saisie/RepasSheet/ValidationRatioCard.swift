@@ -74,7 +74,46 @@ struct ValidationRatioCard: View {
                     .monospacedDigit()
                     .padding(.top, 2)
             }
+
+            // Observation R1 (mining du ratio observé) : jamais une dose à
+            // utiliser, toujours restituée avec ses dénominateurs bruts.
+            if let ecartObserve = validation.ecartObserve {
+                Text(ligneEcartObserve(ecartObserve))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 2)
+            }
+
+            // Écarts des groupes d'ajustement présents sur ce repas (sport
+            // récent, repas gras…) — groupe séparé du ratio de base, jamais
+            // fusionné (voir GroupeRatio).
+            ForEach(validation.ecartsAjustements) { item in
+                Text(ligneEcartAjustement(item))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 2)
+            }
         }
+    }
+
+    /// Formulation factuelle de l'écart observé — jamais « utilise tel ratio »,
+    /// toujours les décomptes bruts.
+    private func ligneEcartObserve(_ ecart: EcartRatioObserve) -> String {
+        let optimal = Int((ecart.tauxOptimal * 100).rounded())
+        let configure = Int((ecart.tauxConfigure * 100).rounded())
+        return "Tes repas à \(ecart.trancheOptimale.libelle) ont \(optimal) % de bons résultats "
+            + "(\(ecart.bonsOptimal)/\(ecart.effectifOptimal)), contre \(configure) % "
+            + "(\(ecart.bonsConfigure)/\(ecart.effectifConfigure)) à ton ratio actuel."
+    }
+
+    /// Formulation factuelle de l'écart pour un groupe d'ajustement — même
+    /// principe, libellé de la raison au lieu du moment.
+    private func ligneEcartAjustement(_ item: EcartAjustementObserve) -> String {
+        let optimal = Int((item.ecart.tauxOptimal * 100).rounded())
+        let configure = Int((item.ecart.tauxConfigure * 100).rounded())
+        return "Tes repas avec « \(item.raison.libelle.lowercased()) » à \(item.ecart.trancheOptimale.libelle) ont "
+            + "\(optimal) % de bons résultats (\(item.ecart.bonsOptimal)/\(item.ecart.effectifOptimal)), contre "
+            + "\(configure) % (\(item.ecart.bonsConfigure)/\(item.ecart.effectifConfigure)) à ton ratio actuel."
     }
 
     /// Badge profil ratio : capsule teintée d'accent avec icône "détection

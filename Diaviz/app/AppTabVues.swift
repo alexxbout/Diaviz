@@ -66,6 +66,11 @@ struct AppTabVues: View {
     @State private var analyseEndormissementService = AnalyseEndormissementService()
     @State private var analyseCorrectionsService = AnalyseCorrectionsService()
 
+    /// Service du mining R1 (ratio observé) — cache mémoire recalculé sur
+    /// mutation du hub, pas à chaque frappe de saisie. Lit `repasService.repas`
+    /// directement, aucun fetch SwiftData séparé.
+    @State private var analyseRatioService = AnalyseRatioService()
+
     /// Contexte SwiftData du hub (pour récupérer le `ModelContainer`).
     @Environment(\.modelContext) private var modelContext
 
@@ -116,8 +121,10 @@ struct AppTabVues: View {
         .environment(analyseBasaleService)
         .environment(analyseEndormissementService)
         .environment(analyseCorrectionsService)
+        .environment(analyseRatioService)
         .task {
             repasService.demarrer(contexte: modelContext)
+            analyseRatioService.recalculer(depuis: repasService.repas)
             scoreService.demarrer(contexte: modelContext)
             // B1 doit être démarré (et son `analyse` à jour) avant B2/B3, qui
             // lisent `analyseBasaleService.analyse` — d'où l'attente séquentielle.
@@ -143,6 +150,9 @@ struct AppTabVues: View {
             // glycémiques des repas (au démarrage elles étaient toutes en
             // attente, faute de glycémies encore chargées).
             repasService.rafraichirAnalyses()
+            // Les verdicts persistés viennent de changer (repas passés de
+            // enAttente à disponible) : remine le ratio observé.
+            analyseRatioService.recalculer(depuis: repasService.repas)
         }
         .sheet(isPresented: $afficherScoreMatin) {
             SheetScoreMatin(
