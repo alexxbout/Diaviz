@@ -43,7 +43,11 @@ nonisolated enum CalculRepasARevoir {
     // MARK: - Point d'entrée
 
     static func analyser(
-        repas: [Repas], horairesRepas: HorairesRepas, maintenant: Date = Date()
+        repas: [Repas],
+        injections: [Injection] = [],
+        activites: [ActiviteSportive] = [],
+        horairesRepas: HorairesRepas,
+        maintenant: Date = Date()
     ) -> [RepasARevoir] {
         let borne = maintenant.addingTimeInterval(-Double(fenetreJours) * 86_400)
         let recents = repas.filter { $0.heure >= borne && !$0.exclureDesAnalyses }
@@ -54,7 +58,15 @@ nonisolated enum CalculRepasARevoir {
             groupes[signature(r), default: []].append(r)
         }
 
-        let cartes = groupes.values.compactMap { construireCarte($0, horairesRepas: horairesRepas) }
+        let cartes = groupes.values.compactMap {
+            construireCarte(
+                $0,
+                horairesRepas: horairesRepas,
+                injections: injections,
+                activites: activites,
+                tousRepas: recents
+            )
+        }
 
         return cartes
             .sorted(by: plusSevereEnPremier)
@@ -77,7 +89,13 @@ nonisolated enum CalculRepasARevoir {
 
     // MARK: - Construction d'une carte
 
-    private static func construireCarte(_ membres: [Repas], horairesRepas: HorairesRepas) -> RepasARevoir? {
+    private static func construireCarte(
+        _ membres: [Repas],
+        horairesRepas: HorairesRepas,
+        injections: [Injection],
+        activites: [ActiviteSportive],
+        tousRepas: [Repas]
+    ) -> RepasARevoir? {
         let tries = membres.sorted { $0.heure < $1.heure }
         guard let dernier = tries.last,
               case .disponible(let reponseDerniere) = dernier.etatAnalyse,
@@ -116,21 +134,90 @@ nonisolated enum CalculRepasARevoir {
             estHypo: estHypo,
             glucidesMin: glucidesValeurs.min() ?? glucidesRef,
             glucidesMax: glucidesValeurs.max() ?? glucidesRef,
-            libelleSection: libelleSectionAvecRatio(dernier, horairesRepas: horairesRepas),
-            badgesAjustements: badgesAjustements(dernier)
+            libelleSection: SectionRepas(heure: dernier.heure, horaires: horairesRepas).titre,
+            badgesAjustements: badgesAjustements(dernier),
+            ratioApplique: dernier.ratioEffectifPersiste,
+            evenements: evenements(
+                pour: dernier, injections: injections, activites: activites, tousRepas: tousRepas
+            ),
+            heureDerniereOccurrence: dernier.heure
         )
     }
 
-    /// Badge « Déjeuner · 1u/12g » — moment de la journée + ratio effectif du
-    /// repas (grammes de glucides par unité, déjà persisté). Le ratio prime
-    /// sur les glucides bruts (déjà affichés en fourchette plus bas sur la
-    /// carte) : c'est lui qui explique le verdict, pas la quantité seule. Pas
-    /// de ratio affiché si `ratioEffectifPersiste` est inconnu (repli gracieux).
+    /// Fenêtre d'affichage des événements sur la courbe — même horizon que
+    /// `courbeAffichage` (0…240 min = 4h, alignée sur `AssembleurReponseRepas.finFenetre`),
+    /// pour qu'aucun marqueur ne tombe hors du graphe.
+    ///
+    /// Était fixée à 180 min : une hypo survenant après (fréquent, le pic
+    /// post-prandial redescend souvent après 3h) avait son `PointMark` calculé
+    /// sur la courbe complète mais jamais dessiné, le domaine du graphe
+    /// s'arrêtant avant — l'événement le plus important de la carte restait
+    /// invisible.
+    static let fenetreEvenementsMinutes = 240
+
+    /// Faits du hub survenus pendant la fenêtre post-repas, convertis en
+    /// minutes depuis T0 : bolus du repas, corrections rapides, lente, autres
+    /// repas, séances de sport. C'est ce qui permet de lire *pourquoi* la
+    /// courbe a cette forme sans quitter l'accueil.
+    ///
+    /// Le sport est le seul fait à porter une durée (rendu en bande) et le
+    /// seul retenu s'il **chevauche** la fenêtre plutôt que d'y commencer :
+    /// une séance démarrée avant le repas continue d'agir après.
     /// Non-`private` : réutilisée par `CalculRepasContexte`.
-    static func libelleSectionAvecRatio(_ repas: Repas, horairesRepas: HorairesRepas) -> String {
-        let section = SectionRepas(heure: repas.heure, horaires: horairesRepas)
-        guard let ratio = repas.ratioEffectifPersiste else { return section.titre }
-        return "\(section.titre) · 1u/\(Int(ratio.rounded()))g"
+    static func evenements(
+        pour repas: Repas,
+        injections: [Injection],
+        activites: [ActiviteSportive],
+        tousRepas: [Repas]
+    ) -> [EvenementCourbe] {
+        let t0 = repas.heure
+        let fin = t0.addingTimeInterval(Double(fenetreEvenementsMinutes) * 60)
+        func minutes(_ date: Date) -> Int { Int(date.timeIntervalSince(t0) / 60) }
+
+        var resultat: [EvenementCourbe] = []
+
+        // Bolus du repas lui-même — à T0, quelle que soit l'heure exacte de
+        // l'injection liée (le décalage de saisie n'a pas de sens à afficher).
+        // Libellé explicite (« Bolus repas 5,5 u ») plutôt que la seule dose :
+        // sans le nom, rien ne distingue un bolus d'une correction ou d'une
+        // lente dans la légende sous le graphe.
+        if repas.totalInsuline > 0 {
+            resultat.append(EvenementCourbe(
+                genre: .bolusRepas, minutes: 0,
+                libelle: "Bolus repas \(repas.totalInsuline.doseInsulineFormatee)"
+            ))
+        }
+
+        for injection in injections where injection.heure > t0 && injection.heure <= fin {
+            // Le bolus du repas est déjà posé à T0 ci-dessus.
+            guard injection.repasAssocieId != repas.id else { continue }
+            let genre: EvenementCourbe.Genre = injection.type == .lente ? .lente : .correction
+            let nom = injection.type == .lente ? "Lente" : "Correction"
+            resultat.append(EvenementCourbe(
+                genre: genre, minutes: minutes(injection.heure),
+                libelle: "\(nom) \(injection.dose.doseInsulineFormatee)"
+            ))
+        }
+
+        for autre in tousRepas where autre.id != repas.id && autre.heure > t0 && autre.heure <= fin {
+            resultat.append(EvenementCourbe(
+                genre: .repas, minutes: minutes(autre.heure),
+                libelle: "Repas \(autre.totalGlucides) g"
+            ))
+        }
+
+        for activite in activites where activite.dateFin > t0 && activite.dateDebut <= fin {
+            let debut = max(minutes(activite.dateDebut), 0)
+            let finSeance = min(minutes(activite.dateFin), fenetreEvenementsMinutes)
+            resultat.append(EvenementCourbe(
+                genre: .sport,
+                minutes: debut,
+                dureeMinutes: max(finSeance - debut, 1),
+                libelle: "\(activite.type.rawValue) \(activite.dureeMinutes) min"
+            ))
+        }
+
+        return resultat.sorted { $0.minutes < $1.minutes }
     }
 
     /// Badges d'ajustement affichables (« Sport récent · Course à pied »),
@@ -145,13 +232,14 @@ nonisolated enum CalculRepasARevoir {
         }
     }
 
-    /// Courbe pour affichage — tronquée à 0…180 min pour matcher le domaine
-    /// fixe du mini-chart existant (`CarteRepasARevoir`, non modifié ici).
+    /// Courbe pour affichage — tronquée à 0…240 min (4h) pour matcher le
+    /// domaine du graphe (`CarteRepasARevoir`/`LigneRepasARevoir`) et la
+    /// fenêtre réelle d'analyse post-repas (`AssembleurReponseRepas.finFenetre`).
     /// Non-`private` : réutilisée par `CalculRepasContexte`.
     static func courbeAffichage(_ repas: Repas) -> [PointCourbeRepas]? {
         guard case .disponible(let reponse) = repas.etatAnalyse else { return nil }
         return reponse.pointsCgm
-            .filter { $0.secondesDepuisRepas >= 0 && $0.secondesDepuisRepas <= 180 * 60 }
+            .filter { $0.secondesDepuisRepas >= 0 && $0.secondesDepuisRepas <= Double(fenetreEvenementsMinutes) * 60 }
             .map { PointCourbeRepas(minutes: Int($0.secondesDepuisRepas / 60), glycemie: $0.valeur) }
     }
 

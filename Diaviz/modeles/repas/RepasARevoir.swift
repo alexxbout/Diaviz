@@ -8,6 +8,15 @@
 import Foundation
 import SwiftUI
 
+// Capitalise uniquement la première lettre — `String.capitalized` capitalise
+// CHAQUE mot et transformerait « lun. 12 juin » en « Lun. 12 Juin ».
+private extension String {
+    var capitalizedFirstLetter: String {
+        guard let premiere = first else { return self }
+        return String(premiere).uppercased() + dropFirst()
+    }
+}
+
 // MARK: - Point de courbe
 
 /// Point unique d'une courbe de réponse glycémique post-repas, indexé
@@ -20,6 +29,73 @@ struct PointCourbeRepas: Identifiable, Sendable {
     let minutes: Int
     /// Glycémie en mg/dL.
     let glycemie: Double
+}
+
+// MARK: - Événement sur la courbe
+
+/// Un fait du hub survenu **pendant** la fenêtre post-repas, superposé à la
+/// courbe pour expliquer sa forme : bolus du repas, correction, lente, autre
+/// repas, séance de sport.
+///
+/// Positionné en minutes depuis T0 (instant du repas), comme
+/// `PointCourbeRepas` — la carte n'a donc aucune date à manipuler.
+struct EvenementCourbe: Identifiable, Sendable {
+
+    /// Nature du fait — pilote la couleur, le symbole et le rendu (marqueur
+    /// ponctuel vs bande de durée pour le sport).
+    enum Genre: Sendable {
+        /// Bolus du repas lui-même, à T0.
+        case bolusRepas
+        /// Correction rapide hors repas pendant la fenêtre.
+        case correction
+        /// Injection d'insuline lente tombant dans la fenêtre.
+        case lente
+        /// Autre repas pris pendant la fenêtre (en-cas, resucrage…).
+        case repas
+        /// Séance sportive chevauchant la fenêtre — seul genre à avoir une
+        /// durée, rendu en bande de fond.
+        case sport
+    }
+
+    let id = UUID()
+    let genre: Genre
+    /// Minutes depuis T0 du repas analysé.
+    let minutes: Int
+    /// Durée en minutes — renseignée pour le sport uniquement, `nil` pour les
+    /// faits ponctuels.
+    let dureeMinutes: Int?
+    /// Libellé compact affiché en légende sous le graphe (« 5,5 u », « Course
+    /// 45 min »).
+    let libelle: String
+
+    init(genre: Genre, minutes: Int, dureeMinutes: Int? = nil, libelle: String) {
+        self.genre = genre
+        self.minutes = minutes
+        self.dureeMinutes = dureeMinutes
+        self.libelle = libelle
+    }
+
+    /// Couleur sémantique — alignée sur `TypeInsuline.couleur` pour les
+    /// injections, afin que le violet « bolus repas » ou le bleu « lente »
+    /// veuillent dire la même chose ici et dans l'onglet Médications.
+    var couleur: Color {
+        switch genre {
+        case .bolusRepas: .purple
+        case .correction: .orange
+        case .lente:      .blue
+        case .repas:      .pink
+        case .sport:      .green
+        }
+    }
+
+    /// SF Symbol du marqueur, repris des icônes déjà utilisées par domaine.
+    var symbole: String {
+        switch genre {
+        case .bolusRepas, .correction, .lente: "syringe.fill"
+        case .repas:                            "fork.knife"
+        case .sport:                            "figure.run"
+        }
+    }
 }
 
 // MARK: - Badge d'ajustement
@@ -46,6 +122,11 @@ struct BadgeAjustement: Identifiable {
 /// regroupées = repas prévisible, courbes étalées = repas chaotique.
 struct RepasARevoir: Identifiable {
     let id = UUID()
+
+    /// Horizon d'affichage des courbes/événements — 4h post-repas, alignée
+    /// sur `AssembleurReponseRepas.finFenetre` et `CalculRepasARevoir.fenetreEvenementsMinutes`.
+    /// Domaine X partagé par `CarteRepasARevoir` et `LigneRepasARevoir`.
+    static let fenetreAffichageMinutes = 240
 
     /// Aliments du repas. L'aliment le plus glucidique pilote l'emoji
     /// et le nom affichés en titre de la carte.
@@ -99,6 +180,23 @@ struct RepasARevoir: Identifiable {
     /// les cartes « Repas à revoir » classiques.
     let contexteAffiche: String?
 
+    /// Ratio effectif du **dernier** repas (grammes de glucides couverts par
+    /// 1 unité), déjà persisté sur le repas. Affiché en pied de carte à la
+    /// place des glucides bruts : c'est lui qui explique le verdict, la
+    /// quantité seule ne dit rien sans la dose en face.
+    let ratioApplique: Double?
+
+    /// Faits du hub survenus pendant la fenêtre post-repas du **dernier**
+    /// repas (bolus, corrections, lente, autres repas, sport), superposés à
+    /// la courbe colorée. Vide si rien à signaler.
+    let evenements: [EvenementCourbe]
+
+    /// Horodatage du **dernier** repas du groupe — affiché à droite du titre
+    /// pour distinguer deux cartes qui partagent le même moment (« Petit
+    /// déjeuner » × plusieurs jours) une fois le titre passé du nom de
+    /// l'aliment au moment de la journée.
+    let heureDerniereOccurrence: Date
+
     init(
         aliments: [Aliment],
         nombreOccurrences: Int,
@@ -111,7 +209,10 @@ struct RepasARevoir: Identifiable {
         glucidesMax: Int,
         libelleSection: String = "",
         badgesAjustements: [BadgeAjustement] = [],
-        contexteAffiche: String? = nil
+        contexteAffiche: String? = nil,
+        ratioApplique: Double? = nil,
+        evenements: [EvenementCourbe] = [],
+        heureDerniereOccurrence: Date = Date()
     ) {
         self.aliments = aliments
         self.nombreOccurrences = nombreOccurrences
@@ -125,6 +226,9 @@ struct RepasARevoir: Identifiable {
         self.libelleSection = libelleSection
         self.badgesAjustements = badgesAjustements
         self.contexteAffiche = contexteAffiche
+        self.ratioApplique = ratioApplique
+        self.evenements = evenements
+        self.heureDerniereOccurrence = heureDerniereOccurrence
     }
 
     // MARK: Computed
@@ -171,6 +275,62 @@ struct RepasARevoir: Identifiable {
     /// ▼ pour une hypo.
     var symboleEvenement: String {
         estHypo ? "▼" : "▲"
+    }
+
+    /// Ratio formaté « 1u/12g ». `nil` quand le repas n'a pas de ratio
+    /// effectif persisté (repli gracieux : le pied de carte l'omet).
+    var ratioFormate: String? {
+        guard let ratioApplique, ratioApplique > 0 else { return nil }
+        return "1u/\(Int(ratioApplique.rounded()))g"
+    }
+
+    /// Date/heure relative de la dernière occurrence — « Hier · 8h15 »,
+    /// « Aujourd'hui · 12h30 », ou « Lun. 12 juin · 8h15 » au-delà. Distingue
+    /// deux cartes qui partagent le même titre (le moment de la journée)
+    /// depuis que celui-ci a remplacé le nom de l'aliment.
+    var libelleDate: String {
+        let cal = Calendar.current
+        let jour: String
+        if cal.isDateInToday(heureDerniereOccurrence) {
+            jour = "Aujourd'hui"
+        } else if cal.isDateInYesterday(heureDerniereOccurrence) {
+            jour = "Hier"
+        } else {
+            jour = Self.formatterJourCourt.string(from: heureDerniereOccurrence).capitalizedFirstLetter
+        }
+        return "\(jour) · \(Self.formatterHeure.string(from: heureDerniereOccurrence))"
+    }
+
+    private static let formatterJourCourt: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "fr_FR")
+        f.dateFormat = "EEE d MMM"
+        return f
+    }()
+
+    private static let formatterHeure: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "fr_FR")
+        f.dateFormat = "H'h'mm"
+        return f
+    }()
+
+    /// Domaine Y du graphe, **adapté aux données** au lieu d'un `50…300` figé :
+    /// sur un repas qui plafonne à 130, un domaine fixe écrasait toute la
+    /// courbe dans le bas du cadre et ne montrait plus rien. Marge de 15 mg/dL
+    /// de part et d'autre, bornes élargies pour toujours contenir les seuils
+    /// pertinents (70 si une hypo existe, 180 comme repère de cible).
+    var domaineY: ClosedRange<Double> {
+        let valeurs = pointsDerniereFois.map(\.glycemie)
+            + pointsOccurrencesPassees.flatMap { $0.map(\.glycemie) }
+        guard let brut = valeurs.min(), let haut = valeurs.max() else { return 50...300 }
+        var bas = brut
+        var plafond = haut
+        // Le repère 180 (cible haute) reste visible dès qu'on s'en approche ;
+        // le repère 70 uniquement si une courbe descend effectivement en hypo.
+        if plafond >= 160 { plafond = max(plafond, 185) }
+        if aHypoDansCourbes { bas = min(bas, 65) }
+        return (bas - 15)...(plafond + 15)
     }
 
     /// Format « 1h15 » ou « 45 min » pour la durée depuis le repas.
@@ -279,7 +439,13 @@ extension RepasARevoir {
         evenementValeur: 235,
         estHypo: false,
         glucidesMin: 55,
-        glucidesMax: 70
+        glucidesMax: 70,
+        libelleSection: "Déjeuner",
+        ratioApplique: 11,
+        evenements: [
+            EvenementCourbe(genre: .bolusRepas, minutes: 0, libelle: "10,5 u"),
+            EvenementCourbe(genre: .correction, minutes: 105, libelle: "2 u"),
+        ]
     )
 
     /// Pizza Margherita + Tiramisu — hyper sévère (265 mg/dL),
@@ -347,7 +513,13 @@ extension RepasARevoir {
         evenementValeur: 265,
         estHypo: false,
         glucidesMin: 80,
-        glucidesMax: 95
+        glucidesMax: 95,
+        libelleSection: "Dîner",
+        ratioApplique: 9,
+        evenements: [
+            EvenementCourbe(genre: .bolusRepas, minutes: 0, libelle: "8,5 u"),
+            EvenementCourbe(genre: .lente, minutes: 150, libelle: "18 u"),
+        ]
     )
 
     /// California roll — pic en cible (175 mg/dL), 2 occurrences
@@ -472,6 +644,13 @@ extension RepasARevoir {
         evenementValeur: 62,
         estHypo: true,
         glucidesMin: 60,
-        glucidesMax: 75
+        glucidesMax: 75,
+        libelleSection: "Dîner",
+        ratioApplique: 10,
+        evenements: [
+            EvenementCourbe(genre: .bolusRepas, minutes: 0, libelle: "6,5 u"),
+            EvenementCourbe(genre: .sport, minutes: 30, dureeMinutes: 45, libelle: "Marche 45 min"),
+            EvenementCourbe(genre: .repas, minutes: 135, libelle: "15 g"),
+        ]
     )
 }

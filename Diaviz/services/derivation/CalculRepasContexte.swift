@@ -24,7 +24,13 @@ nonisolated enum CalculRepasContexte {
     static let fenetreJours = CalculRepasARevoir.fenetreJours
     static let maxCartes = 10
 
-    static func analyser(repas: [Repas], horairesRepas: HorairesRepas, maintenant: Date = Date()) -> [RepasARevoir] {
+    static func analyser(
+        repas: [Repas],
+        injections: [Injection] = [],
+        activites: [ActiviteSportive] = [],
+        horairesRepas: HorairesRepas,
+        maintenant: Date = Date()
+    ) -> [RepasARevoir] {
         let borne = maintenant.addingTimeInterval(-Double(fenetreJours) * 86_400)
 
         let cartes = repas.compactMap { r -> RepasARevoir? in
@@ -52,9 +58,14 @@ nonisolated enum CalculRepasContexte {
                 estHypo: estHypo,
                 glucidesMin: r.totalGlucides,
                 glucidesMax: r.totalGlucides,
-                libelleSection: CalculRepasARevoir.libelleSectionAvecRatio(r, horairesRepas: horairesRepas),
+                libelleSection: SectionRepas(heure: r.heure, horaires: horairesRepas).titre,
                 badgesAjustements: CalculRepasARevoir.badgesAjustements(r),
-                contexteAffiche: r.contexteNormalise ?? contexte
+                contexteAffiche: r.contexteNormalise ?? contexte,
+                ratioApplique: r.ratioEffectifPersiste,
+                evenements: CalculRepasARevoir.evenements(
+                    pour: r, injections: injections, activites: activites, tousRepas: repas
+                ),
+                heureDerniereOccurrence: r.heure
             )
         }
 

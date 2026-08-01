@@ -80,24 +80,55 @@ struct AccueilVue: View {
         return (reels + insights).filter { !idsInsightsSupprimes.contains($0.id) }
     }
 
-    /// Repas signalés « à revoir » — groupes de repas similaires récurrents
-    /// dont la dernière occurrence est sortie de cible (`CalculRepasARevoir`).
-    /// Masquée tant que l'historique global n'atteint pas le seuil R1 (30
-    /// repas analysés, gate appliquée dans le calculateur).
+    /// Injections et activités du hub — servent uniquement à superposer les
+    /// faits (bolus, correction, lente, sport) sur les courbes des cartes
+    /// « Repas à revoir ». Chargées une fois au `task` de la page plutôt qu'à
+    /// chaque recalcul de la propriété dérivée.
+    @State private var injectionsRecentes: [Injection] = []
+    @State private var activitesRecentes: [ActiviteSportive] = []
+
+    /// Repas signalés « à revoir » : les groupes **récurrents** dont la
+    /// dernière occurrence est sortie de cible (`CalculRepasARevoir`) et les
+    /// repas isolés portant un **contexte libre** avec verdict mauvais
+    /// (`CalculRepasContexte`), fusionnés en une seule liste triée par
+    /// sévérité — une seule section les affiche désormais.
+    ///
+    /// Les deux calculateurs restent distincts (recherche de récurrence vs
+    /// fait isolé, seuils de fiabilité différents) : seule la présentation
+    /// fusionne.
     private var repasARevoir: [RepasARevoir] {
-        CalculRepasARevoir.analyser(
+        let horaires = ProfilService.shared.profil.horairesRepas
+        let recurrents = CalculRepasARevoir.analyser(
             repas: repasService.repas,
-            horairesRepas: ProfilService.shared.profil.horairesRepas
+            injections: injectionsRecentes,
+            activites: activitesRecentes,
+            horairesRepas: horaires
         )
+        let contextualises = CalculRepasContexte.analyser(
+            repas: repasService.repas,
+            injections: injectionsRecentes,
+            activites: activitesRecentes,
+            horairesRepas: horaires
+        )
+        return (recurrents + contextualises)
+            .sorted(by: CalculRepasARevoir.plusSevereEnPremier)
     }
 
-    /// Repas isolés avec contexte libre et verdict mauvais — aucun seuil de
-    /// données (ce n'est pas une inférence statistique, juste un fait affiché).
-    private var repasAvecContexte: [RepasARevoir] {
-        CalculRepasContexte.analyser(
-            repas: repasService.repas,
-            horairesRepas: ProfilService.shared.profil.horairesRepas
+    /// Charge les faits du hub utilisés en superposition des courbes. Fenêtre
+    /// alignée sur celle des cartes (`CalculRepasARevoir.fenetreJours`) : rien
+    /// à remonter au-delà, les courbes CGM n'existent plus en mémoire.
+    private func chargerFaitsPourCourbes() {
+        let borne = Date().addingTimeInterval(-Double(CalculRepasARevoir.fenetreJours) * 86_400)
+        let descripteurInjections = FetchDescriptor<Injection>(
+            predicate: #Predicate { $0.heure >= borne },
+            sortBy: [SortDescriptor(\.heure)]
         )
+        let descripteurActivites = FetchDescriptor<ActiviteSportive>(
+            predicate: #Predicate { $0.dateDebut >= borne },
+            sortBy: [SortDescriptor(\.dateDebut)]
+        )
+        injectionsRecentes = (try? modelContext.fetch(descripteurInjections)) ?? []
+        activitesRecentes = (try? modelContext.fetch(descripteurActivites)) ?? []
     }
 
     /// Contexte de la carte « Insuline lente » — **réel**, construit depuis la
@@ -203,11 +234,11 @@ struct AccueilVue: View {
                             )
                         }
 
-                        // Section « Repas à revoir » — scroll horizontal
-                        // des repas sortis de cible avec aliments
-                        // estimés. Auto-masquée quand le tableau est
-                        // vide. Le scroll déborde edge-to-edge en
-                        // annulant le padding 16pt du VStack parent.
+                        // Section « Repas à revoir » — repas récurrents ET
+                        // contextualisés sortis de cible, fusionnés en une
+                        // seule section (le plus sévère en carte détaillée,
+                        // les suivants en lignes compactes). Auto-masquée
+                        // quand le tableau est vide.
                         SectionRepasARevoir(repas: repasARevoir)
                             // Anime uniquement l'apparition/disparition de
                             // cette section — pas tout le VStack — pour que
@@ -218,12 +249,6 @@ struct AccueilVue: View {
                             .animation(
                                 reduceMotion ? nil : .easeOut(duration: 0.3),
                                 value: repasARevoir.count
-                            )
-
-                        SectionRepasContexte(repas: repasAvecContexte)
-                            .animation(
-                                reduceMotion ? nil : .easeOut(duration: 0.3),
-                                value: repasAvecContexte.count
                             )
 
                         // Grille de 4 cartes métriques — aperçu
@@ -296,11 +321,15 @@ struct AccueilVue: View {
                 iobService.demarrer(contexte: modelContext)
                 metriquesService.demarrer(contexte: modelContext)
                 contexteLente = construireContexteLente()
+                chargerFaitsPourCourbes()
             }
             .onAppear {
                 iobService.rafraichir()
                 metriquesService.recharger()
                 contexteLente = construireContexteLente()
+                // Un repas ou une injection ajoutés depuis un autre onglet
+                // doivent apparaître sur les courbes au retour sur l'accueil.
+                chargerFaitsPourCourbes()
                 // Active l'animation de la carte lente au tick SUIVANT : le
                 // changement nil→valeur d'`etatLente` de ce cycle (boot) reste
                 // donc non animé ; seuls les changements ultérieurs (prise de
