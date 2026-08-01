@@ -16,7 +16,7 @@ extension View {
     /// Source unique de vérité pour la surface des cartes — un changement
     /// de design (radius, ombre, bordure subtile) se propage automatiquement
     /// à tous les sites consommateurs (`CarteInsight`, `CarteLenteRappel`,
-    /// `CarteRepasARevoir`, `CarteMetriqueShell`).
+    /// `CarteRepasARevoir`, `GrilleMetriquesAccueil`).
     ///
     /// Pattern `background + clipShape` (et pas `background { Shape.fill }`)
     /// pour que les sous-vues débordantes soient correctement rognées par

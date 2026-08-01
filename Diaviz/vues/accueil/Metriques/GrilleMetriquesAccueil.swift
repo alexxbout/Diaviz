@@ -2,50 +2,18 @@
 //  GrilleMetriquesAccueil.swift
 //  diaviz
 //
-//  Created by Alexandre on 14/05/2026.
-//
 
 import SwiftUI
 
-// MARK: - Coquille partagée
-
-/// Conteneur visuel commun aux 4 cartes de la grille d'accueil :
-/// fond `secondarySystemGroupedBackground` uniforme, corner radius
-/// 16pt, padding interne 16pt. Pas de bordure, **pas de shadow** —
-/// la différenciation des cartes passe **uniquement** par leurs
-/// couleurs d'accents internes (titre, valeur, badge, points du
-/// chart). Cohérent avec le reste de l'app, où seule la carte score
-/// (avec son mesh gradient) porte un relief visuel.
+/// Liste compacte des 4 métriques d'accueil ("Aperçu du jour"), une colonne,
+/// style réglages iOS — remplace l'ancienne grille 2×2 dont les cartes
+/// (Insuline active, Injection, Repas) laissaient un grand vide sous leur
+/// valeur, et mêlaient emoji et SF Symbols au sein de la même grille.
 ///
-/// Factorise les invariants graphiques pour qu'un changement (corner
-/// radius, padding) se propage automatiquement aux 4 cartes.
-struct CarteMetriqueShell<Content: View>: View {
-
-    /// Contenu interne de la carte, composé par la carte appelante.
-    @ViewBuilder let content: () -> Content
-
-    init(@ViewBuilder content: @escaping () -> Content) {
-        self.content = content
-    }
-
-    var body: some View {
-        content()
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .padding(16)
-            // Surface standard des cartes de l'accueil — voir `surfaceCarte()`.
-            .surfaceCarte()
-    }
-}
-
-// MARK: - Grille
-
-/// Grille 2×2 des 4 cartes métriques d'accueil. Spacing 10pt entre
-/// cartes, padding latéral 16pt géré par l'appelant (`AccueilVue`).
-///
-/// Les cartes sont rendues via une LazyVGrid à 2 colonnes flexibles,
-/// ce qui les fait s'étirer à la largeur d'écran tout en restant
-/// alignées. La hauteur minimale (`minCarteHauteur`) garantit un
-/// rendu cohérent même quand le contenu d'une carte est plus court.
+/// Une seule surface (`secondarySystemGroupedBackground`, coin 16pt)
+/// enveloppe les 4 rows séparées par des `Divider`. La row Hypos est la
+/// seule à dépasser la hauteur d'une ligne simple : elle garde son en-tête
+/// compact et déplie un mini-graphe glycémique pleine largeur en dessous.
 struct GrilleMetriquesAccueil: View {
 
     let metriques: MetriquesAccueil
@@ -55,61 +23,42 @@ struct GrilleMetriquesAccueil: View {
     let iobValeur: Double
     let iobPoints: [PointIOB]
 
-    /// Hauteur minimale d'une carte — ~180pt, calée pour accommoder
-    /// les mini-courbes (24pt) ajoutées en bas des cartes Hypos et
-    /// IOB sans écraser les libellés. Les cartes Injection et Repas
-    /// sans graphique s'alignent à la même hauteur grâce au Spacer
-    /// interne de la coquille, qui absorbe la différence.
-    private let minCarteHauteur: CGFloat = 180
-
-    /// Deux colonnes flexibles avec 10pt entre elles — la LazyVGrid
-    /// répartit la largeur restante équitablement.
-    private let colonnes: [GridItem] = [
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10),
-    ]
-
     var body: some View {
-        LazyVGrid(columns: colonnes, spacing: 10) {
-
-            // MARK: Haut-gauche — hypos du jour
+        VStack(spacing: 0) {
             CarteHypos(
                 count: metriques.hyposAujourdhui,
                 severes: metriques.hyposSeveres,
                 legeres: metriques.hyposLegeres,
                 pointsCgm: metriques.pointsCgmJournee
             )
-            .frame(minHeight: minCarteHauteur)
 
-            // MARK: Haut-droite — insuline active
-            CarteIOB(
-                valeur: iobValeur,
-                pointsIOB: iobPoints
-            )
-            .frame(minHeight: minCarteHauteur)
+            Divider().padding(.leading, 58)
 
-            // MARK: Bas-gauche — dernière injection
+            CarteIOB(valeur: iobValeur, pointsIOB: iobPoints)
+
+            Divider().padding(.leading, 58)
+
             CarteDerniereInjection(
                 dose: metriques.derniereInjectionDose,
                 depuis: metriques.derniereInjectionDepuis,
                 type: metriques.derniereInjectionType
             )
-            .frame(minHeight: minCarteHauteur)
 
-            // MARK: Bas-droite — dernier repas
+            Divider().padding(.leading, 58)
+
             CarteDernierRepas(
                 glucides: metriques.dernierRepasGlucides,
                 depuis: metriques.dernierRepasDepuis,
                 emojis: metriques.dernierRepasEmojis
             )
-            .frame(minHeight: minCarteHauteur)
         }
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
 // MARK: - Aperçus
 
-#Preview("Grille - Normal") {
+#Preview("Liste - Normal") {
     ScrollView {
         GrilleMetriquesAccueil(metriques: .mockNormal, iobValeur: MetriquesAccueil.mockNormal.iob, iobPoints: MetriquesAccueil.mockNormal.pointsIOB)
             .padding(16)
@@ -117,7 +66,7 @@ struct GrilleMetriquesAccueil: View {
     .background(Color(.systemGroupedBackground))
 }
 
-#Preview("Grille - Alerte") {
+#Preview("Liste - Alerte") {
     ScrollView {
         GrilleMetriquesAccueil(metriques: .mockAlerte, iobValeur: MetriquesAccueil.mockAlerte.iob, iobPoints: MetriquesAccueil.mockAlerte.pointsIOB)
             .padding(16)
@@ -125,7 +74,7 @@ struct GrilleMetriquesAccueil: View {
     .background(Color(.systemGroupedBackground))
 }
 
-#Preview("Grille - Calme") {
+#Preview("Liste - Calme") {
     ScrollView {
         GrilleMetriquesAccueil(metriques: .mockCalme, iobValeur: MetriquesAccueil.mockCalme.iob, iobPoints: MetriquesAccueil.mockCalme.pointsIOB)
             .padding(16)
@@ -133,7 +82,7 @@ struct GrilleMetriquesAccueil: View {
     .background(Color(.systemGroupedBackground))
 }
 
-#Preview("Grille - Sombre") {
+#Preview("Liste - Sombre") {
     ScrollView {
         GrilleMetriquesAccueil(metriques: .mockNormal, iobValeur: MetriquesAccueil.mockNormal.iob, iobPoints: MetriquesAccueil.mockNormal.pointsIOB)
             .padding(16)
