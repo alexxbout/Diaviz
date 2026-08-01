@@ -200,9 +200,15 @@ nonisolated enum CalculRepasARevoir {
         }
 
         for autre in tousRepas where autre.id != repas.id && autre.heure > t0 && autre.heure <= fin {
+            // Distingue un resucrage (tous les aliments flaggés comme tels)
+            // d'un vrai second repas — sans ça, « Repas 15 g » se lisait
+            // comme le total du repas analysé (celui du titre de la carte),
+            // alors que c'est un fait **distinct** survenu pendant la
+            // fenêtre. Le mot juste évite l'ambiguïté.
+            let estResucrage = !autre.aliments.isEmpty && autre.aliments.allSatisfy(\.resucrage)
             resultat.append(EvenementCourbe(
                 genre: .repas, minutes: minutes(autre.heure),
-                libelle: "Repas \(autre.totalGlucides) g"
+                libelle: "\(estResucrage ? "Resucrage" : "Autre repas") \(autre.totalGlucides) g"
             ))
         }
 

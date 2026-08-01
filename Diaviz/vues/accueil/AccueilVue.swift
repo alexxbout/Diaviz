@@ -136,6 +136,10 @@ struct AccueilVue: View {
     /// `nil` tant que pas chargé → carte masquée.
     @State private var contexteLente: ContexteLente?
 
+    /// Pilote le push de `PageTousRepasARevoir` (bouton « Tout voir » de
+    /// `SectionRepasARevoir`).
+    @State private var afficherTousRepasARevoir = false
+
     /// Pilote l'ouverture de la sheet d'enregistrement de la lente.
     @State private var sheetLenteOuverte: Bool = false
 
@@ -238,8 +242,13 @@ struct AccueilVue: View {
                         // contextualisés sortis de cible, fusionnés en une
                         // seule section (le plus sévère en carte détaillée,
                         // les suivants en lignes compactes). Auto-masquée
-                        // quand le tableau est vide.
-                        SectionRepasARevoir(repas: repasARevoir)
+                        // quand le tableau est vide. « Tout voir » pousse
+                        // `PageTousRepasARevoir` (toutes les cartes en grand,
+                        // sans version repliée).
+                        SectionRepasARevoir(
+                            repas: repasARevoir,
+                            onToutVoir: { afficherTousRepasARevoir = true }
+                        )
                             // Anime uniquement l'apparition/disparition de
                             // cette section — pas tout le VStack — pour que
                             // le peuplement post-fetch (RepasService charge
@@ -283,6 +292,9 @@ struct AccueilVue: View {
             }
             .navigationDestination(item: $jourDetailScore) { jour in
                 DetailScoreVue(jourInitial: jour)
+            }
+            .navigationDestination(isPresented: $afficherTousRepasARevoir) {
+                PageTousRepasARevoir(repas: repasARevoir)
             }
             .alert(
                 "Supprimer cette tendance ?",

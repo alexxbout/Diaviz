@@ -38,6 +38,7 @@ struct CarteRepasARevoir: View {
             ligneAliments
             badges
             graphe
+                .padding(.top, 6)
             pied
             legendeEvenements
         }
