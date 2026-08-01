@@ -29,18 +29,13 @@ struct PileVerticaleInsights: View {
     @Binding var indexActif: Int
 
     /// Appelé quand l'utilisateur demande la suppression de la carte active
-    /// (swipe gauche validé ou appui long) — ne supprime rien ici, se
-    /// contente de notifier le parent qui affiche la confirmation.
+    /// (appui long) — ne supprime rien ici, se contente de notifier le
+    /// parent qui affiche la confirmation.
     var onDemandeSuppression: ((Insight) -> Void)? = nil
 
     /// Translation Y courante issue du drag user. Appliquée
     /// uniquement à la carte du dessus.
     @State private var glissementY: CGFloat = 0
-
-    /// Translation X courante issue du drag user (swipe gauche →
-    /// suppression). Appliquée uniquement à la carte du dessus, toujours
-    /// clampée ≤ 0 (le swipe droite n'a pas d'action associée).
-    @State private var glissementX: CGFloat = 0
 
     /// Verrou actif pendant l'animation de dismiss — empêche le
     /// `DragGesture` de re-déclencher l'action plusieurs fois (le
@@ -70,10 +65,6 @@ struct PileVerticaleInsights: View {
     /// le release). Cale aussi le drag max — la carte file en
     /// dessous dès qu'on atteint cette distance.
     private let seuilAutoDismiss: CGFloat = 100
-
-    /// Distance horizontale (swipe gauche) au-delà de laquelle un release
-    /// déclenche la demande de suppression (confirmation côté parent).
-    private let seuilSwipeGauche: CGFloat = 70
 
     var body: some View {
         // Alignement bas : la carte active (position 0) s'ancre en bas de
@@ -111,7 +102,6 @@ struct PileVerticaleInsights: View {
         // carte active (ancrée en bas), pour une lecture de bas en haut.
         let decalageBase = -CGFloat(item.position) * decalageY
         let dragY: CGFloat = estTop ? glissementY : 0
-        let dragX: CGFloat = estTop ? glissementX : 0
         let echelleBase = 1 - CGFloat(item.position) * echelleParCarte
         let opacite = 1 - Double(item.position) * opaciteParCarte
 
@@ -123,7 +113,7 @@ struct PileVerticaleInsights: View {
 
         CarteInsight(insight: item.insight)
             .frame(height: hauteurCarte)
-            .offset(x: dragX, y: decalageBase + dragY)
+            .offset(y: decalageBase + dragY)
             .scaleEffect(echelle)
             .opacity(opacite)
             .zIndex(Double(-item.position))
@@ -132,11 +122,11 @@ struct PileVerticaleInsights: View {
             // (background translucide entre les éléments texte)
             // ne déclenchaient pas la gesture.
             .contentShape(RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
-            // `.simultaneously` : le drag (cycle vertical / suppression
-            // horizontale) et l'appui long (suppression) coexistent sans
-            // s'annuler — un vrai drag produit une translation qui empêche
-            // le long-press natif de se valider, et inversement un doigt
-            // immobile ne produit pas de translation significative.
+            // `.simultaneously` : le drag (cycle vertical) et l'appui long
+            // (suppression) coexistent sans s'annuler — un vrai drag produit
+            // une translation qui empêche le long-press natif de se valider,
+            // et inversement un doigt immobile ne produit pas de translation
+            // significative.
             .gesture(estTop ? swipeGesture.simultaneously(with: longPressGesture) : nil)
             .accessibilityHidden(!estTop)
             .transition(transitionCarte)
@@ -155,7 +145,7 @@ struct PileVerticaleInsights: View {
     }
 
     /// Insight actuellement en bas de la pile (carte interactive) — cible
-    /// du swipe gauche et de l'appui long.
+    /// de l'appui long.
     private var insightActif: Insight? {
         guard !insights.isEmpty else { return nil }
         return insights[indexActif % insights.count]
@@ -181,17 +171,6 @@ struct PileVerticaleInsights: View {
                 // doigt et ne soit pas re-dismissée en chaîne.
                 guard !enCoursDeDismiss else { return }
 
-                // Branche horizontale (swipe gauche → suppression) vs
-                // verticale (swipe bas → cycle) : seul l'axe dominant du
-                // drag est absorbé, l'autre reste à 0.
-                if abs(value.translation.width) > abs(value.translation.height) {
-                    glissementY = 0
-                    // Clampé ≤ 0 : swipe droite non naturel ici, ignoré.
-                    glissementX = min(0, value.translation.width)
-                    return
-                }
-                glissementX = 0
-
                 // Swipe **vers le bas uniquement** : la carte active est
                 // en bas de la pile, on la tire vers le bas pour la
                 // sortir. On clampe à 0 pour qu'un drag vers le haut
@@ -216,20 +195,6 @@ struct PileVerticaleInsights: View {
                 // doigt est enfin levé, la mécanique peut reprendre.
                 if enCoursDeDismiss {
                     enCoursDeDismiss = false
-                    return
-                }
-
-                // Cas horizontal : swipe gauche validé → demande de
-                // suppression (le parent confirme), la carte ne part pas
-                // seule, elle attend la décision — donc snap back dans
-                // tous les cas, suppression ou non.
-                if abs(value.translation.width) > abs(value.translation.height) {
-                    if value.translation.width < -seuilSwipeGauche, let insight = insightActif {
-                        onDemandeSuppression?(insight)
-                    }
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                        glissementX = 0
-                    }
                     return
                 }
 
