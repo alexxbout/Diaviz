@@ -98,17 +98,23 @@ struct AccueilVue: View {
     /// fusionne.
     private var repasARevoir: [RepasARevoir] {
         let horaires = ProfilService.shared.profil.horairesRepas
+        let occurrencesMinimales = ProfilService.shared.profil.preferencesAvancees.occurrencesMinimalesRepasARevoir
+            ?? CalculRepasARevoir.occurrencesMinimalesParDefaut
+        let idsMasques = RepasARevoirMasquesService.shared.idsMasques
         let recurrents = CalculRepasARevoir.analyser(
             repas: repasService.repas,
             injections: injectionsRecentes,
             activites: activitesRecentes,
-            horairesRepas: horaires
+            horairesRepas: horaires,
+            occurrencesMinimales: occurrencesMinimales,
+            idsMasques: idsMasques
         )
         let contextualises = CalculRepasContexte.analyser(
             repas: repasService.repas,
             injections: injectionsRecentes,
             activites: activitesRecentes,
-            horairesRepas: horaires
+            horairesRepas: horaires,
+            idsMasques: idsMasques
         )
         return (recurrents + contextualises)
             .sorted(by: CalculRepasARevoir.plusSevereEnPremier)

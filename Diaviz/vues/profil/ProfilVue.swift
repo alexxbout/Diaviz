@@ -41,6 +41,7 @@ struct ProfilVue: View {
             SectionHorairesRepas()
             SectionSeuilsGlycemiques()
             SectionPreferencesAvancees()
+            SectionRepasARevoirReglages()
             Section("Données") {
                 NavigationLink("Diagnostic HealthKit") {
                     VueDiagnosticHealthKit()

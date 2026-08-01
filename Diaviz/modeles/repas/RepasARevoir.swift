@@ -197,6 +197,16 @@ struct RepasARevoir: Identifiable {
     /// l'aliment au moment de la journée.
     let heureDerniereOccurrence: Date
 
+    /// Id du **`Repas` réel** (SwiftData) qui a motivé cette carte — le
+    /// dernier occurrence pour un groupe récurrent, l'unique repas pour un
+    /// contexte libre. Distinct de `id` (généré à chaque reconstruction de la
+    /// carte, donc instable d'un recalcul à l'autre) : c'est `idRepasSource`
+    /// qui sert de clé stable pour masquer une carte (`RepasARevoirMasquesService`)
+    /// — masquer par ce seul id fait automatiquement réapparaître la carte
+    /// si ce même repas se reproduit plus tard avec un nouveau mauvais
+    /// résultat (nouveau `Repas`, donc nouvel id, absent du set masqué).
+    let idRepasSource: UUID
+
     init(
         aliments: [Aliment],
         nombreOccurrences: Int,
@@ -212,7 +222,8 @@ struct RepasARevoir: Identifiable {
         contexteAffiche: String? = nil,
         ratioApplique: Double? = nil,
         evenements: [EvenementCourbe] = [],
-        heureDerniereOccurrence: Date = Date()
+        heureDerniereOccurrence: Date = Date(),
+        idRepasSource: UUID = UUID()
     ) {
         self.aliments = aliments
         self.nombreOccurrences = nombreOccurrences
@@ -229,6 +240,7 @@ struct RepasARevoir: Identifiable {
         self.ratioApplique = ratioApplique
         self.evenements = evenements
         self.heureDerniereOccurrence = heureDerniereOccurrence
+        self.idRepasSource = idRepasSource
     }
 
     // MARK: Computed

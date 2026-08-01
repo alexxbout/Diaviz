@@ -25,6 +25,10 @@ struct LigneRepasARevoir: View {
 
     private static let maxIconesAliments = 3
 
+    /// Même geste et même confirmation que `CarteRepasARevoir` : masquer
+    /// doit marcher qu'un repas soit actuellement étendu ou compact.
+    @State private var confirmerMasquage = false
+
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
@@ -60,9 +64,26 @@ struct LigneRepasARevoir: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.5).onEnded { _ in
+                confirmerMasquage = true
+            }
+        )
+        .confirmationDialog(
+            "Masquer ce repas ?",
+            isPresented: $confirmerMasquage,
+            titleVisibility: .visible
+        ) {
+            Button("Masquer", role: .destructive) {
+                RepasARevoirMasquesService.shared.masquer(repas.idRepasSource)
+            }
+        } message: {
+            Text("Il réapparaîtra automatiquement s'il se reproduit avec un nouveau résultat hors cible.")
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(libelleAccessibilite)
         .accessibilityHint("Développe le détail de ce repas")
+        .accessibilityAction(named: "Masquer") { confirmerMasquage = true }
     }
 
     /// Icônes tronquées à 3 + « +N » — même logique que la carte détaillée,

@@ -29,6 +29,7 @@ nonisolated enum CalculRepasContexte {
         injections: [Injection] = [],
         activites: [ActiviteSportive] = [],
         horairesRepas: HorairesRepas,
+        idsMasques: Set<UUID> = [],
         maintenant: Date = Date()
     ) -> [RepasARevoir] {
         let borne = maintenant.addingTimeInterval(-Double(fenetreJours) * 86_400)
@@ -65,11 +66,17 @@ nonisolated enum CalculRepasContexte {
                 evenements: CalculRepasARevoir.evenements(
                     pour: r, injections: injections, activites: activites, tousRepas: repas
                 ),
-                heureDerniereOccurrence: r.heure
+                heureDerniereOccurrence: r.heure,
+                idRepasSource: r.id
             )
         }
 
-        return cartes
+        // Voir CalculRepasARevoir.analyser : masquage par occurrence précise
+        // (id du repas isolé), pas par groupe — ici chaque carte EST déjà une
+        // occurrence unique, donc aucune ambiguïté de récurrence à gérer.
+        let visibles = cartes.filter { !idsMasques.contains($0.idRepasSource) }
+
+        return visibles
             .sorted(by: CalculRepasARevoir.plusSevereEnPremier)
             .prefix(maxCartes)
             .map { $0 }

@@ -30,14 +30,17 @@ nonisolated enum CalculRepasARevoir {
     static let seuilGlucidesDominant = 10
     /// Tolérance (g) sur les glucides totaux vs le dernier repas du groupe.
     static let toleranceGlucides = 15
-    /// Occurrences minimales pour qu'un groupe soit « récurrent ». Seul seuil
-    /// de fiabilité pour cette carte — contrairement au mining
+    /// Occurrences minimales par défaut pour qu'un groupe soit « récurrent ».
+    /// Seul seuil de fiabilité pour cette carte — contrairement au mining
     /// (`CalculRatioObserve`), ce n'est pas une inférence statistique globale
     /// mais la remontée d'un fait direct (ce repas précis, répété, a mal
     /// tourné la dernière fois) : pas besoin d'attendre 30 repas au total
     /// pour que ce soit vrai et utile, même chose que « Repas avec contexte »
     /// qui n'a délibérément aucun seuil global.
-    static let occurrencesMinimales = 2
+    ///
+    /// Réglable par l'utilisateur (`ProfilUtilisateur.preferencesAvancees`) —
+    /// cette constante n'est que le défaut si rien n'est configuré.
+    static let occurrencesMinimalesParDefaut = 2
     static let maxCartes = 10
 
     // MARK: - Point d'entrée
@@ -47,6 +50,8 @@ nonisolated enum CalculRepasARevoir {
         injections: [Injection] = [],
         activites: [ActiviteSportive] = [],
         horairesRepas: HorairesRepas,
+        occurrencesMinimales: Int = occurrencesMinimalesParDefaut,
+        idsMasques: Set<UUID> = [],
         maintenant: Date = Date()
     ) -> [RepasARevoir] {
         let borne = maintenant.addingTimeInterval(-Double(fenetreJours) * 86_400)
@@ -64,11 +69,20 @@ nonisolated enum CalculRepasARevoir {
                 horairesRepas: horairesRepas,
                 injections: injections,
                 activites: activites,
-                tousRepas: recents
+                tousRepas: recents,
+                occurrencesMinimales: occurrencesMinimales
             )
         }
+        // Masquage par occurrence précise (`idRepasSource` = id du dernier
+        // repas ayant motivé la carte), pas par groupe/signature : si ce
+        // même repas se reproduit avec un nouveau mauvais résultat, le
+        // "dernier" devient un nouveau `Repas` (nouvel id, absent du set
+        // masqué) et la carte réapparaît automatiquement — masquer une
+        // carte ne fait taire QUE l'alerte actuelle, jamais le plat pour
+        // toujours.
+        let visibles = cartes.filter { !idsMasques.contains($0.idRepasSource) }
 
-        return cartes
+        return visibles
             .sorted(by: plusSevereEnPremier)
             .prefix(maxCartes)
             .map { $0 }
@@ -94,7 +108,8 @@ nonisolated enum CalculRepasARevoir {
         horairesRepas: HorairesRepas,
         injections: [Injection],
         activites: [ActiviteSportive],
-        tousRepas: [Repas]
+        tousRepas: [Repas],
+        occurrencesMinimales: Int
     ) -> RepasARevoir? {
         let tries = membres.sorted { $0.heure < $1.heure }
         guard let dernier = tries.last,
@@ -140,7 +155,8 @@ nonisolated enum CalculRepasARevoir {
             evenements: evenements(
                 pour: dernier, injections: injections, activites: activites, tousRepas: tousRepas
             ),
-            heureDerniereOccurrence: dernier.heure
+            heureDerniereOccurrence: dernier.heure,
+            idRepasSource: dernier.id
         )
     }
 
@@ -181,10 +197,24 @@ nonisolated enum CalculRepasARevoir {
         // Libellé explicite (« Bolus repas 5,5 u ») plutôt que la seule dose :
         // sans le nom, rien ne distingue un bolus d'une correction ou d'une
         // lente dans la légende sous le graphe.
+        //
+        // `repas.totalInsuline` NE couvre QUE les glucides (dose globale ou
+        // somme par aliment) — la correction d'hyper est stockée à part
+        // (`repas.doseCorrection`) et injectée dans le **même** bolus
+        // physique, donc jamais représentée par un `Injection` séparé
+        // (exclu plus bas via `injection.repasAssocieId == repas.id`). Sans
+        // cet événement dédié, la dose de correction de CE repas n'apparaissait
+        // nulle part — impossible de savoir si "11u" incluait une correction.
         if repas.totalInsuline > 0 {
             resultat.append(EvenementCourbe(
                 genre: .bolusRepas, minutes: 0,
                 libelle: "Bolus repas \(repas.totalInsuline.doseInsulineFormatee)"
+            ))
+        }
+        if let correction = repas.doseCorrection, correction > 0 {
+            resultat.append(EvenementCourbe(
+                genre: .correction, minutes: 0,
+                libelle: "Correction \(correction.doseInsulineFormatee)"
             ))
         }
 

@@ -32,6 +32,11 @@ struct CarteRepasARevoir: View {
 
     private static let maxIconesAliments = 4
 
+    /// Confirmation de masquage — long press unique déclencheur (pas de swipe
+    /// alternatif). Le repas revient automatiquement s'il se reproduit avec
+    /// un nouveau mauvais résultat (voir `RepasARevoirMasquesService`).
+    @State private var confirmerMasquage = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             entete
@@ -45,8 +50,24 @@ struct CarteRepasARevoir: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .surfaceCarte()
+        .contentShape(Rectangle())
+        .onLongPressGesture(minimumDuration: 0.5) {
+            confirmerMasquage = true
+        }
+        .confirmationDialog(
+            "Masquer ce repas ?",
+            isPresented: $confirmerMasquage,
+            titleVisibility: .visible
+        ) {
+            Button("Masquer", role: .destructive) {
+                RepasARevoirMasquesService.shared.masquer(repas.idRepasSource)
+            }
+        } message: {
+            Text("Il réapparaîtra automatiquement s'il se reproduit avec un nouveau résultat hors cible.")
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(libelleAccessibilite)
+        .accessibilityAction(named: "Masquer") { confirmerMasquage = true }
     }
 
     // MARK: - En-tête
@@ -215,6 +236,9 @@ struct CarteRepasARevoir: View {
 
                 // Marqueurs d'événements ponctuels, posés sur la courbe à
                 // leur instant — le sport est déjà rendu en bande de fond.
+                // Le bolus repas porte en plus la glycémie de départ (valeur
+                // de la courbe à T0) : sans elle, impossible de savoir d'où
+                // partait la glycémie au moment de l'injection.
                 ForEach(repas.evenements.filter { $0.genre != .sport }) { evenement in
                     PointMark(
                         x: .value("T", evenement.minutes),
@@ -227,6 +251,13 @@ struct CarteRepasARevoir: View {
                             .fill(evenement.couleur)
                             .frame(width: 7, height: 7)
                             .overlay(Circle().strokeBorder(Color(.secondarySystemGroupedBackground), lineWidth: 1.5))
+                    }
+                    .annotation(position: .bottom, spacing: 2) {
+                        if evenement.genre == .bolusRepas {
+                            Text("\(Int(glycemie(a: evenement.minutes).rounded()))")
+                                .font(.caption2.bold())
+                                .foregroundStyle(evenement.couleur)
+                        }
                     }
                 }
 
