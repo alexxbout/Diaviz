@@ -39,10 +39,10 @@ struct AlimentsCachesSheet: View {
         } else {
             List(aliments) { aliment in
                 HStack(spacing: 12) {
-                    Text(aliment.emoji ?? "🍽️")
+                    Text(NomsPersonnalisesService.shared.emoji(pour: aliment) ?? "🍽️")
                         .font(.title3)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(aliment.nom)
+                        Text(NomsPersonnalisesService.shared.nom(pour: aliment))
                             .font(.body)
                         Text("\(Int(aliment.glucides))g glucides / 100g")
                             .font(.caption)

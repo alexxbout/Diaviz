@@ -65,6 +65,9 @@ struct AjouterRepasVue: View {
     /// Présentation de la sheet listant les aliments CIQUAL masqués.
     @State private var alimentsCachesPresentee: Bool = false
 
+    /// Présentation de la sheet listant les aliments CIQUAL renommés.
+    @State private var alimentsRenommesPresentee: Bool = false
+
     /// Trigger du retour haptique au masquage d'un aliment (swipe).
     @State private var triggerMasquage: Int = 0
 
@@ -184,6 +187,9 @@ struct AjouterRepasVue: View {
         }
         .sheet(isPresented: $alimentsCachesPresentee) {
             AlimentsCachesSheet()
+        }
+        .sheet(isPresented: $alimentsRenommesPresentee) {
+            AlimentsRenommesSheet()
         }
     }
 
@@ -546,19 +552,28 @@ struct AjouterRepasVue: View {
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
                 if aUnRepas {
-                    Button("Supprimer le repas en cours", role: .destructive) {
+                    Button(role: .destructive) {
                         alimentsRepas.removeAll()
+                    } label: {
+                        Label("Supprimer le repas en cours", systemImage: "trash")
                     }
                 }
                 if peutEffacerRecents {
-                    Button("Effacer les suggestions", role: .destructive) {
+                    Button(role: .destructive) {
                         AlimentsRecentsService.shared.effacer()
+                    } label: {
+                        Label("Effacer les suggestions", systemImage: "clock.arrow.circlepath")
                     }
                 }
                 Button {
                     alimentsCachesPresentee = true
                 } label: {
                     Label("Aliments masqués", systemImage: "eye.slash")
+                }
+                Button {
+                    alimentsRenommesPresentee = true
+                } label: {
+                    Label("Aliments renommés", systemImage: "pencil")
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")

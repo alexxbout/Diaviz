@@ -28,9 +28,12 @@ enum ResultatRechercheAliment: Identifiable, Hashable, Codable {
 
     // MARK: - Propriétés communes
 
+    /// Nom personnalisé (CIQUAL uniquement, `NomsPersonnalisesService`) s'il
+    /// existe, sinon le nom d'origine — seul point d'injection du
+    /// renommage, propage automatiquement à toute vue consommant ce type.
     var nom: String {
         switch self {
-        case .ciqual(let a): return a.nom
+        case .ciqual(let a): return NomsPersonnalisesService.shared.nom(pour: a)
         case .off(let p):    return p.nom
         }
     }
@@ -45,7 +48,7 @@ enum ResultatRechercheAliment: Identifiable, Hashable, Codable {
 
     var emoji: String? {
         switch self {
-        case .ciqual(let a): return a.emoji
+        case .ciqual(let a): return NomsPersonnalisesService.shared.emoji(pour: a)
         case .off:           return nil
         }
     }

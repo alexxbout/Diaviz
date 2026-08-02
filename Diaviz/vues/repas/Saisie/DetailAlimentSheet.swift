@@ -65,6 +65,28 @@ struct DetailAlimentSheet: View {
     /// Vrai en mode édition (l'aliment fait déjà partie d'un repas).
     private var enEdition: Bool { entreeExistante != nil }
 
+    /// Id CIQUAL de l'aliment, `nil` pour un produit OFF — seuls les
+    /// aliments CIQUAL sont renommables (référentiel générique, contrairement
+    /// à un produit OFF déjà nommé par son propre emballage/marque).
+    private var idCiqual: Int? {
+        if case .ciqual(let a) = aliment { return a.id }
+        return nil
+    }
+
+    /// Nom d'origine si cet aliment a un nom personnalisé actif, `nil` sinon.
+    private var nomOriginalSiRenomme: String? {
+        guard case .ciqual(let a) = aliment,
+              NomsPersonnalisesService.shared.nomPersonnalise(pour: a.id) != nil else { return nil }
+        return a.nom
+    }
+
+    /// Emoji d'origine si cet aliment a un emoji personnalisé actif, `nil` sinon.
+    private var emojiOriginalSiPersonnalise: String? {
+        guard case .ciqual(let a) = aliment,
+              NomsPersonnalisesService.shared.emojiPersonnalise(pour: a.id) != nil else { return nil }
+        return a.emoji
+    }
+
     // MARK: - Environnement
 
     @Environment(\.dismiss) private var dismiss
@@ -92,6 +114,12 @@ struct DetailAlimentSheet: View {
 
     @State private var afficherDefinitionPortion: Bool = false
     @State private var saisieTaillePortionTexte: String = ""
+
+    @State private var afficherRenommage: Bool = false
+    @State private var saisieRenommageTexte: String = ""
+
+    @State private var afficherChangementEmoji: Bool = false
+    @State private var saisieEmojiTexte: String = ""
 
     // MARK: - Valeurs calculées (proportionnelles à quantiteGrammes)
 
@@ -163,6 +191,34 @@ struct DetailAlimentSheet: View {
         } message: {
             Text("Poids en grammes d'une portion de cet aliment — mémorisé pour la prochaine fois")
         }
+        // Alerte — renommage (CIQUAL uniquement)
+        .alert("Renommer l'aliment", isPresented: $afficherRenommage) {
+            TextField("Nom", text: $saisieRenommageTexte)
+            Button("OK") { appliquerRenommage() }
+            if nomOriginalSiRenomme != nil {
+                Button("Restaurer le nom d'origine") {
+                    if let idCiqual { NomsPersonnalisesService.shared.restaurerNom(idCiqual) }
+                    saisieRenommageTexte = ""
+                }
+            }
+            Button("Annuler", role: .cancel) { saisieRenommageTexte = "" }
+        } message: {
+            Text("Visible partout où cet aliment apparaît. Les repas déjà enregistrés gardent leur nom d'origine.")
+        }
+        // Alerte — changement d'emoji (CIQUAL uniquement)
+        .alert("Changer l'emoji", isPresented: $afficherChangementEmoji) {
+            TextField("Emoji", text: $saisieEmojiTexte)
+            Button("OK") { appliquerChangementEmoji() }
+            if emojiOriginalSiPersonnalise != nil {
+                Button("Restaurer l'emoji d'origine") {
+                    if let idCiqual { NomsPersonnalisesService.shared.restaurerEmoji(idCiqual) }
+                    saisieEmojiTexte = ""
+                }
+            }
+            Button("Annuler", role: .cancel) { saisieEmojiTexte = "" }
+        } message: {
+            Text("Visible partout où cet aliment apparaît.")
+        }
     }
 
     // MARK: - Actions
@@ -223,6 +279,18 @@ struct DetailAlimentSheet: View {
         saisieTaillePortionTexte = ""
     }
 
+    private func appliquerRenommage() {
+        defer { saisieRenommageTexte = "" }
+        guard let idCiqual else { return }
+        NomsPersonnalisesService.shared.renommer(idCiqual, en: saisieRenommageTexte)
+    }
+
+    private func appliquerChangementEmoji() {
+        defer { saisieEmojiTexte = "" }
+        guard let idCiqual else { return }
+        NomsPersonnalisesService.shared.changerEmoji(idCiqual, en: saisieEmojiTexte)
+    }
+
     /// Binding présenté au `StepperDose` — répercute chaque changement de
     /// portions sur `quantiteGrammes`, seule source de vérité nutritionnelle.
     private var bindingNombrePortions: Binding<Double> {
@@ -241,9 +309,26 @@ struct DetailAlimentSheet: View {
     /// Emoji + nom de l'aliment, centré, affiché avant les sections.
     private var entete: some View {
         VStack(spacing: 8) {
-            // Emoji, photo du produit (OFF) ou SF Symbol de fallback
+            // Emoji, photo du produit (OFF) ou SF Symbol de fallback.
+            // Personnalisable uniquement côté CIQUAL, même geste que le nom.
             Group {
-                if let emoji = aliment.emoji {
+                if let idCiqual, let emoji = aliment.emoji {
+                    Button {
+                        saisieEmojiTexte = emoji
+                        afficherChangementEmoji = true
+                    } label: {
+                        ZStack(alignment: .bottomTrailing) {
+                            Text(emoji)
+                                .font(.system(size: 80))
+                            Image(systemName: "pencil.circle.fill")
+                                .font(.title3)
+                                .symbolRenderingMode(.palette)
+                                .foregroundStyle(.secondary, Color(.tertiarySystemFill))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Modifier l'emoji")
+                } else if let emoji = aliment.emoji {
                     Text(emoji)
                         .font(.system(size: 80))
                 } else if let url = aliment.imageURL {
@@ -263,11 +348,38 @@ struct DetailAlimentSheet: View {
             }
             .padding(.vertical, 20)
 
-            // Nom complet de l'aliment, sans troncature
-            Text(aliment.nom)
-                .font(.title2.bold())
-                .multilineTextAlignment(.center)
+            // Nom complet de l'aliment, sans troncature. Renommable
+            // uniquement côté CIQUAL — les produits OFF ont déjà un nom +
+            // marque propres au produit scanné.
+            if let idCiqual {
+                Button {
+                    saisieRenommageTexte = aliment.nom
+                    afficherRenommage = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(aliment.nom)
+                            .font(.title2.bold())
+                            .foregroundStyle(.primary)
+                            .multilineTextAlignment(.center)
+                        Image(systemName: "pencil")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
                 .padding(.horizontal, 24)
+
+                if let nomOriginal = nomOriginalSiRenomme {
+                    Text("Nom d'origine : \(nomOriginal)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Text(aliment.nom)
+                    .font(.title2.bold())
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
 
             // Marque du produit (OFF uniquement)
             if let marque = aliment.marque {
