@@ -232,7 +232,7 @@ struct AjouterRepasVue: View {
         // prochaine saisie du même aliment (`DetailAlimentSheet`).
         for entree in alimentsRepas {
             AlimentsRecentsService.shared.marquerUtilise(
-                entree.aliment, quantite: entree.quantiteGrammes
+                entree.aliment, quantite: entree.quantiteGrammes, modeQuantite: entree.modeQuantite
             )
         }
         alimentsRepas.removeAll()

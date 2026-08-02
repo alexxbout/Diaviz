@@ -38,15 +38,28 @@ struct DetailAlimentSheet: View {
         // reprend celle utilisée la dernière fois pour cet aliment (une
         // portion varie peu d'un repas à l'autre), et retombe sur 100g pour
         // un aliment jamais enregistré.
-        _quantiteGrammes = State(
-            initialValue: entreeExistante?.quantiteGrammes
-                ?? AlimentsRecentsService.shared.derniereQuantite(aliment)
-                ?? 100
-        )
+        let quantiteInitiale = entreeExistante?.quantiteGrammes
+            ?? AlimentsRecentsService.shared.derniereQuantite(aliment)
+            ?? 100
+        _quantiteGrammes = State(initialValue: quantiteInitiale)
         _quantiteApproximative = State(initialValue: entreeExistante?.quantiteApproximative ?? false)
         _doseInsuline = State(initialValue: entreeExistante?.doseInsuline)
         _note = State(initialValue: entreeExistante?.note ?? "")
         _resucrage = State(initialValue: entreeExistante?.resucrage ?? false)
+
+        let taillePortion = AlimentsRecentsService.shared.tailleDePortion(aliment)
+        _tailleDePortion = State(initialValue: taillePortion)
+        _modeQuantite = State(
+            initialValue: entreeExistante?.modeQuantite
+                ?? AlimentsRecentsService.shared.dernierMode(aliment)
+        )
+        // Nombre de portions dérivé de la quantité courante — au 0.5 près,
+        // pour que la reprise en mode Portions retombe sur un compte rond.
+        if let taillePortion, taillePortion > 0 {
+            _nombrePortions = State(initialValue: (quantiteInitiale / taillePortion * 2).rounded() / 2)
+        } else {
+            _nombrePortions = State(initialValue: 1)
+        }
     }
 
     /// Vrai en mode édition (l'aliment fait déjà partie d'un repas).
@@ -66,6 +79,19 @@ struct DetailAlimentSheet: View {
 
     @State private var afficherSaisieQuantite: Bool = false
     @State private var saisieQuantiteTexte: String = ""
+
+    /// Mode de saisie courant (grammes ou portions) — `quantiteGrammes`
+    /// reste la seule source de vérité pour les calculs nutritionnels,
+    /// quel que soit le mode affiché.
+    @State private var modeQuantite: ModeQuantiteAliment
+    /// Taille (grammes) d'une portion pour cet aliment, `nil` tant que non
+    /// définie — le mode Portions propose alors de la définir.
+    @State private var tailleDePortion: Double?
+    /// Nombre de portions affiché (pas de 0.5).
+    @State private var nombrePortions: Double
+
+    @State private var afficherDefinitionPortion: Bool = false
+    @State private var saisieTaillePortionTexte: String = ""
 
     // MARK: - Valeurs calculées (proportionnelles à quantiteGrammes)
 
@@ -128,6 +154,15 @@ struct DetailAlimentSheet: View {
         } message: {
             Text("Entrez la quantité en grammes (5–2000)")
         }
+        // Alerte — définition (ou redéfinition) de la taille d'une portion
+        .alert("Taille d'une portion", isPresented: $afficherDefinitionPortion) {
+            TextField("ex : 130", text: $saisieTaillePortionTexte)
+                .keyboardType(.numberPad)
+            Button("OK") { appliquerDefinitionPortion() }
+            Button("Annuler", role: .cancel) { saisieTaillePortionTexte = "" }
+        } message: {
+            Text("Poids en grammes d'une portion de cet aliment — mémorisé pour la prochaine fois")
+        }
     }
 
     // MARK: - Actions
@@ -139,6 +174,7 @@ struct DetailAlimentSheet: View {
         let entree: EntreeAliment
         if var copie = entreeExistante {
             copie.quantiteGrammes = quantiteGrammes
+            copie.modeQuantite = modeQuantite
             copie.quantiteApproximative = quantiteApproximative
             copie.doseInsuline = doseInsuline
             copie.note = note
@@ -148,6 +184,7 @@ struct DetailAlimentSheet: View {
             entree = EntreeAliment(
                 aliment: aliment,
                 quantiteGrammes: quantiteGrammes,
+                modeQuantite: modeQuantite,
                 quantiteApproximative: quantiteApproximative,
                 doseInsuline: doseInsuline,
                 note: note,
@@ -170,6 +207,33 @@ struct DetailAlimentSheet: View {
             }
         }
         saisieQuantiteTexte = ""
+    }
+
+    private func appliquerDefinitionPortion() {
+        let texte = saisieTaillePortionTexte.replacingOccurrences(of: ",", with: ".")
+        if let valeur = Double(texte), valeur > 0 {
+            let taille = max(1, min(2000, valeur))
+            withAnimation(.spring(response: 0.3)) {
+                tailleDePortion = taille
+                nombrePortions = 1
+                quantiteGrammes = taille
+            }
+            AlimentsRecentsService.shared.definirTailleDePortion(aliment, grammes: taille)
+        }
+        saisieTaillePortionTexte = ""
+    }
+
+    /// Binding présenté au `StepperDose` — répercute chaque changement de
+    /// portions sur `quantiteGrammes`, seule source de vérité nutritionnelle.
+    private var bindingNombrePortions: Binding<Double> {
+        Binding(
+            get: { nombrePortions },
+            set: { nouvelle in
+                guard let taille = tailleDePortion else { return }
+                nombrePortions = nouvelle
+                quantiteGrammes = nouvelle * taille
+            }
+        )
     }
 
     // MARK: - En-tête
@@ -228,8 +292,18 @@ struct DetailAlimentSheet: View {
 
     private var sectionPortion: some View {
         Section("Portion") {
-            // Row quantité avec slider intégré
-            rowQuantite
+            Picker("Mode de quantité", selection: $modeQuantite) {
+                Text("Grammes").tag(ModeQuantiteAliment.grammes)
+                Text("Portions").tag(ModeQuantiteAliment.portions)
+            }
+            .pickerStyle(.segmented)
+            .listRowSeparator(.hidden)
+
+            if modeQuantite == .grammes {
+                rowQuantite
+            } else {
+                rowPortions
+            }
 
             // Row toggle approximatif — même orange que la valeur de
             // quantité quand actif (rowQuantite), pour une lecture cohérente
@@ -294,6 +368,68 @@ struct DetailAlimentSheet: View {
                 .animation(.easeInOut(duration: 0.2), value: quantiteApproximative)
         }
         .padding(.vertical, 4)
+    }
+
+    /// Row portions : soit la définition de la taille (première fois pour
+    /// cet aliment), soit le compte de portions une fois la taille connue.
+    @ViewBuilder
+    private var rowPortions: some View {
+        if let taille = tailleDePortion {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("1 portion =")
+                        .font(.body)
+                    Spacer()
+                    Button {
+                        saisieTaillePortionTexte = String(Int(taille))
+                        afficherDefinitionPortion = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("\(Int(taille))g")
+                                .font(.body.bold())
+                            Image(systemName: "pencil")
+                                .font(.caption)
+                        }
+                        .foregroundStyle(Color.accentColor)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Nombre de portions")
+                        .font(.body)
+
+                    StepperDose(
+                        valeur: bindingNombrePortions,
+                        plage: 0.5...20,
+                        pas: 0.5,
+                        titreSaisie: "Nombre de portions",
+                        unite: ""
+                    )
+                }
+
+                Text("≈ \(Int(quantiteGrammes))g")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 4)
+        } else {
+            Button {
+                saisieTaillePortionTexte = quantiteGrammes > 0 ? String(Int(quantiteGrammes)) : ""
+                afficherDefinitionPortion = true
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Définir une portion")
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                    Text("Poids d'une portion, réutilisé la prochaine fois")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .buttonStyle(.plain)
+            .padding(.vertical, 4)
+        }
     }
 
     // MARK: - Section Nutrition

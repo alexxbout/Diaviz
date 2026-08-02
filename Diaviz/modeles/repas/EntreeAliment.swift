@@ -18,8 +18,14 @@ struct EntreeAliment: Identifiable {
     /// L'aliment de référence (brut CIQUAL ou produit OFF).
     let aliment: ResultatRechercheAliment
 
-    /// Quantité consommée en grammes.
+    /// Quantité consommée en grammes — reste la source de vérité pour tous
+    /// les calculs (glucides, insuline…), quel que soit le mode de saisie.
     var quantiteGrammes: Double
+
+    /// Mode de saisie utilisé pour arriver à `quantiteGrammes` (grammes
+    /// directs ou nombre de portions). Mémorisé pour préremplir le même
+    /// mode la prochaine fois que cet aliment est ajouté.
+    var modeQuantite: ModeQuantiteAliment = .grammes
 
     /// Indique si l'utilisateur estime la quantité plutôt qu'il ne la mesure précisément.
     /// Utilisé pour pondérer la fiabilité de l'analyse nutritionnelle.

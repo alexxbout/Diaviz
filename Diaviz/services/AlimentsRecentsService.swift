@@ -30,6 +30,10 @@ final class AlimentsRecentsService {
     private let cleSnapshotsOFF = "alimentsRecentsSnapshotsOFF"
     /// Dernière quantité saisie par aliment — `[cléComposite: grammes]`.
     private let cleQuantites = "alimentsRecentsQuantites"
+    /// Taille d'une portion définie par l'utilisateur — `[cléComposite: grammes]`.
+    private let cleTaillesPortion = "alimentsRecentsTaillesPortion"
+    /// Dernier mode de saisie utilisé — `[cléComposite: "grammes"|"portions"]`.
+    private let cleModesQuantite = "alimentsRecentsModesQuantite"
     private let limiteRecents = 50
 
     /// Clés composites des aliments récents, du plus récent au plus ancien.
@@ -43,6 +47,15 @@ final class AlimentsRecentsService {
     /// pâtes) — la repropose évite de re-régler le slider à chaque fois.
     private var quantites: [String: Double] = [:]
 
+    /// Taille (grammes) d'une portion, définie par l'utilisateur pour cet
+    /// aliment. Absente tant qu'il n'a jamais activé le mode « Portions »
+    /// pour lui.
+    private var taillesPortion: [String: Double] = [:]
+
+    /// Dernier mode de saisie (grammes ou portions) utilisé pour cet
+    /// aliment — repropose le même mode la prochaine fois.
+    private var modesQuantite: [String: ModeQuantiteAliment] = [:]
+
     private init() {
         charger()
     }
@@ -52,7 +65,11 @@ final class AlimentsRecentsService {
     /// Marque un aliment comme utilisé. `quantite` (grammes) est mémorisée
     /// pour préremplir la prochaine saisie du même aliment — passer `nil` la
     /// laisse inchangée plutôt que de l'effacer.
-    func marquerUtilise(_ aliment: ResultatRechercheAliment, quantite: Double? = nil) {
+    func marquerUtilise(
+        _ aliment: ResultatRechercheAliment,
+        quantite: Double? = nil,
+        modeQuantite: ModeQuantiteAliment? = nil
+    ) {
         clesRecentes.removeAll { $0 == aliment.id }
         clesRecentes.insert(aliment.id, at: 0)
         if clesRecentes.count > limiteRecents {
@@ -64,6 +81,9 @@ final class AlimentsRecentsService {
         if let quantite, quantite > 0 {
             quantites[aliment.id] = quantite
         }
+        if let modeQuantite {
+            modesQuantite[aliment.id] = modeQuantite
+        }
         nettoyerSnapshots()
         sauvegarder()
     }
@@ -72,6 +92,27 @@ final class AlimentsRecentsService {
     /// jamais été enregistré dans un repas validé.
     func derniereQuantite(_ aliment: ResultatRechercheAliment) -> Double? {
         quantites[aliment.id]
+    }
+
+    /// Taille (grammes) d'une portion pour cet aliment, `nil` si jamais
+    /// définie — le mode « Portions » propose alors de la définir.
+    func tailleDePortion(_ aliment: ResultatRechercheAliment) -> Double? {
+        taillesPortion[aliment.id]
+    }
+
+    /// Définit (ou redéfinit) la taille d'une portion pour cet aliment.
+    /// Persisté immédiatement, indépendamment de la validation du repas en
+    /// cours — c'est une définition durable, pas un réglage de saisie.
+    func definirTailleDePortion(_ aliment: ResultatRechercheAliment, grammes: Double) {
+        guard grammes > 0 else { return }
+        taillesPortion[aliment.id] = grammes
+        sauvegarder()
+    }
+
+    /// Dernier mode de saisie utilisé pour cet aliment, `.grammes` par
+    /// défaut pour un aliment jamais enregistré.
+    func dernierMode(_ aliment: ResultatRechercheAliment) -> ModeQuantiteAliment {
+        modesQuantite[aliment.id] ?? .grammes
     }
 
     func estRecent(_ aliment: ResultatRechercheAliment) -> Bool {
@@ -99,9 +140,13 @@ final class AlimentsRecentsService {
         clesRecentes = []
         snapshotsOFF = [:]
         quantites = [:]
+        taillesPortion = [:]
+        modesQuantite = [:]
         UserDefaults.standard.removeObject(forKey: cleStockageV2)
         UserDefaults.standard.removeObject(forKey: cleSnapshotsOFF)
         UserDefaults.standard.removeObject(forKey: cleQuantites)
+        UserDefaults.standard.removeObject(forKey: cleTaillesPortion)
+        UserDefaults.standard.removeObject(forKey: cleModesQuantite)
         UserDefaults.standard.removeObject(forKey: cleStockageV1)
     }
 
@@ -163,6 +208,14 @@ final class AlimentsRecentsService {
         if let stockees = defaults.dictionary(forKey: cleQuantites) as? [String: Double] {
             quantites = stockees
         }
+
+        if let stockees = defaults.dictionary(forKey: cleTaillesPortion) as? [String: Double] {
+            taillesPortion = stockees
+        }
+
+        if let stockes = defaults.dictionary(forKey: cleModesQuantite) as? [String: String] {
+            modesQuantite = stockes.compactMapValues(ModeQuantiteAliment.init(rawValue:))
+        }
     }
 
     private func sauvegarder() {
@@ -172,5 +225,7 @@ final class AlimentsRecentsService {
             defaults.set(data, forKey: cleSnapshotsOFF)
         }
         defaults.set(quantites, forKey: cleQuantites)
+        defaults.set(taillesPortion, forKey: cleTaillesPortion)
+        defaults.set(modesQuantite.mapValues(\.rawValue), forKey: cleModesQuantite)
     }
 }

@@ -33,6 +33,11 @@ struct StepperDose: View {
     /// Titre de l'alerte de saisie (ex. « Dose d'insuline »).
     let titreSaisie: String
 
+    /// Unité affichée après la valeur (« u » pour une dose). Vide pour ne
+    /// rien afficher — utile quand l'unité est déjà donnée ailleurs (ex. un
+    /// nombre de portions, avec l'équivalent en grammes juste en dessous).
+    let unite: String
+
     /// Affiche explicitement le signe (`+1,5u` / `-0,5u`) — pertinent pour un
     /// ajustement ou une correction, pas pour une dose absolue.
     let afficheSigne: Bool
@@ -56,6 +61,7 @@ struct StepperDose: View {
         plage: ClosedRange<Double>,
         pas: Double = 0.5,
         titreSaisie: String = "Dose d'insuline",
+        unite: String = "u",
         afficheSigne: Bool = false,
         zeroVautNil: Bool = true,
         couleur: @escaping (Double) -> Color = { _ in .primary }
@@ -64,6 +70,7 @@ struct StepperDose: View {
         self.plage = plage
         self.pas = pas
         self.titreSaisie = titreSaisie
+        self.unite = unite
         self.afficheSigne = afficheSigne
         self.zeroVautNil = zeroVautNil
         self.couleur = couleur
@@ -74,6 +81,7 @@ struct StepperDose: View {
         plage: ClosedRange<Double>,
         pas: Double = 0.5,
         titreSaisie: String = "Dose d'insuline",
+        unite: String = "u",
         afficheSigne: Bool = false,
         couleur: @escaping (Double) -> Color = { _ in .primary }
     ) {
@@ -86,6 +94,7 @@ struct StepperDose: View {
         self.plage = plage
         self.pas = pas
         self.titreSaisie = titreSaisie
+        self.unite = unite
         self.afficheSigne = afficheSigne
         self.zeroVautNil = false
         self.couleur = couleur
@@ -147,9 +156,11 @@ struct StepperDose: View {
                     // avec `.contentTransition(.numericText())` cet overshoot
                     // affiche des valeurs intermédiaires fantômes.
                     .animation(.easeOut(duration: 0.2), value: v)
-                Text("u")
-                    .font(.body.bold())
-                    .foregroundStyle(.secondary)
+                if !unite.isEmpty {
+                    Text(unite)
+                        .font(.body.bold())
+                        .foregroundStyle(.secondary)
+                }
             } else {
                 Text("—")
                     .font(.title3)
@@ -217,7 +228,7 @@ struct StepperDose: View {
     }
 
     private func texteValeur(_ v: Double) -> String {
-        "\(texteNombre(v)) unités"
+        unite.isEmpty ? texteNombre(v) : "\(texteNombre(v)) \(unite == "u" ? "unités" : unite)"
     }
 }
 
