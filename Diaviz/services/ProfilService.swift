@@ -171,7 +171,7 @@ extension ProfilService {
             ratioCorrection: 35,
             horairesRepas: HorairesRepas.defaut(),
             seuilsGlycemiques: SeuilsGlycemiques(hypoglycemie: 75, hyperglycemie: 170),
-            preferencesAvancees: PreferencesAvancees(margeAlerteDose: 1.5)
+            preferencesAvancees: PreferencesAvancees()
         )
         return ProfilService(profil: profil, stockage: stockageMock())
     }

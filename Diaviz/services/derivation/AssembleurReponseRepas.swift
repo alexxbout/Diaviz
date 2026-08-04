@@ -38,11 +38,10 @@ enum AssembleurReponseRepas {
     /// « la fenêtre aurait dû être captée mais ne l'est pas » (`donneesManquantes`).
     private static let delaiCaptureCGM: TimeInterval = 3 * 3600
 
-    /// Borne haute de la cible glycémique (mg/dL). Un « retour en cible » est le
-    /// premier point post-pic repassant sous ce seuil.
-    private static let cibleHaute = 180.0
-    /// Seuil d'hypoglycémie (mg/dL).
-    private static let seuilHypo = 70.0
+    /// Seuils par défaut si l'appelant n'en fournit pas — valeurs cliniques
+    /// standards. En pratique `RepasService` injecte toujours ceux du profil
+    /// utilisateur, pour que « hypo » veuille dire la même chose partout.
+    private static let seuilsParDefaut = SeuilsGlycemiques()
 
     // MARK: - API
 
@@ -59,7 +58,8 @@ enum AssembleurReponseRepas {
         heureRepas: Date,
         aUneInjection: Bool,
         echantillons: [(date: Date, valeur: Int)],
-        maintenant: Date
+        maintenant: Date,
+        seuils: SeuilsGlycemiques = seuilsParDefaut
     ) -> EtatAnalyse {
         // 1. Sans bolus → pas d'analyse de réponse (choix produit).
         guard aUneInjection else { return .sansInjection }
@@ -80,7 +80,7 @@ enum AssembleurReponseRepas {
         let couverture = attendus > 0 ? Double(postRepas.count) / Double(attendus) : 0
 
         if couverture >= couvertureMinimale {
-            return .disponible(construireReponse(points: points, postRepas: postRepas))
+            return .disponible(construireReponse(points: points, postRepas: postRepas, seuils: seuils))
         }
 
         // 4. Couverture insuffisante : distinguer attente vs données manquantes.
@@ -95,19 +95,28 @@ enum AssembleurReponseRepas {
 
     // MARK: - Construction de la réponse
 
-    private static func construireReponse(points: [PointCgm], postRepas: [PointCgm]) -> ReponseGlycemique {
+    private static func construireReponse(
+        points: [PointCgm],
+        postRepas: [PointCgm],
+        seuils: SeuilsGlycemiques
+    ) -> ReponseGlycemique {
         // Pic = maximum observé en post-repas. `postRepas` est non vide ici
         // (couverture ≥ 80 %), mais on garde un repli défensif.
         let pointPic = postRepas.max { $0.valeur < $1.valeur } ?? points[0]
 
         // Retour en cible : premier point post-pic repassant sous la cible haute.
         let tempsRetourCible = postRepas.first {
-            $0.secondesDepuisRepas > pointPic.secondesDepuisRepas && $0.valeur <= cibleHaute
+            $0.secondesDepuisRepas > pointPic.secondesDepuisRepas && $0.valeur <= seuils.hyperglycemie
         }?.secondesDepuisRepas
 
         return ReponseGlycemique(
             pointsCgm: points,
-            verdict: verdict(postRepas: postRepas, pic: pointPic.valeur, tempsRetourCible: tempsRetourCible),
+            verdict: verdict(
+                postRepas: postRepas,
+                pic: pointPic.valeur,
+                tempsRetourCible: tempsRetourCible,
+                seuils: seuils
+            ),
             valeurPic: pointPic.valeur,
             tempsPic: pointPic.secondesDepuisRepas,
             tempsRetourCible: tempsRetourCible
@@ -127,21 +136,22 @@ enum AssembleurReponseRepas {
     private static func verdict(
         postRepas: [PointCgm],
         pic: Double,
-        tempsRetourCible: TimeInterval?
+        tempsRetourCible: TimeInterval?,
+        seuils: SeuilsGlycemiques
     ) -> VerdictGlycemique {
         guard let minPost = postRepas.map(\.valeur).min() else { return .indetermine }
 
-        let hypo = minPost < seuilHypo
+        let hypo = minPost < seuils.hypoglycemie
         let picTresHaut = pic >= 250
         // « Excursion jamais revenue » : le repas est sorti de cible par le
         // haut et n'y est jamais redescendu dans la fenêtre.
-        let jamaisRevenu = pic > cibleHaute && tempsRetourCible == nil
+        let jamaisRevenu = pic > seuils.hyperglycemie && tempsRetourCible == nil
 
         if hypo || picTresHaut || jamaisRevenu {
             return .mauvais
         }
 
-        if pic <= cibleHaute {
+        if pic <= seuils.hyperglycemie {
             return .bon
         }
         if let retour = tempsRetourCible, retour <= retourRapideMax, pic < 220 {

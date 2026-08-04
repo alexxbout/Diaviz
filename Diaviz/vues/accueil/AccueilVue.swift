@@ -101,11 +101,13 @@ struct AccueilVue: View {
         let occurrencesMinimales = ProfilService.shared.profil.preferencesAvancees.occurrencesMinimalesRepasARevoir
             ?? CalculRepasARevoir.occurrencesMinimalesParDefaut
         let idsMasques = RepasARevoirMasquesService.shared.idsMasques
+        let seuils = ProfilService.shared.profil.seuilsGlycemiques
         let recurrents = CalculRepasARevoir.analyser(
             repas: repasService.repas,
             injections: injectionsRecentes,
             activites: activitesRecentes,
             horairesRepas: horaires,
+            seuils: seuils,
             occurrencesMinimales: occurrencesMinimales,
             idsMasques: idsMasques
         )
@@ -114,6 +116,7 @@ struct AccueilVue: View {
             injections: injectionsRecentes,
             activites: activitesRecentes,
             horairesRepas: horaires,
+            seuils: seuils,
             idsMasques: idsMasques
         )
         return (recurrents + contextualises)

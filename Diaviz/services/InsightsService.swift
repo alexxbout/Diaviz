@@ -235,10 +235,26 @@ enum InsightsService {
             typeSport: activite.type.rawValue,
             icone: activite.type.icone,
             ilYAMinutes: minutes,
-            // Ratio ajusté post-sport = analyse R2, non implémentée → la carte
-            // affiche « pas assez de données pour ajuster le ratio ».
-            ratioAjuste: nil,
+            ratioAjuste: ratioSportConfigure(type: activite.type, ilYAMinutes: minutes),
             nombreSeancesHistorique: 0
+        )
+    }
+
+    /// Ratio post-sport **saisi par l'utilisateur** dans le profil (et non
+    /// dérivé de son historique — l'analyse R2 reste à faire). `nil` si aucun
+    /// ratio n'est configuré pour ce sport, ou si la séance est déjà sortie de
+    /// la fenêtre d'effet réglée : la carte retombe alors sur son message
+    /// « pas assez de données ».
+    private static func ratioSportConfigure(type: TypeSport, ilYAMinutes: Int) -> ProfilRatio? {
+        let ratios = ProfilService.shared.profil.ratiosSportEffectifs
+        guard Double(ilYAMinutes) <= ratios.fenetreEffetHeures * 60,
+              let grammesParUnite = ratios.ratio(pour: type),
+              grammesParUnite > 0
+        else { return nil }
+
+        return ProfilRatio(
+            unitesPour10g: 10 / grammesParUnite,
+            libelle: "post-\(type.rawValue.lowercased())"
         )
     }
 

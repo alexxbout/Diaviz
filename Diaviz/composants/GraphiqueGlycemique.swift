@@ -208,11 +208,21 @@ extension GraphiqueGlycemique {
 
 extension GraphiqueGlycemique.Configuration {
 
+    /// Seuils hypo / hyper du profil utilisateur. `@MainActor` car
+    /// `ProfilService` l'est — ces builders ne sont appelés que depuis des
+    /// `body` de vues (`DetailRepasVue`, `DetailActiviteVue`), l'isolation
+    /// est donc déjà acquise au call site.
+    @MainActor
+    static var seuilsProfil: SeuilsGlycemiques {
+        ProfilService.shared.profil.seuilsGlycemiques
+    }
+
     /// Plus bas point dans la fenêtre `[debut, fin]`, à condition
-    /// d'être strictement sous 70 mg/dL. `nil` sinon — pas d'hypo
+    /// d'être strictement sous le seuil hypo du profil. `nil` sinon — pas d'hypo
     /// détectée. Extrait en helper partagé pour servir aux deux
     /// configurations (repas et sport) ET pour aider le type-checker
     /// SwiftUI qui peinait sur `.filter().min()` chaîné en littéral.
+    @MainActor
     static func pointHypo(
         dans points: [GraphiqueGlycemique.PointCourbe],
         debut: TimeInterval,
@@ -222,7 +232,7 @@ extension GraphiqueGlycemique.Configuration {
             point.temps >= debut && point.temps <= fin
         }
         guard let pointMin = pointsFenetre.min(by: { $0.valeur < $1.valeur }),
-              pointMin.valeur < 70 else {
+              pointMin.valeur < seuilsProfil.hypoglycemie else {
             return nil
         }
         return pointMin
@@ -397,7 +407,7 @@ extension GraphiqueGlycemique.Configuration {
         // Couleur du verdict — même logique que `MiniCourbeSport` pour
         // cohérence visuelle entre la liste et le détail.
         let couleurVerdict: Color = {
-            if reponse.glycemieFin < 70 { return .red }
+            if reponse.glycemieFin < seuilsProfil.hypoglycemie { return .red }
             if abs(reponse.deltaMgDl) < 20 { return .green }
             if reponse.deltaMgDl < -40 { return .orange }
             return .blue
@@ -495,6 +505,7 @@ extension GraphiqueGlycemique.Configuration {
     /// monte au-delà de 180. Repères cliniques 70/100/140/180 affichés
     /// uniquement s'ils tombent dans le domaine, plus des paliers de 40
     /// au-delà de 180.
+    @MainActor
     static func echelleY(
         pointsCourbe: [GraphiqueGlycemique.PointCourbe],
         marqueurs: [GraphiqueGlycemique.Marqueur]
@@ -512,10 +523,14 @@ extension GraphiqueGlycemique.Configuration {
         // collée au bord du cadre — visuellement un bloc épais (bord +
         // teinte de zone + ligne, tous au même endroit) au lieu d'un simple
         // repère au milieu du tracé.
-        if (70 - bas) < 20 { bas -= 20 }
-        if (haut - 180) < 20 && haut > 180 { haut += 20 }
+        let seuilBas = seuilsProfil.hypoglycemie
+        let seuilHaut = seuilsProfil.hyperglycemie
+        if (seuilBas - bas) < 20 { bas -= 20 }
+        if (haut - seuilHaut) < 20 && haut > seuilHaut { haut += 20 }
 
-        var marques: [Double] = [70, 100, 140, 180].filter { $0 >= bas && $0 <= haut }
+        var marques: [Double] = [seuilBas, 100, 140, seuilHaut]
+            .filter { $0 >= bas && $0 <= haut }
+            .sorted()
         var palier = 220.0
         while palier <= haut {
             marques.append(palier)

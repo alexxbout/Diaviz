@@ -29,6 +29,7 @@ nonisolated enum CalculRepasContexte {
         injections: [Injection] = [],
         activites: [ActiviteSportive] = [],
         horairesRepas: HorairesRepas,
+        seuils: SeuilsGlycemiques = SeuilsGlycemiques(),
         idsMasques: Set<UUID> = [],
         maintenant: Date = Date()
     ) -> [RepasARevoir] {
@@ -43,7 +44,7 @@ nonisolated enum CalculRepasContexte {
             // courbe complète (pas tronquée à 180 min), hypo prioritaire sur pic.
             let postRepas = reponse.pointsCgm.filter { $0.secondesDepuisRepas >= 0 }
             let pointBas = postRepas.min { $0.valeur < $1.valeur }
-            let estHypo = (pointBas?.valeur ?? .greatestFiniteMagnitude) < 70
+            let estHypo = (pointBas?.valeur ?? .greatestFiniteMagnitude) < seuils.hypoglycemie
             let evenementMinutes = estHypo
                 ? Int((pointBas?.secondesDepuisRepas ?? 0) / 60)
                 : Int(reponse.tempsPic / 60)

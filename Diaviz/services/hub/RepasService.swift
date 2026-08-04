@@ -294,13 +294,18 @@ final class RepasService {
         let echantillons = ((try? contexte.fetch(descripteur)) ?? [])
             .map { (date: $0.date, valeur: $0.valeur) }
 
+        // Seuils du profil — « hypo » / « hors cible » doivent vouloir dire la
+        // même chose ici que dans les graphes et les analyses du coucher.
+        let seuils = ProfilService.shared.profil.seuilsGlycemiques
+
         var doseASauvegarder = false
         for unRepas in recents {
             let etat = AssembleurReponseRepas.analyser(
                 heureRepas: unRepas.heure,
                 aUneInjection: unRepas.aUneInjection,
                 echantillons: echantillons,
-                maintenant: maintenant
+                maintenant: maintenant,
+                seuils: seuils
             )
             unRepas.etatAnalyse = etat
 

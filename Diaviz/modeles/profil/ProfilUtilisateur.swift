@@ -76,6 +76,18 @@ struct ProfilUtilisateur: Codable, Equatable, Sendable {
     /// connaissent pas et l'app reste utile sans.
     var ratioCorrection: Double?
 
+    /// Ratios spécifiques appliqués après une activité sportive, par type
+    /// de sport. Optionnel avec fallback `ratiosSportEffectifs` — même
+    /// pattern que `photoData` — pour rester rétrocompatible avec les
+    /// profils déjà persistés (clé absente décodée en `nil`).
+    var ratiosSport: RatiosSport? = nil
+
+    /// Valeur effective des ratios sport — instance vide (aucun ratio
+    /// configuré, fenêtre par défaut) tant que l'utilisateur n'a rien réglé.
+    var ratiosSportEffectifs: RatiosSport {
+        ratiosSport ?? RatiosSport()
+    }
+
     // MARK: - Reste
 
     var horairesRepas: HorairesRepas

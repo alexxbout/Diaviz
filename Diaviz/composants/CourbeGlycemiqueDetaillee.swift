@@ -57,16 +57,23 @@ struct CourbeGlycemiqueDetaillee: View {
         .accessibilityLabel(Text(config.header))
     }
 
+    /// Seuils hypo / hyper du profil utilisateur — la bande de cible et les
+    /// deux lignes pointillées suivent ce que l'utilisateur a réglé, pour que
+    /// « hors cible » veuille dire ici la même chose que dans les analyses.
+    private var seuils: SeuilsGlycemiques {
+        ProfilService.shared.profil.seuilsGlycemiques
+    }
+
     // MARK: - Zones de fond
 
-    /// Bande verte transparente sur la cible 70-180 mg/dL.
+    /// Bande verte transparente sur la cible (seuils du profil).
     @ChartContentBuilder
     private var zoneCible: some ChartContent {
         RectangleMark(
             xStart: .value("Début", config.domaineX.lowerBound),
             xEnd: .value("Fin", config.domaineX.upperBound),
-            yStart: .value("Cible bas", 70),
-            yEnd: .value("Cible haut", 180)
+            yStart: .value("Cible bas", seuils.hypoglycemie),
+            yEnd: .value("Cible haut", seuils.hyperglycemie)
         )
         .foregroundStyle(.green.opacity(0.08))
     }
@@ -89,14 +96,14 @@ struct CourbeGlycemiqueDetaillee: View {
 
     @ChartContentBuilder
     private var ligneHypo: some ChartContent {
-        RuleMark(y: .value("Hypo", 70))
+        RuleMark(y: .value("Hypo", seuils.hypoglycemie))
             .foregroundStyle(.red.opacity(0.5))
             .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
     }
 
     @ChartContentBuilder
     private var ligneHyper: some ChartContent {
-        RuleMark(y: .value("Hyper", 180))
+        RuleMark(y: .value("Hyper", seuils.hyperglycemie))
             .foregroundStyle(.orange.opacity(0.5))
             .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
     }

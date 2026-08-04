@@ -7,15 +7,17 @@
 
 import Foundation
 
-/// Préférences avancées du profil — repliées par défaut dans la sheet,
-/// car peu de gens les modifient.
+/// Réglages fins du profil qui n'ont pas leur place dans une section
+/// dédiée. Le nom de type (et la clé JSON `preferencesAvancees` côté
+/// `ProfilUtilisateur`) est conservé tel quel : le renommer ferait échouer
+/// le décodage des profils déjà persistés.
 ///
-/// `margeAlerteDose` : écart toléré (en unités) entre la dose saisie
-/// par l'utilisateur et la dose suggérée par son ratio avant de
-/// déclencher un avertissement « cette dose s'écarte de votre ratio ».
-/// L'app n'empêche jamais la saisie ; elle informe seulement.
+/// L'ancien champ `margeAlerteDose` a été retiré — il n'était lu nulle
+/// part dans l'app (écrit dans le profil, jamais consommé), et la section
+/// « Préférences avancées » qui l'exposait ne contenait que lui.
+/// Retirer une propriété d'un `Codable` est sûr : les clés en trop du JSON
+/// existant sont ignorées au décodage.
 struct PreferencesAvancees: Codable, Equatable, Sendable {
-    var margeAlerteDose: Double
 
     /// Occurrences minimales pour qu'un repas récurrent remonte dans « Repas
     /// à revoir » (`CalculRepasARevoir.occurrencesMinimalesParDefaut` si `nil`).
@@ -27,8 +29,7 @@ struct PreferencesAvancees: Codable, Equatable, Sendable {
     /// configurés). `Optional` reste décodable même absent du JSON existant.
     var occurrencesMinimalesRepasARevoir: Int?
 
-    init(margeAlerteDose: Double = 1, occurrencesMinimalesRepasARevoir: Int? = nil) {
-        self.margeAlerteDose = margeAlerteDose
+    init(occurrencesMinimalesRepasARevoir: Int? = nil) {
         self.occurrencesMinimalesRepasARevoir = occurrencesMinimalesRepasARevoir
     }
 }

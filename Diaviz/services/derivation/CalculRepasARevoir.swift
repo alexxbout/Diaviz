@@ -50,6 +50,7 @@ nonisolated enum CalculRepasARevoir {
         injections: [Injection] = [],
         activites: [ActiviteSportive] = [],
         horairesRepas: HorairesRepas,
+        seuils: SeuilsGlycemiques = SeuilsGlycemiques(),
         occurrencesMinimales: Int = occurrencesMinimalesParDefaut,
         idsMasques: Set<UUID> = [],
         maintenant: Date = Date()
@@ -67,6 +68,7 @@ nonisolated enum CalculRepasARevoir {
             construireCarte(
                 $0,
                 horairesRepas: horairesRepas,
+                seuils: seuils,
                 injections: injections,
                 activites: activites,
                 tousRepas: recents,
@@ -106,6 +108,7 @@ nonisolated enum CalculRepasARevoir {
     private static func construireCarte(
         _ membres: [Repas],
         horairesRepas: HorairesRepas,
+        seuils: SeuilsGlycemiques,
         injections: [Injection],
         activites: [ActiviteSportive],
         tousRepas: [Repas],
@@ -131,7 +134,7 @@ nonisolated enum CalculRepasARevoir {
         // pas être ratée à cause du domaine fixe du mini-chart.
         let postRepas = reponseDerniere.pointsCgm.filter { $0.secondesDepuisRepas >= 0 }
         let pointBas = postRepas.min { $0.valeur < $1.valeur }
-        let estHypo = (pointBas?.valeur ?? .greatestFiniteMagnitude) < 70
+        let estHypo = (pointBas?.valeur ?? .greatestFiniteMagnitude) < seuils.hypoglycemie
         let evenementMinutes = estHypo
             ? Int((pointBas?.secondesDepuisRepas ?? 0) / 60)
             : Int(reponseDerniere.tempsPic / 60)
