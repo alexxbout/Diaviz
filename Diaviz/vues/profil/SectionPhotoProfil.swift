@@ -26,16 +26,34 @@ struct SectionPhotoProfil: View {
 
     var body: some View {
         Section {
-            VStack(spacing: 12) {
+            // Avatar seul dans sa row — vue de présentation pure, sans
+            // aucun geste attaché. Avant, il partageait une row avec les
+            // deux boutons ci-dessous (une seule `VStack` = une seule row
+            // de `Form`) ; empilés sans séparation, un tap sur l'avatar
+            // pouvait être résolu par iOS vers le bouton « Supprimer » du
+            // dessous au lieu de rester inerte. Chaque contrôle a
+            // maintenant sa propre row et son propre `contentShape`.
+            HStack {
+                Spacer()
                 AvatarProfil(
                     photoData: service.profil.photoData,
                     prenom: service.profil.prenom,
                     taille: 96
                 )
+                .contentShape(Circle())
+                Spacer()
+            }
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
 
-                // Le label de `PhotosPicker` est un `@Sendable` closure — on
-                // calcule le libellé avant plutôt que de lire `service`
-                // (MainActor-isolé) depuis l'intérieur de la closure.
+            // Le label de `PhotosPicker` est un `@Sendable` closure — on
+            // calcule le libellé avant plutôt que de lire `service`
+            // (MainActor-isolé) depuis l'intérieur de la closure.
+            // `HStack` + `Spacer` de chaque côté : centre le texte comme
+            // avant (une row de `Form` aligne son contenu à gauche par
+            // défaut, `.frame(maxWidth:)` seul ne suffit pas à centrer).
+            HStack {
+                Spacer()
                 PhotosPicker(
                     selection: $selection,
                     matching: .images,
@@ -44,17 +62,25 @@ struct SectionPhotoProfil: View {
                     Text(libellePhotoPicker)
                         .font(.callout.weight(.semibold))
                 }
+                Spacer()
+            }
+            .contentShape(Rectangle())
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
 
-                if service.profil.photoData != nil {
+            if service.profil.photoData != nil {
+                HStack {
+                    Spacer()
                     Button("Supprimer la photo", role: .destructive) {
                         service.definirPhotoProfil(nil)
                     }
                     .font(.callout)
+                    Spacer()
                 }
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .contentShape(Rectangle())
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-            .listRowBackground(Color.clear)
         }
         .onChange(of: selection) { _, nouveau in
             guard let nouveau else { return }
