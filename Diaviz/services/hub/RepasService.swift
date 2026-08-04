@@ -342,6 +342,9 @@ extension Aliment {
     /// - `insuline` : `doseInsuline ?? 0` (un aliment logué pour mémoire, sans
     ///   bolus, vaut 0 u).
     convenience init(depuis entree: EntreeAliment) {
+        var idCiqualSource: Int?
+        if case .ciqual(let a) = entree.aliment { idCiqualSource = a.id }
+
         self.init(
             emoji: entree.aliment.emoji ?? "🍽",
             nom: entree.aliment.nom,
@@ -350,7 +353,8 @@ extension Aliment {
             insuline: entree.doseInsuline ?? 0,
             // Miniature 200 px : suffisante pour les rows du journal.
             imageURL: entree.aliment.imagePetiteURL,
-            resucrage: entree.resucrage
+            resucrage: entree.resucrage,
+            idCiqualSource: idCiqualSource
         )
     }
 }

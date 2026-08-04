@@ -249,8 +249,8 @@ struct DetailRepasVue: View {
             CarteRegroupee {
                 ForEach(Array(repas.aliments.enumerated()), id: \.element.id) { index, aliment in
                     CarteAlimentEnregistre(
-                        emoji: aliment.emoji,
-                        nom: aliment.nom,
+                        emoji: aliment.emojiAffiche,
+                        nom: aliment.nomAffiche,
                         quantite: aliment.quantite,
                         glucides: aliment.glucides,
                         insuline: aliment.insuline,

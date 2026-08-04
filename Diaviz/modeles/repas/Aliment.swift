@@ -26,6 +26,13 @@ final class Aliment {
     /// repas ordinaire. `false` par défaut (migration légère des repas
     /// antérieurs à l'ajout du champ).
     var resucrage: Bool = false
+    /// Id CIQUAL source, `nil` pour un produit OFF ou les repas antérieurs à
+    /// l'ajout du champ (migration légère). Seul lien vers le référentiel
+    /// CIQUAL une fois l'aliment figé dans le hub — sert uniquement à
+    /// résoudre un nom/emoji personnalisé (`nomAffiche`/`emojiAffiche`), au
+    /// moment de l'affichage plutôt qu'à la saisie : un renommage ultérieur
+    /// se reflète alors même sur des repas déjà enregistrés.
+    var idCiqualSource: Int?
 
     init(
         id: UUID = UUID(),
@@ -35,7 +42,8 @@ final class Aliment {
         glucides: Int,
         insuline: Double,
         imageURL: URL? = nil,
-        resucrage: Bool = false
+        resucrage: Bool = false,
+        idCiqualSource: Int? = nil
     ) {
         self.id = id
         self.emoji = emoji
@@ -45,6 +53,30 @@ final class Aliment {
         self.insuline = insuline
         self.imageURL = imageURL
         self.resucrage = resucrage
+        self.idCiqualSource = idCiqualSource
+    }
+
+    /// Id CIQUAL utilisable pour résoudre une personnalisation : celui figé à
+    /// la saisie, ou — pour les repas enregistrés avant l'ajout du champ —
+    /// celui retrouvé par correspondance exacte sur le nom d'origine.
+    private var idCiqualResolu: Int? {
+        idCiqualSource ?? NomsPersonnalisesService.shared.idCiqual(pourNomOrigine: nom)
+    }
+
+    /// Nom à afficher — personnalisé (`NomsPersonnalisesService`) s'il existe
+    /// encore pour l'id CIQUAL source, sinon `nom` tel que figé à la saisie.
+    /// Ce n'est PAS le nom stocké : `nom` reste le fait historique inchangé
+    /// (utilisé par ex. pour la signature de composition de « Repas à
+    /// revoir ») ; `nomAffiche` est une résolution à l'affichage uniquement.
+    var nomAffiche: String {
+        guard let id = idCiqualResolu else { return nom }
+        return NomsPersonnalisesService.shared.nomPersonnalise(pour: id) ?? nom
+    }
+
+    /// Emoji à afficher — même logique que `nomAffiche`.
+    var emojiAffiche: String {
+        guard let id = idCiqualResolu else { return emoji }
+        return NomsPersonnalisesService.shared.emojiPersonnalise(pour: id) ?? emoji
     }
 }
 
@@ -177,6 +209,6 @@ final class Repas {
     /// Emoji représentatif du repas : l'aliment le plus contributeur en
     /// glucides (il pilote la réponse glycémique). À défaut, un emoji générique.
     var emojiPrincipal: String {
-        aliments.max(by: { $0.glucides < $1.glucides })?.emoji ?? "🍽"
+        aliments.max(by: { $0.glucides < $1.glucides })?.emojiAffiche ?? "🍽"
     }
 }

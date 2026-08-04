@@ -95,7 +95,7 @@ struct LigneRepasARevoir: View {
                     if let url = aliment.imageURL {
                         ImageProduit(url: url, coinArrondi: 6)
                     } else {
-                        Text(aliment.emoji).font(.footnote)
+                        Text(aliment.emojiAffiche).font(.footnote)
                     }
                 }
                 .frame(width: 22, height: 22)

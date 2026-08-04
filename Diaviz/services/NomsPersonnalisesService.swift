@@ -96,6 +96,33 @@ final class NomsPersonnalisesService {
             .sorted { nom(pour: $0) < nom(pour: $1) }
     }
 
+    // MARK: - Rattrapage des repas antérieurs
+
+    /// Index inverse « nom CIQUAL d'origine → id », restreint aux seuls
+    /// aliments personnalisés (donc quelques entrées, pas les ~3000 du
+    /// référentiel).
+    ///
+    /// Sert à retrouver l'id CIQUAL d'un `Aliment` du hub enregistré **avant**
+    /// l'ajout de `Aliment.idCiqualSource` : son `nom` figé est alors
+    /// forcément le nom CIQUAL d'origine (la personnalisation n'existait pas
+    /// encore). Sans ça, un renommage ne remonterait que sur les repas
+    /// enregistrés après coup.
+    private var idsParNomOrigine: [String: Int] {
+        var index: [String: Int] = [:]
+        for aliment in alimentsPersonnalises {
+            index[aliment.nom] = aliment.id
+        }
+        return index
+    }
+
+    /// Id CIQUAL d'un aliment personnalisé portant exactement ce nom
+    /// d'origine, `nil` si aucun. Volontairement une correspondance stricte :
+    /// approximer risquerait de renommer un aliment que l'utilisateur n'a
+    /// jamais touché.
+    func idCiqual(pourNomOrigine nom: String) -> Int? {
+        idsParNomOrigine[nom]
+    }
+
     // MARK: - Persistance
 
     private func charger() {

@@ -78,7 +78,7 @@ extension RepasGraph {
             aInjection: repas.aUneInjection,
             verdict: Self.verdictDepuisEtat(pour: repas),
             label: label,
-            emoji: repas.aliments.first?.emoji ?? "🍽️"
+            emoji: repas.aliments.first?.emojiAffiche ?? "🍽️"
         )
     }
 

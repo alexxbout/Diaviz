@@ -86,8 +86,8 @@ struct ListeRepasParSection: View {
             // (et retire le repas s'il devient vide).
             ForEach(unRepas.aliments) { aliment in
                 CarteAlimentEnregistre(
-                    emoji: aliment.emoji,
-                    nom: aliment.nom,
+                    emoji: aliment.emojiAffiche,
+                    nom: aliment.nomAffiche,
                     quantite: aliment.quantite,
                     glucides: aliment.glucides,
                     insuline: aliment.insuline,

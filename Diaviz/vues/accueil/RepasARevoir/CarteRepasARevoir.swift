@@ -128,7 +128,7 @@ struct CarteRepasARevoir: View {
             if let url = aliment.imageURL {
                 ImageProduit(url: url, coinArrondi: 8)
             } else {
-                Text(aliment.emoji)
+                Text(aliment.emojiAffiche)
                     .font(.title3)
             }
         }
