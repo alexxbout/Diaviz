@@ -71,6 +71,19 @@ struct ProfilUtilisateur: Codable, Equatable, Sendable {
     /// reste optionnel jusqu'à saisie explicite.
     var ratiosParMoment: RatiosParMoment
 
+    /// Date du dernier changement de valeur pour chaque ratio, par moment —
+    /// borne le mining R1 aux repas postérieurs. Optionnel avec fallback
+    /// `datesChangementRatioEffectives` — même pattern que `photoData` — pour
+    /// rester rétrocompatible avec les profils déjà persistés.
+    var datesChangementRatio: DatesChangementRatio? = nil
+
+    /// Valeur effective des dates de changement — instance vide (aucun
+    /// changement tracé, tout l'historique reste éligible) tant qu'aucun
+    /// ratio n'a été modifié depuis la configuration initiale.
+    var datesChangementRatioEffectives: DatesChangementRatio {
+        datesChangementRatio ?? DatesChangementRatio()
+    }
+
     /// ISF (Insulin Sensitivity Factor) — combien 1u baisse la
     /// glycémie en mg/dL. Optionnel : un nombre de patients ne le
     /// connaissent pas et l'app reste utile sans.

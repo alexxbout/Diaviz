@@ -26,15 +26,6 @@ struct ProfilRatio {
     }
 }
 
-/// Écart observé pour un groupe d'ajustement (sport récent, repas gras…)
-/// présent sur le repas en cours de saisie — distinct de l'écart « moment »
-/// (matin/midi/soir), affiché en plus dans la carte Validation ratio.
-struct EcartAjustementObserve: Identifiable {
-    var id: String { raison.rawValue }
-    let raison: RaisonAjustement
-    let ecart: EcartRatioObserve
-}
-
 /// Validation de la dose saisie par rapport au ratio recommandé.
 /// L'écart est `doseSaisie - doseSuggeree`.
 /// On considère cohérent si l'écart absolu est inférieur à 0.5u.
@@ -44,25 +35,24 @@ struct ValidationRatio {
     let profil: ProfilRatio
     /// Écart factuel entre le ratio configuré et un ratio mieux observé
     /// historiquement pour ce moment (mining R1, `CalculRatioObserve`) — `nil`
-    /// tant que les données sont insuffisantes (< 30 repas analysés) ou
-    /// qu'aucun écart significatif n'a été détecté. Jamais une dose à utiliser :
-    /// toujours restitué avec ses dénominateurs bruts.
+    /// tant que les données sont insuffisantes (< 30 repas analysés pour ce
+    /// groupe) ou qu'aucun écart significatif n'a été détecté. Jamais une
+    /// dose à utiliser : toujours restitué avec ses dénominateurs bruts.
     let ecartObserve: EcartRatioObserve?
-    /// Écarts observés pour chaque raison d'ajustement présente sur ce repas
-    /// (sport récent, repas gras…) — groupe séparé du ratio de base, jamais
-    /// fusionné (voir `GroupeRatio`).
-    let ecartsAjustements: [EcartAjustementObserve]
+    /// Repas déjà exploitables dans le groupe (moment) de ce repas — alimente
+    /// la ligne de progression affichée tant que `< CalculRatioObserve.donneesMinimales`.
+    let effectifGroupe: Int
 
     init(
         doseSaisie: Double, doseSuggeree: Double, profil: ProfilRatio,
         ecartObserve: EcartRatioObserve? = nil,
-        ecartsAjustements: [EcartAjustementObserve] = []
+        effectifGroupe: Int = 0
     ) {
         self.doseSaisie = doseSaisie
         self.doseSuggeree = doseSuggeree
         self.profil = profil
         self.ecartObserve = ecartObserve
-        self.ecartsAjustements = ecartsAjustements
+        self.effectifGroupe = effectifGroupe
     }
 
     var ecart: Double { doseSaisie - doseSuggeree }
@@ -142,22 +132,18 @@ enum InsightsService {
     ///   - analyseRatioObserve: mining R1 déjà calculé (`AnalyseRatioService`),
     ///     transmis par l'appelant — pas de recalcul ici (couche agrégée,
     ///     recalculée sur mutation du hub, pas à chaque frappe de saisie).
-    ///   - ajustements: ajustements intentionnels du repas en cours (sport
-    ///     récent…) — cherche l'écart observé de leur groupe en plus de celui
-    ///     du moment, jamais fusionné.
     static func contexte(
         doseSaisie: Double,
         glucides: Double,
         heure: Date,
         section: SectionRepas,
         contexte: ModelContext?,
-        analyseRatioObserve: AnalyseRatioObserve = .vide,
-        ajustements: [Ajustement] = []
+        analyseRatioObserve: AnalyseRatioObserve = .vide
     ) -> ContexteInsights {
         ContexteInsights(
             validation: validation(
                 doseSaisie: doseSaisie, glucides: glucides, section: section,
-                analyseRatioObserve: analyseRatioObserve, ajustements: ajustements
+                analyseRatioObserve: analyseRatioObserve
             ),
             sport: sportRecent(avant: heure, contexte: contexte),
             iob: iobActif(a: heure, contexte: contexte)
@@ -168,7 +154,7 @@ enum InsightsService {
 
     private static func validation(
         doseSaisie: Double, glucides: Double, section: SectionRepas,
-        analyseRatioObserve: AnalyseRatioObserve, ajustements: [Ajustement]
+        analyseRatioObserve: AnalyseRatioObserve
     ) -> ValidationRatio? {
         guard glucides > 0 else { return nil }
         let profil = ProfilService.shared.profil
@@ -182,20 +168,11 @@ enum InsightsService {
             libelle: section.titre.lowercased()
         )
         let sectionRecherchee = profil.modeRatio == .unique ? nil : section
-        let ecart = analyseRatioObserve.sections.first { $0.groupe == .moment(sectionRecherchee) }?.ecart
-
-        // Écarts des groupes d'ajustement présents sur ce repas — jamais
-        // fusionnés avec celui du moment (voir GroupeRatio).
-        let raisons = Set(ajustements.map(\.raison))
-        let ecartsAjustements = raisons.compactMap { raison -> EcartAjustementObserve? in
-            guard let ecartRaison = analyseRatioObserve.sections.first(where: { $0.groupe == .ajustement(raison) })?.ecart
-            else { return nil }
-            return EcartAjustementObserve(raison: raison, ecart: ecartRaison)
-        }
+        let sectionMining = analyseRatioObserve.sections.first { $0.groupe == sectionRecherchee }
 
         return ValidationRatio(
             doseSaisie: doseSaisie, doseSuggeree: suggeree, profil: profilRatio,
-            ecartObserve: ecart, ecartsAjustements: ecartsAjustements
+            ecartObserve: sectionMining?.ecart, effectifGroupe: sectionMining?.effectif ?? 0
         )
     }
 

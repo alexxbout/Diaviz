@@ -38,19 +38,19 @@ struct SectionRatios: View {
             case .parMoment:
                 ligneRatioMoment(
                     libelle: "Petit-déjeuner",
-                    binding: bindingRatioMoment(\.petitDejeuner)
+                    binding: bindingRatioMoment(\.petitDejeuner, dateKeyPath: \.petitDejeuner)
                 )
                 ligneRatioMoment(
                     libelle: "Déjeuner",
-                    binding: bindingRatioMoment(\.dejeuner)
+                    binding: bindingRatioMoment(\.dejeuner, dateKeyPath: \.dejeuner)
                 )
                 ligneRatioMoment(
                     libelle: "Goûter",
-                    binding: bindingRatioMoment(\.gouter)
+                    binding: bindingRatioMoment(\.gouter, dateKeyPath: \.gouter)
                 )
                 ligneRatioMoment(
                     libelle: "Dîner",
-                    binding: bindingRatioMoment(\.diner)
+                    binding: bindingRatioMoment(\.diner, dateKeyPath: \.diner)
                 )
             }
         } header: {
@@ -170,6 +170,10 @@ struct SectionRatios: View {
                         profil.ratioUnique = nil
                         profil.ratiosParMoment = RatiosParMoment()
                     }
+                    // Nouveau mode = table rase : les dates de changement de
+                    // l'ancien mode n'ont plus de sens (les ratios qu'elles
+                    // décrivaient viennent d'être effacés).
+                    profil.datesChangementRatio = DatesChangementRatio()
                 }
             }
         )
@@ -179,21 +183,42 @@ struct SectionRatios: View {
         Binding(
             get: { service.profil.ratioUnique },
             set: { nouveau in
-                service.mettreAJour { $0.ratioUnique = nouveau }
+                service.mettreAJour { profil in
+                    let ancien = profil.ratioUnique
+                    profil.ratioUnique = nouveau
+                    // Stamp uniquement sur une vraie transition (valeur
+                    // existante → différente) — jamais sur la configuration
+                    // initiale (`nil → valeur`), qui n'invalide aucun
+                    // historique.
+                    if let ancien, ancien != nouveau {
+                        var dates = profil.datesChangementRatioEffectives
+                        dates.unique = Date()
+                        profil.datesChangementRatio = dates
+                    }
+                }
             }
         )
     }
 
     /// Binding paramétré par un keyPath sur `RatiosParMoment` — évite
     /// de répéter quatre bindings quasi identiques pour chaque repas.
+    /// `dateKeyPath` pointe vers le champ miroir sur `DatesChangementRatio`,
+    /// stampé à la date du jour sur un vrai changement de valeur.
     private func bindingRatioMoment(
-        _ keyPath: WritableKeyPath<RatiosParMoment, Double?>
+        _ keyPath: WritableKeyPath<RatiosParMoment, Double?>,
+        dateKeyPath: WritableKeyPath<DatesChangementRatio, Date?>
     ) -> Binding<Double?> {
         Binding(
             get: { service.profil.ratiosParMoment[keyPath: keyPath] },
             set: { nouveau in
                 service.mettreAJour { profil in
+                    let ancien = profil.ratiosParMoment[keyPath: keyPath]
                     profil.ratiosParMoment[keyPath: keyPath] = nouveau
+                    if let ancien, ancien != nouveau {
+                        var dates = profil.datesChangementRatioEffectives
+                        dates[keyPath: dateKeyPath] = Date()
+                        profil.datesChangementRatio = dates
+                    }
                 }
             }
         )

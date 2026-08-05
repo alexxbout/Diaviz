@@ -5,36 +5,6 @@
 
 import Foundation
 
-// MARK: - Groupe de mining
-
-/// Clé de regroupement du mining — soit un moment de repas (ratio de base,
-/// matin/midi/soir/…), soit une raison d'ajustement intentionnel (sport
-/// récent, glycémie basse avant repas…). Un repas ajusté n'alimente **jamais**
-/// un groupe `.moment` — il est classé uniquement dans le(s) groupe(s)
-/// `.ajustement` correspondant(s), pour ne pas polluer le signal du ratio de
-/// base avec des doses déjà compensées manuellement. Même mécanique de calcul
-/// pour les deux cas — seule la clé de regroupement change.
-nonisolated enum GroupeRatio: Hashable, Sendable {
-    case moment(SectionRepas?)
-    case ajustement(RaisonAjustement)
-
-    var libelle: String {
-        switch self {
-        case .moment(let section): return section?.titre ?? "Tous les repas"
-        case .ajustement(let raison): return raison.libelle
-        }
-    }
-
-    /// Ordre d'affichage stable : moments d'abord (triés par titre), puis
-    /// ajustements (triés par libellé).
-    fileprivate var cleTri: (Int, String) {
-        switch self {
-        case .moment: return (0, libelle)
-        case .ajustement: return (1, libelle)
-        }
-    }
-}
-
 // MARK: - Entrée
 
 /// Un repas exploitable pour le mining du ratio observé — mappé par
@@ -42,19 +12,17 @@ nonisolated enum GroupeRatio: Hashable, Sendable {
 /// (tout l'historique, pas seulement la fenêtre CGM récente gardée en
 /// mémoire). Value type découplé de SwiftData, même pattern qu'`EntreesBasale`.
 ///
-/// Un repas avec plusieurs ajustements produit **une entrée par raison**
-/// (même repas dupliqué dans plusieurs `EntreeRatioRepas`, une par groupe) —
-/// c'est `AnalyseRatioService` qui gère cette explosion ; `totalRepasAnalyses`
-/// (transmis séparément à `analyser`) compte les repas **distincts**, pas les
-/// entrées, pour ne pas gonfler artificiellement le seuil global.
+/// `groupe` est le moment du repas (`nil` en mode ratio unique) — les repas
+/// ajustés (`Repas.ajustements` non vide) sont exclus en amont par
+/// `AnalyseRatioService`, jamais représentés ici.
 nonisolated struct EntreeRatioRepas: Sendable {
-    let groupe: GroupeRatio
+    let groupe: SectionRepas?
     /// Dose couvrant les glucides (`totalInsuline - doseCorrection`).
     let doseAppliquee: Double
     /// Dose suggérée par le ratio **configuré actuellement** dans le profil
     /// pour la section réelle du repas — pas d'historique de changement de
-    /// ratio tracé (contrairement à la dose de lente pour B1), donc les repas
-    /// anciens sont comparés au ratio d'aujourd'hui. Limite connue, documentée.
+    /// ratio tracé au niveau du calcul lui-même (le filtrage par date de
+    /// changement se fait en amont, dans `AnalyseRatioService`).
     let doseSuggeree: Double
     let glucides: Int
     let verdict: VerdictGlycemique
@@ -103,20 +71,21 @@ nonisolated struct EcartRatioObserve: Sendable, Equatable {
 }
 
 nonisolated struct ObservationRatioSection: Sendable, Equatable {
-    let groupe: GroupeRatio
-    /// Seulement les tranches à l'effectif suffisant (silence sinon).
+    let groupe: SectionRepas?
+    /// Repas exploitables dans ce groupe — **toujours peuplé**, indépendant
+    /// du seuil `donneesMinimales`. Alimente la progression affichée avant
+    /// que le groupe ait assez de données pour un vrai résultat.
+    let effectif: Int
+    /// Seulement les tranches à l'effectif suffisant (silence sinon). Vide
+    /// tant que `effectif < donneesMinimales`.
     let buckets: [BucketRatioObserve]
     let ecart: EcartRatioObserve?
 }
 
 nonisolated struct AnalyseRatioObserve: Sendable, Equatable {
-    /// Repas **distincts** exploitables (verdict connu, hors contexte libre)
-    /// — pas le nombre d'entrées, qui peut dupliquer un repas ajusté sur
-    /// plusieurs raisons.
-    let totalRepasAnalyses: Int
     let sections: [ObservationRatioSection]
 
-    static var vide: AnalyseRatioObserve { .init(totalRepasAnalyses: 0, sections: []) }
+    static var vide: AnalyseRatioObserve { .init(sections: []) }
 }
 
 // MARK: - Calculateur
@@ -130,8 +99,9 @@ nonisolated struct AnalyseRatioObserve: Sendable, Equatable {
 /// chiffre est recomptable à la main depuis les repas listés.
 nonisolated enum CalculRatioObserve {
 
-    /// Repas analysés (tout l'historique) requis avant d'afficher quoi que
-    /// ce soit — cadrage R1 (doc architecture).
+    /// Repas analysés requis **par groupe** (moment) avant d'afficher un
+    /// résultat pour ce groupe — pas un seuil global : changer le ratio d'un
+    /// moment ne doit jamais faire disparaître l'analyse des autres.
     static let donneesMinimales = 30
     /// Effectif minimal d'un bucket pour être affiché.
     static let effectifMinimalBucket = 5
@@ -143,17 +113,19 @@ nonisolated enum CalculRatioObserve {
 
     // MARK: Point d'entrée
 
-    static func analyser(entrees: [EntreeRatioRepas], totalRepasAnalyses: Int) -> AnalyseRatioObserve {
-        guard totalRepasAnalyses >= donneesMinimales else {
-            return AnalyseRatioObserve(totalRepasAnalyses: totalRepasAnalyses, sections: [])
-        }
-
+    static func analyser(entrees: [EntreeRatioRepas]) -> AnalyseRatioObserve {
         let groupes = Dictionary(grouping: entrees, by: \.groupe)
         let sections = groupes.map { groupe, repas in
             construireSection(groupe: groupe, repas: repas)
-        }.sorted { $0.groupe.cleTri < $1.groupe.cleTri }
+        }.sorted { libelleGroupe($0.groupe) < libelleGroupe($1.groupe) }
 
-        return AnalyseRatioObserve(totalRepasAnalyses: totalRepasAnalyses, sections: sections)
+        return AnalyseRatioObserve(sections: sections)
+    }
+
+    /// Libellé d'un groupe — moment de la journée, ou « Tous les repas » en
+    /// mode ratio unique (`groupe == nil`).
+    static func libelleGroupe(_ groupe: SectionRepas?) -> String {
+        groupe?.titre ?? "Tous les repas"
     }
 
     // MARK: Classification en tranche
@@ -166,11 +138,15 @@ nonisolated enum CalculRatioObserve {
         return .doseProche
     }
 
-    // MARK: Groupe (moment de repas ou raison d'ajustement)
+    // MARK: Groupe (moment de repas)
 
     private static func construireSection(
-        groupe: GroupeRatio, repas: [EntreeRatioRepas]
+        groupe: SectionRepas?, repas: [EntreeRatioRepas]
     ) -> ObservationRatioSection {
+        guard repas.count >= donneesMinimales else {
+            return ObservationRatioSection(groupe: groupe, effectif: repas.count, buckets: [], ecart: nil)
+        }
+
         let parTranche = Dictionary(grouping: repas) {
             tranche(doseAppliquee: $0.doseAppliquee, doseSuggeree: $0.doseSuggeree)
         }
@@ -182,7 +158,7 @@ nonisolated enum CalculRatioObserve {
         }
 
         return ObservationRatioSection(
-            groupe: groupe, buckets: buckets, ecart: detecterEcart(buckets)
+            groupe: groupe, effectif: repas.count, buckets: buckets, ecart: detecterEcart(buckets)
         )
     }
 

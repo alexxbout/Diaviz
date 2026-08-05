@@ -26,56 +26,68 @@ final class AnalyseRatioService {
     /// maximum), pas besoin de `Task.detached`.
     func recalculer(depuis repas: [Repas]) {
         let profil = ProfilService.shared.profil
-        let (entrees, totalRepasAnalyses) = mapperEntrees(repas, profil: profil)
-        analyse = CalculRatioObserve.analyser(entrees: entrees, totalRepasAnalyses: totalRepasAnalyses)
+        let entrees = mapperEntrees(repas, profil: profil)
+        analyse = CalculRatioObserve.analyser(entrees: entrees)
     }
 
-    /// Explose chaque repas exploitable en une ou plusieurs `EntreeRatioRepas`
-    /// (une par raison d'ajustement présente, ou une seule pour le groupe
-    /// moment si aucun ajustement) — voir `GroupeRatio`. Le second élément du
-    /// tuple compte les **repas distincts**, pas les entrées, pour que le
-    /// seuil global (`donneesMinimales`) ne soit pas gonflé par un repas à
-    /// plusieurs ajustements.
-    private func mapperEntrees(
-        _ repas: [Repas], profil: ProfilUtilisateur
-    ) -> (entrees: [EntreeRatioRepas], totalRepasAnalyses: Int) {
+    /// Explose chaque repas exploitable en une `EntreeRatioRepas` (une par
+    /// repas — plus d'explosion multi-groupe depuis que les ajustements sont
+    /// exclus du mining, voir garde ci-dessous).
+    private func mapperEntrees(_ repas: [Repas], profil: ProfilUtilisateur) -> [EntreeRatioRepas] {
         var entrees: [EntreeRatioRepas] = []
-        var totalRepasAnalyses = 0
 
         for r in repas {
-            // Exclusion explicite (toggle « Exclure des analyses ») ou
-            // événement contextuel non structuré : hors mining, quel que
-            // soit le groupe (ni ratio de base, ni ajustement).
-            guard !r.exclureDesAnalyses, r.contexteLibre == nil else { continue }
+            // Exclusions du mining, toutes au même niveau :
+            // - toggle « Exclure des analyses » ;
+            // - contexte libre non structuré (jamais interprété) ;
+            // - ajustement intentionnel (sport, hypo…) : la dose appliquée
+            //   dévie *volontairement* du ratio de base, comparer les deux
+            //   ne mesure rien — voir doc R1 « Ajustements exclus du mining ».
+            guard !r.exclureDesAnalyses, r.contexteLibre == nil, r.ajustements.isEmpty else { continue }
             guard let verdict = r.verdictPersiste, verdict != .indetermine,
                   r.totalGlucides > 0 else { continue }
             let doseCouvrante = r.totalInsuline - (r.doseCorrection ?? 0)
             guard doseCouvrante > 0 else { continue }
 
             let sectionReelle = SectionRepas(heure: r.heure, horaires: profil.horairesRepas)
+
+            // Un repas antérieur au dernier changement du ratio de cette
+            // section n'est plus comparable au ratio actuel — voir
+            // `dateChangement`.
+            let borne = dateChangement(section: sectionReelle, profil: profil) ?? .distantPast
+            guard r.heure >= borne else { continue }
+
             guard let ratioConfigure = InsightsService.ratioConfigure(section: sectionReelle, profil: profil),
                   ratioConfigure > 0 else { continue }
 
             let doseSuggeree = Double(r.totalGlucides) / ratioConfigure
-            func entree(_ groupe: GroupeRatio) -> EntreeRatioRepas {
-                EntreeRatioRepas(
-                    groupe: groupe, doseAppliquee: doseCouvrante, doseSuggeree: doseSuggeree,
-                    glucides: r.totalGlucides, verdict: verdict
-                )
-            }
+            let groupe = profil.modeRatio == .unique ? nil : sectionReelle
 
-            if r.ajustements.isEmpty {
-                let section = profil.modeRatio == .unique ? nil : sectionReelle
-                entrees.append(entree(.moment(section)))
-            } else {
-                // Un repas ajusté n'alimente jamais le groupe moment (ratio de
-                // base) — une entrée par raison distincte présente.
-                let raisons = Set(r.ajustements.map(\.raison))
-                for raison in raisons { entrees.append(entree(.ajustement(raison))) }
-            }
-            totalRepasAnalyses += 1
+            entrees.append(EntreeRatioRepas(
+                groupe: groupe, doseAppliquee: doseCouvrante, doseSuggeree: doseSuggeree,
+                glucides: r.totalGlucides, verdict: verdict
+            ))
         }
 
-        return (entrees, totalRepasAnalyses)
+        return entrees
+    }
+
+    /// Date du dernier changement du ratio applicable à cette section — même
+    /// règle de repli que `InsightsService.ratioConfigure` (nuit retombe sur
+    /// dîner, ils partagent le même ratio donc la même date). `nil` = jamais
+    /// changé, tout l'historique reste éligible.
+    private func dateChangement(section: SectionRepas, profil: ProfilUtilisateur) -> Date? {
+        let dates = profil.datesChangementRatioEffectives
+        switch profil.modeRatio {
+        case .unique:
+            return dates.unique
+        case .parMoment:
+            switch section {
+            case .petitDejeuner: return dates.petitDejeuner
+            case .dejeuner:      return dates.dejeuner
+            case .enCas:         return dates.gouter
+            case .diner, .nuit:  return dates.diner
+            }
+        }
     }
 }

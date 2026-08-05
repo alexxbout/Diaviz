@@ -89,8 +89,8 @@ struct AccueilVue: View {
 
     /// Repas signalés « à revoir » : les groupes **récurrents** dont la
     /// dernière occurrence est sortie de cible (`CalculRepasARevoir`) et les
-    /// repas isolés portant un **contexte libre** avec verdict mauvais
-    /// (`CalculRepasContexte`), fusionnés en une seule liste triée par
+    /// repas **isolés** (contexte libre et/ou ajustement, verdict mauvais,
+    /// `CalculRepasIsoles`), fusionnés en une seule liste triée par
     /// sévérité — une seule section les affiche désormais.
     ///
     /// Les deux calculateurs restent distincts (recherche de récurrence vs
@@ -111,7 +111,7 @@ struct AccueilVue: View {
             occurrencesMinimales: occurrencesMinimales,
             idsMasques: idsMasques
         )
-        let contextualises = CalculRepasContexte.analyser(
+        let isoles = CalculRepasIsoles.analyser(
             repas: repasService.repas,
             injections: injectionsRecentes,
             activites: activitesRecentes,
@@ -119,7 +119,7 @@ struct AccueilVue: View {
             seuils: seuils,
             idsMasques: idsMasques
         )
-        return (recurrents + contextualises)
+        return (recurrents + isoles)
             .sorted(by: CalculRepasARevoir.plusSevereEnPremier)
     }
 
@@ -268,6 +268,12 @@ struct AccueilVue: View {
                                 reduceMotion ? nil : .easeOut(duration: 0.3),
                                 value: repasARevoir.count
                             )
+
+                        // Progression du mining R1 (ratio observé) vers son
+                        // seuil par groupe — auto-masquée par la vue
+                        // elle-même une fois tous les groupes complets ou
+                        // sans ratio configuré.
+                        CarteAnalyseRatio()
 
                         // Grille de 4 cartes métriques — aperçu
                         // instantané de l'état courant. Le service

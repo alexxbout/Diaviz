@@ -1,23 +1,28 @@
 //
-//  CalculRepasContexte.swift
+//  CalculRepasIsoles.swift
 //  diaviz
 //
 
 import Foundation
 
-/// Remonte les repas récents portant un **contexte libre** (`Repas.contexteLibre`,
-/// ex. « je prends la voiture ») dont le verdict est mauvais — alimente la
-/// section accueil « Repas avec contexte ».
+/// Remonte les repas récents **hors mining** dont le verdict est mauvais —
+/// contexte libre non structuré (`Repas.contexteLibre`) et/ou ajustement
+/// intentionnel (`Repas.ajustements`, sport récent, hypo avant repas…).
+/// Alimente la section accueil « Repas à revoir » aux côtés des repas
+/// récurrents (`CalculRepasARevoir`).
 ///
-/// Distinct de `CalculRepasARevoir` : un texte libre n'est pas structuré, donc
-/// pas de recherche de récurrence ni de nuage de courbes passées — chaque
-/// repas contextualisé est montré isolément (occurrence unique), avec sa
-/// vraie courbe CGM. Aucun seuil de données (`donneesMinimales`) : ce n'est
+/// Distinct de `CalculRepasARevoir` : ni le texte libre ni un ajustement ne
+/// sont une composition recomptable — pas de recherche de récurrence ni de
+/// nuage de courbes passées, chaque repas isolé est montré seul (occurrence
+/// unique), avec sa vraie courbe CGM. **Aucun seuil de données** : ce n'est
 /// pas une inférence statistique, juste la remontée d'un fait isolé.
 ///
-/// Ces repas sont exclus du mining R1 (`CalculRatioObserve`) et du
-/// regroupement composition de `CalculRepasARevoir` — voir `Repas.contexteLibre`.
-nonisolated enum CalculRepasContexte {
+/// Ces deux catégories sont exclues du mining R1 (`CalculRatioObserve`) et du
+/// regroupement composition de `CalculRepasARevoir` — voir
+/// `Repas.contexteLibre`/`Repas.ajustements` et `AnalyseRatioService.mapperEntrees`.
+/// Un repas peut porter les deux à la fois (contexte + ajustement) : une
+/// seule carte, les deux blocs de badges s'affichent côte à côte.
+nonisolated enum CalculRepasIsoles {
 
     /// Même fenêtre que `CalculRepasARevoir` : au-delà, plus de courbe CGM en
     /// mémoire (`etatAnalyse` transient, borné par `RepasService`).
@@ -36,7 +41,8 @@ nonisolated enum CalculRepasContexte {
         let borne = maintenant.addingTimeInterval(-Double(fenetreJours) * 86_400)
 
         let cartes = repas.compactMap { r -> RepasARevoir? in
-            guard r.heure >= borne, !r.exclureDesAnalyses, let contexte = r.contexteLibre else { return nil }
+            guard r.heure >= borne, !r.exclureDesAnalyses,
+                  r.contexteLibre != nil || !r.ajustements.isEmpty else { return nil }
             guard case .disponible(let reponse) = r.etatAnalyse, reponse.verdict == .mauvais else { return nil }
             guard let courbe = CalculRepasARevoir.courbeAffichage(r) else { return nil }
 
@@ -62,7 +68,7 @@ nonisolated enum CalculRepasContexte {
                 glucidesMax: r.totalGlucides,
                 libelleSection: SectionRepas(heure: r.heure, horaires: horairesRepas).titre,
                 badgesAjustements: CalculRepasARevoir.badgesAjustements(r),
-                contexteAffiche: r.contexteNormalise ?? contexte,
+                contexteAffiche: r.contexteLibre.map { r.contexteNormalise ?? $0 },
                 ratioApplique: r.ratioEffectifPersiste,
                 evenements: CalculRepasARevoir.evenements(
                     pour: r, injections: injections, activites: activites, tousRepas: repas

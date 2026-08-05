@@ -203,8 +203,7 @@ struct RepasSheet: View {
             heure: heureRepas,
             section: section,
             contexte: modelContext,
-            analyseRatioObserve: analyseRatioService.analyse,
-            ajustements: ajustements
+            analyseRatioObserve: analyseRatioService.analyse
         )
     }
 
