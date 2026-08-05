@@ -46,15 +46,14 @@ struct AccueilVue: View {
     /// Contexte du hub — injecté dans les services (IOB, Score) au boot.
     @Environment(\.modelContext) private var modelContext
 
-    /// Observations ML affichées sous la carte score — section masquée
-    /// si le tableau est vide. Service mock pour l'instant ; sera
-    /// remplacé par une vraie source quand la couche ML sera branchée.
-    @State private var insights: [Insight] = InsightsAccueilServiceMock.mockComplet()
-
     /// Assembleur B1 réel — instance partagée (injectée par `AppTabVues`),
     /// utilisée ici pour ajouter l'observation « nouvelle tendance basale »
     /// en tête de la pile d'insights quand le verdict vient de changer.
     @Environment(AnalyseBasaleService.self) private var analyseBasaleService
+
+    /// Mining R1 réel — alimente l'observation « écart de ratio détecté »
+    /// dans la pile d'insights (voir `insightsAffiches`).
+    @Environment(AnalyseRatioService.self) private var analyseRatioService
 
     /// Service hub des repas — source réelle de « Repas à revoir » et
     /// « Repas avec contexte » (courbes CGM encore en mémoire pour les repas
@@ -63,21 +62,28 @@ struct AccueilVue: View {
 
     /// Identifiants des insights supprimés par l'utilisateur (swipe gauche /
     /// appui long + confirmation). Persisté en UserDefaults : un insight au
-    /// même contenu (même `id`, dérivé de son contenu pour l'observation
-    /// réelle) reste masqué tant que rien n'a changé. Les insights mockés,
-    /// eux, ont un UUID aléatoire régénéré à chaque lancement — leur
-    /// suppression ne survit donc pas à un redémarrage de l'app.
+    /// même contenu (même `id`, dérivé du contenu de l'observation, jamais
+    /// aléatoire) reste masqué tant que rien n'a changé.
     @State private var idsInsightsSupprimes: Set<UUID> = InsightsAccueilPersistance.chargerSupprimes()
 
     /// Insight en attente de confirmation de suppression (alert). `nil` =
     /// aucune confirmation en cours.
     @State private var insightASupprimer: Insight?
 
-    /// Pile affichée : l'observation B1 réelle (si nouvelle) en tête, suivie
-    /// des mocks, moins les insights déjà supprimés par l'utilisateur.
+    /// Pile affichée : uniquement des observations **réelles** (B1 basale +
+    /// R1 écart de ratio), moins celles déjà supprimées par l'utilisateur.
+    ///
+    /// Les insights mockés (`InsightsAccueilServiceMock`) ne sont
+    /// volontairement plus branchés ici — voir de vraies fausses données sur
+    /// un écran de suivi de santé était trompeur. Le fichier reste en place
+    /// (mocks réutilisables pour des previews/tests futurs), simplement plus
+    /// lu par l'accueil réel.
     private var insightsAffiches: [Insight] {
-        let reels = [analyseBasaleService.insightNouvelleTendance].compactMap { $0 }
-        return (reels + insights).filter { !idsInsightsSupprimes.contains($0.id) }
+        let reels = [
+            analyseBasaleService.insightNouvelleTendance,
+            analyseRatioService.insightEcartDetecte,
+        ].compactMap { $0 }
+        return reels.filter { !idsInsightsSupprimes.contains($0.id) }
     }
 
     /// Injections et activités du hub — servent uniquement à superposer les

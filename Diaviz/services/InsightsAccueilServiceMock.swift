@@ -153,14 +153,17 @@ extension Insight {
 
 // MARK: - Service mock
 
-/// Source d'observations affichées sur l'accueil. Pour le moment, ne
-/// produit que des jeux mockés ; sera remplacé par une vraie source
-/// (résultats ML pré-calculés) plus tard. L'API publique (`mockComplet`)
-/// reste un tableau de `Insight` pour découpler la vue.
+/// Source d'observations mockées de niveau accueil (aperçu ML) — distincte du
+/// `InsightsService` historique qui sert la `RepasSheet` (insights
+/// contextuels d'une saisie de repas).
 ///
-/// Distinct du `InsightsService` historique qui sert la `RepasSheet` :
-/// celui-ci porte les observations de **niveau accueil** (aperçu ML),
-/// pas les insights contextuels d'une saisie de repas.
+/// **Volontairement non branché sur `AccueilVue`** (décision 2026-08-05) :
+/// une fois de vraies observations disponibles (B1 `AnalyseBasaleService`,
+/// R1 `AnalyseRatioService`), afficher en plus ces cartes factices à côté
+/// était trompeur sur un écran de suivi de santé — impossible de distinguer
+/// un vrai constat d'un exemple de mise en page. Le fichier reste en place
+/// pour d'éventuelles previews/tests futurs (catalogue des 4 catégories
+/// visuelles), mais `AccueilVue.insightsAffiches` ne lit plus `mockComplet()`.
 enum InsightsAccueilServiceMock {
 
     /// Quatre observations couvrant les quatre catégories visuelles

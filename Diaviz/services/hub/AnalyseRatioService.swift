@@ -3,6 +3,7 @@
 //  diaviz
 //
 
+import CryptoKit
 import Foundation
 import Observation
 
@@ -89,5 +90,58 @@ final class AnalyseRatioService {
             case .diner, .nuit:  return dates.diner
             }
         }
+    }
+
+    // MARK: - Insight accueil
+
+    /// Observation « écart de ratio détecté » pour la pile d'insights de
+    /// l'accueil — `nil` tant qu'aucun groupe n'a d'écart significatif. Parmi
+    /// les groupes concernés, celui à l'écart le plus marqué est retenu (un
+    /// seul, pas une carte par groupe). Jamais une dose à utiliser : la
+    /// formulation reste factuelle, mêmes dénominateurs bruts que la carte
+    /// Validation ratio de la saisie.
+    ///
+    /// `id` **dérivé de la signature** (groupe + tranche optimale), pas
+    /// aléatoire — même pattern que `AnalyseBasaleService.insightNouvelleTendance` :
+    /// un écart identique retombe sur le même identifiant, donc une
+    /// suppression par l'utilisateur reste valable tant que l'écart ne
+    /// change pas.
+    var insightEcartDetecte: Insight? {
+        let candidats = analyse.sections.compactMap { section -> (SectionRepas?, EcartRatioObserve)? in
+            guard let ecart = section.ecart else { return nil }
+            return (section.groupe, ecart)
+        }
+        guard let (groupe, ecart) = candidats.max(by: {
+            $0.1.tauxOptimal - $0.1.tauxConfigure < $1.1.tauxOptimal - $1.1.tauxConfigure
+        }) else { return nil }
+
+        let optimal = Int((ecart.tauxOptimal * 100).rounded())
+        let configure = Int((ecart.tauxConfigure * 100).rounded())
+        let libelleGroupe = CalculRatioObserve.libelleGroupe(groupe)
+        let signature = "\(libelleGroupe)|\(ecart.trancheOptimale.rawValue)"
+
+        return Insight(
+            id: Self.idDeterministe(signature),
+            categorie: .informatif,
+            titre: libelleGroupe,
+            message: "Tes repas à \(ecart.trancheOptimale.libelle) ont \(optimal) % de bons résultats, "
+                + "contre \(configure) % à ton ratio actuel.",
+            microVisuel: .grandNombre(valeur: "\(optimal) %"),
+            lienAnalyse: nil
+        )
+    }
+
+    /// UUID stable dérivé d'une chaîne (SHA-256 tronqué à 16 octets) — même
+    /// pattern que `AnalyseBasaleService.idDeterministe`, pas de
+    /// `String.hashValue` qui varie d'un lancement à l'autre.
+    private static func idDeterministe(_ chaine: String) -> UUID {
+        let empreinte = SHA256.hash(data: Data(chaine.utf8))
+        let octets = Array(empreinte.prefix(16))
+        return UUID(uuid: (
+            octets[0], octets[1], octets[2], octets[3],
+            octets[4], octets[5], octets[6], octets[7],
+            octets[8], octets[9], octets[10], octets[11],
+            octets[12], octets[13], octets[14], octets[15]
+        ))
     }
 }
