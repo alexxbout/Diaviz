@@ -292,29 +292,35 @@ final class ScoreService {
 #if DEBUG
 extension ScoreService {
 
-    /// Container in-memory peuplé de ~30 jours de glycémies synthétiques (pas de
-    /// 5 min, sinusoïde plausible centrée 130 mg/dL) — alimente le score réel
-    /// pour les `#Preview`, sans device ni HealthKit. Couverture suffisante pour
-    /// que le GRI soit calculé (≥ 70 %).
+    /// Container in-memory peuplé de ~30 jours de glycémies synthétiques —
+    /// alimente le score réel pour les `#Preview`, sans device ni HealthKit.
     @MainActor
     static func conteneurApercu() -> ModelContainer {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try! ModelContainer(for: GlucoseReading.self, configurations: config)
         let contexte = container.mainContext
+        for lecture in echantillonsApercu() {
+            contexte.insert(lecture)
+        }
+        try? contexte.save()
+        return container
+    }
 
+    /// ~30 jours de glycémies synthétiques (pas de 5 min, sinusoïde plausible
+    /// centrée 130 mg/dL). Couverture suffisante pour que le GRI soit calculé
+    /// (≥ 70 %). Uniquement pour previews / captures.
+    static func echantillonsApercu() -> [GlucoseReading] {
         let cal = Calendar.current
         let debut = cal.date(byAdding: .day, value: -30, to: Date()) ?? Date()
         let pas: TimeInterval = 5 * 60
         let nbPoints = Int(Date().timeIntervalSince(debut) / pas)
 
-        for i in 0..<nbPoints {
+        return (0..<nbPoints).map { i in
             let date = debut.addingTimeInterval(Double(i) * pas)
             let phase = Double(i) * pas / (3 * 3600) * 2 * .pi
             let valeur = Int((130 + 45 * sin(phase) + Double((i * 37) % 21 - 10)).rounded())
-            contexte.insert(GlucoseReading(date: date, valeur: max(50, min(320, valeur)), source: .manuel))
+            return GlucoseReading(date: date, valeur: max(50, min(320, valeur)), source: .manuel)
         }
-        try? contexte.save()
-        return container
     }
 }
 #endif

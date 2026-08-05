@@ -338,7 +338,7 @@ struct AccueilVue: View {
                 Text("« \(insightASupprimer?.titre ?? "") » disparaîtra de l'accueil.")
             }
             .sheet(isPresented: $afficherDetailEcartRatio) {
-                SheetEcartRatio(sections: analyseRatioService.analyse.sections.filter { $0.ecart != nil })
+                SheetEcartRatio(sections: analyseRatioService.analyse.sections.filter { $0.effectif >= CalculRatioObserve.donneesMinimales })
             }
             .sheet(isPresented: $sheetLenteOuverte) {
                 // Sheet d'enregistrement de la lente, préremplie : dose =

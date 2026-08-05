@@ -503,5 +503,81 @@ extension RepasService {
             ),
         ]
     }
+
+    /// Historique synthétique dédié au mining R1 (`CalculRatioObserve`), placé
+    /// **au-delà** de `fenetreAnalyseJours` (45 jours) — hors de cette fenêtre,
+    /// `annoterReponsesGlycemiques()` ne recalcule jamais le verdict d'un repas
+    /// depuis le CGM, donc le `verdictPersiste` posé ici à la construction
+    /// reste stable (la courbe CGM synthétique du preview ne matcherait de
+    /// toute façon aucun repas précis). Objectif : illustrer tous les états
+    /// possibles de la carte de progression / de la sheet « Écart de ratio »
+    /// sans dépendre d'un vrai calcul CGM — chaque tranche est peuplée
+    /// directement avec le verdict voulu, en réutilisant les mêmes constantes
+    /// (`donneesMinimales`, `effectifMinimalBucket`, `toleranceRatio`) que
+    /// `CalculRatioObserve` pour rester cohérent si elles changent.
+    ///
+    /// - Déjeuner : seuil franchi, écart net (les repas sous-dosés marchent
+    ///   mieux — ratio actuel probablement trop fort).
+    /// - Petit-déjeuner : seuil franchi, bien calibré, pas d'écart.
+    /// - Goûter : sous le seuil, progression partielle.
+    /// - Dîner : volontairement pas touché, reste sur le seul repas du jour
+    ///   (`echantillonsApercu()`) pour illustrer l'état quasi vide.
+    static func echantillonsApercuR1() -> [Repas] {
+        let cal = Calendar.current
+
+        func repasType(joursAvant: Int, heure: (h: Int, m: Int), glucides: Int, dose: Double, verdict: VerdictGlycemique) -> Repas {
+            let jour = cal.date(byAdding: .day, value: -joursAvant, to: Date()) ?? Date()
+            let date = cal.date(bySettingHour: heure.h, minute: heure.m, second: 0, of: jour) ?? jour
+            return Repas(
+                heure: date,
+                aliments: [Aliment(emoji: "🍽", nom: "Repas type", quantite: 1, glucides: glucides, insuline: 0)],
+                doseGlobale: dose,
+                verdictPersiste: verdict,
+                ratioEffectifPersiste: Double(glucides) / dose
+            )
+        }
+
+        /// Génère un lot réparti en 3 tranches (faible / proche / forte du
+        /// ratio configuré), chacune avec le nombre de bons verdicts demandé
+        /// — les non-bons alternent moyen/mauvais. Le ratio varie sur toute
+        /// la plage de la tranche (pas une valeur fixe) : sinon tous les
+        /// repas d'une tranche tombent au même x et s'empilent en une seule
+        /// colonne sur le graphique — même plages que les autres previews
+        /// de la sheet (`GraphiqueZonesRatio`/`SheetEcartRatio`).
+        func lot(
+            departJours: Int, glucides: Int, doseSuggeree: Double, heure: (h: Int, m: Int),
+            faible: (bon: Int, total: Int), proche: (bon: Int, total: Int), forte: (bon: Int, total: Int)
+        ) -> [Repas] {
+            var jour = departJours
+            var resultat: [Repas] = []
+            func ajouter(_ compte: (bon: Int, total: Int), plage: ClosedRange<Double>) {
+                for i in 0..<compte.total {
+                    let ratio = plage.lowerBound + (plage.upperBound - plage.lowerBound) * Double(i) / Double(max(1, compte.total - 1))
+                    let verdict: VerdictGlycemique = i < compte.bon ? .bon : (i.isMultiple(of: 2) ? .moyen : .mauvais)
+                    resultat.append(repasType(joursAvant: jour, heure: heure, glucides: glucides, dose: doseSuggeree * ratio, verdict: verdict))
+                    jour += 1
+                }
+            }
+            ajouter(faible, plage: 0.55...0.78)
+            ajouter(proche, plage: 0.85...1.15)
+            ajouter(forte, plage: 1.22...1.55)
+            return resultat
+        }
+
+        let dejeuner = lot(
+            departJours: 50, glucides: 100, doseSuggeree: 100.0 / 12, heure: (12, 30),
+            faible: (8, 10), proche: (7, 15), forte: (2, 10)
+        )
+        let petitDejeuner = lot(
+            departJours: 90, glucides: 50, doseSuggeree: 50.0 / 8, heure: (7, 30),
+            faible: (3, 6), proche: (14, 20), forte: (3, 6)
+        )
+        let gouter = lot(
+            departJours: 130, glucides: 40, doseSuggeree: 40.0 / 15, heure: (16, 30),
+            faible: (2, 4), proche: (7, 10), forte: (1, 3)
+        )
+
+        return dejeuner + petitDejeuner + gouter
+    }
 }
 #endif

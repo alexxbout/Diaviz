@@ -5,11 +5,13 @@
 
 import SwiftUI
 
-/// Sheet de détail de l'écart de ratio détecté par R1 — ouverte depuis la
-/// carte d'insight « Nouvelles tendances » (tap sur l'insight R1
-/// uniquement) et depuis `CarteAnalyseRatio` sur l'accueil. Un bloc par
-/// groupe en écart (`section.ecart != nil`, filtré par l'appelant), chacun
-/// avec son `GraphiqueZonesRatio` et la légende chiffrée des 3 tranches.
+/// Sheet de détail du ratio observé par R1 — ouverte depuis la carte
+/// d'insight « Nouvelles tendances » (tap sur l'insight R1 uniquement) et
+/// depuis `CarteAnalyseRatio` sur l'accueil. Un bloc par groupe ayant assez
+/// de données (`effectif >= donneesMinimales`, filtré par l'appelant) —
+/// transparence complète : un groupe bien calibré est montré au même titre
+/// qu'un groupe en écart, pas seulement ceux qui posent un constat. Chaque
+/// bloc porte son `GraphiqueZonesRatio` et la légende chiffrée des 3 tranches.
 struct SheetEcartRatio: View {
 
     let sections: [ObservationRatioSection]
@@ -20,9 +22,9 @@ struct SheetEcartRatio: View {
             Group {
                 if sections.isEmpty {
                     ContentUnavailableView(
-                        "Aucun écart détecté",
+                        "Pas encore de résultat",
                         systemImage: "chart.dots.scatter",
-                        description: Text("Pas encore assez de repas dans une zone différente de ton ratio actuel pour comparer.")
+                        description: Text("Aucun moment n'a encore assez de repas analysés pour être comparé.")
                     )
                 } else {
                     Form {
@@ -64,59 +66,57 @@ struct SheetEcartRatio: View {
 
     @ViewBuilder
     private func legende(_ section: ObservationRatioSection) -> some View {
-        HStack(alignment: .top, spacing: 0) {
+        HStack(alignment: .top, spacing: 6) {
             ForEach(TrancheRatio.allCases, id: \.self) { tranche in
                 let bucket = section.buckets.first { $0.tranche == tranche }
-                let gagnante = tranche == section.ecart?.trancheOptimale
+                let etiquette = etiquette(tranche, section: section)
+                // Signale explicitement quelle tranche tire le constat — sans
+                // ça, repérer si le mieux est à gauche ou à droite demande de
+                // comparer les 3 chiffres de tête. Deux cas : un écart
+                // significatif détecté (bleu, « meilleur taux ») ou, faute
+                // d'écart, le ratio actuel lui-même confirmé (vert, « ratio
+                // confirmé ») — jamais les deux à la fois. Toute la colonne
+                // (titre + chiffre + étiquette) est prise dans le bloc coloré,
+                // pas seulement l'étiquette — pour que ce soit tout le
+                // constat qui saute aux yeux, pas juste son label.
                 VStack(spacing: 4) {
                     Text(libelleCourt(tranche))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(etiquette != nil ? .white : .secondary)
                         .multilineTextAlignment(.center)
                     if let bucket {
                         Text("\(bucket.bons)/\(bucket.total)")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(gagnante ? Color.accentColor : .primary)
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(etiquette != nil ? .white : Color.primary)
                     } else {
                         Text("insuffisant")
-                            .font(.caption2)
+                            .font(.caption2.weight(.medium))
                             .foregroundStyle(.tertiary)
                     }
-                    // Ratio configuré affiché seulement sous « proche » —
-                    // faible/élevée regroupent des repas à des doses
-                    // *différentes* les unes des autres (c'est justement ce
-                    // qui les distingue), une seule valeur moyennée y serait
-                    // trompeuse. Le ratio configuré, lui, est identique pour
-                    // toutes les entrées du groupe (`glucides / doseSuggeree`).
-                    if tranche == .doseProche, let ratio = ratioConfigureAffiche(section) {
-                        Text(ratio)
+                    if let etiquette {
+                        Text(etiquette.texte)
                             .font(.caption2.weight(.medium))
-                            .foregroundStyle(.secondary)
-                    }
-                    // Signale explicitement quelle tranche tire le constat
-                    // — sans ça, repérer si le mieux est à gauche ou à
-                    // droite demande de comparer les 3 chiffres de tête.
-                    if gagnante {
-                        Text("meilleur taux")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(.white)
                     }
                 }
                 .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(etiquette?.couleur ?? .clear, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
         }
     }
 
-    private func ratioConfigureAffiche(_ section: ObservationRatioSection) -> String? {
-        guard let reference = section.entrees.first(where: { $0.doseSuggeree > 0 }) else { return nil }
-        let ratio = Double(reference.glucides) / reference.doseSuggeree
-        return "1u/\(Int(ratio.rounded()))g"
+    private func etiquette(_ tranche: TrancheRatio, section: ObservationRatioSection) -> (texte: String, couleur: Color)? {
+        if let ecart = section.ecart {
+            return tranche == ecart.trancheOptimale ? ("meilleur taux", .blue) : nil
+        }
+        return tranche == .doseProche ? ("ratio confirmé", .green) : nil
     }
 
     private func libelleCourt(_ tranche: TrancheRatio) -> String {
         switch tranche {
         case .doseNettementFaible: return "Dose plus faible"
-        case .doseProche:          return "Ton ratio actuel"
+        case .doseProche:          return "Ratio actuel"
         case .doseNettementForte:  return "Dose plus élevée"
         }
     }
@@ -163,10 +163,24 @@ private func _mockSections() -> [ObservationRatioSection] {
             + _lot(groupe: .diner, bon: 10, total: 13, plage: 1.25...1.5)
     )
 
-    return [dejeuner, diner]
+    // Bien calibré, pas d'écart — illustre le badge « ratio confirmé ».
+    let petitDejeuner = ObservationRatioSection(
+        groupe: .petitDejeuner, effectif: 32,
+        buckets: [
+            BucketRatioObserve(tranche: .doseNettementFaible, total: 6, bons: 3),
+            BucketRatioObserve(tranche: .doseProche, total: 20, bons: 14),
+            BucketRatioObserve(tranche: .doseNettementForte, total: 6, bons: 3),
+        ],
+        ecart: nil,
+        entrees: _lot(groupe: .petitDejeuner, bon: 3, total: 6, plage: 0.55...0.78)
+            + _lot(groupe: .petitDejeuner, bon: 14, total: 20, plage: 0.85...1.15)
+            + _lot(groupe: .petitDejeuner, bon: 3, total: 6, plage: 1.22...1.55)
+    )
+
+    return [dejeuner, diner, petitDejeuner]
 }
 
-#Preview("2 groupes en écart") {
+#Preview("Écart et ratio confirmé") {
     SheetEcartRatio(sections: _mockSections())
 }
 

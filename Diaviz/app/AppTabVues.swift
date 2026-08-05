@@ -133,7 +133,63 @@ struct AppTabVues: View {
 
 }
 
-#Preview {
-    AppTabVues()
-        .modelContainer(RepasService.conteneurApercu)
+#if DEBUG
+extension AppTabVues {
+
+    /// Container in-memory portant l'intégralité du schéma du hub (mêmes
+    /// types que `DiavizApp.modelContainer`), peuplé en réutilisant les jeux
+    /// d'exemple déjà maintenus par chaque service pour ses propres previews,
+    /// plus l'historique dédié `RepasService.echantillonsApercuR1()` (hors
+    /// fenêtre CGM, verdicts posés directement) qui fait franchir le seuil de
+    /// R1 sur deux moments et illustre écart détecté / bien calibré /
+    /// progression partielle. `EtatDeclare`/`Medicament`/`PeriodePause`
+    /// restent vides, aucune saisie n'existe encore pour ces types. Pas de
+    /// données ciblées pour B1 (tendance basale) ici — se vérifie mieux avec
+    /// un jeu dédié sur le composant concerné, pas dans ce préréglage général.
+    @MainActor
+    static var conteneurApercuComplet: ModelContainer {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try! ModelContainer(
+            for: GlucoseReading.self, Injection.self, Repas.self, Aliment.self,
+                 ActiviteSportive.self, EtatDeclare.self, Medicament.self, PeriodePause.self,
+            configurations: config
+        )
+        let contexte = container.mainContext
+        for lecture in ScoreService.echantillonsApercu() { contexte.insert(lecture) }
+        for repas in RepasService.echantillonsApercu() + RepasService.echantillonsApercuR1() { contexte.insert(repas) }
+        for injection in InjectionsService.echantillonsApercu() { contexte.insert(injection) }
+        for activite in ActivitesSportService.echantillonsApercu() { contexte.insert(activite) }
+        try? contexte.save()
+        return container
+    }
 }
+
+#Preview("App complète") {
+    // `ProfilService.shared` dans le process de preview est isolé du vrai
+    // profil de l'iPhone (`UserDefaults` séparé de l'appareil réel) — sans
+    // ça les cartes de ratio, seuils, etc. resteraient vides ici.
+    ProfilService.shared.mettreAJour {
+        $0 = ProfilUtilisateur(
+            prenom: "Camille",
+            poidsKg: 78,
+            insulineRapide: .fiasp,
+            insulineLente: .tresiba,
+            dureeActionInsulineHeures: 3.5,
+            modeRatio: .parMoment,
+            ratioUnique: nil,
+            ratiosParMoment: RatiosParMoment(
+                petitDejeuner: 8,
+                dejeuner: 12,
+                gouter: 15,
+                diner: 10
+            ),
+            ratioCorrection: 35,
+            horairesRepas: HorairesRepas.defaut(),
+            seuilsGlycemiques: SeuilsGlycemiques(),
+            preferencesAvancees: PreferencesAvancees()
+        )
+    }
+    return AppTabVues()
+        .modelContainer(AppTabVues.conteneurApercuComplet)
+}
+#endif
