@@ -235,7 +235,7 @@ struct CarteScoreQuotidien: View {
 /// sobre) utilisent tous cette même teinte pour rester raccord.
 ///
 /// Internal (pas private) parce que d'autres composants du module
-/// (ex. `SheetScoreMatin`) en dépendent pour rester visuellement
+/// (ex. `DetailScoreVue`) en dépendent pour rester visuellement
 /// cohérents avec la carte.
 enum CouleurScore {
     static func hue(pour score: Int) -> Double {
@@ -259,8 +259,8 @@ enum CouleurScore {
 /// Centralisé ici pour garantir une cohérence parfaite entre les deux
 /// usages — si on retouche les couleurs ou les points, les deux suivent.
 ///
-/// Internal (pas private) parce que `SheetScoreMatin` réutilise le
-/// même gradient pour son grand cercle 120pt.
+/// Internal (pas private) parce que `DetailScoreVue` réutilise le
+/// même gradient pour son cercle 100pt.
 enum MeshScore {
 
     /// Période de la boucle d'animation, en secondes. La motion est

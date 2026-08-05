@@ -9,8 +9,7 @@ import SwiftUI
 import SwiftData
 
 /// Page de détail du score de gestion — push depuis l'accueil
-/// (`CarteScoreQuotidien`) ou depuis le bouton « Voir les détails » de
-/// `SheetScoreMatin`.
+/// (`CarteScoreQuotidien`).
 ///
 /// Décompose le score quotidien en ses 4 zones GRI (Klonoff 2022) et
 /// permet de consulter les scores des 7 derniers jours par sélection
@@ -184,7 +183,7 @@ struct DetailScoreVue: View {
     }
 
     /// 5 paliers qualitatifs alignés sur le reste du module
-    /// (`SheetScoreMatin`, `CarteScoreQuotidien`).
+    /// (`CarteScoreQuotidien`).
     private var libelleQualitatif: String {
         guard let score = scoreCourant?.score else { return "Indisponible" }
         switch score {
@@ -360,8 +359,7 @@ private struct CartePage<Content: View>: View {
 
 /// Cercle 100pt portant le score en blanc — réutilise `MeshScore` (le
 /// mesh gradient partagé du module score) et la teinte continue
-/// `CouleurScore.couleur(pour:)` pour l'ombre. Calqué sur le cercle de
-/// `SheetScoreMatin` mais à la taille spec'd pour la page détail (100pt).
+/// `CouleurScore.couleur(pour:)` pour l'ombre.
 private struct CercleScoreDetail: View {
     let score: Int?
 

@@ -15,16 +15,12 @@ import SwiftData
 /// le composant partagé `EnTetePage`, présent à l'identique sur
 /// les quatre onglets racines.
 ///
-/// Push de `DetailScoreVue` depuis deux entrées :
-///   - Tap sur la carte → push direct via `navigationDestination(item:)`
-///   - Bouton « Voir les détails » de `SheetScoreMatin` → la racine
-///     (`AppTabVues`) écrit dans `$jourDetailScore` après dismiss de
-///     la sheet, ce qui déclenche le même push.
+/// Push de `DetailScoreVue` au tap sur la carte score, via
+/// `navigationDestination(item:)`.
 struct AccueilVue: View {
 
-    /// Binding piloté par la racine (`AppTabVues`) pour pouvoir pousser
-    /// le détail depuis la sheet du matin. Local par défaut quand la
-    /// vue est instanciée sans binding (previews).
+    /// Binding piloté par la racine (`AppTabVues`). Local par défaut quand
+    /// la vue est instanciée sans binding (previews).
     @Binding var jourDetailScore: Date?
 
     /// Service **réel** des métriques d'accueil (hypos du jour, dernière
