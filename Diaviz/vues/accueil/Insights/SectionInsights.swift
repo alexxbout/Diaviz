@@ -26,6 +26,9 @@ struct SectionInsights: View {
     /// confirmation, cette vue ne supprime jamais directement.
     var onDemandeSuppression: ((Insight) -> Void)? = nil
 
+    /// Appelé sur tap simple de la carte active — thread vers `PileVerticaleInsights`.
+    var onTap: ((Insight) -> Void)? = nil
+
     /// Index de la carte actuellement au sommet de la pile. Bindé sur
     /// `PileVerticaleInsights` qui l'incrémente à chaque swipe validé.
     @State private var pageActive: Int = 0
@@ -55,7 +58,8 @@ struct SectionInsights: View {
                 PileVerticaleInsights(
                     insights: insights,
                     indexActif: $pageActive,
-                    onDemandeSuppression: onDemandeSuppression
+                    onDemandeSuppression: onDemandeSuppression,
+                    onTap: onTap
                 )
                     .frame(maxWidth: .infinity)
             }

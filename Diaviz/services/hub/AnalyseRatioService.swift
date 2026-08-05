@@ -65,7 +65,7 @@ final class AnalyseRatioService {
             let groupe = profil.modeRatio == .unique ? nil : sectionReelle
 
             entrees.append(EntreeRatioRepas(
-                groupe: groupe, doseAppliquee: doseCouvrante, doseSuggeree: doseSuggeree,
+                id: r.id, groupe: groupe, doseAppliquee: doseCouvrante, doseSuggeree: doseSuggeree,
                 glucides: r.totalGlucides, verdict: verdict
             ))
         }

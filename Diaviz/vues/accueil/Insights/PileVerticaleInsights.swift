@@ -33,6 +33,10 @@ struct PileVerticaleInsights: View {
     /// parent qui affiche la confirmation.
     var onDemandeSuppression: ((Insight) -> Void)? = nil
 
+    /// Appelé sur tap simple de la carte active — le parent décide de la
+    /// destination (seul l'insight R1 ouvre une sheet pour l'instant).
+    var onTap: ((Insight) -> Void)? = nil
+
     /// Translation Y courante issue du drag user. Appliquée
     /// uniquement à la carte du dessus.
     @State private var glissementY: CGFloat = 0
@@ -127,7 +131,7 @@ struct PileVerticaleInsights: View {
             // une translation qui empêche le long-press natif de se valider,
             // et inversement un doigt immobile ne produit pas de translation
             // significative.
-            .gesture(estTop ? swipeGesture.simultaneously(with: longPressGesture) : nil)
+            .gesture(estTop ? swipeGesture.simultaneously(with: longPressGesture).simultaneously(with: tapGesture) : nil)
             .accessibilityHidden(!estTop)
             .transition(transitionCarte)
     }
@@ -159,6 +163,14 @@ struct PileVerticaleInsights: View {
             .onEnded { _ in
                 guard let insight = insightActif else { return }
                 onDemandeSuppression?(insight)
+            }
+    }
+
+    private var tapGesture: some Gesture {
+        TapGesture()
+            .onEnded {
+                guard let insight = insightActif else { return }
+                onTap?(insight)
             }
     }
 

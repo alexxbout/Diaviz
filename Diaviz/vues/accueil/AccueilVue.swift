@@ -66,6 +66,10 @@ struct AccueilVue: View {
     /// aucune confirmation en cours.
     @State private var insightASupprimer: Insight?
 
+    /// Pilote l'ouverture de la sheet de détail « Écart de ratio » — deux
+    /// points d'entrée (carte insight R1 et `CarteAnalyseRatio`), même sheet.
+    @State private var afficherDetailEcartRatio = false
+
     /// Pile affichée : uniquement des observations **réelles** (B1 basale +
     /// R1 écart de ratio), moins celles déjà supprimées par l'utilisateur.
     ///
@@ -190,7 +194,15 @@ struct AccueilVue: View {
                         // vide pour ne pas laisser une coquille en haut.
                         SectionInsights(
                             insights: insightsAffiches,
-                            onDemandeSuppression: { insightASupprimer = $0 }
+                            onDemandeSuppression: { insightASupprimer = $0 },
+                            onTap: { insight in
+                                // Seul l'insight R1 a une destination pour
+                                // l'instant — B1 reste sans effet au tap,
+                                // cohérent avec le doc « Ce qui reste à faire ».
+                                if insight.id == analyseRatioService.insightEcartDetecte?.id {
+                                    afficherDetailEcartRatio = true
+                                }
+                            }
                         )
 
                         // Section « Aujourd'hui » — carte score du jour
@@ -275,7 +287,7 @@ struct AccueilVue: View {
                         // seuil par groupe — auto-masquée par la vue
                         // elle-même une fois tous les groupes complets ou
                         // sans ratio configuré.
-                        CarteAnalyseRatio()
+                        CarteAnalyseRatio(onTap: { afficherDetailEcartRatio = true })
 
                         // Grille de 4 cartes métriques — aperçu
                         // instantané de l'état courant. Le service
@@ -324,6 +336,9 @@ struct AccueilVue: View {
                 Button("Annuler", role: .cancel) { insightASupprimer = nil }
             } message: {
                 Text("« \(insightASupprimer?.titre ?? "") » disparaîtra de l'accueil.")
+            }
+            .sheet(isPresented: $afficherDetailEcartRatio) {
+                SheetEcartRatio(sections: analyseRatioService.analyse.sections.filter { $0.ecart != nil })
             }
             .sheet(isPresented: $sheetLenteOuverte) {
                 // Sheet d'enregistrement de la lente, préremplie : dose =

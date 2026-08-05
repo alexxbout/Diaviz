@@ -15,7 +15,11 @@ import Foundation
 /// `groupe` est le moment du repas (`nil` en mode ratio unique) — les repas
 /// ajustés (`Repas.ajustements` non vide) sont exclus en amont par
 /// `AnalyseRatioService`, jamais représentés ici.
-nonisolated struct EntreeRatioRepas: Sendable {
+nonisolated struct EntreeRatioRepas: Sendable, Equatable {
+    /// Identité du repas source (`Repas.id`) — sert de graine stable pour
+    /// le jitter du graphique de dispersion (`GraphiqueZonesRatio`), pas
+    /// de recalcul aléatoire à chaque rendu.
+    let id: UUID
     let groupe: SectionRepas?
     /// Dose couvrant les glucides (`totalInsuline - doseCorrection`).
     let doseAppliquee: Double
@@ -80,6 +84,10 @@ nonisolated struct ObservationRatioSection: Sendable, Equatable {
     /// tant que `effectif < donneesMinimales`.
     let buckets: [BucketRatioObserve]
     let ecart: EcartRatioObserve?
+    /// Tous les repas du groupe, **toujours peuplé** — alimente le
+    /// graphique de dispersion (`GraphiqueZonesRatio`) qui a besoin des
+    /// points individuels, pas seulement des agrégats de `buckets`.
+    let entrees: [EntreeRatioRepas]
 }
 
 nonisolated struct AnalyseRatioObserve: Sendable, Equatable {
@@ -144,7 +152,7 @@ nonisolated enum CalculRatioObserve {
         groupe: SectionRepas?, repas: [EntreeRatioRepas]
     ) -> ObservationRatioSection {
         guard repas.count >= donneesMinimales else {
-            return ObservationRatioSection(groupe: groupe, effectif: repas.count, buckets: [], ecart: nil)
+            return ObservationRatioSection(groupe: groupe, effectif: repas.count, buckets: [], ecart: nil, entrees: repas)
         }
 
         let parTranche = Dictionary(grouping: repas) {
@@ -158,7 +166,7 @@ nonisolated enum CalculRatioObserve {
         }
 
         return ObservationRatioSection(
-            groupe: groupe, effectif: repas.count, buckets: buckets, ecart: detecterEcart(buckets)
+            groupe: groupe, effectif: repas.count, buckets: buckets, ecart: detecterEcart(buckets), entrees: repas
         )
     }
 

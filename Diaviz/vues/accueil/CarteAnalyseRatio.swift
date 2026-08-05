@@ -19,6 +19,9 @@ struct CarteAnalyseRatio: View {
 
     @Environment(AnalyseRatioService.self) private var analyseRatioService
 
+    /// Ouvre la sheet de détail « Écart de ratio » quand non-nil.
+    var onTap: (() -> Void)? = nil
+
     private var profil: ProfilUtilisateur { ProfilService.shared.profil }
 
     private var lignes: [LigneProgressionRatio] {
@@ -64,21 +67,30 @@ struct CarteAnalyseRatio: View {
 
     var body: some View {
         if !lignes.isEmpty && incomplet {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Analyse du ratio")
-                    .font(.subheadline.bold())
-                    .foregroundStyle(.primary)
+            if let onTap {
+                Button(action: onTap) { contenu }
+                    .buttonStyle(.plain)
+            } else {
+                contenu
+            }
+        }
+    }
 
-                VStack(spacing: 10) {
-                    ForEach(lignes) { ligne in
-                        ligneVue(ligne)
-                    }
+    private var contenu: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Analyse du ratio")
+                .font(.subheadline.bold())
+                .foregroundStyle(.primary)
+
+            VStack(spacing: 10) {
+                ForEach(lignes) { ligne in
+                    ligneVue(ligne)
                 }
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     @ViewBuilder
