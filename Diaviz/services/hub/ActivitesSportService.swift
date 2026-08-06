@@ -79,8 +79,10 @@ final class ActivitesSportService {
     func reponse(pour activite: ActiviteSportive) -> ReponseGlycemiqueSport? {
         guard let contexte else { return nil }
         let debut = activite.dateDebut.addingTimeInterval(-Self.margeFenetre)
-        let fin = activite.dateDebut
-            .addingTimeInterval(TimeInterval(activite.dureeMinutes * 60) + Self.margeFenetre)
+        // `dateFin` (pas un recalcul manuel de la durée) : réintègre déjà le
+        // temps de pause depuis le Lot 1 — une séance avec pauses a une fin
+        // réelle en horloge murale plus tardive que `dureeMinutes` seul.
+        let fin = activite.dateFin.addingTimeInterval(Self.margeFenetre)
         let descripteur = FetchDescriptor<GlucoseReading>(
             predicate: #Predicate { $0.date >= debut && $0.date <= fin },
             sortBy: [SortDescriptor(\.date)]
@@ -108,6 +110,58 @@ final class ActivitesSportService {
             glycemieFin: glycemieFin,
             deltaMgDl: glycemieFin - glycemieDebut
         )
+    }
+
+    // MARK: - Dérivation (événements corrélés — Lot 2)
+
+    /// Corrections et resucrages rattachés à une activité par **fenêtre
+    /// temporelle**, jamais par lien stocké — même principe que `reponse(pour:)`
+    /// pour le CGM (voir doc Eraser S1). Un événement dans `[dateDébut −
+    /// margeFenêtre, dateFin + margeFenêtre]` est considéré comme lié.
+    ///
+    /// `pendantPause` est déterminé en comparant `date` aux fenêtres de
+    /// `activite.pauses` — vide pour toute activité créée avant le Lot 1
+    /// (saisie manuelle, import HealthKit), ce qui est correct : pas de
+    /// notion de pause hors chrono direct.
+    func evenements(pour activite: ActiviteSportive) -> [EvenementActivite] {
+        guard let contexte else { return [] }
+        let debut = activite.dateDebut.addingTimeInterval(-Self.margeFenetre)
+        let fin = activite.dateFin.addingTimeInterval(Self.margeFenetre)
+
+        let descripteurInjections = FetchDescriptor<Injection>(
+            predicate: #Predicate { $0.heure >= debut && $0.heure <= fin }
+        )
+        let corrections = ((try? contexte.fetch(descripteurInjections)) ?? [])
+            .filter { $0.type != .lente }
+            .map { injection in
+                EvenementActivite(
+                    id: "correction-\(injection.id.uuidString)",
+                    date: injection.heure,
+                    nature: .correction,
+                    detail: injection.dose.doseInsulineFormatee,
+                    pendantPause: pendantUnePause(injection.heure, dans: activite)
+                )
+            }
+
+        let descripteurResucrages = FetchDescriptor<Resucrage>(
+            predicate: #Predicate { $0.date >= debut && $0.date <= fin }
+        )
+        let resucrages = ((try? contexte.fetch(descripteurResucrages)) ?? [])
+            .map { resucrage in
+                EvenementActivite(
+                    id: "resucrage-\(resucrage.id.uuidString)",
+                    date: resucrage.date,
+                    nature: .resucrage(resucrage.intention),
+                    detail: "\(resucrage.glucidesTotal)g",
+                    pendantPause: pendantUnePause(resucrage.date, dans: activite)
+                )
+            }
+
+        return (corrections + resucrages).sorted { $0.date < $1.date }
+    }
+
+    private func pendantUnePause(_ date: Date, dans activite: ActiviteSportive) -> Bool {
+        activite.pauses.contains { $0.debut <= date && date <= $0.fin }
     }
 
     // MARK: - Écriture
