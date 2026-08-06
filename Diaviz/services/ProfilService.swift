@@ -87,6 +87,13 @@ final class ProfilService {
         mettreAJour { $0.photoData = data }
     }
 
+    /// Réinitialise le profil aux valeurs par défaut (bouton « Supprimer
+    /// les données et réglages » de la page Données).
+    func reinitialiser() {
+        profil = ProfilUtilisateur.parDefaut()
+        sauvegarder()
+    }
+
     // MARK: - Persistance privée
 
     private static func charger(
