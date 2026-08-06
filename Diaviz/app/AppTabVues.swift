@@ -152,6 +152,7 @@ extension AppTabVues {
         let container = try! ModelContainer(
             for: GlucoseReading.self, Injection.self, Repas.self, Aliment.self,
                  ActiviteSportive.self, EtatDeclare.self, Medicament.self, PeriodePause.self,
+                 Resucrage.self,
             configurations: config
         )
         let contexte = container.mainContext

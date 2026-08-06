@@ -34,8 +34,9 @@ struct SheetEditionActiviteHealthKit: View {
         self.activite = activite
         self.onValider = onValider
         _intensite = State(initialValue: activite.intensite)
+        let totalGlucides = activite.glucidesPreSportTotal
         _glucidesTexte = State(
-            initialValue: activite.glucidesPreSport.map { String(format: "%g", $0) } ?? ""
+            initialValue: totalGlucides > 0 ? String(format: "%g", totalGlucides) : ""
         )
         _note = State(initialValue: activite.note ?? "")
     }
@@ -249,7 +250,7 @@ struct SheetEditionActiviteHealthKit: View {
             dateDebut: activite.dateDebut,
             dureeMinutes: activite.dureeMinutes,
             intensite: intensite,
-            glucidesPreSport: glucidesDouble,
+            alimentsPreSport: glucidesDouble.map { [.collationGenerique(glucidesGrammes: $0)] } ?? [],
             note: note.trimmingCharacters(in: .whitespaces).isEmpty ? nil : note,
             source: activite.source,
             healthKitData: activite.healthKitData
@@ -280,7 +281,7 @@ private extension String {
             dateDebut: Date(),
             dureeMinutes: 45,
             intensite: .moderee,
-            glucidesPreSport: 15,
+            alimentsPreSport: [.collationGenerique(glucidesGrammes: 15)],
             note: "Footing au parc",
             source: .healthKit,
             healthKitData: HealthKitWorkoutData(

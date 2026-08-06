@@ -46,8 +46,8 @@ final class SessionSportService {
 
     // MARK: - Cycle de vie de la séance
 
-    func demarrer(type: TypeSport) {
-        let nouvelle = SessionSportiveEnCours(type: type)
+    func demarrer(type: TypeSport, structureEffort: StructureEffort? = nil) {
+        let nouvelle = SessionSportiveEnCours(type: type, structureEffort: structureEffort)
         session = nouvelle
         ControleurSeanceLive.sauvegarder(nouvelle)
         demarrerActivity(nouvelle)
@@ -119,6 +119,7 @@ final class SessionSportService {
             dateDebut: s.dateDebut,
             dureeMinutes: s.dureeMinutesArrondie,
             intensite: .moderee,
+            structureEffort: s.structureEffort,
             source: .manuel
         )
     }

@@ -14,7 +14,8 @@ import SwiftUI
 /// - **Heure de début** : DatePicker compact date+heure
 /// - **Durée** : stepper visuel + saisie clavier sur tap de la valeur
 /// - **Intensité** : 3 cards radio empilées (pas de segmented control)
-/// - **Glucides pré-sport** : champ optionnel avec suffixe « g »
+/// - **Glucides pré-sport** : liste d'aliments (recherche), quantité et
+///   glucides calculés par aliment ajouté
 /// - **Note** : champ optionnel multilignes
 ///
 /// La sheet ne valide rien — toutes les valeurs sauf `type` ont des
@@ -34,7 +35,7 @@ struct SheetNouvelleActivite: View {
     /// Démarre une séance chronométrée en direct pour le type choisi. Fourni
     /// uniquement en création — absent en édition. Sa présence active le
     /// sélecteur de mode « Chrono en direct / Saisie manuelle ».
-    let onDemarrer: ((TypeSport) -> Void)?
+    let onDemarrer: ((TypeSport, StructureEffort?) -> Void)?
 
     /// `true` en édition d'une activité existante — le titre passe à
     /// « Modifier » et l'`id` d'origine est réutilisé (upsert).
@@ -46,7 +47,7 @@ struct SheetNouvelleActivite: View {
         activiteExistante: ActiviteSportive? = nil,
         preremplissage: ActiviteSportive? = nil,
         onValider: @escaping (ActiviteSportive) -> Void,
-        onDemarrer: ((TypeSport) -> Void)? = nil
+        onDemarrer: ((TypeSport, StructureEffort?) -> Void)? = nil
     ) {
         self.activiteExistante = activiteExistante
         self.preremplissage = preremplissage
@@ -59,9 +60,8 @@ struct SheetNouvelleActivite: View {
         _dateDebut = State(initialValue: source?.dateDebut ?? Date())
         _dureeMinutes = State(initialValue: source?.dureeMinutes ?? 30)
         _intensite = State(initialValue: source?.intensite ?? .moderee)
-        _glucidesTexte = State(
-            initialValue: source?.glucidesPreSport.map { String(format: "%g", $0) } ?? ""
-        )
+        _structureEffort = State(initialValue: source?.structureEffort)
+        _alimentsPreSport = State(initialValue: source?.alimentsPreSport ?? [])
         _note = State(initialValue: source?.note ?? "")
 
         // Mode initial : « Chrono en direct » par défaut en création pure,
@@ -81,12 +81,14 @@ struct SheetNouvelleActivite: View {
     @State private var dateDebut: Date
     @State private var dureeMinutes: Int
     @State private var intensite: IntensiteSport
-    @State private var glucidesTexte: String
+    @State private var structureEffort: StructureEffort?
+    @State private var alimentsPreSport: [Aliment]
     @State private var note: String
     @State private var mode: ModeCreation
 
     @State private var afficherSaisieDuree: Bool = false
     @State private var saisieDureeTexte: String = ""
+    @State private var afficherRechercheAliment: Bool = false
 
     /// Mode de création : chronomètre en direct vs saisie rétrospective.
     enum ModeCreation: Hashable { case direct, manuel }
@@ -106,6 +108,9 @@ struct SheetNouvelleActivite: View {
                     sectionMode
                 }
                 sectionType
+                if estCardio {
+                    sectionStructureEffort
+                }
                 if mode == .manuel {
                     SectionDateHeure(date: $dateDebut)
                     sectionDuree
@@ -127,7 +132,7 @@ struct SheetNouvelleActivite: View {
                 if mode == .manuel {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Enregistrer") { confirmer() }
-                            .disabled(typeSelectionne == nil)
+                            .disabled(!peutValider)
                             .fontWeight(.semibold)
                     }
                 }
@@ -144,6 +149,11 @@ struct SheetNouvelleActivite: View {
         } message: {
             Text("Entrez la durée en minutes (1–300)")
         }
+        .sheet(isPresented: $afficherRechercheAliment) {
+            SheetRechercheAlimentSimple(titre: "Glucides pré-sport") { aliment in
+                alimentsPreSport.append(aliment)
+            }
+        }
     }
 
     // MARK: - Section mode (chrono / manuel)
@@ -159,7 +169,9 @@ struct SheetNouvelleActivite: View {
                 Text("Saisie manuelle").tag(ModeCreation.manuel)
             }
             .pickerStyle(.segmented)
-            .padding(.vertical, 4)
+            .controlSize(.large)
+            .font(.body.weight(.medium))
+            .padding(.vertical, 10)
             .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
             .listRowBackground(Color.clear)
         }
@@ -167,9 +179,11 @@ struct SheetNouvelleActivite: View {
 
     // MARK: - Section démarrer (mode chrono)
     //
-    // Grand bouton d'action, désactivé tant qu'aucun sport n'est choisi.
-    // L'heure de début et la durée seront capturées par le chrono.
-
+    // Grand bouton d'action, désactivé tant qu'aucun sport n'est choisi — et,
+    // pour un sport cardio, tant que la structure d'effort n'est pas choisie
+    // non plus (`peutValider`). Empêche de démarrer une séance cardio sans
+    // avoir déclaré continu/fractionné : cette info ne se rattrape pas après
+    // coup de façon fiable.
     private var sectionDemarrer: some View {
         Section {
             Button {
@@ -185,12 +199,12 @@ struct SheetNouvelleActivite: View {
                 .padding(.vertical, 10)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(typeSelectionne == nil ? Color.secondary : Color.accentColor)
-            .disabled(typeSelectionne == nil)
+            .foregroundStyle(peutValider ? Color.accentColor : Color.secondary)
+            .disabled(!peutValider)
             // Fond plein pleine largeur (teinte accent) sans capsule ni carte
             // flottante : c'est la row groupée elle-même qui porte la teinte.
             .listRowBackground(
-                (typeSelectionne == nil ? Color.gray : Color.accentColor).opacity(0.15)
+                (peutValider ? Color.accentColor : Color.gray).opacity(0.15)
             )
         } footer: {
             Text("L'heure de début et la durée sont capturées automatiquement. Tu enregistreras les détails à la fin.")
@@ -223,6 +237,45 @@ struct SheetNouvelleActivite: View {
             .padding(.vertical, 8)
         } header: {
             Text("Type de sport")
+        }
+    }
+
+    // MARK: - Section structure d'effort
+    //
+    // Continu/fractionné — pertinent uniquement pour les sports cardio
+    // (course, vélo, natation, marche, sport collectif) : la littérature
+    // distingue leurs régimes glycémiques (voir doc Eraser S1). Masquée pour
+    // musculation/yoga/autre plutôt que désactivée — pas de choix à faire là
+    // où la distinction n'a pas de sens.
+    private var estCardio: Bool {
+        typeSelectionne?.categorie == .cardio
+    }
+
+    /// Un type de sport doit être choisi ; pour un sport cardio, la structure
+    /// d'effort aussi (continu/fractionné) — pas de valeur par défaut
+    /// implicite, l'app ne devine pas cette info.
+    private var peutValider: Bool {
+        typeSelectionne != nil && (!estCardio || structureEffort != nil)
+    }
+
+    private var sectionStructureEffort: some View {
+        Section {
+            VStack(spacing: 8) {
+                ForEach(StructureEffort.allCases, id: \.self) { structure in
+                    CarteRadioStructureEffort(
+                        structure: structure,
+                        selectionnee: structureEffort == structure
+                    ) {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            structureEffort = structureEffort == structure ? nil : structure
+                        }
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+        } header: {
+            Text("Structure d'effort")
         }
     }
 
@@ -302,20 +355,18 @@ struct SheetNouvelleActivite: View {
         }
     }
 
-    // MARK: - Section glucides
+    // MARK: - Section glucides pré-sport
+    //
+    // Liste d'aliments (recherche, même moteur que la saisie repas) plutôt
+    // qu'un simple champ grammes — quantité ET type comptent (cinétique du
+    // glucide, cf. doc Eraser S1). Composant partagé avec le resucrage.
     private var sectionGlucides: some View {
-        Section {
-            HStack {
-                TextField("Optionnel", text: $glucidesTexte)
-                    .keyboardType(.decimalPad)
-                Text("g")
-                    .foregroundStyle(.secondary)
-            }
-        } header: {
-            Text("Glucides pré-sport")
-        } footer: {
-            Text("À renseigner si vous avez pris des glucides juste avant l'activité.")
-        }
+        SectionAlimentsAjoutes(
+            titreSection: "Glucides pré-sport",
+            footer: "À renseigner si vous avez pris des glucides juste avant l'activité.",
+            aliments: $alimentsPreSport,
+            onAjouter: { afficherRechercheAliment = true }
+        )
     }
 
     // MARK: - Section note
@@ -324,15 +375,6 @@ struct SheetNouvelleActivite: View {
             TextField("Ajouter une note...", text: $note, axis: .vertical)
                 .lineLimit(2...4)
         }
-    }
-
-    // MARK: - Calculs
-
-    private var glucidesDouble: Double? {
-        let trim = glucidesTexte
-            .trimmingCharacters(in: .whitespaces)
-            .replacingOccurrences(of: ",", with: ".")
-        return trim.isEmpty ? nil : Double(trim)
     }
 
     // MARK: - Actions
@@ -345,7 +387,8 @@ struct SheetNouvelleActivite: View {
             dateDebut: dateDebut,
             dureeMinutes: dureeMinutes,
             intensite: intensite,
-            glucidesPreSport: glucidesDouble,
+            alimentsPreSport: alimentsPreSport,
+            structureEffort: estCardio ? structureEffort : nil,
             note: note.trimmingCharacters(in: .whitespaces).isEmpty ? nil : note
         )
         onValider(activite)
@@ -354,7 +397,7 @@ struct SheetNouvelleActivite: View {
 
     private func demarrer() {
         guard let type = typeSelectionne else { return }
-        onDemarrer?(type)
+        onDemarrer?(type, estCardio ? structureEffort : nil)
         dismiss()
     }
 
@@ -380,7 +423,7 @@ struct SheetNouvelleActivite: View {
         dateDebut: Date(),
         dureeMinutes: 45,
         intensite: .moderee,
-        glucidesPreSport: 15,
+        alimentsPreSport: [.collationGenerique(glucidesGrammes: 15)],
         note: "Footing au parc"
     )
     return SheetNouvelleActivite(activiteExistante: act, onValider: { _ in })

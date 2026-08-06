@@ -268,7 +268,7 @@ struct SportVue: View {
         case .creation:
             SheetNouvelleActivite(
                 onValider: { service.enregistrer($0) },
-                onDemarrer: { type in sessionService.demarrer(type: type) }
+                onDemarrer: { type, structure in sessionService.demarrer(type: type, structureEffort: structure) }
             )
         case .importHealthKit:
             SheetImportAppleHealth(

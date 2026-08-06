@@ -27,6 +27,15 @@ struct JournalVue: View {
     @State private var injectionsService = InjectionsService()
     @State private var sportService = ActivitesSportService()
 
+    /// Resucrages lus en `@Query` plutôt que via un service local : un
+    /// resucrage peut être écrit depuis la page dédiée **ou** depuis l'écran
+    /// de séance live, chacun avec sa propre instance de `ResucragesService`.
+    /// Une instance locale ici ne verrait jamais ces écritures (`.task` ne
+    /// rejoue pas, `.onAppear` du `NavigationStack` racine non plus au retour
+    /// d'un push). `@Query` observe le store directement — toujours à jour,
+    /// quel que soit l'écrivain.
+    @Query private var resucrages: [Resucrage]
+
     @Environment(\.modelContext) private var modelContext
 
     var body: some View {
@@ -73,6 +82,16 @@ struct JournalVue: View {
                             .overlay(alignment: .topTrailing) { badgeImport }
                         }
                         .buttonStyle(.plain)
+
+                        NavigationLink(destination: ListeResucrages()) {
+                            CarteSection(
+                                icone: "cross.case",
+                                titre: "Resucrage",
+                                sousTitre: sousTitreResucrage,
+                                couleur: .red
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal)
@@ -108,6 +127,15 @@ struct JournalVue: View {
         let n = sportService.nombreActivitesAujourdhui
         guard n > 0 else { return "Aucune activité aujourd'hui" }
         return "\(n) activité\(n > 1 ? "s" : "") enregistrée\(n > 1 ? "s" : "") aujourd'hui"
+    }
+
+    /// Sous-titre de la carte « Resucrage » — compteur du jour, accordé au
+    /// pluriel. Message dédié quand le compteur est à zéro.
+    private var sousTitreResucrage: String {
+        let cal = Calendar.current
+        let n = resucrages.count { cal.isDateInToday($0.date) }
+        guard n > 0 else { return "Aucun resucrage aujourd'hui" }
+        return "\(n) resucrage\(n > 1 ? "s" : "") aujourd'hui"
     }
 
     /// Pastille « à importer » en haut à droite de la carte sport —

@@ -137,7 +137,8 @@ final class ActivitesSportService {
             existant.dateDebut = activite.dateDebut
             existant.dureeMinutes = activite.dureeMinutes
             existant.intensite = activite.intensite
-            existant.glucidesPreSport = activite.glucidesPreSport
+            existant.alimentsPreSport = activite.alimentsPreSport
+            existant.structureEffort = activite.structureEffort
             existant.note = activite.note
             existant.source = activite.source
             existant.healthKitData = activite.healthKitData
@@ -273,7 +274,8 @@ extension ActivitesSportService {
     /// (effet rapide pris en compte dans la baseline observée).
     private static func baselineDebut(pour activite: ActiviteSportive) -> Double {
         let base: Double = 110
-        guard let glucides = activite.glucidesPreSport else { return base }
+        let glucides = activite.glucidesPreSportTotal
+        guard glucides > 0 else { return base }
         // 15g de glucides rapides ≈ +20 mg/dL en 20–30min, capé à +40.
         return base + min(40, glucides * 1.3)
     }
@@ -393,7 +395,7 @@ extension ActivitesSportService {
                 dateDebut: dateA(7, 15),
                 dureeMinutes: 45,
                 intensite: .moderee,
-                glucidesPreSport: 15,
+                alimentsPreSport: [.collationGenerique(glucidesGrammes: 15)],
                 note: "Footing matinal au parc",
                 iobAuDebut: 1.2
             ),
@@ -402,7 +404,7 @@ extension ActivitesSportService {
                 dateDebut: dateA(12, 0),
                 dureeMinutes: 30,
                 intensite: .faible,
-                glucidesPreSport: nil,
+                alimentsPreSport: [],
                 note: nil,
                 iobAuDebut: nil
             ),
@@ -418,7 +420,7 @@ extension ActivitesSportService {
                 dateDebut: dateA(17, 0),
                 dureeMinutes: 50,
                 intensite: .intense,
-                glucidesPreSport: nil,
+                alimentsPreSport: [],
                 note: "Sortie longue sans collation pré-sport",
                 iobAuDebut: 2.5
             ),
@@ -429,7 +431,7 @@ extension ActivitesSportService {
                 dateDebut: dateA(17, 30, ilYA: 1),
                 dureeMinutes: 60,
                 intensite: .moderee,
-                glucidesPreSport: 20,
+                alimentsPreSport: [.collationGenerique(glucidesGrammes: 20)],
                 iobAuDebut: 2.5
             ),
 
@@ -439,7 +441,7 @@ extension ActivitesSportService {
                 dateDebut: dateA(18, 45, ilYA: 2),
                 dureeMinutes: 50,
                 intensite: .intense,
-                glucidesPreSport: nil,
+                alimentsPreSport: [],
                 iobAuDebut: 0.5
             ),
 
@@ -449,7 +451,7 @@ extension ActivitesSportService {
                 dateDebut: dateA(11, 30, ilYA: 3),
                 dureeMinutes: 75,
                 intensite: .faible,
-                glucidesPreSport: nil,
+                alimentsPreSport: [],
                 iobAuDebut: nil
             ),
 
@@ -459,7 +461,7 @@ extension ActivitesSportService {
                 dateDebut: dateA(7, 30, ilYA: 4),
                 dureeMinutes: 30,
                 intensite: .intense,
-                glucidesPreSport: 10,
+                alimentsPreSport: [.collationGenerique(glucidesGrammes: 10)],
                 iobAuDebut: 0.8
             ),
             ActiviteSportive(
@@ -476,7 +478,7 @@ extension ActivitesSportService {
                 dateDebut: dateA(20, 0, ilYA: 5),
                 dureeMinutes: 90,
                 intensite: .intense,
-                glucidesPreSport: 30,
+                alimentsPreSport: [.collationGenerique(glucidesGrammes: 30)],
                 note: "Match du jeudi",
                 iobAuDebut: 1.7
             ),
@@ -487,7 +489,7 @@ extension ActivitesSportService {
                 dateDebut: dateA(8, 0, ilYA: 6),
                 dureeMinutes: 40,
                 intensite: .moderee,
-                glucidesPreSport: 15,
+                alimentsPreSport: [.collationGenerique(glucidesGrammes: 15)],
                 iobAuDebut: 1.0
             ),
         ]

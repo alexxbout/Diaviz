@@ -23,6 +23,10 @@ struct SessionSportiveEnCours: Codable, Sendable, Hashable, Identifiable {
     let type: TypeSport
     /// Instant de démarrage (absolu).
     let dateDebut: Date
+    /// Structure de l'effort déclarée au démarrage (continu/fractionné) —
+    /// pertinent uniquement pour `CategorieSport.cardio`. Choisie avant le
+    /// lancement du chrono, pas déductible après coup.
+    let structureEffort: StructureEffort?
     /// Temps total déjà passé en pause avant la pause courante.
     var secondesPauseCumulees: TimeInterval
     /// Début de la pause en cours, `nil` si la séance tourne.
@@ -32,12 +36,14 @@ struct SessionSportiveEnCours: Codable, Sendable, Hashable, Identifiable {
         id: UUID = UUID(),
         type: TypeSport,
         dateDebut: Date = Date(),
+        structureEffort: StructureEffort? = nil,
         secondesPauseCumulees: TimeInterval = 0,
         debutPauseCourante: Date? = nil
     ) {
         self.id = id
         self.type = type
         self.dateDebut = dateDebut
+        self.structureEffort = structureEffort
         self.secondesPauseCumulees = secondesPauseCumulees
         self.debutPauseCourante = debutPauseCourante
     }

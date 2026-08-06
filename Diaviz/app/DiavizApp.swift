@@ -31,6 +31,7 @@ struct DiavizApp: App {
             EtatDeclare.self,
             Medicament.self,
             PeriodePause.self,
+            Resucrage.self,
         ])
     }
 }

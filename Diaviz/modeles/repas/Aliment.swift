@@ -78,6 +78,14 @@ final class Aliment {
         guard let id = idCiqualResolu else { return emoji }
         return NomsPersonnalisesService.shared.emojiPersonnalise(pour: id) ?? emoji
     }
+
+    /// Aliment générique construit à partir d'une simple quantité de glucides
+    /// (g) — pont pour les flux qui n'ont pas encore de recherche aliment
+    /// (import HealthKit, édition HealthKit). `ActiviteSportive.alimentsPreSport`
+    /// attend une liste d'`Aliment`, pas un `Double` brut.
+    static func collationGenerique(glucidesGrammes: Double) -> Aliment {
+        Aliment(emoji: "🍬", nom: "Collation", quantite: 0, glucides: Int(glucidesGrammes.rounded()), insuline: 0)
+    }
 }
 
 /// Un repas enregistré dans le hub. **Fait brut horodaté** (`@Model`) : `heure`

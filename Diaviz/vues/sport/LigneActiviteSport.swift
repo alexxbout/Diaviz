@@ -120,7 +120,8 @@ struct LigneActiviteSport: View {
     /// avec troncature propre.
     private func sousLigneTexte(heure: String, duree: String) -> String {
         var parts = [heure, duree, activite.intensite.rawValue]
-        if let glucides = activite.glucidesPreSport, glucides > 0 {
+        let glucides = activite.glucidesPreSportTotal
+        if glucides > 0 {
             // Format compact « +15g » : le « + » suggère l'apport au
             // moment du sport, et le « g pré-sport » plus long faisait
             // tronquer la sous-ligne face à la mini-courbe à droite.

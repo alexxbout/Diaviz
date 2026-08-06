@@ -183,7 +183,7 @@ final class HealthKitImportService {
             dateDebut: workout.dateDebut,
             dureeMinutes: workout.dureeMinutes,
             intensite: intensite,
-            glucidesPreSport: glucidesPreSport,
+            alimentsPreSport: glucidesPreSport.map { [.collationGenerique(glucidesGrammes: $0)] } ?? [],
             note: nil,
             source: .healthKit,
             healthKitData: donneesHK

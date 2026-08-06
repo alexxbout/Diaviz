@@ -71,6 +71,9 @@ struct DetailActiviteVue: View {
                 if activite.source == .healthKit {
                     sectionDonneesSante
                 }
+                if !activite.alimentsPreSport.isEmpty {
+                    sectionAlimentsPreSport
+                }
                 sectionContexte
             }
             .padding(.vertical, 16)
@@ -324,6 +327,39 @@ struct DetailActiviteVue: View {
         BadgeIOB.sectionOptionnelle(iob: activite.iobAuDebut)
     }
 
+    // MARK: - Section 4ter — Glucides pré-sport (détail par aliment)
+    //
+    // N'apparaît que si `alimentsPreSport` n'est pas vide — masquée plutôt
+    // qu'un état vide, la ligne « Glucides pré-sport » de `sectionContexte`
+    // couvre déjà le cas « rien renseigné » avec son « — ».
+
+    private var sectionAlimentsPreSport: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("GLUCIDES PRÉ-SPORT")
+                .font(.caption.bold())
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 32)
+
+            CarteRegroupee {
+                ForEach(Array(activite.alimentsPreSport.enumerated()), id: \.element.id) { index, aliment in
+                    if index > 0 {
+                        Divider().padding(.leading, 16)
+                    }
+                    CarteAlimentEnregistre(
+                        emoji: aliment.emojiAffiche,
+                        nom: aliment.nomAffiche,
+                        quantite: aliment.quantite,
+                        glucides: aliment.glucides,
+                        insuline: 0
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
     // MARK: - Section 5 — Contexte
     //
     // Glucides pré-sport, intensité, note. Toujours présente — quand un
@@ -394,7 +430,8 @@ struct DetailActiviteVue: View {
     }
 
     private var glucidesFormate: String {
-        guard let g = activite.glucidesPreSport else { return "—" }
+        let g = activite.glucidesPreSportTotal
+        guard g > 0 else { return "—" }
         return g == floor(g) ? "\(Int(g)) g" : String(format: "%.1f g", g)
     }
 
@@ -475,7 +512,7 @@ extension ActiviteSportive {
             dateDebut: heure,
             dureeMinutes: 50,
             intensite: .intense,
-            glucidesPreSport: nil,
+            alimentsPreSport: [],
             note: "Séance jambes",
             source: .manuel,
             iobAuDebut: 0.5
@@ -492,7 +529,7 @@ extension ActiviteSportive {
             dateDebut: heure,
             dureeMinutes: 45,
             intensite: .moderee,
-            glucidesPreSport: 15,
+            alimentsPreSport: [.collationGenerique(glucidesGrammes: 15)],
             note: "Footing matinal au parc",
             source: .healthKit,
             healthKitData: HealthKitWorkoutData(
@@ -519,7 +556,7 @@ extension ActiviteSportive {
             dateDebut: heure,
             dureeMinutes: 90,
             intensite: .intense,
-            glucidesPreSport: nil,
+            alimentsPreSport: [],
             note: "Sortie longue sans collation pré-sport",
             source: .manuel,
             iobAuDebut: 2.5

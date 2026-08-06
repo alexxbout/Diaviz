@@ -14,8 +14,9 @@ import SwiftData
 /// glucides éventuels pris en pré-sport.
 ///
 /// **Fait brut horodaté** (`@Model`) : écrit par la saisie manuelle et par
-/// l'ingestion des workouts HealthKit. `glucidesPreSport` est optionnel (`nil`
-/// sémantiquement différent de `0` — on n'affiche pas « 0g pré-sport »).
+/// l'ingestion des workouts HealthKit. `alimentsPreSport` vide sémantiquement
+/// différent de « non renseigné » n'existe pas ici — une liste vide veut
+/// simplement dire qu'aucun aliment n'a été ajouté.
 @Model
 final class ActiviteSportive {
     var id: UUID
@@ -24,8 +25,13 @@ final class ActiviteSportive {
     var dateDebut: Date
     var dureeMinutes: Int
     var intensite: IntensiteSport
-    /// Glucides ingérés juste avant l'activité (g). `nil` si rien de spécifique.
-    var glucidesPreSport: Double?
+    /// Aliments ingérés juste avant l'activité — recherche aliment (même
+    /// moteur que la saisie repas), remplace l'ancien champ grammes seul.
+    /// Liste vide si rien de spécifique pris.
+    @Relationship(deleteRule: .cascade) var alimentsPreSport: [Aliment]
+    /// Structure de l'effort (continu/fractionné) — pertinent uniquement pour
+    /// `CategorieSport.cardio`, `nil` sinon (musculation/yoga/autre).
+    var structureEffort: StructureEffort?
     var note: String?
     /// Provenance de la saisie (manuelle vs import HealthKit).
     var source: SourceActivite
@@ -41,7 +47,8 @@ final class ActiviteSportive {
         dateDebut: Date,
         dureeMinutes: Int,
         intensite: IntensiteSport,
-        glucidesPreSport: Double? = nil,
+        alimentsPreSport: [Aliment] = [],
+        structureEffort: StructureEffort? = nil,
         note: String? = nil,
         source: SourceActivite = .manuel,
         healthKitData: HealthKitWorkoutData? = nil,
@@ -52,7 +59,8 @@ final class ActiviteSportive {
         self.dateDebut = dateDebut
         self.dureeMinutes = dureeMinutes
         self.intensite = intensite
-        self.glucidesPreSport = glucidesPreSport
+        self.alimentsPreSport = alimentsPreSport
+        self.structureEffort = structureEffort
         self.note = note
         self.source = source
         self.healthKitData = healthKitData
@@ -65,5 +73,12 @@ extension ActiviteSportive {
     /// positionner le marqueur « fin » sur l'axe temporel.
     var dateFin: Date {
         dateDebut.addingTimeInterval(TimeInterval(dureeMinutes * 60))
+    }
+
+    /// Total des glucides pré-sport (g), somme de `alimentsPreSport`. `0` si
+    /// aucun aliment — les appelants distinguent l'affichage vide eux-mêmes
+    /// (`0` n'est jamais montré comme « 0g pré-sport »).
+    var glucidesPreSportTotal: Double {
+        alimentsPreSport.reduce(0) { $0 + Double($1.glucides) }
     }
 }
