@@ -7,9 +7,9 @@ import SwiftUI
 
 /// Carte accueil — progression du mining R1 (`CalculRatioObserve`) vers son
 /// seuil `donneesMinimales`, **par moment** (matin/midi/goûter/dîner) ou par
-/// « Tous les repas » en mode ratio unique. Une ligne par groupe configuré :
-/// ratio actuel + barre `effectif/donneesMinimales`, verte une fois le seuil
-/// atteint.
+/// « Tous les repas » en mode ratio unique. Une ligne par groupe : libellé,
+/// barre de progression, effectif — toutes les barres sur la même échelle
+/// (0 → `donneesMinimales`), donc directement comparables entre moments.
 ///
 /// Masquée si aucun ratio n'est configuré, ou si tous les groupes configurés
 /// ont déjà atteint le seuil — utile tant qu'il reste quelque chose à
@@ -77,55 +77,88 @@ struct CarteAnalyseRatio: View {
     }
 
     private var contenu: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Analyse du ratio")
-                .font(.subheadline.bold())
-                .foregroundStyle(.primary)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Analyse des ratios")
+                    .font(.subheadline.bold())
+                    .foregroundStyle(.primary)
+                Spacer()
+                // Signale que la carte est tappable — sans ça rien n'indique
+                // qu'elle ouvre la sheet de détail.
+                if onTap != nil {
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+            }
 
             VStack(spacing: 10) {
-                ForEach(lignes) { ligne in
-                    ligneVue(ligne)
+                ForEach(Array(lignes.enumerated()), id: \.element.id) { index, ligne in
+                    ligneVue(ligne, index: index)
                 }
             }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(labelAccessibilite)
     }
 
+    /// Une ligne par groupe : libellé, barre de progression propre au groupe,
+    /// effectif. Chaque barre partage la même échelle (0 → `donneesMinimales`),
+    /// donc deux moments se comparent directement à l'œil — contrairement à une
+    /// barre empilée globale où un groupe déjà prêt n'occupe qu'une fraction de
+    /// la largeur.
+    ///
+    /// Colonnes latérales à largeur fixe pour que les libellés et les chiffres
+    /// s'alignent verticalement quelle que soit la longueur du texte.
     @ViewBuilder
-    private func ligneVue(_ ligne: LigneProgressionRatio) -> some View {
-        let complet = ligne.effectif >= CalculRatioObserve.donneesMinimales
-        VStack(alignment: .leading, spacing: 5) {
-            HStack {
-                Text("\(ligne.libelle) · \(ligne.ratioAffiche)")
-                    .font(.caption.bold())
-                    .foregroundStyle(.primary)
-                Spacer()
-                if complet {
-                    Text("Prêt")
-                        .font(.caption2.bold())
-                        .foregroundStyle(.green)
-                } else {
-                    Text("\(ligne.effectif) / \(CalculRatioObserve.donneesMinimales)")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
-            }
+    private func ligneVue(_ ligne: LigneProgressionRatio, index: Int) -> some View {
+        let teinte = couleur(index: index, complet: ligne.estComplet)
+        HStack(spacing: 10) {
+            Text(ligne.libelleCourt)
+                .font(.footnote)
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .frame(width: 74, alignment: .leading)
+
             GeometryReader { geo in
-                RoundedRectangle(cornerRadius: 999, style: .continuous)
+                Capsule()
                     .fill(Color(.tertiarySystemFill))
                     .overlay(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 999, style: .continuous)
-                            .fill(complet ? Color.green : Color.accentColor)
+                        Capsule()
+                            .fill(teinte)
                             .frame(width: geo.size.width * ligne.progression)
                     }
             }
-            .frame(height: 5)
+            .frame(height: 8)
+
+            Text(ligne.estComplet ? "Prêt" : "\(ligne.effectif)")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(ligne.estComplet ? Color.green : .primary)
+                .monospacedDigit()
+                .lineLimit(1)
+                .frame(width: 44, alignment: .trailing)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(ligne.libelle), ratio \(ligne.ratioAffiche), \(ligne.effectif) sur \(CalculRatioObserve.donneesMinimales) repas analysés")
+    }
+
+    /// Une teinte par position dans la journée — vert dès que le groupe a
+    /// atteint son seuil, pour que « prêt » se lise sur la barre comme sur le
+    /// chiffre, sans dépendre de la couleur d'index.
+    private func couleur(index: Int, complet: Bool) -> Color {
+        if complet { return .green }
+        let palette: [Color] = [.blue, .teal, .orange, .purple]
+        return palette[index % palette.count]
+    }
+
+    private var labelAccessibilite: String {
+        let details = lignes.map { ligne in
+            ligne.estComplet
+                ? "\(ligne.libelle), ratio \(ligne.ratioAffiche), prêt"
+                : "\(ligne.libelle), ratio \(ligne.ratioAffiche), \(ligne.effectif) sur \(CalculRatioObserve.donneesMinimales) repas analysés"
+        }
+        return (["Analyse des ratios"] + details).joined(separator: ". ")
     }
 }
 
@@ -139,6 +172,14 @@ private struct LigneProgressionRatio: Identifiable {
 
     var ratioAffiche: String { "1u/\(Int(ratio.rounded()))g" }
 
+    /// Libellé raccourci pour la légende, qui n'a que ~110pt de large à côté
+    /// des anneaux — « Petit-déjeuner » y déborderait.
+    var libelleCourt: String {
+        libelle == "Petit-déjeuner" ? "Petit-déj" : libelle
+    }
+
+    var estComplet: Bool { effectif >= CalculRatioObserve.donneesMinimales }
+
     var progression: Double {
         min(1, Double(effectif) / Double(CalculRatioObserve.donneesMinimales))
     }
@@ -146,9 +187,46 @@ private struct LigneProgressionRatio: Identifiable {
 
 // MARK: - Aperçu
 
-#Preview("En cours") {
-    CarteAnalyseRatio()
+#if DEBUG
+/// Service peuplé pour les previews — mêmes repas synthétiques que la preview
+/// « App complète » d'`AppTabVues`, dont les ratios (8/12/15) sont alignés sur
+/// le profil posé ici. `ProfilService.shared` est isolé du vrai profil de
+/// l'iPhone dans le process de preview.
+@MainActor
+private func _serviceApercu() -> AnalyseRatioService {
+    ProfilService.shared.mettreAJour {
+        $0 = ProfilUtilisateur(
+            prenom: "Camille",
+            poidsKg: 78,
+            insulineRapide: .fiasp,
+            insulineLente: .tresiba,
+            dureeActionInsulineHeures: 3.5,
+            modeRatio: .parMoment,
+            ratioUnique: nil,
+            ratiosParMoment: RatiosParMoment(petitDejeuner: 8, dejeuner: 12, gouter: 15, diner: 10),
+            ratioCorrection: 35,
+            horairesRepas: HorairesRepas.defaut(),
+            seuilsGlycemiques: SeuilsGlycemiques(),
+            preferencesAvancees: PreferencesAvancees()
+        )
+    }
+    let service = AnalyseRatioService()
+    service.recalculer(depuis: RepasService.echantillonsApercuR1())
+    return service
+}
+
+#Preview("Progression mixte") {
+    CarteAnalyseRatio(onTap: {})
         .padding()
         .background(Color(.systemGroupedBackground))
-        .environment(AnalyseRatioService())
+        .environment(_serviceApercu())
 }
+
+#Preview("Sombre") {
+    CarteAnalyseRatio(onTap: {})
+        .padding()
+        .background(Color(.systemGroupedBackground))
+        .environment(_serviceApercu())
+        .preferredColorScheme(.dark)
+}
+#endif
