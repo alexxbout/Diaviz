@@ -131,6 +131,20 @@ final class HealthKitCGMService {
         }
     }
 
+    /// Oublie l'ancre incrémentale et relance une ingestion complète sur
+    /// `fenetreInitiale`.
+    ///
+    /// L'ancre vit en `UserDefaults`, le hub en SwiftData : si le store est
+    /// recréé (migration de schéma) alors que l'ancre survit, `synchroniser`
+    /// ne demande plus que les nouveautés et le hub reste vide indéfiniment.
+    /// C'est la porte de sortie de cette situation.
+    @discardableResult
+    func resynchroniserToutDepuisSante(container: ModelContainer) async -> Int {
+        UserDefaults.standard.removeObject(forKey: cleAnchor)
+        Logger.sante.info("Ancre HealthKit réinitialisée — réimport complet demandé")
+        return await synchroniser(container: container)
+    }
+
     /// Observe les nouvelles glycémies (réveil en arrière-plan inclus) et
     /// déclenche une synchro à chaque arrivée.
     func demarrerSurveillance(container: ModelContainer) {

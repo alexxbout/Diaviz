@@ -19,12 +19,33 @@ struct VueDiagnosticHealthKit: View {
     /// Mesures réellement stockées dans le hub (vérifie que l'ingestion marche).
     @Query private var lecturesHub: [GlucoseReading]
 
+    @Environment(\.modelContext) private var modelContext
+    @State private var reimportEnCours = false
+    @State private var messageReimport: String?
+
     var body: some View {
         List {
             Section {
                 LabeledContent("Hub (stockées)", value: "\(lecturesHub.count)")
+
+                Button {
+                    Task { await reimporterTout() }
+                } label: {
+                    if reimportEnCours {
+                        HStack(spacing: 8) { ProgressView(); Text("Réimport…") }
+                    } else {
+                        Label("Réimporter depuis Santé", systemImage: "arrow.clockwise")
+                    }
+                }
+                .disabled(reimportEnCours)
+
+                if let messageReimport {
+                    Text(messageReimport)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             } footer: {
-                Text("Nombre de GlucoseReading en base. Confirme que l'ingestion HealthKit alimente le hub.")
+                Text("Nombre de GlucoseReading en base. Confirme que l'ingestion HealthKit alimente le hub. Le réimport oublie l'ancre de synchronisation et recharge les 7 derniers jours — utile si le hub s'est vidé alors que Santé contient toujours les données.")
             }
 
             if let message = service.message {
@@ -84,5 +105,16 @@ struct VueDiagnosticHealthKit: View {
         await service.demanderAcces()
         echantillons = await service.echantillonsRecents()
         chargement = false
+    }
+
+    private func reimporterTout() async {
+        reimportEnCours = true
+        messageReimport = nil
+        await service.demanderAcces()
+        let ajoutes = await service.resynchroniserToutDepuisSante(container: modelContext.container)
+        messageReimport = ajoutes > 0
+            ? "\(ajoutes) mesure\(ajoutes > 1 ? "s" : "") réimportée\(ajoutes > 1 ? "s" : "")."
+            : "Aucune nouvelle mesure — le hub était déjà à jour."
+        reimportEnCours = false
     }
 }

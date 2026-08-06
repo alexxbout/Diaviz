@@ -35,7 +35,13 @@ final class ActiviteSportive {
     /// Fenêtres de pause de la séance live — vide pour une activité saisie
     /// manuellement ou importée (pas de notion de pause hors chrono direct).
     /// Sert à corriger `dateFin` et à situer un resucrage pendant une pause.
-    var pauses: [IntervallePauseSeance]
+    ///
+    /// **Valeur par défaut obligatoire** : sans elle, SwiftData ne sait pas
+    /// migrer les activités déjà en base et recrée le store à vide au premier
+    /// lancement suivant (constaté le 2026-08-06). Tout nouvel attribut
+    /// non-optionnel d'un `@Model` doit porter un défaut — cf. aussi
+    /// `Aliment.resucrage`.
+    var pauses: [IntervallePauseSeance] = []
     var note: String?
     /// Provenance de la saisie (manuelle vs import HealthKit).
     var source: SourceActivite
