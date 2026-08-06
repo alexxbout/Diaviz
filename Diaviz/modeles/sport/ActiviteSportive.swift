@@ -32,6 +32,10 @@ final class ActiviteSportive {
     /// Structure de l'effort (continu/fractionné) — pertinent uniquement pour
     /// `CategorieSport.cardio`, `nil` sinon (musculation/yoga/autre).
     var structureEffort: StructureEffort?
+    /// Fenêtres de pause de la séance live — vide pour une activité saisie
+    /// manuellement ou importée (pas de notion de pause hors chrono direct).
+    /// Sert à corriger `dateFin` et à situer un resucrage pendant une pause.
+    var pauses: [IntervallePauseSeance]
     var note: String?
     /// Provenance de la saisie (manuelle vs import HealthKit).
     var source: SourceActivite
@@ -49,6 +53,7 @@ final class ActiviteSportive {
         intensite: IntensiteSport,
         alimentsPreSport: [Aliment] = [],
         structureEffort: StructureEffort? = nil,
+        pauses: [IntervallePauseSeance] = [],
         note: String? = nil,
         source: SourceActivite = .manuel,
         healthKitData: HealthKitWorkoutData? = nil,
@@ -61,6 +66,7 @@ final class ActiviteSportive {
         self.intensite = intensite
         self.alimentsPreSport = alimentsPreSport
         self.structureEffort = structureEffort
+        self.pauses = pauses
         self.note = note
         self.source = source
         self.healthKitData = healthKitData
@@ -69,10 +75,19 @@ final class ActiviteSportive {
 }
 
 extension ActiviteSportive {
-    /// Instant de fin de la session — utilisé par la mini-courbe pour
-    /// positionner le marqueur « fin » sur l'axe temporel.
+    /// Instant de fin en horloge murale — utilisé par la mini-courbe pour
+    /// positionner le marqueur « fin » sur l'axe temporel, et par toute
+    /// future fenêtre de corrélation temporelle (CGM, resucrage, correction).
+    ///
+    /// `dureeMinutes` est la durée d'**effort net** (pauses déjà déduites,
+    /// cf. `SessionSportiveEnCours.dureeMinutesArrondie`) — sans réintégrer
+    /// le temps de pause, `dateFin` sous-estimait la fin réelle pour toute
+    /// séance ayant eu au moins une pause (point de vigilance identifié lors
+    /// du cadrage S1, corrigé ici une fois `pauses` disponible).
     var dateFin: Date {
-        dateDebut.addingTimeInterval(TimeInterval(dureeMinutes * 60))
+        let dureeEffort = TimeInterval(dureeMinutes * 60)
+        let dureePauses = pauses.reduce(0) { $0 + $1.duree }
+        return dateDebut.addingTimeInterval(dureeEffort + dureePauses)
     }
 
     /// Total des glucides pré-sport (g), somme de `alimentsPreSport`. `0` si

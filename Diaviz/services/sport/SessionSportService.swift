@@ -114,12 +114,21 @@ final class SessionSportService {
     // MARK: - Privé
 
     private func brouillon(depuis s: SessionSportiveEnCours) -> ActiviteSportive {
-        ActiviteSportive(
+        // Si la séance se termine pendant une pause encore en cours, cette
+        // dernière fenêtre n'est jamais passée par `basculerPause()` (qui ne
+        // finalise qu'à la reprise) — on la clôt ici à l'instant présent
+        // pour que `pauses` (et donc `dateFin`) reste complet.
+        var pauses = s.periodesPauseTerminees
+        if let debut = s.debutPauseCourante {
+            pauses.append(IntervallePauseSeance(debut: debut, fin: Date()))
+        }
+        return ActiviteSportive(
             type: s.type,
             dateDebut: s.dateDebut,
             dureeMinutes: s.dureeMinutesArrondie,
             intensite: .moderee,
             structureEffort: s.structureEffort,
+            pauses: pauses,
             source: .manuel
         )
     }

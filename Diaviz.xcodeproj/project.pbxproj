@@ -75,6 +75,7 @@
 			membershipExceptions = (
 				modeles/sport/ActiviteSportiveAttributes.swift,
 				modeles/sport/CategorieSport.swift,
+				modeles/sport/IntervallePauseSeance.swift,
 				modeles/sport/SessionSportiveEnCours.swift,
 				modeles/sport/StructureEffort.swift,
 				modeles/sport/TypeSport.swift,

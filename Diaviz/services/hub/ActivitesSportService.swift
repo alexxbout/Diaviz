@@ -139,6 +139,7 @@ final class ActivitesSportService {
             existant.intensite = activite.intensite
             existant.alimentsPreSport = activite.alimentsPreSport
             existant.structureEffort = activite.structureEffort
+            existant.pauses = activite.pauses
             existant.note = activite.note
             existant.source = activite.source
             existant.healthKitData = activite.healthKitData

@@ -79,6 +79,7 @@ enum ControleurSeanceLive {
         let maintenant = Date()
         if let debut = s.debutPauseCourante {
             s.secondesPauseCumulees += maintenant.timeIntervalSince(debut)
+            s.periodesPauseTerminees.append(IntervallePauseSeance(debut: debut, fin: maintenant))
             s.debutPauseCourante = nil
         } else {
             s.debutPauseCourante = maintenant

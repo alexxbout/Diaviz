@@ -27,10 +27,16 @@ struct SessionSportiveEnCours: Codable, Sendable, Hashable, Identifiable {
     /// pertinent uniquement pour `CategorieSport.cardio`. Choisie avant le
     /// lancement du chrono, pas déductible après coup.
     let structureEffort: StructureEffort?
-    /// Temps total déjà passé en pause avant la pause courante.
+    /// Temps total déjà passé en pause avant la pause courante. Reste la
+    /// source de vérité pour le calcul du temps d'effort — `periodesPauseTerminees`
+    /// est un journal parallèle, purement additif, jamais relu pour le chrono.
     var secondesPauseCumulees: TimeInterval
     /// Début de la pause en cours, `nil` si la séance tourne.
     var debutPauseCourante: Date?
+    /// Fenêtres `[début, fin]` des pauses déjà terminées — journal détaillé
+    /// en plus du cumul. Alimente le signal « resucrage pendant une pause »
+    /// et la correction de `ActiviteSportive.dateFin` (voir doc Eraser S1).
+    var periodesPauseTerminees: [IntervallePauseSeance]
 
     init(
         id: UUID = UUID(),
@@ -38,7 +44,8 @@ struct SessionSportiveEnCours: Codable, Sendable, Hashable, Identifiable {
         dateDebut: Date = Date(),
         structureEffort: StructureEffort? = nil,
         secondesPauseCumulees: TimeInterval = 0,
-        debutPauseCourante: Date? = nil
+        debutPauseCourante: Date? = nil,
+        periodesPauseTerminees: [IntervallePauseSeance] = []
     ) {
         self.id = id
         self.type = type
@@ -46,6 +53,7 @@ struct SessionSportiveEnCours: Codable, Sendable, Hashable, Identifiable {
         self.structureEffort = structureEffort
         self.secondesPauseCumulees = secondesPauseCumulees
         self.debutPauseCourante = debutPauseCourante
+        self.periodesPauseTerminees = periodesPauseTerminees
     }
 
     var enPause: Bool { debutPauseCourante != nil }
