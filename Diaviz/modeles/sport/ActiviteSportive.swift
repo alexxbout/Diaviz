@@ -25,9 +25,19 @@ final class ActiviteSportive {
     var dateDebut: Date
     var dureeMinutes: Int
     var intensite: IntensiteSport
-    /// Aliments ingérés juste avant l'activité — recherche aliment (même
-    /// moteur que la saisie repas), remplace l'ancien champ grammes seul.
-    /// Liste vide si rien de spécifique pris.
+    /// Aliments ingérés juste avant l'activité.
+    ///
+    /// **Champ historique.** Les nouvelles saisies ne l'alimentent plus : les
+    /// glucides pré-sport partent désormais dans le hub comme `Resucrage`
+    /// d'intention « préventif maintien », daté 30 min avant le début (voir
+    /// `SheetNouvelleActivite.creerResucragesPreSport`). Ils visent le même
+    /// objectif que les glucides pris pendant l'effort, et n'étaient pas
+    /// jugeables tant qu'ils vivaient ici, faute d'horodatage propre.
+    ///
+    /// Reste renseigné par les flux HealthKit (import et édition), qui
+    /// conservent une saisie en grammes convertie en aliment générique, et par
+    /// les activités enregistrées avant ce changement. Les écrans qui
+    /// l'affichent traitent donc un cas résiduel, pas le chemin courant.
     @Relationship(deleteRule: .cascade) var alimentsPreSport: [Aliment]
     /// Structure de l'effort (continu/fractionné) — pertinent uniquement pour
     /// `CategorieSport.cardio`, `nil` sinon (musculation/yoga/autre).

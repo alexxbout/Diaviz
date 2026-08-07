@@ -15,9 +15,15 @@ import SwiftUI
 /// légitimement renseigner ou ajuster sans entrer en conflit avec la
 /// donnée source côté HealthKit.
 ///
-/// Champs **éditables** : `glucidesPreSport`, `intensite`, `note`.
+/// Champs **éditables** : glucides pré-sport, `intensite`, `note`.
 /// Champs **lecture seule** : type, date de début, durée, FC, calories,
 /// distance — affichés en `Form` avec une mention discrète « Apple Santé ».
+///
+/// Les glucides restent ici une simple quantité en grammes, convertie en
+/// aliment générique dans `ActiviteSportive.alimentsPreSport`. La saisie
+/// manuelle, elle, crée désormais un `Resucrage` horodaté — ce flux-ci n'a
+/// pas suivi, faute d'un instant de prise fiable pour une activité importée
+/// après coup.
 struct SheetEditionActiviteHealthKit: View {
 
     // MARK: - Paramètres

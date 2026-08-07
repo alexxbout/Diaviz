@@ -8,7 +8,11 @@ import SwiftUI
 /// Recherche d'aliment allégée — même moteur (`CiqualService`, `LigneResultatRecherche`,
 /// aliments récents) que la saisie repas, mais sans dose d'insuline ni flag
 /// resucrage : sert aux contextes où on ne veut que « quel aliment, quelle
-/// quantité » (glucides pré-sport, resucrage — S1).
+/// quantité ».
+///
+/// Partagée par la saisie d'un resucrage et celle des glucides pré-sport,
+/// d'où sa place dans `composants/` — elle est arrivée par le domaine sport
+/// mais ne lui appartient pas.
 ///
 /// Contrairement à `AjouterRepasVue`, pas de scan code-barres/OFF : recherche
 /// CIQUAL uniquement, suffisant pour ce besoin, pas de raison d'embarquer
