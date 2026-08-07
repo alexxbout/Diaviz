@@ -371,7 +371,7 @@ struct FriseSeanceSportive: View {
                 LigneFrise(
                     id: "pre-sport",
                     idEvenement: nil,
-                    icone: "leaf.fill",
+                    icone: "fork.knife",
                     couleur: .green,
                     titre: "Glucides pré-sport",
                     sousTitre: noms,

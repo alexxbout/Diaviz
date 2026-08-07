@@ -94,7 +94,7 @@ extension View {
 #Preview {
     VStack(spacing: 0) {
         LigneEvenementCourbe(
-            icone: "leaf.fill",
+            icone: "fork.knife",
             couleur: .green,
             titre: "Glucides pré-sport",
             sousTitre: "Pomme",

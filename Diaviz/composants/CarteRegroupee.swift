@@ -7,10 +7,9 @@
 
 import SwiftUI
 
-/// Conteneur en forme de carte « groupée » (style iOS) — fond
-/// `secondarySystemGroupedBackground`, cornerRadius 16, sans padding
-/// interne. Les enfants se placent eux-mêmes pour pouvoir afficher
-/// des séparateurs pleine largeur.
+/// Conteneur en forme de carte « groupée » (style iOS) — matière Liquid
+/// Glass, cornerRadius 16, sans padding interne. Les enfants se placent
+/// eux-mêmes pour pouvoir afficher des séparateurs pleine largeur.
 ///
 /// Utilisée dans les pages de détail (Repas, Activité) pour regrouper
 /// des `LigneMetrique` ou des listes d'aliments.
@@ -22,9 +21,6 @@ struct CarteRegroupee<Content: View>: View {
             content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }

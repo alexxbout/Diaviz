@@ -10,15 +10,21 @@ import SwiftUI
 // MARK: - DetailActiviteVue
 //
 // Page de détail d'une activité sportive, pushée depuis la
-// `LigneActiviteSport` via un `NavigationLink`. Architecture similaire à
-// `DetailRepasVue` (sections empilées dans un `ScrollView`), avec quelques
-// spécificités sport :
+// `LigneActiviteSport` via un `NavigationLink` :
 //
-// 1. **En-tête contextuel** — emoji + type, date + durée, source HealthKit
-// 2. **Graphique élargi** — `GraphiqueGlycemiqueSport` (220pt, dans une card)
-// 3. **Métriques glycémiques** — début, fin, variation (avec coloration)
-// 4. **Données santé** — uniquement si source = HealthKit (FC, calories, distance)
-// 5. **Contexte** — glucides pré-sport, intensité, note
+// 1. **Frise** — courbe parcourable + liste des événements corrélés
+//    (`FriseSeanceSportive`). Sa barre de contexte porte le bilan
+//    glycémique de la séance.
+// 2. **Chiffres clés** — bilan sur l'effort, IOB au départ, glucides
+//    pré-sport, en trois colonnes.
+// 3. **Données santé** — uniquement si source = HealthKit (FC, calories,
+//    distance).
+// 4. **Détails** — quand, intensité, structure d'effort, source, note.
+//
+// La page portait auparavant deux redondances, supprimées le 2026-08-07 :
+// le type de sport en gros titre alors qu'il est déjà dans la barre de
+// navigation, et une carte « Glycémie début / fin / variation » qui
+// répétait la barre de contexte du graphique juste au-dessus.
 //
 // Le menu ⋯ bifurque selon `source` : sheet d'édition complète pour le
 // manuel, sheet allégée `SheetEditionActiviteHealthKit` pour le HealthKit.
@@ -65,14 +71,16 @@ struct DetailActiviteVue: View {
         ScrollView {
             VStack(spacing: 24) {
                 // Graphique en vedette : pleine largeur, sans carte, tout
-                // en haut. Le contexte (type, date) descend juste en dessous.
+                // en haut. Sa barre de contexte porte déjà le bilan
+                // glycémique (départ → fin, variation) — inutile de le
+                // répéter dans une carte de métriques en dessous.
                 sectionGraphique
-                sectionEntete
-                // Section IOB juste sous le graphique : info critique
-                // (risque d'hypo si insuline active forte au démarrage),
-                // doit être visible sans scroller au-delà des métriques.
-                sectionInsulineActive
-                sectionMetriquesGlycemiques
+
+                // Les trois chiffres qui expliquent la séance, d'un coup
+                // d'œil : ce qu'a donné l'effort, ce qui était actif au
+                // départ, ce qui avait été mangé avant.
+                sectionChiffresCles
+
                 if activite.source == .healthKit {
                     sectionDonneesSante
                 }
@@ -80,7 +88,7 @@ struct DetailActiviteVue: View {
                 if friseIndisponible && !activite.alimentsPreSport.isEmpty {
                     sectionAlimentsPreSport
                 }
-                sectionContexte
+                sectionDetails
             }
             .padding(.vertical, 16)
         }
@@ -134,31 +142,6 @@ struct DetailActiviteVue: View {
             }
         }
     }
-
-    // MARK: - Section 1 — En-tête contextuel
-    //
-    // Trois lignes empilées : emoji + type, date relative + durée,
-    // mention « Source : Apple Santé » uniquement pour HealthKit.
-
-    private var sectionEntete: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Label(activite.type.rawValue, systemImage: activite.type.icone)
-                .font(.title2.bold())
-                .foregroundStyle(.primary)
-            Text(sousLigneEntete)
-                .font(.body)
-                .foregroundStyle(.secondary)
-            if activite.source == .healthKit {
-                Text("Source : Apple Santé")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16)
-        .accessibilityElement(children: .combine)
-    }
-
     /// Sous-ligne de l'en-tête : « Aujourd'hui à 7h15 · 45min » /
     /// « Hier à 17h30 · 1h » / « Jeudi 30 avr. à 18h45 · 50min ».
     /// Locale `fr_FR` forcée systématiquement — sinon le formatter par
@@ -240,49 +223,79 @@ struct DetailActiviteVue: View {
         return .donneesManquantes
     }
 
-    // MARK: - Section 3 — Métriques glycémiques
+    // MARK: - Section 3 — Chiffres clés
     //
-    // Affichées uniquement si une réponse est disponible. La variation
-    // est colorée selon les seuils de la spec :
-    // - vert : -10 à +10 (stable)
-    // - bleu : -40 à -10 (chute modérée, normale en cardio)
-    // - orange : < -40 (chute importante)
-    // - rouge : glycémie de fin < 70 (hypo)
+    // Trois colonnes de largeur égale dans une seule carte de verre, même
+    // grammaire que le bandeau de stats de l'écran de séance live.
+    //
+    // Remplace l'ancienne carte « Glycémie début / fin / variation » :
+    // celle-ci répétait mot pour mot ce que la barre de contexte du
+    // graphique affiche déjà au repos, à quelques centimètres au-dessus.
+    // L'IOB au départ et les glucides pré-sport, eux, n'étaient visibles
+    // qu'en fouillant — ce sont pourtant les deux facteurs qui expliquent
+    // la variation.
 
-    @ViewBuilder
-    private var sectionMetriquesGlycemiques: some View {
-        if let reponse {
-            CarteRegroupee {
-                LigneMetrique(
-                    libelle: "Glycémie début",
-                    valeur: "\(Int(reponse.glycemieDebut)) mg/dL",
-                    couleur: nil
-                )
-                Divider().padding(.leading, 16)
-                LigneMetrique(
-                    libelle: "Glycémie fin",
-                    valeur: "\(Int(reponse.glycemieFin)) mg/dL",
-                    couleur: nil
-                )
-                Divider().padding(.leading, 16)
-                LigneMetrique(
-                    libelle: "Variation",
-                    valeur: variationFormatee(reponse.deltaMgDl),
-                    couleur: couleurVariation(reponse: reponse)
-                )
-            }
-            .padding(.horizontal, 16)
+    private var sectionChiffresCles: some View {
+        HStack(spacing: 0) {
+            colonneChiffre(
+                icone: "arrow.left.arrow.right",
+                couleur: .secondary,
+                titre: "Sur l'effort",
+                valeur: bilanGlycemique,
+                couleurValeur: reponse.map { couleurVariation(reponse: $0) } ?? .primary
+            )
+            Divider().frame(height: 42)
+            colonneChiffre(
+                icone: "drop.fill",
+                couleur: .purple,
+                titre: "IOB au départ",
+                valeur: activite.iobAuDebut.map { $0.doseInsulineFormatee } ?? "—"
+            )
+            Divider().frame(height: 42)
+            colonneChiffre(
+                icone: "fork.knife",
+                couleur: .green,
+                titre: "Pré-sport",
+                valeur: glucidesFormate
+            )
         }
+        .padding(.vertical, 14)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
+        .padding(.horizontal, 16)
     }
 
-    /// `+/-XX mg/dL` — toujours signé (« +5 », « −25 »), avec le tiret
-    /// typographique « − » plutôt que le minus ASCII pour rendre la
-    /// valeur lisible alignée à droite avec `monospacedDigit()`.
-    private func variationFormatee(_ delta: Double) -> String {
-        let signe = delta > 0 ? "+" : (delta < 0 ? "−" : "")
-        return "\(signe)\(Int(abs(delta))) mg/dL"
+    private func colonneChiffre(
+        icone: String,
+        couleur: Color,
+        titre: String,
+        valeur: String,
+        couleurValeur: Color = .primary
+    ) -> some View {
+        VStack(spacing: 5) {
+            Image(systemName: icone)
+                .font(.footnote)
+                .foregroundStyle(couleur)
+            Text(titre)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(valeur)
+                .font(.footnote.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(couleurValeur)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 6)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(titre) : \(valeur)")
     }
 
+    /// « 149 → 147 » quand la courbe est disponible, « — » sinon.
+    private var bilanGlycemique: String {
+        guard let reponse else { return "—" }
+        return "\(Int(reponse.glycemieDebut)) → \(Int(reponse.glycemieFin))"
+    }
     /// Couleur du delta selon les seuils de la spec.
     private func couleurVariation(reponse: ReponseGlycemiqueSport) -> Color {
         if reponse.glycemieFin < 70 { return .red }
@@ -340,18 +353,6 @@ struct DetailActiviteVue: View {
             }
         }
     }
-
-    // MARK: - Section 4bis — Insuline active au démarrage
-    //
-    // Card de mise en évidence de l'IOB. Délégué à `BadgeIOB` —
-    // composant partagé avec `DetailRepasVue` (même style, mêmes
-    // seuils, même libellés). `sectionOptionnelle` s'efface
-    // complètement quand l'IOB est nul ou inconnu.
-
-    private var sectionInsulineActive: some View {
-        BadgeIOB.sectionOptionnelle(iob: activite.iobAuDebut)
-    }
-
     // MARK: - Section 4ter — Glucides pré-sport (détail par aliment)
     //
     // Conservée pour les cas où la frise n'est pas rendue (pas de réponse
@@ -385,32 +386,40 @@ struct DetailActiviteVue: View {
         }
     }
 
-    // MARK: - Section 5 — Contexte
+    // MARK: - Section 5 — Détails
     //
-    // Glucides pré-sport, intensité, note. Toujours présente — quand un
-    // champ est vide, on affiche « — » (glucides) ou « Pas de note »
-    // (note) en `.secondary` plutôt que de masquer la ligne, pour que
-    // la structure de la page reste prévisible.
+    // Fusionne l'ancien en-tête (type, date, durée, source) et l'ancien
+    // bloc « Contexte » en une seule carte.
+    //
+    // Le type de sport était affiché deux fois — en titre de barre de
+    // navigation *et* en gros titre ici. La ligne « Glucides pré-sport »
+    // a migré vers les chiffres clés. La structure d'effort, elle, était
+    // absente de la page alors qu'elle est obligatoire à la saisie pour
+    // les sports cardio.
 
-    private var sectionContexte: some View {
+    private var sectionDetails: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("CONTEXTE")
+            Text("DÉTAILS")
                 .font(.caption.bold())
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 32)
 
             CarteRegroupee {
-                LigneMetrique(
-                    libelle: "Glucides pré-sport",
-                    valeur: glucidesFormate,
-                    couleur: nil
-                )
+                LigneMetrique(libelle: "Quand", valeur: sousLigneEntete, couleur: nil)
                 Divider().padding(.leading, 16)
                 LigneMetrique(
                     libelle: "Intensité",
                     valeur: activite.intensite.rawValue,
                     couleur: nil
                 )
+                if let structure = activite.structureEffort {
+                    Divider().padding(.leading, 16)
+                    LigneMetrique(libelle: "Effort", valeur: structure.rawValue, couleur: nil)
+                }
+                if activite.source == .healthKit {
+                    Divider().padding(.leading, 16)
+                    LigneMetrique(libelle: "Source", valeur: "Apple Santé", couleur: nil)
+                }
                 Divider().padding(.leading, 16)
                 ligneNote
             }
