@@ -34,6 +34,10 @@ struct ListeActivitesSport: View {
 
     var onSupprimer: (ActiviteSportive) -> Void
 
+    /// Événements corrélés (corrections, resucrages) par activité, indexés
+    /// par `id` — dérivés par le parent depuis le service.
+    var evenementsParActivite: [UUID: [EvenementActivite]] = [:]
+
     var body: some View {
         if activites.isEmpty {
             etatVide
@@ -43,7 +47,8 @@ struct ListeActivitesSport: View {
                     activite: activite,
                     etatCourbe: etatsCourbes[activite.id] ?? .donneesManquantes,
                     onEnregistrer: onEnregistrer,
-                    onSupprimer: { onSupprimer(activite) }
+                    onSupprimer: { onSupprimer(activite) },
+                    evenements: evenementsParActivite[activite.id] ?? []
                 )
                 .id(activite.id)
                 // Swipe gauche : suppression native iOS, role .destructive

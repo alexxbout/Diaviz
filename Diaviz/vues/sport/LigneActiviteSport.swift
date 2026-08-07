@@ -33,6 +33,10 @@ struct LigneActiviteSport: View {
     /// même raison.
     var onSupprimer: (() -> Void)? = nil
 
+    /// Corrections et resucrages corrélés à cette activité — dérivés par le
+    /// parent depuis le service, transmis à la page détail.
+    var evenements: [EvenementActivite] = []
+
     var body: some View {
         NavigationLink {
             DetailActiviteVue(
@@ -40,7 +44,8 @@ struct LigneActiviteSport: View {
                 reponse: reponseDepuisEtat,
                 minutesAttenteRestantes: minutesAttenteDepuisEtat,
                 onEnregistrer: onEnregistrer,
-                onSupprimer: onSupprimer
+                onSupprimer: onSupprimer,
+                evenements: evenements
             )
         } label: {
             HStack(spacing: 12) {

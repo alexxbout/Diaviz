@@ -74,6 +74,14 @@ struct SportVue: View {
         )
     }
 
+    /// Événements corrélés à chaque activité du jour — dérivation à la volée
+    /// (fenêtre temporelle), jamais persistée.
+    private var evenementsParActivite: [UUID: [EvenementActivite]] {
+        Dictionary(uniqueKeysWithValues: activitesDuJour.map { activite in
+            (activite.id, service.evenements(pour: activite))
+        })
+    }
+
     private var etatsCourbes: [UUID: EtatMiniCourbeSport] {
         Dictionary(uniqueKeysWithValues: activitesDuJour.map { activite in
             let etat: EtatMiniCourbeSport = service.reponse(pour: activite)
@@ -255,7 +263,8 @@ struct SportVue: View {
                 },
                 onSupprimer: { activite in
                     service.supprimer(activite)
-                }
+                },
+                evenementsParActivite: evenementsParActivite
             )
         }
     }

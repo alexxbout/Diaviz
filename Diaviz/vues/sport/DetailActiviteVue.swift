@@ -45,6 +45,11 @@ struct DetailActiviteVue: View {
 
     var onSupprimer: (() -> Void)? = nil
 
+    /// Corrections et resucrages corrélés à cette activité par fenêtre
+    /// temporelle — fournis par le parent qui détient le service. Vide dans
+    /// les previews isolées.
+    var evenements: [EvenementActivite] = []
+
     // MARK: - Environnement
 
     @Environment(\.dismiss) private var dismiss
@@ -71,7 +76,8 @@ struct DetailActiviteVue: View {
                 if activite.source == .healthKit {
                     sectionDonneesSante
                 }
-                if !activite.alimentsPreSport.isEmpty {
+                // Doublonnerait la liste de la frise quand celle-ci s'affiche.
+                if friseIndisponible && !activite.alimentsPreSport.isEmpty {
                     sectionAlimentsPreSport
                 }
                 sectionContexte
@@ -194,12 +200,31 @@ struct DetailActiviteVue: View {
 
     // MARK: - Section 2 — Graphique (pleine largeur, sans carte)
 
+    /// Courbe parcourable + liste d'événements dès qu'une réponse CGM est
+    /// disponible. Sinon on retombe sur le composant partagé, qui sait
+    /// afficher les états dégradés (attente, données manquantes).
+    /// `true` quand la frise ne peut pas être rendue (pas de courbe CGM, ou
+    /// fenêtre d'analyse encore incomplète).
+    private var friseIndisponible: Bool {
+        reponse == nil || (minutesAttenteRestantes ?? 0) > 0
+    }
+
+    @ViewBuilder
     private var sectionGraphique: some View {
-        GraphiqueGlycemique.pourSport(
-            etat: etatGraphique,
-            dureeMinutes: activite.dureeMinutes
-        )
-        .padding(.horizontal, 16)
+        if let reponse, !friseIndisponible {
+            FriseSeanceSportive(
+                reponse: reponse,
+                activite: activite,
+                evenements: evenements
+            )
+            .padding(.horizontal, 16)
+        } else {
+            GraphiqueGlycemique.pourSport(
+                etat: etatGraphique,
+                dureeMinutes: activite.dureeMinutes
+            )
+            .padding(.horizontal, 16)
+        }
     }
 
     /// Mappe `(reponse, minutesAttenteRestantes)` sur l'état attendu par
@@ -329,9 +354,9 @@ struct DetailActiviteVue: View {
 
     // MARK: - Section 4ter — Glucides pré-sport (détail par aliment)
     //
-    // N'apparaît que si `alimentsPreSport` n'est pas vide — masquée plutôt
-    // qu'un état vide, la ligne « Glucides pré-sport » de `sectionContexte`
-    // couvre déjà le cas « rien renseigné » avec son « — ».
+    // Conservée pour les cas où la frise n'est pas rendue (pas de réponse
+    // CGM, ou analyse encore en attente) — la frise reprend cette liste dans
+    // son propre récapitulatif dès qu'elle s'affiche, inutile de la doubler.
 
     private var sectionAlimentsPreSport: some View {
         VStack(alignment: .leading, spacing: 8) {
