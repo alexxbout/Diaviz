@@ -37,6 +37,13 @@ struct SheetNouvelleActivite: View {
     /// sélecteur de mode « Chrono en direct / Saisie manuelle ».
     let onDemarrer: ((TypeSport, StructureEffort?) -> Void)?
 
+    /// Enregistre les glucides pré-sport sous forme de resucrages
+    /// « préventif maintien ». Les glucides pris avant une séance visent
+    /// exactement le même objectif que ceux pris pendant — les garder dans un
+    /// champ séparé de l'activité en faisait la seule prise que l'analyse ne
+    /// pouvait jamais juger, faute d'horodatage. `nil` dans les previews.
+    var onCreerResucrages: (([Resucrage]) -> Void)? = nil
+
     /// `true` en édition d'une activité existante — le titre passe à
     /// « Modifier » et l'`id` d'origine est réutilisé (upsert).
     private let estEdition: Bool
@@ -47,12 +54,14 @@ struct SheetNouvelleActivite: View {
         activiteExistante: ActiviteSportive? = nil,
         preremplissage: ActiviteSportive? = nil,
         onValider: @escaping (ActiviteSportive) -> Void,
-        onDemarrer: ((TypeSport, StructureEffort?) -> Void)? = nil
+        onDemarrer: ((TypeSport, StructureEffort?) -> Void)? = nil,
+        onCreerResucrages: (([Resucrage]) -> Void)? = nil
     ) {
         self.activiteExistante = activiteExistante
         self.preremplissage = preremplissage
         self.onValider = onValider
         self.onDemarrer = onDemarrer
+        self.onCreerResucrages = onCreerResucrages
         self.estEdition = activiteExistante != nil
 
         let source = activiteExistante ?? preremplissage
@@ -363,7 +372,7 @@ struct SheetNouvelleActivite: View {
     private var sectionGlucides: some View {
         SectionAlimentsAjoutes(
             titreSection: "Glucides pré-sport",
-            footer: "À renseigner si vous avez pris des glucides juste avant l'activité.",
+            footer: "Enregistré comme un resucrage « préventif maintien » 30 minutes avant le début, pour que son effet soit analysé au même titre que ceux pris pendant la séance.",
             aliments: $alimentsPreSport,
             onAjouter: { afficherRechercheAliment = true }
         )
@@ -387,12 +396,35 @@ struct SheetNouvelleActivite: View {
             dateDebut: dateDebut,
             dureeMinutes: dureeMinutes,
             intensite: intensite,
-            alimentsPreSport: alimentsPreSport,
+            // En création, les glucides pré-sport partent dans le hub comme
+            // resucrages (voir `creerResucragesPreSport`). En édition on
+            // préserve le champ tel quel : les activités enregistrées avant ce
+            // changement portent encore leurs aliments ici.
+            alimentsPreSport: estEdition ? alimentsPreSport : [],
             structureEffort: estCardio ? structureEffort : nil,
             note: note.trimmingCharacters(in: .whitespaces).isEmpty ? nil : note
         )
         onValider(activite)
+        creerResucragesPreSport()
         dismiss()
+    }
+
+    /// Un resucrage « préventif maintien » par aliment pré-sport, daté 30 min
+    /// avant le début — délai usuel entre une collation et le départ, et
+    /// cohérent avec la fenêtre de jugement de cette intention.
+    ///
+    /// Création seulement : en édition, les resucrages déjà créés sont des
+    /// faits de hub autonomes, qui se modifient depuis la page Resucrage.
+    private func creerResucragesPreSport() {
+        guard !estEdition, !alimentsPreSport.isEmpty else { return }
+        let instant = dateDebut.addingTimeInterval(-30 * 60)
+        onCreerResucrages?([
+            Resucrage(
+                date: instant,
+                intention: .preventifMaintien,
+                aliments: alimentsPreSport
+            )
+        ])
     }
 
     private func demarrer() {

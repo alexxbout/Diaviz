@@ -33,17 +33,61 @@ struct LigneEvenementCourbe: View {
     /// Affiche un chevron : la ligne mène à un écran plus détaillé.
     var afficheChevron: Bool = false
 
+    /// Pastille de résultat accolée au titre — `nil` quand l'événement n'a
+    /// rien à juger (une correction d'insuline, un aliment pré-sport) ou
+    /// quand l'écran appelant n'a pas de notion de verdict (détail de nuit).
+    var pastille: Pastille? = nil
+
+    /// Encart de détail déplié **sous** la ligne. Réservé au geste explicite
+    /// de l'utilisateur : le laisser suivre la surbrillance ferait sauter la
+    /// mise en page à chaque déplacement du curseur sur la courbe.
+    var encart: () -> AnyView? = { nil }
+
+    /// Étiquette compacte de résultat : texte + teinte porteuse de sens.
+    struct Pastille {
+        let texte: String
+        let couleur: Color
+        let fond: Color
+    }
+
     var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ligne
+            if let encart = encart() {
+                encart
+                    .padding(.leading, 48)
+                    .padding(.trailing, 14)
+                    .padding(.bottom, 12)
+            }
+        }
+        .background(actif ? couleur.opacity(0.12) : .clear)
+        .animation(.easeOut(duration: 0.2), value: actif)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(titre), \(sousTitre), \(detail)")
+    }
+
+    private var ligne: some View {
         HStack(spacing: 12) {
             Image(systemName: icone)
                 .font(.subheadline)
                 .foregroundStyle(couleur)
                 .frame(width: 22)
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text(titre)
-                    .font(.subheadline)
-                    .foregroundStyle(enAlerte ? .red : .primary)
+            VStack(alignment: .leading, spacing: 2) {
+                // `flexible` plutôt qu'un `HStack` simple : les libellés de
+                // verdict les plus longs (« Chute non enrayée ») passent à la
+                // ligne au lieu de comprimer le titre.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 6) {
+                        titreTexte
+                        pastilleVue
+                    }
+                    VStack(alignment: .leading, spacing: 3) {
+                        titreTexte
+                        pastilleVue
+                    }
+                }
                 Text(sousTitre)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -64,11 +108,24 @@ struct LigneEvenementCourbe: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
-        .background(actif ? couleur.opacity(0.12) : .clear)
-        .animation(.easeOut(duration: 0.2), value: actif)
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(titre), \(sousTitre), \(detail)")
+    }
+
+    private var titreTexte: some View {
+        Text(titre)
+            .font(.subheadline)
+            .foregroundStyle(enAlerte ? .red : .primary)
+    }
+
+    @ViewBuilder
+    private var pastilleVue: some View {
+        if let pastille {
+            Text(pastille.texte)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(pastille.couleur)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(pastille.fond, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+        }
     }
 }
 

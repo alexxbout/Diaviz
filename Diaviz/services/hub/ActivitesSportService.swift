@@ -146,18 +146,77 @@ final class ActivitesSportService {
         let descripteurResucrages = FetchDescriptor<Resucrage>(
             predicate: #Predicate { $0.date >= debut && $0.date <= fin }
         )
-        let resucrages = ((try? contexte.fetch(descripteurResucrages)) ?? [])
-            .map { resucrage in
-                EvenementActivite(
-                    id: "resucrage-\(resucrage.id.uuidString)",
-                    date: resucrage.date,
-                    nature: .resucrage(resucrage.intention),
-                    detail: "\(resucrage.glucidesTotal)g",
-                    pendantPause: pendantUnePause(resucrage.date, dans: activite)
-                )
-            }
+        let objetsResucrage = (try? contexte.fetch(descripteurResucrages)) ?? []
+
+        // Verdict de chaque prise — dérivation à la volée (« un hub, des
+        // dérivations »), calculée par un calculateur pur sur les mesures
+        // réelles de la fenêtre.
+        let resultats = resultatsResucrages(
+            objetsResucrage,
+            activite: activite,
+            debutFenetre: debut,
+            fin: fin,
+            contexte: contexte,
+            correctionsInsuline: corrections.map(\.date)
+        )
+
+        let resucrages = objetsResucrage.map { resucrage in
+            let id = "resucrage-\(resucrage.id.uuidString)"
+            return EvenementActivite(
+                id: id,
+                date: resucrage.date,
+                nature: .resucrage(resucrage.intention),
+                detail: "\(resucrage.glucidesTotal)g",
+                pendantPause: pendantUnePause(resucrage.date, dans: activite),
+                resultat: resultats[id]
+            )
+        }
 
         return (corrections + resucrages).sorted { $0.date < $1.date }
+    }
+
+    /// Juge les prises de la fenêtre. Les mesures sont lues au-delà de la
+    /// fenêtre d'affichage : une prise proche du bord doit pouvoir être
+    /// observée sur toute sa durée de jugement.
+    private func resultatsResucrages(
+        _ resucrages: [Resucrage],
+        activite: ActiviteSportive,
+        debutFenetre: Date,
+        fin: Date,
+        contexte: ModelContext,
+        correctionsInsuline: [Date]
+    ) -> [String: ResultatPrise] {
+        guard !resucrages.isEmpty else { return [:] }
+
+        let finLecture = fin.addingTimeInterval(CalculVerdictsResucrage.delaiJugement)
+        let descripteur = FetchDescriptor<GlucoseReading>(
+            predicate: #Predicate { $0.date >= debutFenetre && $0.date <= finLecture },
+            sortBy: [SortDescriptor(\.date)]
+        )
+        let mesures = ((try? contexte.fetch(descripteur)) ?? [])
+            .map { PointGlycemie(date: $0.date, valeur: Double($0.valeur)) }
+
+        let prises = resucrages.map {
+            PriseAJuger(
+                id: "resucrage-\($0.id.uuidString)",
+                date: $0.date,
+                intention: $0.intention,
+                glucides: $0.glucidesTotal
+            )
+        }
+
+        let seuils = ProfilService.shared.profil.seuilsGlycemiques
+        let resultats = CalculVerdictsResucrage.juger(
+            prises: prises,
+            points: mesures,
+            bornes: BornesVerdict(
+                hypoglycemie: seuils.hypoglycemie,
+                hyperglycemie: seuils.hyperglycemie
+            ),
+            finEffort: activite.dateFin,
+            correctionsInsuline: correctionsInsuline
+        )
+        return Dictionary(uniqueKeysWithValues: resultats.map { ($0.id, $0) })
     }
 
     private func pendantUnePause(_ date: Date, dans activite: ActiviteSportive) -> Bool {

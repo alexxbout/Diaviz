@@ -28,6 +28,9 @@ struct SportVue: View {
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var service = ActivitesSportService()
+    /// Écrit les resucrages issus des glucides pré-sport saisis avec une
+    /// activité — la page Resucrage garde sa propre instance.
+    @State private var resucragesService = ResucragesService()
 
     /// Service de séance chronométrée « en direct » (singleton, survit au
     /// relaunch). Observé pour présenter l'écran plein écran quand une séance
@@ -131,7 +134,10 @@ struct SportVue: View {
                     proxy.scrollTo(nouvelle, anchor: .center)
                 }
             }
-            .task { service.demarrer(contexte: modelContext) }
+            .task {
+                service.demarrer(contexte: modelContext)
+                resucragesService.demarrer(contexte: modelContext)
+            }
         }
     }
 
@@ -277,7 +283,10 @@ struct SportVue: View {
         case .creation:
             SheetNouvelleActivite(
                 onValider: { service.enregistrer($0) },
-                onDemarrer: { type, structure in sessionService.demarrer(type: type, structureEffort: structure) }
+                onDemarrer: { type, structure in sessionService.demarrer(type: type, structureEffort: structure) },
+                onCreerResucrages: { resucrages in
+                    resucrages.forEach { resucragesService.enregistrer($0) }
+                }
             )
         case .importHealthKit:
             SheetImportAppleHealth(

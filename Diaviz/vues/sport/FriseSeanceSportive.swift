@@ -30,6 +30,11 @@ struct FriseSeanceSportive: View {
     @State private var tempsCurseur: TimeInterval?
     /// Événement actuellement mis en évidence (aimantation ou tap liste).
     @State private var evenementActif: String?
+    /// Ligne dont l'encart de résultat est déplié. Distinct d'`evenementActif` :
+    /// le curseur met en évidence, seul le tap déplie (sinon la mise en page
+    /// sauterait à chaque déplacement du doigt sur la courbe).
+    @State private var ligneDepliee: String?
+    @State private var afficherExplication = false
 
     /// Distance d'aimantation du curseur sur un événement.
     private static let seuilAimantation: TimeInterval = 90
@@ -43,8 +48,34 @@ struct FriseSeanceSportive: View {
             courbe
             if !lignesListe.isEmpty {
                 liste
+                if aDesVerdicts {
+                    boutonExplication
+                }
             }
         }
+        .sheet(isPresented: $afficherExplication) {
+            SheetExplicativeVerdictsResucrage()
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+    }
+
+    /// N'apparaît que si au moins un resucrage a été jugé — inutile de
+    /// proposer d'expliquer des verdicts absents.
+    private var aDesVerdicts: Bool {
+        evenements.contains { $0.resultat != nil }
+    }
+
+    private var boutonExplication: some View {
+        Button {
+            afficherExplication = true
+        } label: {
+            Label("Comment un resucrage est jugé", systemImage: "info.circle")
+                .font(.caption)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .padding(.leading, 4)
     }
 
     // MARK: - Courbe
@@ -103,6 +134,10 @@ struct FriseSeanceSportive: View {
             .onEnded { _ in
                 tempsCurseur = nil
                 evenementActif = nil
+                // Un scrub reprend la main sur la lecture : on referme l'encart
+                // ouvert au tap, sinon il resterait ouvert sur une ligne qui
+                // n'est plus celle qu'on regarde.
+                ligneDepliee = nil
             }
     }
 
@@ -332,13 +367,28 @@ struct FriseSeanceSportive: View {
     }
 
     private func ligneListe(_ ligne: LigneFrise) -> some View {
-        LigneEvenementCourbe(
+        let resultat = evenements.first { $0.id == ligne.idEvenement }?.resultat
+        return LigneEvenementCourbe(
             icone: ligne.icone,
             couleur: ligne.couleur,
             titre: ligne.titre,
             sousTitre: ligne.sousTitre,
             detail: ligne.detail,
-            actif: ligne.idEvenement != nil && ligne.idEvenement == evenementActif
+            actif: ligne.idEvenement != nil && ligne.idEvenement == evenementActif,
+            pastille: resultat.map {
+                .init(
+                    texte: $0.verdict.libelle,
+                    couleur: $0.verdict.couleurTexte,
+                    fond: $0.verdict.couleurFond
+                )
+            },
+            encart: {
+                // Déplié au tap seulement (`ligneDepliee`), jamais au passage
+                // du curseur : la liste sauterait sous le doigt pendant qu'on
+                // fait glisser la courbe.
+                guard let resultat, ligne.id == ligneDepliee else { return nil }
+                return AnyView(EncartResultatPrise(resultat: resultat))
+            }
         )
         // Pas de `withAnimation` ici : il propagerait la transition à tout le
         // `Chart`, qui ré-interpole alors son tracé — la courbe repassait
@@ -351,9 +401,12 @@ struct FriseSeanceSportive: View {
             if evenementActif == id {
                 evenementActif = nil
                 tempsCurseur = nil
+                ligneDepliee = nil
             } else {
                 evenementActif = id
                 tempsCurseur = tempsDe(evenement)
+                // Seul le tap déplie — et seulement s'il y a un résultat.
+                ligneDepliee = evenement.resultat == nil ? nil : ligne.id
             }
         }
     }
