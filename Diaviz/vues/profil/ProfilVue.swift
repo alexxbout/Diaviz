@@ -76,6 +76,18 @@ struct ProfilVue: View {
                     resume: "Diagnostic HealthKit"
                 ) { SousPageDonnees() }
             }
+
+            // Documentation, volontairement à part des réglages comme de
+            // l'onglet Analyses : ces fiches ne connaissent aucune de vos
+            // données et ne doivent jamais en croiser.
+            Section {
+                lien(
+                    "Bibliothèque",
+                    icone: "books.vertical.fill",
+                    couleur: .brown,
+                    resume: "Ce que dit la littérature scientifique"
+                ) { EncyclopedieVue() }
+            }
         }
         .formStyle(.grouped)
         .scrollDismissesKeyboard(.immediately)
