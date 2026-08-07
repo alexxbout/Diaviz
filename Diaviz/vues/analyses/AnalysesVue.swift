@@ -71,21 +71,26 @@ struct AnalysesVue: View {
             VStack(spacing: 0) {
                 EnTetePage(titre: "Analyses")
 
-                ScrollView {
-                    // Spacing 28pt entre sections — cohérent avec l'accueil,
-                    // donne à chaque carte sommaire l'espace de respirer.
-                    VStack(spacing: 28) {
-                        CarteAnalyseCoucher(
-                            resume: coucher,
-                            analyse: analyseReelle,
-                            endormissement: endormissementReel,
-                            corrections: correctionsReelles,
-                            chargement: chargementEnCours,
-                            onOuvrirDetail: { basaleService.marquerVerdictCommeVu() }
-                        )
-                    }
-                    .padding(16)
+                // Pas de `ScrollView` : les cartes sommaires tiennent dans
+                // l'écran, et le rebond au scroll d'une page non remplie
+                // donnait une impression de flottement. Même parti pris que
+                // le Journal — `Spacer` en dessous absorbe l'espace restant.
+                //
+                // Spacing 28pt entre sections — cohérent avec l'accueil,
+                // donne à chaque carte sommaire l'espace de respirer.
+                VStack(spacing: 28) {
+                    CarteAnalyseCoucher(
+                        resume: coucher,
+                        analyse: analyseReelle,
+                        endormissement: endormissementReel,
+                        corrections: correctionsReelles,
+                        chargement: chargementEnCours,
+                        onOuvrirDetail: { basaleService.marquerVerdictCommeVu() }
+                    )
                 }
+                .padding(16)
+
+                Spacer(minLength: 0)
             }
             .background(Color(.systemGroupedBackground))
         }

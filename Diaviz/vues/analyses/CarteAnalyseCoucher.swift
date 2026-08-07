@@ -111,6 +111,10 @@ struct ResumeAnalyseCoucher: Equatable, Sendable {
 /// pas tappables individuellement en V1 : toute la carte ouvre la page.
 struct CarteAnalyseCoucher: View {
 
+    /// Accent violet de la carte — teinte le verre, le badge d'icône et les
+    /// icônes des lignes glance.
+    private static let accent = Color.indigo
+
     let resume: ResumeAnalyseCoucher
 
     /// Analyse B1 **réelle** (calculée depuis le hub). `nil` en preview → la
@@ -157,8 +161,15 @@ struct CarteAnalyseCoucher: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
+        // Verre translucide teinté violet — même traitement que les cartes
+        // de section du journal : profondeur Liquid Glass et identité
+        // couleur propre au thème « coucher » (nuit).
+        .glassEffect(
+            // Pas de `.interactive()` : la carte pousse une page, et
+            // l'animation de press du verre se lit comme du lag avant le push.
+            .regular.tint(Self.accent.opacity(0.20)),
+            in: RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
+        )
         .contentShape(RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
     }
 
@@ -166,11 +177,19 @@ struct CarteAnalyseCoucher: View {
 
     private var enTete: some View {
         HStack(spacing: 12) {
+            // Badge plein en dégradé : sur un fond de verre teinté, un cercle
+            // à faible opacité disparaîtrait — il faut un contraste franc.
             ZStack {
-                Circle().fill(Color.indigo.opacity(0.12))
+                Circle().fill(
+                    LinearGradient(
+                        colors: [Self.accent, Self.accent.opacity(0.7)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
                 Image(systemName: "moon.zzz.fill")
                     .font(.title3)
-                    .foregroundStyle(.indigo)
+                    .foregroundStyle(.white)
             }
             .frame(width: 40, height: 40)
             .accessibilityHidden(true)
@@ -212,7 +231,7 @@ struct CarteAnalyseCoucher: View {
         HStack(spacing: 12) {
             Image(systemName: section.sousAnalyse.icone)
                 .font(.subheadline)
-                .foregroundStyle(.indigo)
+                .foregroundStyle(Self.accent)
                 .frame(width: 22)
                 .accessibilityHidden(true)
 

@@ -50,8 +50,9 @@ struct JournalVue: View {
                 // le contenu à un centrage artificiel.
                 GlassEffectContainer(spacing: 16) {
                     VStack(alignment: .leading, spacing: 16) {
-                        // `.buttonStyle(.plain)` empêche le `NavigationLink` d'appliquer
-                        // sa teinte par défaut, qui surchargerait le coloré de la carte.
+                        // `StyleCarteJournal` empêche le `NavigationLink` d'appliquer
+                        // sa teinte par défaut, qui surchargerait le coloré de la
+                        // carte, et ajoute l'assombrissement à l'appui.
                         NavigationLink(destination: ListeRepasParSection()) {
                             CarteSection(
                                 icone: "fork.knife",
@@ -60,7 +61,7 @@ struct JournalVue: View {
                                 couleur: .blue
                             )
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(StyleCarteJournal())
 
                         NavigationLink(destination: MedicationsVue()) {
                             CarteSection(
@@ -70,7 +71,7 @@ struct JournalVue: View {
                                 couleur: .green
                             )
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(StyleCarteJournal())
 
                         NavigationLink(destination: SportVue()) {
                             CarteSection(
@@ -81,7 +82,7 @@ struct JournalVue: View {
                             )
                             .overlay(alignment: .topTrailing) { badgeImport }
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(StyleCarteJournal())
 
                         NavigationLink(destination: ListeResucrages()) {
                             CarteSection(
@@ -91,7 +92,7 @@ struct JournalVue: View {
                                 couleur: .red
                             )
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(StyleCarteJournal())
                     }
                 }
                 .padding(.horizontal)
