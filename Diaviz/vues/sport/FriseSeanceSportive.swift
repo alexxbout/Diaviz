@@ -259,9 +259,9 @@ struct FriseSeanceSportive: View {
         .padding(.horizontal, 12)
         .frame(height: 42)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(couleurFondBarre)
+        .glassEffect(
+            .regular.tint(couleurFondBarre),
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
         )
     }
 
@@ -307,11 +307,14 @@ struct FriseSeanceSportive: View {
             .foregroundStyle(couleurCourbe)
     }
 
+    /// Teinte du verre de la barre — prend la couleur de l'événement
+    /// sélectionné, transparente sinon. Même comportement que la barre de
+    /// contexte de la sheet « Détail d'une soirée ».
     private var couleurFondBarre: Color {
         guard let evenement = evenements.first(where: { $0.id == evenementActif }) else {
-            return Color(.secondarySystemGroupedBackground)
+            return .clear
         }
-        return evenement.couleur.opacity(0.12)
+        return evenement.couleur.opacity(0.16)
     }
 
     // MARK: - Liste
@@ -325,43 +328,18 @@ struct FriseSeanceSportive: View {
                 }
             }
         }
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
-        // La surbrillance d'une ligne est un fond rectangulaire pleine
-        // largeur : sans ce clip, elle débordait des coins arrondis de la
-        // carte sur la première et la dernière ligne.
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .carteListeEvenements()
     }
 
     private func ligneListe(_ ligne: LigneFrise) -> some View {
-        let actif = ligne.idEvenement != nil && ligne.idEvenement == evenementActif
-        return HStack(spacing: 12) {
-            Image(systemName: ligne.icone)
-                .font(.subheadline)
-                .foregroundStyle(ligne.couleur)
-                .frame(width: 22)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(ligne.titre)
-                    .font(.subheadline)
-                Text(ligne.sousTitre)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            Text(ligne.detail)
-                .font(.subheadline.weight(.medium))
-                .monospacedDigit()
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-        .background(actif ? ligne.couleur.opacity(0.12) : .clear)
-        .animation(.easeOut(duration: 0.2), value: actif)
-        .contentShape(Rectangle())
+        LigneEvenementCourbe(
+            icone: ligne.icone,
+            couleur: ligne.couleur,
+            titre: ligne.titre,
+            sousTitre: ligne.sousTitre,
+            detail: ligne.detail,
+            actif: ligne.idEvenement != nil && ligne.idEvenement == evenementActif
+        )
         // Pas de `withAnimation` ici : il propagerait la transition à tout le
         // `Chart`, qui ré-interpole alors son tracé — la courbe repassait
         // visiblement par une version anguleuse avant de retrouver son lissage
@@ -378,7 +356,6 @@ struct FriseSeanceSportive: View {
                 tempsCurseur = tempsDe(evenement)
             }
         }
-        .accessibilityElement(children: .combine)
     }
 
     /// Lignes affichées : les aliments pré-sport d'abord (ils n'ont pas
