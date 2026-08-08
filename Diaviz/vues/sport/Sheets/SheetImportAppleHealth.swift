@@ -14,7 +14,7 @@ import SwiftUI
 /// 1. **Header** — icône cœur rouge + titre + nombre d'activités.
 /// 2. **Liste de cartes** — `ScrollView` de `CarteWorkoutImport`
 ///    sélectionnables. Chaque carte expose un binding sur son
-///    `EtatSelectionWorkout` (sélection + glucides + intensité).
+///    `EtatSelectionWorkout` (sélection + intensité).
 /// 3. **Bouton flottant** — `safeAreaInset(edge: .bottom)` posé sur un
 ///    `.regularMaterial` pour le rendu Liquid Glass iOS 26. Le libellé
 ///    et l'état activé sont dérivés du nombre de cartes sélectionnées.
@@ -257,22 +257,12 @@ struct SheetImportAppleHealth: View {
             guard let etat = etats[workout.id], etat.selectionnee else { continue }
             let activite = service.importer(
                 workout,
-                glucidesPreSport: parserGlucides(etat.glucidesTexte),
+                glucidesPreSport: nil,
                 intensite: etat.intensite
             )
             onImporter?(activite)
         }
         dismiss()
-    }
-
-    /// `"15,5"` ou `"15.5"` → `15.5` ; chaîne vide ou non parsable
-    /// → `nil`. La virgule française est tolérée pour rester cohérent
-    /// avec la sheet de saisie manuelle.
-    private func parserGlucides(_ texte: String) -> Double? {
-        let trim = texte
-            .trimmingCharacters(in: .whitespaces)
-            .replacingOccurrences(of: ",", with: ".")
-        return trim.isEmpty ? nil : Double(trim)
     }
 }
 

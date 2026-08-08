@@ -9,10 +9,9 @@ import SwiftUI
 
 // MARK: - EtatSelectionWorkout
 //
-// Tuple structuré qui agrège les trois axes que la carte doit faire
+// Tuple structuré qui agrège les deux axes que la carte doit faire
 // remonter au parent (sheet) :
 // - sélectionnée ou pas (drive le compteur du bouton « Importer »)
-// - glucides pré-sport (saisis par l'utilisateur — Optionnel)
 // - intensité ressentie (pré-remplie depuis la FC, ajustable)
 //
 // On le passe en `@Binding` à la carte plutôt qu'en `@State` interne
@@ -20,7 +19,6 @@ import SwiftUI
 // l'import.
 struct EtatSelectionWorkout: Hashable {
     var selectionnee: Bool = false
-    var glucidesTexte: String = ""
     var intensite: IntensiteSport
 }
 
@@ -29,8 +27,8 @@ struct EtatSelectionWorkout: Hashable {
 ///
 /// - **Compacte** (non sélectionnée) : cercle vide + emoji + titre +
 ///   métriques d'une ligne. Largeur entière, padding 16pt.
-/// - **Étendue** (sélectionnée) : checkmark coloré + métriques + champ
-///   glucides + radios d'intensité.
+/// - **Étendue** (sélectionnée) : checkmark coloré + métriques + radios
+///   d'intensité.
 ///
 /// Fond `systemBackground` (blanc en mode clair, noir en mode sombre)
 /// pour ressortir nettement du `systemGroupedBackground` de la sheet.
@@ -163,37 +161,15 @@ struct CarteWorkoutImport: View {
 
     // MARK: - Zone d'enrichissement (visible si sélectionnée)
     //
-    // Divider fin pour démarquer du bloc d'en-tête, puis deux sections
-    // empilées : glucides → intensité.
+    // Divider fin pour démarquer du bloc d'en-tête, puis la section
+    // intensité.
 
     private var zoneEnrichissement: some View {
         VStack(alignment: .leading, spacing: 16) {
             Divider()
                 .padding(.top, 12)
 
-            sectionGlucides
             sectionIntensite
-        }
-    }
-
-    private var sectionGlucides: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Glucides pré-sport")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            HStack {
-                TextField("Optionnel", text: $etat.glucidesTexte)
-                    .keyboardType(.decimalPad)
-                    .textFieldStyle(.plain)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                Text("g")
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 12)
-            .surfaceCarte(.compact, fond: Color(.tertiarySystemFill))
         }
     }
 
@@ -277,7 +253,7 @@ struct CarteWorkoutImport: View {
 
 #Preview("Sélectionnée") {
     StatefulPreviewWrapper(
-        EtatSelectionWorkout(selectionnee: true, glucidesTexte: "15", intensite: .intense)
+        EtatSelectionWorkout(selectionnee: true, intensite: .intense)
     ) { etat in
         CarteWorkoutImport(workout: .mockCourse, etat: etat)
             .padding()
@@ -287,9 +263,9 @@ struct CarteWorkoutImport: View {
 // MARK: - Helper de preview
 //
 // SwiftUI ne fournit pas nativement de wrapper d'état pour previews
-// — sans ça, on ne pourrait pas exposer un binding qui évolue (champ
-// glucides éditable, radios d'intensité). Petit utilitaire local au
-// fichier puisqu'il n'a d'usage qu'ici.
+// — sans ça, on ne pourrait pas exposer un binding qui évolue (radios
+// d'intensité). Petit utilitaire local au fichier puisqu'il n'a
+// d'usage qu'ici.
 private struct StatefulPreviewWrapper<Value, Content: View>: View {
     @State private var value: Value
     let content: (Binding<Value>) -> Content
