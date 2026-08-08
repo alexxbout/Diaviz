@@ -225,7 +225,7 @@ struct DetailActiviteVue: View {
 
     // MARK: - Section 3 — Chiffres clés
     //
-    // Trois colonnes de largeur égale dans une seule carte de verre, même
+    // Trois colonnes de largeur égale dans une seule carte, même
     // grammaire que le bandeau de stats de l'écran de séance live.
     //
     // Remplace l'ancienne carte « Glycémie début / fin / variation » :
@@ -260,7 +260,7 @@ struct DetailActiviteVue: View {
             )
         }
         .padding(.vertical, 14)
-        .surfaceCarteVerre()
+        .surfaceCarte()
         .padding(.horizontal, 16)
     }
 

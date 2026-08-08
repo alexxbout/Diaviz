@@ -294,10 +294,11 @@ struct FriseSeanceSportive: View {
         .padding(.horizontal, 12)
         .frame(height: 42)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(
-            .regular.tint(couleurFondBarre),
-            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-        )
+        // Fond neutre **systématique**, teinte de l'événement par-dessus : la
+        // barre doit rester une capsule lisible même sans sélection (avec la
+        // seule teinte, elle disparaissait, `couleurFondBarre` valant `.clear`).
+        .surfaceCarte(.compact, fond: Color(.secondarySystemGroupedBackground))
+        .surfaceCarte(.compact, fond: couleurFondBarre)
     }
 
     @ViewBuilder
@@ -342,7 +343,7 @@ struct FriseSeanceSportive: View {
             .foregroundStyle(couleurCourbe)
     }
 
-    /// Teinte du verre de la barre — prend la couleur de l'événement
+    /// Teinte de fond de la barre — prend la couleur de l'événement
     /// sélectionné, transparente sinon. Même comportement que la barre de
     /// contexte de la sheet « Détail d'une soirée ».
     private var couleurFondBarre: Color {

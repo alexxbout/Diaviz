@@ -44,8 +44,12 @@ import SwiftUI
 ///    fois au chargement, dans `RenduNuit`.
 ///
 /// Le verre amplifiait le symptôme (plus coûteux à recomposer qu'un aplat)
-/// mais ne le causait pas : une fois ces deux points corrigés, il est revenu
-/// sans gêne. Chercher d'abord les recompositions inutiles, pas le matériau.
+/// mais ne le causait pas. Chercher d'abord les recompositions inutiles, pas
+/// le matériau.
+///
+/// La sheet est depuis passée en **surfaces opaques** — décision de lisibilité,
+/// pas de performance : au-dessus d'un graphique, le verre laissait
+/// transparaître courbe et points derrière les lignes de la timeline.
 struct SheetDetailSoiree: View {
 
     let soir: SoirCoucher
@@ -185,7 +189,7 @@ struct SheetDetailSoiree: View {
                 }
             }
         }
-        .carteListeEvenements(rayon: Radius.medium)
+        .carteListeEvenements()
     }
 
     /// Met à jour la zone de tracé mémorisée, en ignorant les variations
@@ -414,15 +418,16 @@ struct SheetDetailSoiree: View {
         .padding(.horizontal, 12)
         .frame(height: 42)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(
-            .regular.tint(teinteBarre(detail)),
-            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-        )
+        // Fond neutre **systématique**, teinte de l'événement par-dessus : la
+        // barre doit rester une capsule lisible même sans sélection (avec la
+        // seule teinte, elle disparaissait, `teinteBarre` valant `.clear`).
+        .surfaceCarte(.compact, fond: Color(.secondarySystemGroupedBackground))
+        .surfaceCarte(.compact, fond: teinteBarre(detail))
     }
 
-    /// Teinte du verre de la barre — prend la couleur de l'événement
-    /// sélectionné, transparente sinon. Même comportement que la barre de
-    /// contexte du détail d'activité sportive.
+    /// Teinte de la barre — prend la couleur de l'événement sélectionné,
+    /// transparente sinon (le fond neutre reste visible dessous). Même
+    /// comportement que la barre de contexte du détail d'activité sportive.
     private func teinteBarre(_ detail: DetailSoiree) -> Color {
         guard let evenement = detail.evenements.first(where: { $0.id == evenementActif })
         else { return .clear }
@@ -564,14 +569,14 @@ struct SheetDetailSoiree: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
 
-                // Verre en fond, dégradé par-dessus : le bleu flotte dans la
-                // matière au lieu d'être posé sur un aplat, et les zones sans
-                // insuline (quasi transparentes) laissent voir le verre.
+                // Piste neutre en fond, dégradé par-dessus : les zones sans
+                // insuline (quasi transparentes dans le dégradé) laissent voir
+                // la piste au lieu du fond de la page.
                 Capsule()
                     .fill(LinearGradient(stops: stops, startPoint: .leading, endPoint: .trailing))
                     .frame(width: zoneTrace.width, height: 16)
                     .overlay(alignment: .leading) { curseurPiste(detail) }
-                    .glassEffect(.regular, in: Capsule())
+                    .background(Color(.tertiarySystemFill), in: Capsule())
             }
             .padding(.leading, zoneTrace.minX)
             .accessibilityLabel("Insuline active au fil de la nuit")
@@ -691,7 +696,7 @@ struct SheetDetailSoiree: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .surfaceCarteVerre()
+        .surfaceCarte()
     }
 
     private func symboleCategorie(_ categorie: CategorieNuit) -> String {
@@ -738,7 +743,7 @@ struct SheetDetailSoiree: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .surfaceCarteVerre()
+        .surfaceCarte()
     }
 
     private func heureFr(_ date: Date) -> String {

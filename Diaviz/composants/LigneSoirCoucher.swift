@@ -150,39 +150,88 @@ struct LigneSoirCoucher: View {
 
 /// Layout **flow** minimal : dispose les enfants de gauche à droite, passe à la
 /// ligne quand la largeur est dépassée. Utilisé pour la rangée de chips.
+///
+/// `sizeThatFits` et `placeSubviews` partagent volontairement le même calcul
+/// de rangées (`rangees(largeurMax:subviews:)`). Quand les deux divergeaient,
+/// la hauteur annoncée valait celle d'**une seule** rangée (mesure faite sur
+/// une largeur non spécifiée, donc infinie) alors que le placement en repliait
+/// plusieurs : la carte parente clippait les chips en trop, et une rangée de
+/// badges un peu longue devenait invisible.
 struct FlowLayout: Layout {
 
     var spacing: CGFloat = 6
 
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) -> CGSize {
-        let maxWidth = proposal.width ?? .infinity
-        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0, largeur: CGFloat = 0
-        for subview in subviews {
+    /// Découpe les enfants en rangées pour une largeur donnée, et rend la
+    /// taille de chacun — seule source de vérité du layout.
+    private func rangees(
+        largeurMax: CGFloat,
+        subviews: Subviews
+    ) -> [[(indice: Int, taille: CGSize)]] {
+        var rangees: [[(indice: Int, taille: CGSize)]] = [[]]
+        var largeurRangee: CGFloat = 0
+
+        for (indice, subview) in subviews.enumerated() {
             let taille = subview.sizeThatFits(.unspecified)
-            if x + taille.width > maxWidth, x > 0 {
-                y += rowHeight + spacing
-                x = 0
-                rowHeight = 0
+            let largeurAjoutee = rangees[rangees.count - 1].isEmpty
+                ? taille.width
+                : taille.width + spacing
+
+            if largeurRangee + largeurAjoutee > largeurMax, !rangees[rangees.count - 1].isEmpty {
+                rangees.append([])
+                largeurRangee = taille.width
+            } else {
+                largeurRangee += largeurAjoutee
             }
-            x += taille.width + spacing
-            rowHeight = max(rowHeight, taille.height)
-            largeur = max(largeur, x - spacing)
+            rangees[rangees.count - 1].append((indice, taille))
         }
-        return CGSize(width: largeur, height: y + rowHeight)
+        return rangees
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) -> CGSize {
+        // `replacingUnspecifiedDimensions` plutôt qu'un fallback `.infinity` :
+        // une largeur infinie mettrait tout sur une rangée et sous-estimerait
+        // la hauteur.
+        let tailleParDefaut = CGSize(width: CGFloat.infinity, height: CGFloat(0))
+        let largeurMax: CGFloat = proposal
+            .replacingUnspecifiedDimensions(by: tailleParDefaut)
+            .width
+        let rangees = rangees(largeurMax: largeurMax, subviews: subviews)
+
+        var largeur: CGFloat = 0
+        var hauteur: CGFloat = 0
+
+        for (index, rangee) in rangees.enumerated() {
+            var largeurRangee: CGFloat = 0
+            var hauteurRangee: CGFloat = 0
+            for element in rangee {
+                largeurRangee += element.taille.width
+                hauteurRangee = max(hauteurRangee, element.taille.height)
+            }
+            largeurRangee += CGFloat(rangee.count - 1) * spacing
+            largeur = max(largeur, largeurRangee)
+            hauteur += hauteurRangee
+            if index > 0 { hauteur += spacing }
+        }
+
+        return CGSize(width: min(largeur, largeurMax), height: hauteur)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) {
-        var x = bounds.minX, y = bounds.minY, rowHeight: CGFloat = 0
-        for subview in subviews {
-            let taille = subview.sizeThatFits(.unspecified)
-            if x + taille.width > bounds.maxX, x > bounds.minX {
-                y += rowHeight + spacing
-                x = bounds.minX
-                rowHeight = 0
+        var y = bounds.minY
+
+        for rangee in rangees(largeurMax: bounds.width, subviews: subviews) {
+            var x = bounds.minX
+            var hauteurRangee: CGFloat = 0
+            for element in rangee {
+                subviews[element.indice].place(
+                    at: CGPoint(x: x, y: y),
+                    anchor: .topLeading,
+                    proposal: ProposedViewSize(element.taille)
+                )
+                x += element.taille.width + spacing
+                hauteurRangee = max(hauteurRangee, element.taille.height)
             }
-            subview.place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: ProposedViewSize(taille))
-            x += taille.width + spacing
-            rowHeight = max(rowHeight, taille.height)
+            y += hauteurRangee + spacing
         }
     }
 }

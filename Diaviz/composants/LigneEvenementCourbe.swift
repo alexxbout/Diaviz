@@ -60,7 +60,12 @@ struct LigneEvenementCourbe: View {
                     .padding(.bottom, 12)
             }
         }
-        .background(actif ? couleur.opacity(0.12) : .clear)
+        // Forme explicite : sans elle, iOS 26 fait adopter au fond la forme
+        // concentrique du conteneur, et la surbrillance d'une ligne du milieu
+        // s'arrondissait sur ses quatre coins au lieu de remplir la largeur.
+        // La découpe des coins réellement extérieurs est le travail du
+        // `clipShape` de la carte, pas celui de la ligne.
+        .background(actif ? couleur.opacity(0.12) : .clear, in: Rectangle())
         .animation(.easeOut(duration: 0.2), value: actif)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
@@ -134,17 +139,20 @@ struct LigneEvenementCourbe: View {
 extension View {
 
     /// Applique l'habillage commun d'une liste d'événements sous une courbe :
-    /// matière Liquid Glass et découpe aux coins arrondis.
+    /// surface de carte opaque et découpe aux coins arrondis.
+    ///
+    /// Fond opaque et non plus Liquid Glass : sous un graphique, le verre
+    /// laissait transparaître la courbe et les points derrière les lignes,
+    /// ce qui brouillait la lecture d'une liste déjà dense.
     ///
     /// Le clip n'est pas cosmétique — la surbrillance d'une ligne active est
     /// un fond rectangulaire pleine largeur, qui déborderait sinon des coins
-    /// sur la première et la dernière ligne. Il doit rester **après** le
-    /// verre, sinon la surbrillance passe par-dessus la découpe.
-    func carteListeEvenements(rayon: CGFloat = 14) -> some View {
+    /// sur la première et la dernière ligne. `surfaceCarte` l'applique
+    /// **après** le fond, dans le bon ordre.
+    func carteListeEvenements() -> some View {
         self
             .frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: rayon, style: .continuous))
-            .clipShape(RoundedRectangle(cornerRadius: rayon, style: .continuous))
+            .surfaceCarte()
     }
 }
 
