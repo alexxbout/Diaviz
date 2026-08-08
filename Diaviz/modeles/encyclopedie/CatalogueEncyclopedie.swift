@@ -17,7 +17,12 @@ import Foundation
 enum CatalogueEncyclopedie {
 
     static var fiches: [FicheEncyclopedie] {
-        [gri, tempsDansCible, glucidesPendantEffort, seuilsDemarrage, hypoRetardee, resucrageHypo, cetones]
+        [
+            gri, tempsDansCible, ciblesConsensusTir, gmiVsHbA1c,
+            glucidesPendantEffort, seuilsDemarrage,
+            hypoRetardee, compressionLows, alcoolHypoRetardee,
+            resucrageHypo, cetones
+        ]
     }
 
     static func fiches(du theme: ThemeEncyclopedie) -> [FicheEncyclopedie] {
@@ -72,6 +77,48 @@ enum CatalogueEncyclopedie {
         titre: "Understanding the Glycemia Risk Index for CGM data interpretation",
         reference: "ADCES / danatech",
         url: URL(string: "https://www.adces.org/education/danatech/glucose-monitoring/continuous-glucose-monitors-(cgm)/glycemic-metrics--an-overview/using-gri-to-deepen-glycemic-data-interpretation")
+    )
+
+    private static let battelinoTir = SourceEncyclopedie(
+        titre: "Clinical Targets for Continuous Glucose Monitoring Data Interpretation: Recommendations From the International Consensus on Time in Range",
+        reference: "Battelino et al., Diabetes Care, 2019",
+        url: URL(string: "https://diabetesjournals.org/care/article/42/8/1593/36184/Clinical-Targets-for-Continuous-Glucose-Monitoring")
+    )
+
+    private static let gmiTimeToChange = SourceEncyclopedie(
+        titre: "The Glucose Management Indicator: Time to Change Course?",
+        reference: "American Diabetes Association, Diabetes Care, 2024",
+        url: URL(string: "https://diabetesjournals.org/care/article/47/6/906/154177/The-Glucose-Management-Indicator-Time-to-Change")
+    )
+
+    private static let gmiPediatriqueT1D = SourceEncyclopedie(
+        titre: "Discordance between Glucose Management Indicator and Glycated Hemoglobin in a Pediatric Cohort with Type 1 Diabetes: A Real-World Study",
+        reference: "PMC, 2026",
+        url: URL(string: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10887365/")
+    )
+
+    private static let pisaModelisation = SourceEncyclopedie(
+        titre: "Modeling Transient Disconnections and Compression Artifacts of Continuous Glucose Sensors",
+        reference: "Littérature technique CGM — caractérisation des PISA (Pressure-Induced Sensor Attenuations)",
+        url: URL(string: "https://www.researchgate.net/publication/294897270_Modeling_Transient_Disconnections_and_Compression_Artifacts_of_Continuous_Glucose_Sensors")
+    )
+
+    private static let pisaDetection = SourceEncyclopedie(
+        titre: "Detection of compression artifacts in time-series data from continuous glucose monitoring sensors using matched filters",
+        reference: "IEEE, 2026",
+        url: URL(string: "https://ieeexplore.ieee.org/document/10331579/")
+    )
+
+    private static let alcoolMatinSuivant = SourceEncyclopedie(
+        titre: "The Effect of Evening Alcohol Consumption on Next-Morning Glucose Control in Type 1 Diabetes",
+        reference: "Diabetes Care, American Diabetes Association, 2001",
+        url: URL(string: "https://diabetesjournals.org/care/article/24/11/1888/24724/The-Effect-of-Evening-Alcohol-Consumption-on-Next")
+    )
+
+    private static let alcoolRevueSystematique = SourceEncyclopedie(
+        titre: "Effects of alcohol on blood glucose levels in people with type 1 diabetes: A systematic review",
+        reference: "Journal of Diabetes Nursing",
+        url: URL(string: "https://diabetesonthenet.com/journal-diabetes-nursing/effects-of-alcohol-on-blood-glucose-levels-in-people-with-type-1-diabetes-a-systematic-review/")
     )
 
     // MARK: - Fiches
@@ -139,6 +186,66 @@ enum CatalogueEncyclopedie {
                 )
             ],
             sources: [klonoff, consensusCgm],
+            analysesLiees: ["Score quotidien — accueil"]
+        )
+    }
+
+    private static var ciblesConsensusTir: FicheEncyclopedie {
+        .init(
+            id: "cibles-consensus-tir",
+            titre: "Cibles du consensus international (Time in Range)",
+            resume: "Les seuils sur lesquels repose le 70-180 mg/dL utilisé partout dans l'app",
+            icone: "checkmark.seal.fill",
+            theme: .mesure,
+            sections: [
+                .init(
+                    titre: "D'où vient l'intervalle 70-180 mg/dL",
+                    texte: "Le consensus international sur le temps dans la cible, réuni par un groupe d'experts en 2019, fixe la plage de référence à 70-180 mg/dL pour le diabète de type 1 et de type 2. C'est cet intervalle que Diaviz reprend tel quel pour classer les repas, les nuits et le score quotidien — pas une convention interne."
+                ),
+                .init(
+                    titre: "Les cibles de temps associées",
+                    texte: "Le consensus ne se limite pas à définir la plage : il propose des seuils de temps par catégorie, pensés comme des repères généraux pour la population adulte hors grossesse, pas comme des objectifs personnalisés.",
+                    points: [
+                        "Temps dans la cible (70-180 mg/dL) : plus de 70 % du temps",
+                        "Temps sous 70 mg/dL : moins de 4 % du temps",
+                        "Temps sous 54 mg/dL : moins de 1 % du temps",
+                        "Temps au-dessus de 180 mg/dL : moins de 25 % du temps",
+                        "Temps au-dessus de 250 mg/dL : moins de 5 % du temps"
+                    ]
+                ),
+                .init(
+                    titre: "Portée de ces chiffres",
+                    texte: "Le consensus précise lui-même que ces cibles sont des repères de population, à ajuster selon l'âge, la grossesse ou le risque d'hypoglycémie sévère. Ce sont des points de comparaison généraux, pas des seuils que l'app applique à qui que ce soit individuellement."
+                )
+            ],
+            sources: [battelinoTir],
+            analysesLiees: ["Score quotidien — accueil", "R1 — Réponse glycémique post-repas"]
+        )
+    }
+
+    private static var gmiVsHbA1c: FicheEncyclopedie {
+        .init(
+            id: "gmi-vs-hba1c",
+            titre: "GMI et HbA1c : deux mesures, pas toujours d'accord",
+            resume: "Pourquoi le chiffre du capteur peut différer de la prise de sang",
+            icone: "arrow.left.arrow.right",
+            theme: .mesure,
+            sections: [
+                .init(
+                    titre: "Deux origines différentes",
+                    texte: "Le Glucose Management Indicator (GMI) est une estimation de l'HbA1c calculée à partir de la glycémie moyenne mesurée par le capteur, dans le liquide interstitiel. L'HbA1c mesurée en laboratoire vient, elle, directement du sang. Les deux visent la même chose — une estimation de l'équilibre glycémique sur plusieurs semaines — par deux voies différentes.",
+                    points: ["Formule : GMI (%) = 3,31 + 0,02392 × glycémie moyenne (mg/dL)"]
+                ),
+                .init(
+                    titre: "L'écart observé",
+                    texte: "Les études rapportent un écart absolu typique de 0,6 à 0,65 point entre les deux mesures, avec des variations plus marquées chez certains profils. L'écart tend à augmenter avec une plus grande variabilité glycémique et un temps au-dessus de la cible plus élevé — deux éléments qui peuvent faire diverger la glycémie moyenne interstitielle de la glycation réelle de l'hémoglobine."
+                ),
+                .init(
+                    titre: "Ce que ça veut dire pour la lecture des chiffres",
+                    texte: "Un score ou une moyenne calculée par Diaviz à partir du capteur ne remplace pas l'HbA1c du bilan sanguin, et un désaccord entre les deux n'est pas anormal en soi : ce sont deux mesures distinctes, pas la même grandeur vue deux fois."
+                )
+            ],
+            sources: [gmiTimeToChange, gmiPediatriqueT1D],
             analysesLiees: ["Score quotidien — accueil"]
         )
     }
@@ -240,6 +347,58 @@ enum CatalogueEncyclopedie {
                 "B2 — Hypos au coucher",
                 "S1 — Réponse glycémique sport"
             ]
+        )
+    }
+
+    private static var compressionLows: FicheEncyclopedie {
+        .init(
+            id: "compression-lows",
+            titre: "Fausses hypos par compression du capteur",
+            resume: "Une chute brutale et isolée la nuit n'est pas toujours une vraie hypo",
+            icone: "bed.double.fill",
+            theme: .nuit,
+            sections: [
+                .init(
+                    titre: "Le mécanisme",
+                    texte: "Une pression mécanique sur le capteur — dormir dessus, par exemple — peut réduire localement le flux de liquide interstitiel autour du site d'insertion et faire chuter artificiellement la valeur lue. La littérature technique nomme ce phénomène PISA (Pressure-Induced Sensor Attenuation)."
+                ),
+                .init(
+                    titre: "Sa signature",
+                    texte: "L'artefact se reconnaît à une chute brutale en V, sans les signes physiques d'une vraie hypoglycémie, qui se résorbe rapidement dès que la pression est relâchée — un changement de position, par exemple. Il survient plus fréquemment la nuit, la position allongée favorisant l'appui prolongé sur le capteur."
+                ),
+                .init(
+                    titre: "Pourquoi c'est pertinent pour la lecture d'une nuit",
+                    texte: "Une chute isolée en V étroit sur une courbe autrement stable peut donc être un artefact de capteur plutôt qu'un événement glycémique réel — une distinction que les fiches de nuit et d'endormissement de l'app ne font pas encore automatiquement aujourd'hui."
+                )
+            ],
+            sources: [pisaModelisation, pisaDetection],
+            analysesLiees: ["B1 — Détection basale", "B2 — Hypos au coucher"]
+        )
+    }
+
+    private static var alcoolHypoRetardee: FicheEncyclopedie {
+        .init(
+            id: "alcool-hypo-retardee",
+            titre: "Alcool et hypoglycémie retardée",
+            resume: "Un verre le soir peut se répercuter sur la glycémie du lendemain matin",
+            icone: "wineglass.fill",
+            theme: .nuit,
+            sections: [
+                .init(
+                    titre: "Le mécanisme",
+                    texte: "Le foie priorise le métabolisme de l'alcool sur la production de glucose : la néoglucogenèse hépatique est inhibée pendant que l'organisme traite l'alcool, et les réserves de glycogène se vident plus vite. Cet effet s'ajoute à celui de l'insuline déjà injectée, sans mécanisme de compensation hépatique disponible."
+                ),
+                .init(
+                    titre: "Une fenêtre qui dépasse la soirée",
+                    texte: "Les études rapportent un risque d'hypoglycémie pouvant survenir jusqu'à 12 h après la consommation. Une étude princeps montre qu'une consommation modérée en soirée est associée à une dégradation du contrôle glycémique le lendemain matin, avec une sécrétion nocturne d'hormone de croissance réduite."
+                ),
+                .init(
+                    titre: "Contre-régulation affaiblie",
+                    texte: "L'alcool atténue aussi la réponse hormonale de contre-régulation à l'hypoglycémie — adrénaline, glucagon, cortisol, hormone de croissance — ce qui peut à la fois retarder la détection d'une chute et ralentir la remontée spontanée."
+                )
+            ],
+            sources: [alcoolMatinSuivant, alcoolRevueSystematique],
+            analysesLiees: ["B1 — Détection basale"]
         )
     }
 
