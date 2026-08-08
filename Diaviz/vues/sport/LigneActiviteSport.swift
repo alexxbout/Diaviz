@@ -48,16 +48,41 @@ struct LigneActiviteSport: View {
                 evenements: evenements
             )
         } label: {
-            HStack(spacing: 12) {
-                zoneInfos
-                Spacer(minLength: 8)
-                zoneCourbe
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 12) {
+                    zoneInfos
+                    Spacer(minLength: 8)
+                    zoneCourbe
+                }
+                RangeeBadges(items: badges)
             }
             // Accessibilité : on regroupe la row pour que VoiceOver lise un
             // seul élément ("Course, 7h15, 45 minutes, modérée, glycémie
             // stable") au lieu d'énumérer les sous-vues.
             .accessibilityElement(children: .combine)
         }
+    }
+
+    // MARK: - Badges
+    //
+    // Même châssis que `LigneRepas` (en-tête + mini-courbe + rangée de
+    // badges), en plus léger : pas de bloc doses ni de rows d'aliments, une
+    // séance n'a pas de ventilation d'insuline à montrer.
+    //
+    // Les glucides pré-sport et la source HealthKit passent ici plutôt que
+    // d'être noyés dans la sous-ligne texte / un footer dédié : un badge se
+    // repère au coup d'œil, et la sous-ligne ne tronque plus face à la
+    // mini-courbe dès que les deux étaient présents.
+    private var badges: [ItemBadge] {
+        var items: [ItemBadge] = []
+        let glucides = activite.glucidesPreSportTotal
+        if glucides > 0 {
+            items.append(ItemBadge("+\(formate(glucides))g pré-sport", couleur: .green))
+        }
+        if activite.source == .healthKit {
+            items.append(ItemBadge("Apple Santé", couleur: .pink, systemImage: "heart"))
+        }
+        return items
     }
 
     // MARK: - Extraction depuis l'état de la mini-courbe
@@ -82,27 +107,16 @@ struct LigneActiviteSport: View {
     // VStack(alignment: .leading) avec :
     // - label avec emoji intégré en .body
     // - sous-ligne (.caption .secondary) heure · durée · intensité
-    //   (+ glucides pré-sport si renseignés)
-    // - footer « Source : Apple Santé » si l'activité a été importée
-    //   depuis HealthKit (signal léger pour que l'utilisateur sache
-    //   distinguer une saisie manuelle d'un import automatique)
+    //
+    // Les glucides pré-sport et la source HealthKit sont passés en badges
+    // (voir `badges`) — plus lisibles là qu'en suffixe de sous-ligne et en
+    // footer séparé.
     private var zoneInfos: some View {
         VStack(alignment: .leading, spacing: 2) {
             Label(activite.type.rawValue, systemImage: activite.type.icone)
-                .font(.body)
+                .font(.headline)
                 .lineLimit(1)
             sousLigneInfos
-            footerSource
-        }
-    }
-
-    @ViewBuilder
-    private var footerSource: some View {
-        if activite.source == .healthKit {
-            Text("Source : Apple Santé")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .lineLimit(1)
         }
     }
 
@@ -124,15 +138,7 @@ struct LigneActiviteSport: View {
     /// `Text` concaténés en HStack, qui interdiraient le `.lineLimit(1)`
     /// avec troncature propre.
     private func sousLigneTexte(heure: String, duree: String) -> String {
-        var parts = [heure, duree, activite.intensite.rawValue]
-        let glucides = activite.glucidesPreSportTotal
-        if glucides > 0 {
-            // Format compact « +15g » : le « + » suggère l'apport au
-            // moment du sport, et le « g pré-sport » plus long faisait
-            // tronquer la sous-ligne face à la mini-courbe à droite.
-            parts.append("+\(formate(glucides))g")
-        }
-        return parts.joined(separator: " · ")
+        [heure, duree, activite.intensite.rawValue].joined(separator: " · ")
     }
 
     // MARK: - Zone 2 — Mini-courbe

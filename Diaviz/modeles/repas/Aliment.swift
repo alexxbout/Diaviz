@@ -208,6 +208,27 @@ final class Repas {
         doseGlobale ?? aliments.reduce(0) { $0 + $1.insuline }
     }
 
+    /// Somme des ajustements intentionnels (valeurs signées : un ajustement
+    /// peut retrancher comme ajouter).
+    var totalAjustements: Double {
+        ajustements.reduce(0) { $0 + $1.valeur }
+    }
+
+    /// Insuline réellement injectée, tous termes confondus — c'est le total
+    /// que l'utilisateur a composé sur son stylo.
+    ///
+    /// `totalInsuline` ne suffit pas : `RepasService.enregistrerDepuisSaisie`
+    /// persiste la dose **de base** (`doseGlobale` ou la ventilation par
+    /// aliment), les ajustements et la correction partant chacun dans leur
+    /// propre champ. Les trois doivent donc être resommés à la lecture.
+    ///
+    /// Même formule que `RepasSheet.totalInjecte` à la saisie, `max(0, …)`
+    /// compris — un ajustement négatif plus gros que la dose de base ne doit
+    /// pas produire un total négatif.
+    var totalInjecte: Double {
+        max(0, totalInsuline + totalAjustements + (doseCorrection ?? 0))
+    }
+
     /// Indique si au moins un aliment a une dose d'insuline associée. Sert à
     /// différencier un repas "logué pour mémoire" d'un repas avec bolus.
     var aUneInjection: Bool {

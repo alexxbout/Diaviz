@@ -265,8 +265,14 @@ nonisolated enum CalculRepasARevoir {
     /// repas ajusté-sport. Non-`private` : réutilisée par `CalculRepasContexte`.
     static func badgesAjustements(_ repas: Repas) -> [BadgeAjustement] {
         repas.ajustements.map { ajustement in
-            let libelle = ajustement.typeSportDetecte.map { "\(ajustement.raison.libelle) · \($0)" }
+            var libelle = ajustement.typeSportDetecte.map { "\(ajustement.raison.libelle) · \($0)" }
                 ?? ajustement.raison.libelle
+            // L'écart de dose fait partie du badge : « Sport récent » seul dit
+            // pourquoi la dose a bougé, pas de combien — or c'est justement ce
+            // qui manquait pour relire un repas ajusté.
+            if ajustement.valeur != 0 {
+                libelle += " \(ajustement.valeur.ecartDoseFormate)"
+            }
             return BadgeAjustement(libelle: libelle, estSport: ajustement.raison == .sportRecent)
         }
     }

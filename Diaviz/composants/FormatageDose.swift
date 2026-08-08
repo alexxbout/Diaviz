@@ -17,4 +17,17 @@ extension Double {
             ? "\(Int(self))u"
             : String(format: "%.1fu", self)
     }
+
+    /// Écart de dose avec signe explicite : « +1u », « −0.5u ».
+    ///
+    /// Pour un `Ajustement.valeur`, qui n'est pas une dose absolue mais un
+    /// écart au ratio : sans le signe, « 1u » se lirait comme une dose de
+    /// plus alors qu'il peut s'agir d'un retrait. Signe moins typographique
+    /// (U+2212) et non le tiret ASCII, pour garder la même chasse que le
+    /// « + » en `monospacedDigit`.
+    var ecartDoseFormate: String {
+        let magnitude = abs(self).doseInsulineFormatee
+        if self < 0 { return "\u{2212}\(magnitude)" }
+        return "+\(magnitude)"
+    }
 }

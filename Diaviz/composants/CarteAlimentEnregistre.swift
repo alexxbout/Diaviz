@@ -32,39 +32,51 @@ struct CarteAlimentEnregistre: View {
     var resucrage: Bool = false
 
     var body: some View {
-        HStack {
+        HStack(spacing: 10) {
+            // Vignette réduite (28pt) : l'aliment est un détail sous l'en-tête
+            // du repas, pas un pair. En `largeTitle` l'emoji pesait autant que
+            // le titre du repas et écrasait la hiérarchie de la section.
             if let imageURL {
-                ImageProduit(url: imageURL)
-                    .frame(width: 40, height: 40)
+                ImageProduit(url: imageURL, coinArrondi: 6)
+                    .frame(width: 28, height: 28)
             } else {
                 Text(emoji)
-                    .font(.largeTitle)
+                    .font(.title3)
+                    .frame(width: 28, height: 28)
             }
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(nom)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                HStack(spacing: 6) {
-                    Text("\(quantite)g")
-                        .foregroundStyle(.secondary)
-                        .font(.subheadline)
-                    if resucrage {
-                        badgeResucrage
-                    }
-                }
+            Text(nom)
+                .font(.subheadline)
+                .lineLimit(1)
+                .truncationMode(.tail)
+
+            if resucrage {
+                badgeResucrage
             }
 
-            Spacer()
+            Spacer(minLength: 8)
 
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("\(glucides)g")
-                    .fontWeight(.bold)
-                    .foregroundStyle(.green)
+            Text("\(quantite)g")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .monospacedDigit()
+
+            // Dose par aliment masquée quand elle vaut 0 : en mode dose
+            // globale, `enregistrerDepuisSaisie` remet chaque aliment à 0 (la
+            // dose vit sur le repas) — afficher « 0u » sur toutes les rows
+            // laissait croire à un repas non bolussé.
+            if insuline > 0 {
                 Text(insuline.doseInsulineFormatee)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
-                    .font(.subheadline)
+                    .monospacedDigit()
             }
+
+            Text("\(glucides)g")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.green)
+                .monospacedDigit()
+                .frame(minWidth: 38, alignment: .trailing)
         }
     }
 
@@ -74,10 +86,11 @@ struct CarteAlimentEnregistre: View {
         Text("Resucrage")
             .font(.caption2.weight(.semibold))
             .foregroundStyle(.white)
-            .padding(.horizontal, 7)
+            .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(Color.red, in: Capsule())
             .layoutPriority(1)
+            .fixedSize()
     }
 }
 

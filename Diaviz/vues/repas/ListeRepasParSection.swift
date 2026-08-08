@@ -82,6 +82,16 @@ struct ListeRepasParSection: View {
             // entier d'un geste depuis sa ligne d'en-tête.
             LigneRepas(repas: unRepas, titreSection: section.titre)
 
+            // Ventilation des doses, motifs d'ajustement, contexte — rows
+            // sœurs plutôt qu'un bloc dans l'en-tête, pour garder celui-ci
+            // compact (chevron aligné sur le titre, mini-courbe dominante).
+            // N'émet rien sur un repas sans correction ni ajustement.
+            // `List` cale l'inset du séparateur sur le bord gauche du contenu
+            // de la row — le cadre gris étant lui-même en retrait, son
+            // séparateur ne partait pas du bord. On le force à 0.
+            RecapDosesRepas(repas: unRepas)
+                .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+
             // Détail des aliments — swipe sur un aliment le retire du hub
             // (et retire le repas s'il devient vide).
             ForEach(unRepas.aliments) { aliment in
@@ -94,6 +104,10 @@ struct ListeRepasParSection: View {
                     imageURL: aliment.imageURL,
                     resucrage: aliment.resucrage
                 )
+                // Même inset forcé que le cadre gris : sans ça, une row à
+                // photo produit et une row à emoji calent leur séparateur à
+                // deux abscisses différentes dans la même carte.
+                .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) {
                         repasService.supprimerAliment(aliment, de: unRepas)
