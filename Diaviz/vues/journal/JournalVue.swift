@@ -43,57 +43,54 @@ struct JournalVue: View {
             VStack(spacing: 0) {
                 EnTetePage(titre: "Journal")
 
-                // `GlassEffectContainer` : blend cohérent du Liquid Glass des
-                // trois cartes (iOS 26). Cartes à hauteur intrinsèque, groupe
-                // aligné en haut sous l'en-tête (pattern standard iOS) — le
-                // `Spacer` en dessous absorbe l'espace restant sans pousser
-                // le contenu à un centrage artificiel.
-                GlassEffectContainer(spacing: 16) {
-                    VStack(alignment: .leading, spacing: 16) {
-                        // `StyleCarteJournal` empêche le `NavigationLink` d'appliquer
-                        // sa teinte par défaut, qui surchargerait le coloré de la
-                        // carte, et ajoute l'assombrissement à l'appui.
-                        NavigationLink(destination: ListeRepasParSection()) {
-                            CarteSection(
-                                icone: "fork.knife",
-                                titre: "Repas",
-                                sousTitre: sousTitreRepas,
-                                couleur: .blue
-                            )
-                        }
-                        .buttonStyle(StyleCarteJournal())
-
-                        NavigationLink(destination: MedicationsVue()) {
-                            CarteSection(
-                                icone: "syringe",
-                                titre: "Médications",
-                                sousTitre: sousTitreMedications,
-                                couleur: .green
-                            )
-                        }
-                        .buttonStyle(StyleCarteJournal())
-
-                        NavigationLink(destination: SportVue()) {
-                            CarteSection(
-                                icone: "figure.run",
-                                titre: "Activités sportives",
-                                sousTitre: sousTitreSport,
-                                couleur: .orange
-                            )
-                            .overlay(alignment: .topTrailing) { badgeImport }
-                        }
-                        .buttonStyle(StyleCarteJournal())
-
-                        NavigationLink(destination: ListeResucrages()) {
-                            CarteSection(
-                                icone: "cross.case",
-                                titre: "Resucrage",
-                                sousTitre: sousTitreResucrage,
-                                couleur: .red
-                            )
-                        }
-                        .buttonStyle(StyleCarteJournal())
+                // Pas de `GlassEffectContainer` : il ne sert qu'à fusionner des
+                // verres qui se touchent ou s'animent ensemble (morph via
+                // `glassEffectID`) — les 3 cartes ont 16pt d'écart et aucune
+                // animation partagée. Il cassait par ailleurs le feedback
+                // d'appui natif du bouton, obligeant à le reproduire à la
+                // main ; sans lui, `.buttonStyle(.plain)` suffit, comme sur
+                // la carte « Analyse du coucher ».
+                VStack(alignment: .leading, spacing: 16) {
+                    NavigationLink(destination: ListeRepasParSection()) {
+                        CarteSection(
+                            icone: "fork.knife",
+                            titre: "Repas",
+                            sousTitre: sousTitreRepas,
+                            couleur: .blue
+                        )
                     }
+                    .buttonStyle(.plain)
+
+                    NavigationLink(destination: MedicationsVue()) {
+                        CarteSection(
+                            icone: "syringe",
+                            titre: "Médications",
+                            sousTitre: sousTitreMedications,
+                            couleur: .green
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    NavigationLink(destination: SportVue()) {
+                        CarteSection(
+                            icone: "figure.run",
+                            titre: "Activités sportives",
+                            sousTitre: sousTitreSport,
+                            couleur: .orange
+                        )
+                        .overlay(alignment: .topTrailing) { badgeImport }
+                    }
+                    .buttonStyle(.plain)
+
+                    NavigationLink(destination: ListeResucrages()) {
+                        CarteSection(
+                            icone: "cross.case",
+                            titre: "Resucrage",
+                            sousTitre: sousTitreResucrage,
+                            couleur: .red
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal)
                 .padding(.top, 20)
