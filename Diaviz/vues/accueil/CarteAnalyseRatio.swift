@@ -127,18 +127,16 @@ struct CarteAnalyseRatio: View {
     private func ligneVue(_ ligne: LigneVerdictRatio) -> some View {
         let etat = ligne.etat
         HStack(spacing: 12) {
-            // Tuile teintée à la couleur du moment — identité constante du
-            // moment, indépendante du verdict (lui porté par le badge à
-            // droite). Icône dédiée quand le compteur vient d'être remis à
-            // zéro : c'est l'état le moins évident, il mérite son propre
-            // symbole plutôt qu'une couleur de plus.
-            let enReset = { if case .ratioChange = etat { return true } else { return false } }()
-            Image(systemName: enReset ? "arrow.triangle.2.circlepath" : ligne.icone)
+            // Tuile teintée à la couleur du moment — identité **constante**,
+            // jamais dépendante du verdict ni du volume de données : une
+            // ligne doit rester reconnaissable au même endroit quel que soit
+            // son état. Ce que l'analyse a trouvé vit dans le badge à droite.
+            Image(systemName: ligne.icone)
                 .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(enReset ? Color.secondary : ligne.teinte)
+                .foregroundStyle(ligne.teinte)
                 .frame(width: 34, height: 34)
                 .background(
-                    (enReset ? Color.secondary : ligne.teinte).opacity(0.14),
+                    ligne.teinte.opacity(0.14),
                     in: RoundedRectangle(cornerRadius: Radius.small, style: .continuous)
                 )
 
