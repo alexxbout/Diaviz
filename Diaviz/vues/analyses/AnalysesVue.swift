@@ -85,7 +85,9 @@ struct AnalysesVue: View {
                         endormissement: endormissementReel,
                         corrections: correctionsReelles,
                         chargement: chargementEnCours,
-                        onOuvrirDetail: { basaleService.marquerVerdictCommeVu() }
+                        onOuvrirDetail: { analyseAffichee in
+                            basaleService.marquerVerdictCommeVu(pour: analyseAffichee)
+                        }
                     )
                 }
                 .padding(16)

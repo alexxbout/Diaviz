@@ -38,10 +38,13 @@ struct DetailAnalyseBasaleVue: View {
         )
     }
 
-    /// Appelé à l'apparition de la page — le parent (`CarteAnalyseCoucher`)
-    /// y marque le verdict B1 comme vu (efface le badge de l'onglet Analyses
-    /// et le point « nouveau » de la carte sommaire).
-    var onApparition: (() -> Void)? = nil
+    /// Appelé à l'apparition de la page avec le snapshot `analyse`
+    /// **réellement affiché** — le parent (`CarteAnalyseCoucher`) y marque ce
+    /// verdict précis comme vu (efface le badge de l'onglet Analyses et le
+    /// point « nouveau » de la carte sommaire). Marquer d'après ce snapshot
+    /// plutôt que le service live évite qu'un recalcul concurrent (déclenché
+    /// par un retour sur l'onglet Analyses) invalide la marque juste posée.
+    var onApparition: ((AnalyseBasaleDetail) -> Void)? = nil
 
     // Page affichée (index dans `SousAnalyseCoucher.allCases`).
     @State private var selection: Int = 0
@@ -70,7 +73,7 @@ struct DetailAnalyseBasaleVue: View {
     init(analyse: AnalyseBasaleDetail = .mockStandard14j,
          endormissement: AnalyseEndormissement = .mock,
          corrections: AnalyseCorrections = .mock,
-         onApparition: (() -> Void)? = nil) {
+         onApparition: ((AnalyseBasaleDetail) -> Void)? = nil) {
         self.analyse = analyse
         self.endormissement = endormissement
         self.corrections = corrections
@@ -96,7 +99,7 @@ struct DetailAnalyseBasaleVue: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Analyse du coucher")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { onApparition?() }
+        .onAppear { onApparition?(analyse) }
     }
 
     // MARK: - Contenu de la page sélectionnée

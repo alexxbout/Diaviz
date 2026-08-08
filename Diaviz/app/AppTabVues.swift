@@ -86,7 +86,10 @@ struct AppTabVues: View {
             Tab("Analyses", systemImage: "chart.bar.fill", value: "analyses") {
                 AnalysesVue()
             }
-            .badge(analyseBasaleService.estNouvelleTendance ? "•" : "")
+            // `nil`, pas `""` : une chaîne vide non-nil affichait quand même
+            // une pastille (vide) en permanence, quel que soit
+            // `estNouvelleTendance`.
+            .badge(analyseBasaleService.estNouvelleTendance ? Text("•") : nil)
 
             Tab("Recherche", systemImage: "sparkle.magnifyingglass", value: "recherche", role: TabRole.search) {
                 RecercheVue()

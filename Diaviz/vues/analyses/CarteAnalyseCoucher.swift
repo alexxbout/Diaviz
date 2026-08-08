@@ -130,9 +130,10 @@ struct CarteAnalyseCoucher: View {
     var chargement: Bool = false
 
     /// Appelé quand le détail s'ouvre réellement (pas juste au survol de
-    /// cette carte) — le parent y marque le verdict B1 comme vu, ce qui
+    /// cette carte), avec le snapshot `AnalyseBasaleDetail` **affiché** par
+    /// la page — le parent y marque ce verdict précis comme vu, ce qui
     /// efface le badge de l'onglet Analyses.
-    var onOuvrirDetail: (() -> Void)? = nil
+    var onOuvrirDetail: ((AnalyseBasaleDetail) -> Void)? = nil
 
     var body: some View {
         NavigationLink {

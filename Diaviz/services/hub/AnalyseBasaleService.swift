@@ -143,15 +143,23 @@ final class AnalyseBasaleService {
         return signatureVerdict != vue
     }
 
-    /// Marque le verdict courant comme vu — appelé quand l'utilisateur ouvre
-    /// réellement le détail de l'analyse basale (`DetailAnalyseBasaleVue`).
-    func marquerVerdictCommeVu() {
-        UserDefaults.standard.set(signatureVerdict, forKey: Self.cleDerniereSignatureVue)
+    /// Marque comme vu le verdict **réellement affiché** par
+    /// `DetailAnalyseBasaleVue` — appelé avec le snapshot figé que la page a
+    /// reçu au push, pas avec `self.analyse` en direct.
+    ///
+    /// `AnalysesVue` relance un `recharger()` à chaque arrivée sur l'onglet ;
+    /// si ce recalcul se termine juste après l'ouverture du détail, `analyse`
+    /// (en direct) peut changer de signature alors que la page affichait déjà
+    /// l'ancienne — marquer d'après le service live rendait le badge "vu"
+    /// caduc dans la foulée. Marquer d'après ce que l'utilisateur a
+    /// effectivement sous les yeux élimine cette course.
+    func marquerVerdictCommeVu(pour analyseAffichee: AnalyseBasaleDetail) {
+        UserDefaults.standard.set(Self.signature(pour: analyseAffichee), forKey: Self.cleDerniereSignatureVue)
     }
 
-    /// Encodage compact du verdict courant — deux analyses au même verdict
-    /// et au même statut « en amélioration » partagent la même signature.
-    private var signatureVerdict: String {
+    /// Encodage compact d'un verdict — deux analyses au même verdict et au
+    /// même statut « en amélioration » partagent la même signature.
+    private static func signature(pour analyse: AnalyseBasaleDetail) -> String {
         let code: String
         switch analyse.verdict {
         case .adaptee:               code = "adaptee"
@@ -161,6 +169,8 @@ final class AnalyseBasaleService {
         }
         return "\(code)|\(analyse.enAmelioration)"
     }
+
+    private var signatureVerdict: String { Self.signature(pour: analyse) }
 
     /// Observation « nouvelle tendance basale » pour la pile d'insights de
     /// l'accueil — `nil` tant qu'il n'y a rien de nouveau à montrer (verdict
