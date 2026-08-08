@@ -513,13 +513,13 @@ extension RepasService {
     /// possibles de la carte de progression / de la sheet « Écart de ratio »
     /// sans dépendre d'un vrai calcul CGM — chaque tranche est peuplée
     /// directement avec le verdict voulu, en réutilisant les mêmes constantes
-    /// (`donneesMinimales`, `effectifMinimalBucket`, `toleranceRatio`) que
-    /// `CalculRatioObserve` pour rester cohérent si elles changent.
+    /// (`effectifMinimalBucket`, `toleranceRatio`) que `CalculRatioObserve`
+    /// pour rester cohérent si elles changent.
     ///
-    /// - Déjeuner : seuil franchi, écart net (les repas sous-dosés marchent
-    ///   mieux — ratio actuel probablement trop fort).
-    /// - Petit-déjeuner : seuil franchi, bien calibré, pas d'écart.
-    /// - Goûter : sous le seuil, progression partielle.
+    /// - Déjeuner : écart net (les repas sous-dosés marchent mieux — ratio
+    ///   actuel probablement trop fort).
+    /// - Petit-déjeuner : bien calibré, pas d'écart.
+    /// - Goûter : tranches trop peu fournies, taux brut seulement.
     /// - Dîner : volontairement pas touché, reste sur le seul repas du jour
     ///   (`echantillonsApercu()`) pour illustrer l'état quasi vide.
     static func echantillonsApercuR1() -> [Repas] {

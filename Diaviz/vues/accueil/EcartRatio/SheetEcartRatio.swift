@@ -7,11 +7,12 @@ import SwiftUI
 
 /// Sheet de détail du ratio observé par R1 — ouverte depuis la carte
 /// d'insight « Nouvelles tendances » (tap sur l'insight R1 uniquement) et
-/// depuis `CarteAnalyseRatio` sur l'accueil. Un bloc par groupe ayant assez
-/// de données (`effectif >= donneesMinimales`, filtré par l'appelant) —
-/// transparence complète : un groupe bien calibré est montré au même titre
-/// qu'un groupe en écart, pas seulement ceux qui posent un constat. Chaque
-/// bloc porte son `GraphiqueZonesRatio` et la légende chiffrée des 3 tranches.
+/// depuis `CarteAnalyseRatio` sur l'accueil. Un bloc par groupe ayant au moins
+/// un repas exploitable (filtré par l'appelant) — transparence complète : un
+/// groupe bien calibré, ou encore peu fourni, est montré au même titre qu'un
+/// groupe en écart. Chaque bloc porte son `GraphiqueZonesRatio` et la légende
+/// chiffrée des 3 tranches, les tranches sous `effectifMinimalBucket` étant
+/// marquées « insuffisant » plutôt que masquées.
 struct SheetEcartRatio: View {
 
     let sections: [ObservationRatioSection]
@@ -29,7 +30,13 @@ struct SheetEcartRatio: View {
                 } else {
                     Form {
                         Section("Constat") {
-                            Text("Chaque point est un repas, selon la dose donnée vs celle que suggère ton ratio (zone grisée). Bon = glycémie restée en cible, moyen et mauvais comptent ensemble, en rouge. Si un côté bat le milieu, ton ratio est mal calibré dans cette direction — trop fort à gauche, trop faible à droite.")
+                            Label("Un point = un repas, placé selon la dose donnée vs celle de ton ratio (zone grisée).", systemImage: "chart.dots.scatter")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            Label("Vert en cible, orange pic modéré, rouge pic élevé ou hypo.", systemImage: "circle.fill")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            Label("Un côté qui bat le milieu = ratio trop fort à gauche, trop faible à droite.", systemImage: "arrow.left.arrow.right")
                                 .font(.callout)
                                 .foregroundStyle(.secondary)
                         }
@@ -39,12 +46,24 @@ struct SheetEcartRatio: View {
                                 GraphiqueZonesRatio(entrees: section.entrees)
                                     .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
 
-                                legende(section)
+                                // Une légende à 3 colonnes n'a de sens que si au
+                                // moins une zone est comparable — sinon elle
+                                // n'affiche que « insuffisant » trois fois.
+                                if comparaisonPossible(section) {
+                                    legende(section)
+                                } else {
+                                    Label(mentionRecul(section), systemImage: "hourglass")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                         }
 
                         Section {
-                            Text("Basé sur les 45 derniers jours, au moins 30 repas exploitables par moment et 5 par zone. Un repas ajusté (sport, hypo…) ou à contexte libre n'est jamais compté.")
+                            Label("45 derniers jours, \(CalculRatioObserve.effectifMinimalBucket) repas minimum par zone.", systemImage: "calendar")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                            Label("Repas ajusté (sport, hypo…) ou à contexte libre jamais compté.", systemImage: "minus.circle")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
@@ -106,11 +125,31 @@ struct SheetEcartRatio: View {
         }
     }
 
+    /// Une comparaison n'a réellement eu lieu que si la tranche « proche » et
+    /// au moins une tranche latérale ont franchi `effectifMinimalBucket` —
+    /// sans ça il n'y a rien à confronter, et conclure « ratio confirmé »
+    /// serait faux (c'était le cas avant : un groupe à 1 repas affichait un
+    /// badge vert sur une colonne marquée « insuffisant »).
+    private func comparaisonPossible(_ section: ObservationRatioSection) -> Bool {
+        let aCentre = section.buckets.contains { $0.tranche == .doseProche }
+        let aLateral = section.buckets.contains { $0.tranche != .doseProche }
+        return aCentre && aLateral
+    }
+
     private func etiquette(_ tranche: TrancheRatio, section: ObservationRatioSection) -> (texte: String, couleur: Color)? {
         if let ecart = section.ecart {
             return tranche == ecart.trancheOptimale ? ("meilleur taux", .blue) : nil
         }
+        guard comparaisonPossible(section) else { return nil }
         return tranche == .doseProche ? ("ratio confirmé", .green) : nil
+    }
+
+    /// Phrase de repli quand aucune comparaison n'est possible — dit ce qu'on
+    /// a, pas ce qu'on n'a pas.
+    private func mentionRecul(_ section: ObservationRatioSection) -> String {
+        let minimum = CalculRatioObserve.effectifMinimalBucket
+        guard section.effectif > 0 else { return "Aucun repas analysé" }
+        return "\(section.effectif) repas — \(minimum) minimum par zone pour comparer"
     }
 
     private func libelleCourt(_ tranche: TrancheRatio) -> String {
@@ -180,10 +219,54 @@ private func _mockSections() -> [ObservationRatioSection] {
     return [dejeuner, diner, petitDejeuner]
 }
 
+/// Groupes trop peu fournis pour qu'une comparaison existe — aucun bucket,
+/// donc aucun badge : c'est exactement le cas qui affichait à tort un
+/// « ratio confirmé » vert sur une colonne « insuffisant ».
+private func _mockSectionsSansComparaison() -> [ObservationRatioSection] {
+    let dejeuner = ObservationRatioSection(
+        groupe: .dejeuner, effectif: 1, buckets: [], ecart: nil,
+        entrees: _lot(groupe: .dejeuner, bon: 1, total: 1, plage: 0.95...0.95)
+    )
+    let petitDejeuner = ObservationRatioSection(
+        groupe: .petitDejeuner, effectif: 3, buckets: [], ecart: nil,
+        entrees: _lot(groupe: .petitDejeuner, bon: 2, total: 2, plage: 0.92...1.05)
+            + _lot(groupe: .petitDejeuner, bon: 0, total: 1, plage: 0.6...0.6)
+    )
+    return [dejeuner, petitDejeuner]
+}
+
+/// Centre fourni mais aucune tranche latérale : rien à confronter, donc pas
+/// de badge « ratio confirmé » non plus.
+private func _mockSectionCentreSeul() -> [ObservationRatioSection] {
+    [ObservationRatioSection(
+        groupe: .diner, effectif: 9,
+        buckets: [BucketRatioObserve(tranche: .doseProche, total: 9, bons: 6)],
+        ecart: nil,
+        entrees: _lot(groupe: .diner, bon: 6, total: 9, plage: 0.85...1.15)
+    )]
+}
+
 #Preview("Écart et ratio confirmé") {
     SheetEcartRatio(sections: _mockSections())
 }
 
-#Preview("Aucun écart") {
+#Preview("Trop peu de repas") {
+    SheetEcartRatio(sections: _mockSectionsSansComparaison())
+}
+
+#Preview("Centre seul, rien à comparer") {
+    SheetEcartRatio(sections: _mockSectionCentreSeul())
+}
+
+#Preview("Mix comparable / non comparable") {
+    SheetEcartRatio(sections: _mockSections() + _mockSectionsSansComparaison())
+}
+
+#Preview("Aucune donnée") {
     SheetEcartRatio(sections: [])
+}
+
+#Preview("Sombre") {
+    SheetEcartRatio(sections: _mockSections())
+        .preferredColorScheme(.dark)
 }

@@ -76,12 +76,12 @@ nonisolated struct EcartRatioObserve: Sendable, Equatable {
 
 nonisolated struct ObservationRatioSection: Sendable, Equatable {
     let groupe: SectionRepas?
-    /// Repas exploitables dans ce groupe — **toujours peuplé**, indépendant
-    /// du seuil `donneesMinimales`. Alimente la progression affichée avant
-    /// que le groupe ait assez de données pour un vrai résultat.
+    /// Repas exploitables dans ce groupe — **toujours peuplé**. Sert de
+    /// dénominateur affiché : un taux sur petit effectif reste honnête tant
+    /// que le nombre de repas est visible à côté.
     let effectif: Int
-    /// Seulement les tranches à l'effectif suffisant (silence sinon). Vide
-    /// tant que `effectif < donneesMinimales`.
+    /// Seulement les tranches à l'effectif suffisant
+    /// (`effectifMinimalBucket`) — silence sur les autres.
     let buckets: [BucketRatioObserve]
     let ecart: EcartRatioObserve?
     /// Tous les repas du groupe, **toujours peuplé** — alimente le
@@ -107,11 +107,17 @@ nonisolated struct AnalyseRatioObserve: Sendable, Equatable {
 /// chiffre est recomptable à la main depuis les repas listés.
 nonisolated enum CalculRatioObserve {
 
-    /// Repas analysés requis **par groupe** (moment) avant d'afficher un
-    /// résultat pour ce groupe — pas un seuil global : changer le ratio d'un
-    /// moment ne doit jamais faire disparaître l'analyse des autres.
-    static let donneesMinimales = 30
-    /// Effectif minimal d'un bucket pour être affiché.
+    /// Effectif minimal d'un bucket pour être affiché — **seul garde-fou de
+    /// volume** du mining.
+    ///
+    /// Un second seuil par groupe (30 repas avant tout résultat) existait
+    /// jusqu'au 2026-08-05 : supprimé car largement redondant avec celui-ci
+    /// (c'est le bucket, pas le groupe, qui porte le risque de bruit) et
+    /// contraire à la dégradation gracieuse de l'app — il masquait des
+    /// dénominateurs déjà honnêtes (« 4 bons sur 6 ») pendant des semaines,
+    /// et le compteur repartait à zéro sans le dire au moindre changement de
+    /// ratio. Un taux sur petit effectif est désormais montré avec son
+    /// dénominateur, à l'utilisateur de juger du recul.
     static let effectifMinimalBucket = 5
     /// Écart minimal de taux de bons verdicts entre bucket optimal et bucket
     /// configuré pour signaler un écart (points de taux).
@@ -151,10 +157,6 @@ nonisolated enum CalculRatioObserve {
     private static func construireSection(
         groupe: SectionRepas?, repas: [EntreeRatioRepas]
     ) -> ObservationRatioSection {
-        guard repas.count >= donneesMinimales else {
-            return ObservationRatioSection(groupe: groupe, effectif: repas.count, buckets: [], ecart: nil, entrees: repas)
-        }
-
         let parTranche = Dictionary(grouping: repas) {
             tranche(doseAppliquee: $0.doseAppliquee, doseSuggeree: $0.doseSuggeree)
         }

@@ -35,12 +35,12 @@ struct ValidationRatio {
     let profil: ProfilRatio
     /// Écart factuel entre le ratio configuré et un ratio mieux observé
     /// historiquement pour ce moment (mining R1, `CalculRatioObserve`) — `nil`
-    /// tant que les données sont insuffisantes (< 30 repas analysés pour ce
-    /// groupe) ou qu'aucun écart significatif n'a été détecté. Jamais une
-    /// dose à utiliser : toujours restitué avec ses dénominateurs bruts.
+    /// tant qu'aucune tranche n'atteint `CalculRatioObserve.effectifMinimalBucket`
+    /// ou qu'aucun écart significatif n'a été détecté. Jamais une dose à
+    /// utiliser : toujours restitué avec ses dénominateurs bruts.
     let ecartObserve: EcartRatioObserve?
-    /// Repas déjà exploitables dans le groupe (moment) de ce repas — alimente
-    /// la ligne de progression affichée tant que `< CalculRatioObserve.donneesMinimales`.
+    /// Repas déjà exploitables dans le groupe (moment) de ce repas — affiché
+    /// tel quel faute d'écart à signaler, pour ne pas rester muet.
     let effectifGroupe: Int
 
     init(

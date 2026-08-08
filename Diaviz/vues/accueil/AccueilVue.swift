@@ -338,7 +338,10 @@ struct AccueilVue: View {
                 Text("« \(insightASupprimer?.titre ?? "") » disparaîtra de l'accueil.")
             }
             .sheet(isPresented: $afficherDetailEcartRatio) {
-                SheetEcartRatio(sections: analyseRatioService.analyse.sections.filter { $0.effectif >= CalculRatioObserve.donneesMinimales })
+                // Tout groupe ayant au moins un repas exploitable — c'est le
+                // seuil par tranche (`effectifMinimalBucket`) qui décide seul
+                // de ce qui est comparable, la sheet montre le reste tel quel.
+                SheetEcartRatio(sections: analyseRatioService.analyse.sections.filter { !$0.entrees.isEmpty })
             }
             .sheet(isPresented: $sheetLenteOuverte) {
                 // Sheet d'enregistrement de la lente, préremplie : dose =

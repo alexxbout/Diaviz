@@ -77,7 +77,11 @@ final class AnalyseRatioService {
     /// règle de repli que `InsightsService.ratioConfigure` (nuit retombe sur
     /// dîner, ils partagent le même ratio donc la même date). `nil` = jamais
     /// changé, tout l'historique reste éligible.
-    private func dateChangement(section: SectionRepas, profil: ProfilUtilisateur) -> Date? {
+    ///
+    /// Exposée (non privée) pour que l'accueil puisse **dire** qu'un compteur
+    /// est reparti de zéro : sans ça le filtrage appliqué ici est invisible
+    /// côté UI, et un moment qui avait 25 repas retombe à 2 sans explication.
+    func dateChangement(section: SectionRepas, profil: ProfilUtilisateur) -> Date? {
         let dates = profil.datesChangementRatioEffectives
         switch profil.modeRatio {
         case .unique:

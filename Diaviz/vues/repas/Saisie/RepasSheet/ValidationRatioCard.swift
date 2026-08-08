@@ -82,10 +82,11 @@ struct ValidationRatioCard: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.top, 2)
-            } else if validation.effectifGroupe < CalculRatioObserve.donneesMinimales {
-                // Sous le seuil, remplace le silence par la progression —
-                // jamais une conclusion, juste où on en est.
-                Text(ligneProgression)
+            } else {
+                // Pas d'écart significatif : dit combien de repas alimentent
+                // déjà l'analyse de ce moment — jamais une conclusion, juste
+                // où on en est.
+                Text(ligneEffectif)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.top, 2)
@@ -103,11 +104,14 @@ struct ValidationRatioCard: View {
             + "(\(ecart.bonsConfigure)/\(ecart.effectifConfigure)) à ton ratio actuel."
     }
 
-    /// Ligne de progression affichée tant que le groupe n'a pas atteint
-    /// `donneesMinimales` — remplace le silence, jamais une conclusion.
-    private var ligneProgression: String {
-        "\(validation.effectifGroupe)/\(CalculRatioObserve.donneesMinimales) repas analysés — "
-            + "pas encore de comparaison possible."
+    /// Effectif du groupe, affiché faute d'écart à signaler — remplace le
+    /// silence, jamais une conclusion.
+    private var ligneEffectif: String {
+        switch validation.effectifGroupe {
+        case 0:  return "Aucun repas encore analysé sur ce moment."
+        case 1:  return "1 repas analysé sur ce moment, pas d'écart à signaler."
+        default: return "\(validation.effectifGroupe) repas analysés sur ce moment, pas d'écart à signaler."
+        }
     }
 
     /// Badge profil ratio : capsule teintée d'accent avec icône "détection
