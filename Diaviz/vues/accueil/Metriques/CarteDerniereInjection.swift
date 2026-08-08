@@ -10,28 +10,44 @@ import SwiftUI
 /// `TimelineView`.
 struct CarteDerniereInjection: View {
 
-    let dose: Double
-    let depuis: TimeInterval
-    let type: CategorieInjectionAccueil
+    /// `nil` quand le hub ne contient aucune injection — distinct d'une
+    /// injection de 0 unité posée à l'instant. Sans cette distinction, une
+    /// journée sans aucune injection affichait « 0u à l'instant » comme si
+    /// une injection venait d'être saisie.
+    let derniere: (dose: Double, depuis: TimeInterval, type: CategorieInjectionAccueil)?
 
     var body: some View {
-        let ancre = Date().addingTimeInterval(-depuis)
+        if let derniere {
+            let ancre = Date().addingTimeInterval(-derniere.depuis)
 
-        TimelineView(.periodic(from: .now, by: 60)) { contexte in
+            TimelineView(.periodic(from: .now, by: 60)) { contexte in
+                LigneMetriqueAccueil(
+                    icone: "syringe.fill",
+                    couleurIcone: couleurIcone,
+                    couleurFondIcone: couleurIcone.opacity(0.15),
+                    titre: "Injection \(derniere.type.rawValue.lowercased())",
+                    sousTitre: tempsRelatif(depuis: ancre, maintenant: contexte.date)
+                ) {
+                    ValeurMetriqueAccueil(valeur: doseFormatee(derniere.dose), unite: "u")
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(
+                "Dernière injection : \(doseFormatee(derniere.dose)) unités \(derniere.type.rawValue.lowercased()), \(tempsRelatif(depuis: ancre))"
+            )
+        } else {
             LigneMetriqueAccueil(
                 icone: "syringe.fill",
                 couleurIcone: couleurIcone,
                 couleurFondIcone: couleurIcone.opacity(0.15),
-                titre: "Injection \(type.rawValue.lowercased())",
-                sousTitre: tempsRelatif(depuis: ancre, maintenant: contexte.date)
+                titre: "Injection",
+                sousTitre: "Aucune aujourd'hui"
             ) {
-                ValeurMetriqueAccueil(valeur: doseFormatee, unite: "u")
+                EmptyView()
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Aucune injection aujourd'hui")
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            "Dernière injection : \(doseFormatee) unités \(type.rawValue.lowercased()), \(tempsRelatif(depuis: ancre))"
-        )
     }
 
     /// Violet "seringue" (#7F77DD) — code couleur dédié aux injections.
@@ -39,7 +55,7 @@ struct CarteDerniereInjection: View {
         Color(red: 0x7F / 255, green: 0x77 / 255, blue: 0xDD / 255)
     }
 
-    private var doseFormatee: String {
+    private func doseFormatee(_ dose: Double) -> String {
         let rounded = (dose * 2).rounded() / 2
         if rounded.truncatingRemainder(dividingBy: 1) == 0 {
             return String(format: "%.0f", rounded)
@@ -51,14 +67,21 @@ struct CarteDerniereInjection: View {
 // MARK: - Aperçus
 
 #Preview("Injection - Rapide") {
-    CarteDerniereInjection(dose: 6.5, depuis: 3900, type: .rapide)
+    CarteDerniereInjection(derniere: (dose: 6.5, depuis: 3900, type: .rapide))
         .surfaceCarte()
         .padding()
         .background(Color(.systemGroupedBackground))
 }
 
 #Preview("Injection - Lente") {
-    CarteDerniereInjection(dose: 18, depuis: 57600, type: .lente)
+    CarteDerniereInjection(derniere: (dose: 18, depuis: 57600, type: .lente))
+        .surfaceCarte()
+        .padding()
+        .background(Color(.systemGroupedBackground))
+}
+
+#Preview("Injection - Aucune") {
+    CarteDerniereInjection(derniere: nil)
         .surfaceCarte()
         .padding()
         .background(Color(.systemGroupedBackground))

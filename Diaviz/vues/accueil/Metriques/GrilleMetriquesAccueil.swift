@@ -38,19 +38,11 @@ struct GrilleMetriquesAccueil: View {
 
             Divider().padding(.leading, 58)
 
-            CarteDerniereInjection(
-                dose: metriques.derniereInjectionDose,
-                depuis: metriques.derniereInjectionDepuis,
-                type: metriques.derniereInjectionType
-            )
+            CarteDerniereInjection(derniere: metriques.derniereInjection)
 
             Divider().padding(.leading, 58)
 
-            CarteDernierRepas(
-                glucides: metriques.dernierRepasGlucides,
-                depuis: metriques.dernierRepasDepuis,
-                emojis: metriques.dernierRepasEmojis
-            )
+            CarteDernierRepas(dernier: metriques.dernierRepas)
         }
         .surfaceCarte()
     }

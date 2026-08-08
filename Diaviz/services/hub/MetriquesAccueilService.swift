@@ -29,23 +29,35 @@ struct MetriquesAccueil: Sendable, Equatable {
     let hyposAujourdhui: Int
     let hyposSeveres: Int
     let hyposLegeres: Int
-    let derniereInjectionDose: Double
-    let derniereInjectionDepuis: TimeInterval
-    let derniereInjectionType: CategorieInjectionAccueil
-    let dernierRepasGlucides: Double
-    let dernierRepasDepuis: TimeInterval
-    let dernierRepasEmojis: [String]
+    /// `nil` quand le hub ne contient aucune injection — distinct d'une
+    /// injection de 0 unité posée à l'instant (voir `CarteDerniereInjection`).
+    let derniereInjection: (dose: Double, depuis: TimeInterval, type: CategorieInjectionAccueil)?
+    /// `nil` quand le hub ne contient aucun repas — même logique.
+    let dernierRepas: (glucides: Double, depuis: TimeInterval, emojis: [String])?
     let pointsCgmJournee: [LectureCgm]
     let pointsIOB: [PointIOB]
 
     /// IOB instantané — dérivé de `pointsIOB.first` (previews uniquement).
     var iob: Double { pointsIOB.first?.iob ?? 0 }
 
+    static func == (lhs: MetriquesAccueil, rhs: MetriquesAccueil) -> Bool {
+        lhs.hyposAujourdhui == rhs.hyposAujourdhui
+            && lhs.hyposSeveres == rhs.hyposSeveres
+            && lhs.hyposLegeres == rhs.hyposLegeres
+            && lhs.derniereInjection?.dose == rhs.derniereInjection?.dose
+            && lhs.derniereInjection?.depuis == rhs.derniereInjection?.depuis
+            && lhs.derniereInjection?.type == rhs.derniereInjection?.type
+            && lhs.dernierRepas?.glucides == rhs.dernierRepas?.glucides
+            && lhs.dernierRepas?.depuis == rhs.dernierRepas?.depuis
+            && lhs.dernierRepas?.emojis == rhs.dernierRepas?.emojis
+            && lhs.pointsCgmJournee == rhs.pointsCgmJournee
+            && lhs.pointsIOB == rhs.pointsIOB
+    }
+
     /// État neutre avant le premier chargement / hub vide.
     static let vide = MetriquesAccueil(
         hyposAujourdhui: 0, hyposSeveres: 0, hyposLegeres: 0,
-        derniereInjectionDose: 0, derniereInjectionDepuis: 0, derniereInjectionType: .rapide,
-        dernierRepasGlucides: 0, dernierRepasDepuis: 0, dernierRepasEmojis: [],
+        derniereInjection: nil, dernierRepas: nil,
         pointsCgmJournee: [], pointsIOB: []
     )
 }
@@ -98,12 +110,12 @@ final class MetriquesAccueilService {
             hyposAujourdhui: hypo,
             hyposSeveres: severe,
             hyposLegeres: max(0, hypo - severe),
-            derniereInjectionDose: inj?.dose ?? 0,
-            derniereInjectionDepuis: inj.map { now.timeIntervalSince($0.heure) } ?? 0,
-            derniereInjectionType: inj?.type == .lente ? .lente : .rapide,
-            dernierRepasGlucides: Double(repas?.totalGlucides ?? 0),
-            dernierRepasDepuis: repas.map { now.timeIntervalSince($0.heure) } ?? 0,
-            dernierRepasEmojis: repas?.aliments.map(\.emoji) ?? [],
+            derniereInjection: inj.map {
+                (dose: $0.dose, depuis: now.timeIntervalSince($0.heure), type: $0.type == .lente ? .lente : .rapide)
+            },
+            dernierRepas: repas.map {
+                (glucides: Double($0.totalGlucides), depuis: now.timeIntervalSince($0.heure), emojis: $0.aliments.map(\.emoji))
+            },
             pointsCgmJournee: cgm.map { LectureCgm(heure: $0.date, valeur: Double($0.valeur)) },
             pointsIOB: []
         )
@@ -124,10 +136,8 @@ extension MetriquesAccueil {
         ]
         return MetriquesAccueil(
             hyposAujourdhui: 0, hyposSeveres: 0, hyposLegeres: 0,
-            derniereInjectionDose: 4.0, derniereInjectionDepuis: 60 * 60 * 2 + 13 * 60,
-            derniereInjectionType: .rapide,
-            dernierRepasGlucides: 45, dernierRepasDepuis: 60 * 60 * 2 + 18 * 60,
-            dernierRepasEmojis: ["🍞", "🧀", "🥛"],
+            derniereInjection: (dose: 4.0, depuis: 60 * 60 * 2 + 13 * 60, type: .rapide),
+            dernierRepas: (glucides: 45, depuis: 60 * 60 * 2 + 18 * 60, emojis: ["🍞", "🧀", "🥛"]),
             pointsCgmJournee: cgmJourneeApercu(avecHypos: false),
             pointsIOB: IOBCalculateur.courbe(injections: injections, depuis: now, diaHeures: 4, picMinutes: 75)
         )
@@ -142,10 +152,8 @@ extension MetriquesAccueil {
         ]
         return MetriquesAccueil(
             hyposAujourdhui: 2, hyposSeveres: 1, hyposLegeres: 1,
-            derniereInjectionDose: 6.5, derniereInjectionDepuis: 60 * 60 + 5 * 60,
-            derniereInjectionType: .rapide,
-            dernierRepasGlucides: 72, dernierRepasDepuis: 60 * 60 + 8 * 60,
-            dernierRepasEmojis: ["🍝", "🧀", "🥖"],
+            derniereInjection: (dose: 6.5, depuis: 60 * 60 + 5 * 60, type: .rapide),
+            dernierRepas: (glucides: 72, depuis: 60 * 60 + 8 * 60, emojis: ["🍝", "🧀", "🥖"]),
             pointsCgmJournee: cgmJourneeApercu(avecHypos: true),
             pointsIOB: IOBCalculateur.courbe(injections: injections, depuis: now, diaHeures: 4, picMinutes: 75)
         )
@@ -157,14 +165,20 @@ extension MetriquesAccueil {
         let injections = [InjectionPourIOB(heure: now.addingTimeInterval(-3.5 * 3600), dose: 3.5)]
         return MetriquesAccueil(
             hyposAujourdhui: 0, hyposSeveres: 0, hyposLegeres: 0,
-            derniereInjectionDose: 12, derniereInjectionDepuis: 60 * 60 * 8,
-            derniereInjectionType: .lente,
-            dernierRepasGlucides: 28, dernierRepasDepuis: 60 * 60 * 6,
-            dernierRepasEmojis: ["🥗", "🥑"],
+            derniereInjection: (dose: 12, depuis: 60 * 60 * 8, type: .lente),
+            dernierRepas: (glucides: 28, depuis: 60 * 60 * 6, emojis: ["🥗", "🥑"]),
             pointsCgmJournee: cgmJourneeApercu(avecHypos: false),
             pointsIOB: IOBCalculateur.courbe(injections: injections, depuis: now, diaHeures: 4, picMinutes: 75)
         )
     }()
+
+    /// Journée neuve — aucune donnée saisie. Vérifie que « Injection » et
+    /// « Repas » affichent leur état vide plutôt qu'une fausse valeur à 0.
+    static let mockVide: MetriquesAccueil = MetriquesAccueil(
+        hyposAujourdhui: 0, hyposSeveres: 0, hyposLegeres: 0,
+        derniereInjection: nil, dernierRepas: nil,
+        pointsCgmJournee: cgmJourneeApercu(avecHypos: false), pointsIOB: []
+    )
 }
 
 /// Génère une journée CGM synthétique (48 points / 30 min) pour les previews.

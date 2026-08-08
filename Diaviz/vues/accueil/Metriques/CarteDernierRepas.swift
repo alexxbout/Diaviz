@@ -9,37 +9,47 @@ import SwiftUI
 /// d'aliments et temps écoulé, rafraîchi à la minute via `TimelineView`.
 struct CarteDernierRepas: View {
 
-    /// Glucides en grammes — affichés à l'entier ("45g", pas "45.0g").
-    let glucides: Double
-
-    let depuis: TimeInterval
-
-    /// Emojis des aliments du repas — seul `.count` est utilisé ici (nombre
-    /// d'aliments) ; l'emoji lui-même n'est plus affiché dans la row
-    /// compacte (cohérence avec les icônes SF Symbols des autres rows).
-    let emojis: [String]
+    /// `nil` quand le hub ne contient aucun repas — distinct d'un repas de
+    /// 0g posé à l'instant. Sans cette distinction, une journée sans aucun
+    /// repas affichait « 0g à l'instant » comme si un repas venait d'être
+    /// saisi.
+    let dernier: (glucides: Double, depuis: TimeInterval, emojis: [String])?
 
     var body: some View {
-        let ancre = Date().addingTimeInterval(-depuis)
+        if let dernier {
+            let ancre = Date().addingTimeInterval(-dernier.depuis)
 
-        TimelineView(.periodic(from: .now, by: 60)) { contexte in
+            TimelineView(.periodic(from: .now, by: 60)) { contexte in
+                LigneMetriqueAccueil(
+                    icone: "fork.knife",
+                    couleurIcone: couleurIcone,
+                    couleurFondIcone: couleurIcone.opacity(0.15),
+                    titre: "Repas",
+                    sousTitre: sousTitre(maintenant: contexte.date, ancre: ancre, emojis: dernier.emojis)
+                ) {
+                    ValeurMetriqueAccueil(valeur: "\(Int(dernier.glucides.rounded()))", unite: "g")
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(
+                "Dernier repas : \(Int(dernier.glucides.rounded())) grammes de glucides, \(tempsRelatif(depuis: ancre))"
+            )
+        } else {
             LigneMetriqueAccueil(
                 icone: "fork.knife",
                 couleurIcone: couleurIcone,
                 couleurFondIcone: couleurIcone.opacity(0.15),
                 titre: "Repas",
-                sousTitre: sousTitre(maintenant: contexte.date, ancre: ancre)
+                sousTitre: "Aucun aujourd'hui"
             ) {
-                ValeurMetriqueAccueil(valeur: "\(Int(glucides.rounded()))", unite: "g")
+                EmptyView()
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Aucun repas aujourd'hui")
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            "Dernier repas : \(Int(glucides.rounded())) grammes de glucides, \(tempsRelatif(depuis: ancre))"
-        )
     }
 
-    private func sousTitre(maintenant: Date, ancre: Date) -> String {
+    private func sousTitre(maintenant: Date, ancre: Date, emojis: [String]) -> String {
         let temps = tempsRelatif(depuis: ancre, maintenant: maintenant)
         guard !emojis.isEmpty else { return temps }
         let mot = emojis.count == 1 ? "aliment" : "aliments"
@@ -55,14 +65,21 @@ struct CarteDernierRepas: View {
 // MARK: - Aperçus
 
 #Preview("Repas - 3 aliments") {
-    CarteDernierRepas(glucides: 72, depuis: 4080, emojis: ["🍞", "🧀", "🥛"])
+    CarteDernierRepas(dernier: (glucides: 72, depuis: 4080, emojis: ["🍞", "🧀", "🥛"]))
         .surfaceCarte()
         .padding()
         .background(Color(.systemGroupedBackground))
 }
 
 #Preview("Repas - Sans détail") {
-    CarteDernierRepas(glucides: 45, depuis: 7200, emojis: [])
+    CarteDernierRepas(dernier: (glucides: 45, depuis: 7200, emojis: []))
+        .surfaceCarte()
+        .padding()
+        .background(Color(.systemGroupedBackground))
+}
+
+#Preview("Repas - Aucun") {
+    CarteDernierRepas(dernier: nil)
         .surfaceCarte()
         .padding()
         .background(Color(.systemGroupedBackground))
