@@ -25,7 +25,19 @@ struct CarteSection: View {
     let sousTitre: String
     let couleur: Color
 
+    /// Nombre d'éléments en attente d'import (ex. activités Apple Santé) —
+    /// `nil`/0 masque la pastille. Remplace aussi le sous-titre normal par
+    /// un message dédié, pour qu'il n'y ait qu'une seule information « à
+    /// traiter » affichée à la fois, jamais un badge en overlay par-dessus
+    /// le titre qui se chevauchaient.
+    var badgeImport: Int? = nil
+
     private var teinteVerre: Color { couleur.opacity(0.18) }
+
+    private var sousTitreEffectif: String {
+        guard let badgeImport, badgeImport > 0 else { return sousTitre }
+        return "\(badgeImport) activité\(badgeImport > 1 ? "s" : "") à importer"
+    }
 
     var body: some View {
         HStack(spacing: 16) {
@@ -36,7 +48,7 @@ struct CarteSection: View {
                     .font(.title3.weight(.bold))
                     .foregroundStyle(couleur)
 
-                Text(sousTitre)
+                Text(sousTitreEffectif)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
@@ -61,21 +73,39 @@ struct CarteSection: View {
         // Liquid Glass tout en gardant l'identité couleur de chaque section.
         .surfaceCarteVerre(teinte: teinteVerre)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(titre), \(sousTitre)")
+        .accessibilityLabel("\(titre), \(sousTitreEffectif)")
         .accessibilityAddTraits(.isButton)
     }
 
     /// Badge circulaire plein (dégradé de l'accent) avec l'icône SF Symbol
-    /// blanche — contraste franc sur le verre teinté de la carte.
+    /// blanche — contraste franc sur le verre teinté de la carte. Porte la
+    /// pastille « à importer » en overlay, jamais sur la carte entière : sa
+    /// zone est fixe (54pt) quel que soit le nombre affiché, contrairement
+    /// au titre qui peut changer de largeur.
     private var iconeBadge: some View {
         Image(systemName: icone)
             .font(.system(size: 24, weight: .semibold))
             .foregroundStyle(.white)
             .frame(width: 54, height: 54)
             .background(couleur.gradient, in: Circle())
+            .overlay(alignment: .topTrailing) { pastilleImport }
             .accessibilityHidden(true)
     }
 
+    @ViewBuilder
+    private var pastilleImport: some View {
+        if let badgeImport, badgeImport > 0 {
+            Text("\(badgeImport)")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white)
+                .monospacedDigit()
+                .frame(minWidth: 19, minHeight: 19)
+                .background(Color.red, in: Circle())
+                .overlay(Circle().strokeBorder(.background, lineWidth: 2))
+                .offset(x: 4, y: -4)
+                .transition(.scale.combined(with: .opacity))
+        }
+    }
 }
 
 #Preview {
@@ -90,7 +120,8 @@ struct CarteSection: View {
             icone: "figure.run",
             titre: "Activités sportives",
             sousTitre: "Aucune activité aujourd'hui",
-            couleur: .orange
+            couleur: .orange,
+            badgeImport: 1
         )
         CarteSection(
             icone: "syringe",

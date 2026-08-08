@@ -76,9 +76,9 @@ struct JournalVue: View {
                             icone: "figure.run",
                             titre: "Activités sportives",
                             sousTitre: sousTitreSport,
-                            couleur: .orange
+                            couleur: .orange,
+                            badgeImport: importService.aDesImportsEnAttente ? importService.nombreEnAttente : nil
                         )
-                        .overlay(alignment: .topTrailing) { badgeImport }
                     }
                     .buttonStyle(.plain)
 
@@ -134,32 +134,6 @@ struct JournalVue: View {
         let n = resucrages.count { cal.isDateInToday($0.date) }
         guard n > 0 else { return "Aucun resucrage aujourd'hui" }
         return "\(n) resucrage\(n > 1 ? "s" : "") aujourd'hui"
-    }
-
-    /// Pastille « à importer » en haut à droite de la carte sport —
-    /// n'apparaît que si le service signale des activités Apple Santé en
-    /// attente. Pastille **explicite** (icône d'import + compteur +
-    /// libellé) plutôt qu'un simple point rouge ambigu : on comprend
-    /// d'un coup d'œil qu'il y a N activités à importer dans la section.
-    /// Transition `scale + opacity` pour une apparition/disparition douce
-    /// quand l'utilisateur traite ou ignore depuis la sheet.
-    @ViewBuilder
-    private var badgeImport: some View {
-        if importService.aDesImportsEnAttente {
-            HStack(spacing: 5) {
-                Image(systemName: "tray.and.arrow.down.fill")
-                Text("\(importService.nombreEnAttente) à importer")
-                    .monospacedDigit()
-            }
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(Color.red, in: Capsule())
-            .padding(10)
-            .accessibilityLabel("\(importService.nombreEnAttente) activités Apple Santé à importer")
-            .transition(.scale.combined(with: .opacity))
-        }
     }
 }
 
