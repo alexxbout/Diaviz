@@ -314,10 +314,7 @@ struct DetailScoreVue: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: Radius.medium, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
+        .surfaceCarte()
     }
 
     /// Bloc d'explication factuel — décrit ce que le score représente
@@ -348,10 +345,7 @@ private struct CartePage<Content: View>: View {
         content
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: Radius.medium, style: .continuous)
-                    .fill(Color(.secondarySystemGroupedBackground))
-            )
+            .surfaceCarte()
     }
 }
 

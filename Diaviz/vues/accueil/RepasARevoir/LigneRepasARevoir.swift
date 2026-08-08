@@ -99,7 +99,7 @@ struct LigneRepasARevoir: View {
                     }
                 }
                 .frame(width: 22, height: 22)
-                .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .surfaceCarte(.compact, fond: Color(.tertiarySystemFill))
                 .accessibilityHidden(true)
             }
             let reste = repas.aliments.count - Self.maxIconesAliments
@@ -108,7 +108,7 @@ struct LigneRepasARevoir: View {
                     .font(.caption2.bold())
                     .foregroundStyle(.secondary)
                     .frame(width: 22, height: 22)
-                    .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .surfaceCarte(.compact, fond: Color(.tertiarySystemFill))
             }
         }
     }

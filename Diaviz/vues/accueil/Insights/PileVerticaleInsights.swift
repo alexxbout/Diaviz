@@ -125,7 +125,7 @@ struct PileVerticaleInsights: View {
             // hit-testable pour le drag — sans ça, certaines zones
             // (background translucide entre les éléments texte)
             // ne déclenchaient pas la gesture.
-            .contentShape(RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
+            .contentShape(NiveauCarte.carte.forme)
             // `.simultaneously` : le drag (cycle vertical) et l'appui long
             // (suppression) coexistent sans s'annuler — un vrai drag produit
             // une translation qui empêche le long-press natif de se valider,

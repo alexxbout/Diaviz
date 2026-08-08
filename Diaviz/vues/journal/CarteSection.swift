@@ -37,7 +37,7 @@ struct StyleCarteJournal: ButtonStyle {
             // sa matière, en teintant son propre `glassEffect`.
             .environment(\.carteJournalEnfoncee, configuration.isPressed)
             .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
-            .contentShape(RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
+            .contentShape(NiveauCarte.carte.forme)
     }
 }
 
@@ -103,14 +103,7 @@ struct CarteSection: View {
         .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
         // Verre translucide teinté à l'accent de la section : profondeur
         // Liquid Glass tout en gardant l'identité couleur de chaque section.
-        .glassEffect(
-            // Pas de `.interactive()` : sur une carte qui pousse une page,
-            // l'animation de déformation du verre au press se joue avant le
-            // push et se lit comme du lag. La transition de navigation est
-            // déjà le feedback.
-            .regular.tint(teinteVerre),
-            in: RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
-        )
+        .surfaceCarteVerre(teinte: teinteVerre)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(titre), \(sousTitre)")
         .accessibilityAddTraits(.isButton)

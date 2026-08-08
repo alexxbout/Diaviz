@@ -101,7 +101,7 @@ struct SheetEcartRatio: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
-                .background(etiquette?.couleur ?? .clear, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .background(etiquette?.couleur ?? .clear, in: RoundedRectangle(cornerRadius: Radius.small, style: .continuous))
             }
         }
     }

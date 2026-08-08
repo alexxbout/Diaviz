@@ -30,13 +30,13 @@ struct BoutonTypeSport: View {
             .frame(maxWidth: .infinity)
             .frame(height: 80)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.small, style: .continuous)
                     .fill(selectionne
                         ? Color.accentColor.opacity(0.15)
                         : Color(.secondarySystemBackground))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.small, style: .continuous)
                     .strokeBorder(
                         selectionne ? Color.accentColor : .clear,
                         lineWidth: 1.5

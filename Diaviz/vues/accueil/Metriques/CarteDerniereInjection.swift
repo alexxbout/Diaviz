@@ -52,14 +52,14 @@ struct CarteDerniereInjection: View {
 
 #Preview("Injection - Rapide") {
     CarteDerniereInjection(dose: 6.5, depuis: 3900, type: .rapide)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .surfaceCarte()
         .padding()
         .background(Color(.systemGroupedBackground))
 }
 
 #Preview("Injection - Lente") {
     CarteDerniereInjection(dose: 18, depuis: 57600, type: .lente)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .surfaceCarte()
         .padding()
         .background(Color(.systemGroupedBackground))
 }

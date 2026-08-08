@@ -189,7 +189,7 @@ private struct CarteResumeIA: View {
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
+        .clipShape(NiveauCarte.carte.forme)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Résumé généré par IA. \(texte). Contenu généré par IA, à vérifier.")
     }
@@ -238,7 +238,7 @@ private struct CarteFondementsVerdict: View {
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
+        .clipShape(NiveauCarte.carte.forme)
         .accessibilityElement(children: .combine)
     }
 

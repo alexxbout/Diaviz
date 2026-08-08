@@ -151,10 +151,7 @@ struct GrapheJourneeSport: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
+        .surfaceCarte()
     }
 
     private var contenu: some View {
@@ -166,10 +163,7 @@ struct GrapheJourneeSport: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
+        .surfaceCarte()
         .onAppear {
             if dateScroll == nil { dateScroll = jours.last }
         }

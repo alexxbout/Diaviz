@@ -260,7 +260,7 @@ struct DetailActiviteVue: View {
             )
         }
         .padding(.vertical, 14)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
+        .surfaceCarteVerre()
         .padding(.horizontal, 16)
     }
 

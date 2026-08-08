@@ -241,7 +241,7 @@ struct SportVue: View {
         .padding(.vertical, 14)
         .padding(.horizontal, 18)
         .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .clipShape(NiveauCarte.carte.forme)
         .accessibilityElement(children: .combine)
         .accessibilityHint("Ouvre la sheet d'import Apple Santé")
     }

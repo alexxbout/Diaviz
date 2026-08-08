@@ -21,6 +21,6 @@ struct CarteRegroupee<Content: View>: View {
             content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .surfaceCarteVerre()
     }
 }

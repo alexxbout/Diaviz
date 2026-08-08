@@ -24,9 +24,10 @@ enum TailleChip {
     var padVertical: CGFloat {
         switch self { case .compacte: return 4; case .large: return 7 }
     }
-    var radius: CGFloat {
-        switch self { case .compacte: return Radius.small; case .large: return Radius.small + 2 }
-    }
+    /// Même radius aux deux tailles : un chip large n'est pas une carte, il
+    /// n'a pas à s'arrondir davantage — seuls la police et les paddings
+    /// changent.
+    var radius: CGFloat { Radius.small }
 }
 
 // MARK: - Chip de contexte

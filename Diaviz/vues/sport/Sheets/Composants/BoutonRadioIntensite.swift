@@ -40,7 +40,7 @@ struct BoutonRadioIntensite: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.small, style: .continuous)
                     .fill(selectionnee
                         ? Color.accentColor.opacity(0.12)
                         : Color(.tertiarySystemFill))

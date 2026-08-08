@@ -43,13 +43,13 @@ struct CarteRadioIntention: View {
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.small, style: .continuous)
                     .fill(selectionnee
                         ? Color.accentColor.opacity(0.10)
                         : Color(.secondarySystemBackground))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.small, style: .continuous)
                     .strokeBorder(
                         selectionnee ? Color.accentColor : .clear,
                         lineWidth: 1

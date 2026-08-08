@@ -19,7 +19,7 @@ import SwiftUI
 /// Usage :
 /// ```
 /// MaCarte()
-///     .glowIntelligence(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+///     .glowIntelligence(in: RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
 /// ```
 ///
 /// Le glow est non-interactif (`allowsHitTesting(false)`) — taps et gestures
@@ -153,11 +153,8 @@ extension View {
             .font(.body)
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(.secondarySystemGroupedBackground))
-            )
-            .glowIntelligence(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .surfaceCarte()
+            .glowIntelligence(in: RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
     }
     .padding(36)
     .background(Color(.systemGroupedBackground))
@@ -179,11 +176,8 @@ extension View {
         .font(.body)
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
-        .glowIntelligence(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .surfaceCarte()
+        .glowIntelligence(in: RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
         .padding(24)
         .background(Color(.systemGroupedBackground))
         .preferredColorScheme(.dark)

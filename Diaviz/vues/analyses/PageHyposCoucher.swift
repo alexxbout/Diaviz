@@ -105,7 +105,7 @@ struct PageHyposCoucher: View {
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
+        .clipShape(NiveauCarte.carte.forme)
         .accessibilityElement(children: .combine)
     }
 
@@ -160,7 +160,7 @@ struct PageHyposCoucher: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(16)
                     .background(Color(.secondarySystemGroupedBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
+                    .clipShape(NiveauCarte.carte.forme)
             } else {
                 VStack(spacing: 8) {
                     ForEach(visibles) { soir in
@@ -306,10 +306,10 @@ struct CarteSituationCoucher: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
+        .clipShape(NiveauCarte.carte.forme)
         .overlay {
             if epinglee {
-                RoundedRectangle(cornerRadius: Radius.medium, style: .continuous)
+                NiveauCarte.carte.forme
                     .strokeBorder(Color.indigo.opacity(0.55), lineWidth: 1.5)
             }
         }

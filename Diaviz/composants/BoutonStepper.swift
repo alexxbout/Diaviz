@@ -31,7 +31,7 @@ struct BoutonStepper: View {
                 .font(.body.bold())
                 .frame(width: 36, height: 36)
                 .background(Color(.tertiarySystemFill))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(RoundedRectangle(cornerRadius: Radius.small))
         }
         .buttonStyle(.plain)
         .sensoryFeedback(systemImage == "plus" ? .increase : .decrease, trigger: declenche)

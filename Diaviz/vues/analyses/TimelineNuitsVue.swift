@@ -43,7 +43,7 @@ struct TimelineNuitsVue: View {
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
+        .clipShape(NiveauCarte.carte.forme)
     }
 
     // MARK: - Titre

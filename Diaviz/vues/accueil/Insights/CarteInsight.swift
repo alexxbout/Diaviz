@@ -90,7 +90,7 @@ struct CarteInsight: View {
         // `large` (hero) aligné sur le `contentShape` de la pile.
         // Verre `.regular` + `.interactive()` (réagit au toucher pendant
         // le drag/tap de la pile).
-        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
+        .glassEffect(.regular.interactive(), in: NiveauCarte.carte.forme)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(insight.titre). \(insight.message)")
         .accessibilityHint("Voir l'analyse détaillée")

@@ -164,13 +164,7 @@ struct CarteAnalyseCoucher: View {
         // Verre translucide teinté violet — même traitement que les cartes
         // de section du journal : profondeur Liquid Glass et identité
         // couleur propre au thème « coucher » (nuit).
-        .glassEffect(
-            // Pas de `.interactive()` : la carte pousse une page, et
-            // l'animation de press du verre se lit comme du lag avant le push.
-            .regular.tint(Self.accent.opacity(0.20)),
-            in: RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
-        )
-        .contentShape(RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
+        .surfaceCarteVerre(teinte: Self.accent.opacity(0.20))
     }
 
     // MARK: En-tête — icône cerclée + titre + chevron

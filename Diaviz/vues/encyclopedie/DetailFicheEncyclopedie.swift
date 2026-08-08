@@ -91,10 +91,7 @@ struct DetailFicheEncyclopedie: View {
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color(.secondarySystemGroupedBackground))
-                )
+                .surfaceCarte()
             }
         }
     }

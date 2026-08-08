@@ -23,8 +23,16 @@ import CoreGraphics
 ///
 /// ## Convention d'usage
 ///
-/// Toujours passer par ces tokens dans `RoundedRectangle(cornerRadius:)`
-/// ou `.clipShape(RoundedRectangle(cornerRadius:))`. **Aucun nombre en
+/// Ne pas appeler ces tokens directement pour une surface de carte :
+/// passer par `.surfaceCarte(_:)` / `.surfaceCarteVerre(_:teinte:)`
+/// (voir `SurfaceCarte.swift`), qui appliquent fond + `clipShape` +
+/// `contentShape` d'un bloc. Écrire le `.background(… RoundedRectangle …)`
+/// à la main est précisément ce qui a produit les incohérences d'arrondi :
+/// on oublie le clip, le contenu pleine largeur déborde du coin, et deux
+/// cartes au même token n'ont pas le même arrondi perçu.
+///
+/// Les tokens restent utilisés directement pour les cas hors périmètre
+/// (formes de `glowIntelligence`, bordures composées). **Aucun nombre en
 /// dur** pour un radius de carte.
 ///
 /// Pour les éléments **imbriqués** qui doivent suivre la forme du

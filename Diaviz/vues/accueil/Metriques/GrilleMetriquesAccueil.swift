@@ -52,7 +52,7 @@ struct GrilleMetriquesAccueil: View {
                 emojis: metriques.dernierRepasEmojis
             )
         }
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .surfaceCarte()
     }
 }
 

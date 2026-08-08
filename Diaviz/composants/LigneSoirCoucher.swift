@@ -69,7 +69,7 @@ struct LigneSoirCoucher: View {
                 .frame(maxHeight: .infinity)
                 .accessibilityHidden(true)
         }
-        .clipShape(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
+        .clipShape(NiveauCarte.carte.forme)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(libelleAccessible)
     }

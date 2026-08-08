@@ -284,7 +284,7 @@ struct SeanceEnCoursVue: View {
             )
         }
         .padding(.vertical, 14)
-        .glassEffect(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .surfaceCarteVerre()
     }
 
     private func colonneStat(
@@ -320,7 +320,7 @@ struct SeanceEnCoursVue: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 18)
             .padding(.horizontal, 16)
-            .glassEffect(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .surfaceCarteVerre()
     }
 
     private var listeEvenements: some View {
@@ -332,7 +332,7 @@ struct SeanceEnCoursVue: View {
                 }
             }
         }
-        .glassEffect(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .surfaceCarteVerre()
     }
 
     private func ligneEvenement(_ evenement: EvenementSeance) -> some View {

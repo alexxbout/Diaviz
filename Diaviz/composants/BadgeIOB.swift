@@ -65,7 +65,7 @@ struct BadgeIOB: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(couleurFond)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(NiveauCarte.carte.forme)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
             "Insuline active au début : \(String(format: "%.1f", iob)) unités, niveau \(libelleNiveau)"

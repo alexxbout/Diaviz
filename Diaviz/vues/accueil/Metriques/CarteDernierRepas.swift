@@ -56,14 +56,14 @@ struct CarteDernierRepas: View {
 
 #Preview("Repas - 3 aliments") {
     CarteDernierRepas(glucides: 72, depuis: 4080, emojis: ["🍞", "🧀", "🥛"])
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .surfaceCarte()
         .padding()
         .background(Color(.systemGroupedBackground))
 }
 
 #Preview("Repas - Sans détail") {
     CarteDernierRepas(glucides: 45, depuis: 7200, emojis: [])
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .surfaceCarte()
         .padding()
         .background(Color(.systemGroupedBackground))
 }

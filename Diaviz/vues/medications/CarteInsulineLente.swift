@@ -71,16 +71,16 @@ struct CarteInsulineLente: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
             .background {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                NiveauCarte.carte.forme
                     .fill(couleurFond)
                     .overlay {
                         if let bordure = couleurBordure {
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            NiveauCarte.carte.forme
                                 .strokeBorder(bordure, lineWidth: 1)
                         }
                     }
             }
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .contentShape(NiveauCarte.carte.forme)
     }
 
     // MARK: - Contenu

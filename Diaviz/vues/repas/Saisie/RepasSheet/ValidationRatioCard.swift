@@ -34,7 +34,7 @@ struct ValidationRatioCard: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity)
-            .background(couleurAccent.opacity(0.10), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .surfaceCarte(fond: couleurAccent.opacity(0.10))
             .animation(.easeOut(duration: 0.2), value: validation.etat)
         }
         .buttonStyle(.plain)

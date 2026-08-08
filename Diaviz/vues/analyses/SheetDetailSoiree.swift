@@ -691,7 +691,7 @@ struct SheetDetailSoiree: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
+        .surfaceCarteVerre()
     }
 
     private func symboleCategorie(_ categorie: CategorieNuit) -> String {
@@ -738,7 +738,7 @@ struct SheetDetailSoiree: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
+        .surfaceCarteVerre()
     }
 
     private func heureFr(_ date: Date) -> String {

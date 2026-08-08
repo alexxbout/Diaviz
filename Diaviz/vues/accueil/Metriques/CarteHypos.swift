@@ -123,7 +123,7 @@ struct CarteHypos: View {
         legeres: 0,
         pointsCgm: MetriquesAccueil.mockNormal.pointsCgmJournee
     )
-    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    .surfaceCarte()
     .padding()
     .background(Color(.systemGroupedBackground))
 }
@@ -135,7 +135,7 @@ struct CarteHypos: View {
         legeres: 1,
         pointsCgm: MetriquesAccueil.mockAlerte.pointsCgmJournee
     )
-    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    .surfaceCarte()
     .padding()
     .background(Color(.systemGroupedBackground))
 }

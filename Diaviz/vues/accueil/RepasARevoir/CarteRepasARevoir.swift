@@ -106,7 +106,7 @@ struct CarteRepasARevoir: View {
                     .font(.caption.bold())
                     .foregroundStyle(.secondary)
                     .frame(width: 30, height: 30)
-                    .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .surfaceCarte(.compact, fond: Color(.tertiarySystemFill))
             }
 
             Spacer(minLength: 4)
@@ -133,7 +133,7 @@ struct CarteRepasARevoir: View {
             }
         }
         .frame(width: 30, height: 30)
-        .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .surfaceCarte(.compact, fond: Color(.tertiarySystemFill))
         .accessibilityHidden(true)
     }
 

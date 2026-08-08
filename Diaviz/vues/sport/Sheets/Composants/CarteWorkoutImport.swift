@@ -56,12 +56,9 @@ struct CarteWorkoutImport: View {
             }
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.systemBackground))
-        )
+        .surfaceCarte(fond: Color(.systemBackground))
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            NiveauCarte.carte.forme
                 .strokeBorder(
                     etat.selectionnee ? Color.accentColor : .clear,
                     lineWidth: 1
@@ -196,10 +193,7 @@ struct CarteWorkoutImport: View {
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color(.tertiarySystemFill))
-            )
+            .surfaceCarte(.compact, fond: Color(.tertiarySystemFill))
         }
     }
 

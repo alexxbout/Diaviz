@@ -68,14 +68,14 @@ struct CarteIOB: View {
         valeur: MetriquesAccueil.mockNormal.iob,
         pointsIOB: MetriquesAccueil.mockNormal.pointsIOB
     )
-    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    .surfaceCarte()
     .padding()
     .background(Color(.systemGroupedBackground))
 }
 
 #Preview("IOB - 0u inactif") {
     CarteIOB(valeur: 0, pointsIOB: [])
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .surfaceCarte()
         .padding()
         .background(Color(.systemGroupedBackground))
 }

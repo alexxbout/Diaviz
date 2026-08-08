@@ -68,8 +68,15 @@ struct CarteScoreQuotidien: View {
                 ligneContenu
             }
             .padding(16)
+            // Fond et bordure restent manuels : le mesh gradient animé
+            // (`TimelineView`) n'est pas un `ShapeStyle`, donc hors périmètre
+            // de `surfaceCarte`. Le clip et la `contentShape` viennent en
+            // revanche du même token de forme, pour que l'arrondi soit
+            // strictement celui des autres cartes hero.
             .background(fondCarte)
             .overlay(bordureCarte)
+            .clipShape(NiveauCarte.carte.forme)
+            .contentShape(NiveauCarte.carte.forme)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(libelleAccessibilite)
@@ -156,11 +163,11 @@ struct CarteScoreQuotidien: View {
     private var fondCarte: some View {
         switch style {
         case .sobre:
-            RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
+            NiveauCarte.carte.forme
                 .fill(Color(.secondarySystemGroupedBackground))
         case .gradient:
             TimelineView(.animation) { contexte in
-                RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
+                NiveauCarte.carte.forme
                     .fill(MeshScore.gradient(
                         pour: contenu.score,
                         phase: MeshScore.phase(date: contexte.date)
@@ -173,7 +180,7 @@ struct CarteScoreQuotidien: View {
     private var bordureCarte: some View {
         switch style {
         case .sobre:
-            RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
+            NiveauCarte.carte.forme
                 .strokeBorder(Color(.separator).opacity(0.5), lineWidth: 0.5)
         case .gradient:
             // Pas de bordure : le mesh fournit déjà la délimitation visuelle.

@@ -38,10 +38,7 @@ struct EncartResultatPrise: View {
         .padding(.horizontal, 11)
         .padding(.vertical, 9)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(Color(.tertiarySystemFill))
-        )
+        .surfaceCarte(.compact, fond: Color(.tertiarySystemFill))
     }
 
     private func ligne(_ libelle: String, _ valeur: String) -> some View {

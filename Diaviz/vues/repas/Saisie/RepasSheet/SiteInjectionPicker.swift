@@ -204,9 +204,9 @@ private struct CarteZone: View {
             .padding(.vertical, 16)
             .padding(.horizontal, 12)
             .frame(maxWidth: .infinity, minHeight: 96)
-            .background(fond, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(fond, in: RoundedRectangle(cornerRadius: Radius.small, style: .continuous))
             .overlay(bordure)
-            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: Radius.small, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(zone.rawValue)
@@ -223,7 +223,7 @@ private struct CarteZone: View {
     @ViewBuilder
     private var bordure: some View {
         if estSelectionnee {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.small, style: .continuous)
                 .strokeBorder(Color.accentColor, lineWidth: 2)
         }
     }

@@ -36,7 +36,7 @@ struct SportDetecteCard: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity)
-            .background(couleurAccent.opacity(0.10), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .surfaceCarte(fond: couleurAccent.opacity(0.10))
         }
         .buttonStyle(.plain)
         .sheet(isPresented: $afficherExplication) {

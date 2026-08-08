@@ -45,7 +45,7 @@ struct LigneMetriqueAccueil<Trailing: View>: View {
 
     private var badgeIcone: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.small, style: .continuous)
                 .fill(couleurFondIcone)
             Image(systemName: icone)
                 .font(.system(size: 16, weight: .semibold))
@@ -99,7 +99,7 @@ struct ValeurMetriqueAccueil: View {
             ValeurMetriqueAccueil(valeur: "148", unite: "g")
         }
     }
-    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    .surfaceCarte()
     .padding()
     .background(Color(.systemGroupedBackground))
 }

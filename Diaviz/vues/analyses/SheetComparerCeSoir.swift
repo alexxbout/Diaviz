@@ -127,7 +127,7 @@ struct SheetComparerCeSoir: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 20)
         .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
+        .clipShape(NiveauCarte.carte.forme)
     }
 
     // MARK: - Récap contexte de ce soir (pré-rempli depuis le hub)
@@ -327,7 +327,7 @@ struct SheetComparerCeSoir: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
             .background(Color(.secondarySystemGroupedBackground))
-            .clipShape(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
+            .clipShape(NiveauCarte.carte.forme)
     }
 }
 

@@ -100,7 +100,7 @@ struct CarteAnalyseRatio: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .surfaceCarte()
         .accessibilityElement(children: .combine)
         .accessibilityLabel(labelAccessibilite)
     }
