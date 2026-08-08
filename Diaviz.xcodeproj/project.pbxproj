@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AC10D5833027DF0000A259FD /* Peacock.icon in Resources */ = {isa = PBXBuildFile; fileRef = AC10D5823027DF0000A259FD /* Peacock.icon */; };
 		ACA3F30130116F2700BC62D0 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = ACA3F30030116F2700BC62D0 /* WidgetKit.framework */; };
 		ACA3F30330116F2700BC62D0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = ACA3F30230116F2700BC62D0 /* SwiftUI.framework */; };
 		ACA3F31230116F2800BC62D0 /* DiavizSportWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = ACA3F2FE30116F2700BC62D0 /* DiavizSportWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -52,6 +53,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AC10D5823027DF0000A259FD /* Peacock.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = Peacock.icon; sourceTree = "<group>"; };
 		ACA3F2FE30116F2700BC62D0 /* DiavizSportWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DiavizSportWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		ACA3F30030116F2700BC62D0 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		ACA3F30230116F2700BC62D0 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
@@ -161,6 +163,7 @@
 		ACE15C492F94FC0B00F08D3A = {
 			isa = PBXGroup;
 			children = (
+				AC10D5823027DF0000A259FD /* Peacock.icon */,
 				ACE15CA72F99569000F08D3A /* CLAUDE.md */,
 				ACE15C542F94FC0B00F08D3A /* Diaviz */,
 				ACE15C642F94FC0C00F08D3A /* DiavizTests */,
@@ -339,6 +342,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AC10D5833027DF0000A259FD /* Peacock.icon in Resources */,
 				ACA3F5AB3016369300BC62D0 /* Diaviz.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -431,11 +435,15 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -461,11 +469,15 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
