@@ -209,6 +209,7 @@ private struct LigneChangement: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Historique - 4 changements") {
     DoseHistoryCard(changes: AnalyseBasaleDetail.mockStandard14j.doseHistory)
         .padding(16)
@@ -226,3 +227,4 @@ private struct LigneChangement: View {
         .padding(16)
         .background(Color(.systemGroupedBackground))
 }
+#endif

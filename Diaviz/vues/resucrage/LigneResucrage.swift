@@ -69,6 +69,7 @@ struct LigneResucrage: View {
     }()
 }
 
+#if DEBUG
 #Preview {
     List {
         LigneResucrage(resucrage: Resucrage(
@@ -82,3 +83,4 @@ struct LigneResucrage: View {
         ).affichage)
     }
 }
+#endif

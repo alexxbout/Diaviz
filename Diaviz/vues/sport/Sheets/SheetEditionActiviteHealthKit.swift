@@ -280,6 +280,7 @@ private extension String {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Édition HealthKit") {
     SheetEditionActiviteHealthKit(
         activite: ActiviteSportive(
@@ -323,3 +324,4 @@ private extension String {
         onValider: { _ in }
     )
 }
+#endif

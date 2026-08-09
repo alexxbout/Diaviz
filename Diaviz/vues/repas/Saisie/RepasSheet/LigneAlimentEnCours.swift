@@ -103,6 +103,7 @@ struct LigneAlimentEnCours: View {
     }
 }
 
+#if DEBUG
 #Preview {
     let aliment = AlimentCiqual(
         id: 1,
@@ -129,3 +130,4 @@ struct LigneAlimentEnCours: View {
         LigneAlimentEnCours(entree: entree2)
     }
 }
+#endif

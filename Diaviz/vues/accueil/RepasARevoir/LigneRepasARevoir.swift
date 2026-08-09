@@ -122,6 +122,7 @@ struct LigneRepasARevoir: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Lignes compactes") {
     VStack(spacing: 0) {
         LigneRepasARevoir(repas: .mockPadThai, onTap: {})
@@ -134,3 +135,4 @@ struct LigneRepasARevoir: View {
     .padding()
     .background(Color(.systemGroupedBackground))
 }
+#endif

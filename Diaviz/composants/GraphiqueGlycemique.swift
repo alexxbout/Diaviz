@@ -570,6 +570,7 @@ extension GraphiqueGlycemique.Configuration {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Repas — bon") {
     GraphiqueGlycemique.pourRepas(etat: ReponseGlycemiqueServiceMock.cas(.bon))
         .padding()
@@ -616,6 +617,7 @@ extension GraphiqueGlycemique.Configuration {
     .padding()
     .background(Color(.secondarySystemGroupedBackground))
 }
+#endif
 
 /// Réponse synthétique : 130 mg/dL au départ, descente continue à
 /// 62 mg/dL en fin d'effort. Extrait du `#Preview` parce que les

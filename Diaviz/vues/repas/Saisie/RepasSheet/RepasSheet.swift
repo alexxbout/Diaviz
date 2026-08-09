@@ -407,6 +407,7 @@ private let _previewAlimentsRepas: [EntreeAliment] = [
     ),
 ]
 
+#if DEBUG
 #Preview("Repas typique") {
     @Previewable @State var aliments = _previewAlimentsRepas
     RepasSheet(
@@ -430,3 +431,4 @@ private let _previewAlimentsRepas: [EntreeAliment] = [
     .environment(AnalyseRatioService())
     .modelContainer(for: [Injection.self, ActiviteSportive.self], inMemory: true)
 }
+#endif

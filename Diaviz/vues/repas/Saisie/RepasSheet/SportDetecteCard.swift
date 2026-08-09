@@ -145,6 +145,7 @@ private struct FeuilleExplicationSport: View {
     }
 }
 
+#if DEBUG
 #Preview {
     let avec = SportDetecte(
         typeSport: "Yoga", icone: "figure.yoga", ilYAMinutes: 60,
@@ -163,3 +164,4 @@ private struct FeuilleExplicationSport: View {
     .padding()
     .background(Color(.systemGroupedBackground))
 }
+#endif

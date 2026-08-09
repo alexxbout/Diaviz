@@ -103,6 +103,7 @@ extension ChargeActivite {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Badges charge") {
     HStack(spacing: 20) {
         BadgeChargeActivite(charge: .aucune)
@@ -112,3 +113,4 @@ extension ChargeActivite {
     }
     .padding()
 }
+#endif

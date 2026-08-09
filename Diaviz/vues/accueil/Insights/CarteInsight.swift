@@ -99,6 +99,7 @@ struct CarteInsight: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Carte - Informatif bleu") {
     CarteInsight(insight: .mockImpactSport)
         .padding()
@@ -134,3 +135,4 @@ struct CarteInsight: View {
         .background(Color(.systemGroupedBackground))
         .preferredColorScheme(.dark)
 }
+#endif

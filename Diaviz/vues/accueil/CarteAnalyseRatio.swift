@@ -348,6 +348,7 @@ private func carteApercu(_ service: AnalyseRatioService) -> some View {
         .environment(service)
 }
 
+#if DEBUG
 #Preview("Verdicts mixtes") {
     _posarProfil()
     return carteApercu(_serviceReel())
@@ -426,4 +427,5 @@ private func carteApercu(_ service: AnalyseRatioService) -> some View {
     ProfilService.shared.mettreAJour { $0 = ProfilUtilisateur.parDefaut() }
     return carteApercu(_serviceVide())
 }
+#endif
 #endif

@@ -249,6 +249,7 @@ private struct PileItem: Identifiable {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Pile verticale - 4 observations") {
     @Previewable @State var index = 0
     ScrollView {
@@ -267,3 +268,4 @@ private struct PileItem: Identifiable {
     .background(Color(.systemGroupedBackground))
     .preferredColorScheme(.dark)
 }
+#endif

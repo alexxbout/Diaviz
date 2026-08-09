@@ -286,6 +286,7 @@ private struct BarreProgressionFine: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Verdict - Sufficient (trop élevée)") {
     CarteVerdictBasale(analyse: .mockStandard14j)
         .padding(16)
@@ -309,3 +310,4 @@ private struct BarreProgressionFine: View {
         .padding(16)
         .background(Color(.systemGroupedBackground))
 }
+#endif

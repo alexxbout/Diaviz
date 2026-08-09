@@ -64,6 +64,7 @@ struct CarteDernierRepas: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Repas - 3 aliments") {
     CarteDernierRepas(dernier: (glucides: 72, depuis: 4080, emojis: ["🍞", "🧀", "🥛"]))
         .surfaceCarte()
@@ -84,3 +85,4 @@ struct CarteDernierRepas: View {
         .padding()
         .background(Color(.systemGroupedBackground))
 }
+#endif

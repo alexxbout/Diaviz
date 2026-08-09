@@ -239,6 +239,7 @@ private struct BarreZones: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Répartition - Trop haute") {
     RepartitionNuitsVue(analyse: .mockTropHaute)
         .padding(16)
@@ -256,3 +257,4 @@ private struct BarreZones: View {
         .padding(16)
         .background(Color(.systemGroupedBackground))
 }
+#endif

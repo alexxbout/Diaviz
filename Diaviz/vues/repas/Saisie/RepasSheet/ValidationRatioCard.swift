@@ -207,6 +207,7 @@ private struct FeuilleExplicationValidation: View {
     }
 }
 
+#if DEBUG
 #Preview {
     let profil = ProfilRatio(unitesPour10g: 1.0, libelle: "midi")
     VStack(spacing: 12) {
@@ -217,3 +218,4 @@ private struct FeuilleExplicationValidation: View {
     .padding()
     .background(Color(.systemGroupedBackground))
 }
+#endif

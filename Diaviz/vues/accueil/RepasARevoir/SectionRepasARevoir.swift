@@ -107,6 +107,7 @@ struct SectionRepasARevoir: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Un seul repas") {
     ScrollView {
         SectionRepasARevoir(repas: [.mockPadThai])
@@ -150,3 +151,4 @@ struct SectionRepasARevoir: View {
     .background(Color(.systemGroupedBackground))
     .preferredColorScheme(.dark)
 }
+#endif

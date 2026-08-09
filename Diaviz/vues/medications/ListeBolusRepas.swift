@@ -78,6 +78,7 @@ struct ListeBolusRepas: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Avec bolus") {
     let bolus = [
         Injection(
@@ -108,3 +109,4 @@ struct ListeBolusRepas: View {
     }
     .listStyle(.insetGrouped)
 }
+#endif

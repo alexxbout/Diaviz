@@ -168,6 +168,7 @@ struct LigneActiviteSport: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Toutes les variantes") {
     let service = ActivitesSportService.apercu()
 
@@ -227,3 +228,4 @@ struct LigneActiviteSport: View {
     }
     .listStyle(.insetGrouped)
 }
+#endif

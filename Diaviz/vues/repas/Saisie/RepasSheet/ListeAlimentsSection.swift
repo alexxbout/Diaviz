@@ -100,6 +100,7 @@ private let _previewAlimentsCiqual: [AlimentCiqual] = [
     AlimentCiqual(id: 3, nom: "Yaourt nature", calories: 60, glucides: 5, sucres: 5, proteines: 4, lipides: 3, fibres: 0, emoji: "🥛"),
 ]
 
+#if DEBUG
 #Preview("Liste avec aliments") {
     @Previewable @State var aliments: [EntreeAliment] = _previewAlimentsCiqual.map {
         EntreeAliment(aliment: .ciqual($0), quantiteGrammes: 100, quantiteApproximative: false, doseInsuline: 1.0, note: "")
@@ -125,3 +126,4 @@ private let _previewAlimentsCiqual: [AlimentCiqual] = [
     }
     .formStyle(.grouped)
 }
+#endif

@@ -60,6 +60,7 @@ struct AvatarProfil: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Initiale") {
     AvatarProfil(photoData: nil, prenom: "Camille", taille: 96)
         .padding()
@@ -69,3 +70,4 @@ struct AvatarProfil: View {
     AvatarProfil(photoData: nil, prenom: "", taille: 96)
         .padding()
 }
+#endif

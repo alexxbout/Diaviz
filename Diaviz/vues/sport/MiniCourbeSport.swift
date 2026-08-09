@@ -254,6 +254,7 @@ private struct CourbeDisponible: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Tous les états") {
     let service = ActivitesSportService.apercu()
     let activites = service.activites.prefix(4)
@@ -306,3 +307,4 @@ private struct CourbeDisponible: View {
         .padding()
     }
 }
+#endif

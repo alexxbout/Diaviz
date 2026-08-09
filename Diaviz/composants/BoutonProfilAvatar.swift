@@ -37,6 +37,7 @@ struct BoutonProfilAvatar: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Avec prénom") {
     BoutonProfilAvatar(prenom: "Camille", photoData: nil) {}
         .padding()
@@ -46,3 +47,4 @@ struct BoutonProfilAvatar: View {
     BoutonProfilAvatar(prenom: "", photoData: nil) {}
         .padding()
 }
+#endif

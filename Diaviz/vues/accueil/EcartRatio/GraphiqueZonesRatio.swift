@@ -120,6 +120,7 @@ private func _mockEntrees(faible: (bon: Int, total: Int), proche: (bon: Int, tot
     return lot(faible, plage: 0.55...0.78) + lot(proche, plage: 0.85...1.15) + lot(forte, plage: 1.22...1.55)
 }
 
+#if DEBUG
 #Preview("3 zones peuplées") {
     GraphiqueZonesRatio(entrees: _mockEntrees(faible: (14, 17), proche: (11, 20), forte: (3, 7)))
         .padding()
@@ -138,3 +139,4 @@ private func _mockEntrees(faible: (bon: Int, total: Int), proche: (bon: Int, tot
         .background(Color(.secondarySystemGroupedBackground))
         .preferredColorScheme(.dark)
 }
+#endif

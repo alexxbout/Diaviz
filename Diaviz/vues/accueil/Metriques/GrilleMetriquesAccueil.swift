@@ -50,6 +50,7 @@ struct GrilleMetriquesAccueil: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Liste - Normal") {
     ScrollView {
         GrilleMetriquesAccueil(metriques: .mockNormal, iobValeur: MetriquesAccueil.mockNormal.iob, iobPoints: MetriquesAccueil.mockNormal.pointsIOB)
@@ -82,3 +83,4 @@ struct GrilleMetriquesAccueil: View {
     .background(Color(.systemGroupedBackground))
     .preferredColorScheme(.dark)
 }
+#endif

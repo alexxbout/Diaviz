@@ -292,6 +292,7 @@ struct CarteLenteRappel: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Lente - Rappel doux") {
     CarteLenteRappel(
         etat: .doux,
@@ -346,3 +347,4 @@ struct CarteLenteRappel: View {
     .background(Color(.systemGroupedBackground))
     .preferredColorScheme(.dark)
 }
+#endif

@@ -94,6 +94,7 @@ struct CarteAlimentEnregistre: View {
     }
 }
 
+#if DEBUG
 #Preview {
     VStack {
         CarteAlimentEnregistre(emoji: "🍚", nom: "Riz basmati", quantite: 60, glucides: 27, insuline: 2.0)
@@ -103,3 +104,4 @@ struct CarteAlimentEnregistre: View {
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(Color(.secondarySystemBackground))
 }
+#endif

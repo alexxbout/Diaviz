@@ -272,6 +272,7 @@ struct CarteInsulineLente: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("État enregistrée") {
     let inj = Injection(
         type: .lente,
@@ -303,3 +304,4 @@ struct CarteInsulineLente: View {
     .padding()
     .background(Color(.systemGroupedBackground))
 }
+#endif

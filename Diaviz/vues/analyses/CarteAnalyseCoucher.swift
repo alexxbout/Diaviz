@@ -318,6 +318,7 @@ extension ResumeAnalyseCoucher {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Coucher - Défaut") {
     NavigationStack {
         CarteAnalyseCoucher(
@@ -374,3 +375,4 @@ extension ResumeAnalyseCoucher {
     }
     .preferredColorScheme(.dark)
 }
+#endif

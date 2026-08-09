@@ -90,6 +90,7 @@ struct MicroVisuelInsight: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Grand nombre — bleu") {
     MicroVisuelInsight(
         type: .grandNombre(valeur: "-25%"),
@@ -121,3 +122,4 @@ struct MicroVisuelInsight: View {
     )
     .padding()
 }
+#endif

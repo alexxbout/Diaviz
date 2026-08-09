@@ -65,6 +65,7 @@ struct EnTeteSectionCoucher: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("En-têtes de section") {
     ScrollView {
         VStack(spacing: 0) {
@@ -87,3 +88,4 @@ struct EnTeteSectionCoucher: View {
     }
     .background(Color(.systemGroupedBackground))
 }
+#endif

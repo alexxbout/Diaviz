@@ -121,6 +121,7 @@ struct AnalysesVue: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Analyses - Coucher défaut") {
     AnalysesVue(coucher: .mockDefault)
         .environment(ProfilService.mockComplet())
@@ -138,3 +139,4 @@ struct AnalysesVue: View {
         .environment(ProfilService.mockComplet())
         .environment(AnalyseBasaleService())
 }
+#endif

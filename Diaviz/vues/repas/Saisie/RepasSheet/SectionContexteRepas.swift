@@ -55,9 +55,11 @@ struct SectionContexteRepas: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview {
     @Previewable @State var contexte = ""
     Form {
         SectionContexteRepas(contexteLibre: $contexte)
     }
 }
+#endif

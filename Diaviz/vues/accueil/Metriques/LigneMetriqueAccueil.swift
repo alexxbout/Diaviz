@@ -77,6 +77,7 @@ struct ValeurMetriqueAccueil: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview {
     VStack(spacing: 0) {
         LigneMetriqueAccueil(
@@ -103,3 +104,4 @@ struct ValeurMetriqueAccueil: View {
     .padding()
     .background(Color(.systemGroupedBackground))
 }
+#endif

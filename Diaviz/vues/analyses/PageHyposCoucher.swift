@@ -371,6 +371,7 @@ struct CarteSituationCoucher: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Hypos au coucher — mock") {
     ScrollView {
         PageHyposCoucher(analyse: .mock)
@@ -411,3 +412,4 @@ struct CarteSituationCoucher: View {
     }
     .background(Color(.systemGroupedBackground))
 }
+#endif

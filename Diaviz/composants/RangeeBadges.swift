@@ -136,6 +136,7 @@ private struct FlotBadges: Layout {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Rangée simple") {
     RangeeBadges(items: [
         ItemBadge("Sport récent · Course à pied", couleur: .blue, systemImage: "figure.run"),
@@ -153,3 +154,4 @@ private struct FlotBadges: Layout {
     ])
     .padding()
 }
+#endif

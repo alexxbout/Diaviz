@@ -67,8 +67,10 @@ struct EncyclopedieVue: View {
     }
 }
 
+#if DEBUG
 #Preview {
     NavigationStack {
         EncyclopedieVue()
     }
 }
+#endif

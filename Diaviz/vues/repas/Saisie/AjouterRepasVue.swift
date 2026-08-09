@@ -582,6 +582,7 @@ struct AjouterRepasVue: View {
     }
 }
 
+#if DEBUG
 #Preview {
     NavigationStack {
         AjouterRepasVue()
@@ -589,3 +590,4 @@ struct AjouterRepasVue: View {
     .environment(RepasService.apercu())
     .environment(AnalyseRatioService())
 }
+#endif

@@ -77,6 +77,7 @@ private func _previewAvecUnRenomme() -> AlimentsRenommesSheet {
     return AlimentsRenommesSheet()
 }
 
+#if DEBUG
 #Preview {
     _previewAvecUnRenomme()
 }
@@ -84,3 +85,4 @@ private func _previewAvecUnRenomme() -> AlimentsRenommesSheet {
 #Preview("Vide") {
     AlimentsRenommesSheet()
 }
+#endif

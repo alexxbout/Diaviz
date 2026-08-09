@@ -286,6 +286,7 @@ struct SheetInsulineLente: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Création") {
     SheetInsulineLente(
         derniereZoneLente: .ventre,
@@ -307,3 +308,4 @@ struct SheetInsulineLente: View {
         onValider: { _ in }
     )
 }
+#endif

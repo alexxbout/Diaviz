@@ -246,6 +246,7 @@ private func _mockSectionCentreSeul() -> [ObservationRatioSection] {
     )]
 }
 
+#if DEBUG
 #Preview("Écart et ratio confirmé") {
     SheetEcartRatio(sections: _mockSections())
 }
@@ -270,3 +271,4 @@ private func _mockSectionCentreSeul() -> [ObservationRatioSection] {
     SheetEcartRatio(sections: _mockSections())
         .preferredColorScheme(.dark)
 }
+#endif

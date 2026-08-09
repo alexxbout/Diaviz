@@ -204,6 +204,7 @@ struct ProfilVue: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Profil complet") {
     NavigationStack {
         ProfilVue()
@@ -224,3 +225,4 @@ struct ProfilVue: View {
     }
     .environment(ProfilService.mockVide())
 }
+#endif

@@ -167,6 +167,7 @@ struct SectionRatiosSport: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview {
     NavigationStack {
         Form {
@@ -176,3 +177,4 @@ struct SectionRatiosSport: View {
     }
     .environment(ProfilService.mockComplet())
 }
+#endif

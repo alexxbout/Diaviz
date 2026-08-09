@@ -105,6 +105,7 @@ struct ListeCorrections: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Avec corrections") {
     let corrections = [
         Injection(
@@ -127,3 +128,4 @@ struct ListeCorrections: View {
     }
     .listStyle(.insetGrouped)
 }
+#endif

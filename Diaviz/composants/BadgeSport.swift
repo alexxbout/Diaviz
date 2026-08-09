@@ -45,7 +45,9 @@ struct BadgeSport: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Badge sport") {
     BadgeSport(seance: SportResume(type: "Course", intensite: "modéré", dureeMinutes: 45))
         .padding()
 }
+#endif

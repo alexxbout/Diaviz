@@ -81,6 +81,7 @@ struct SheetExplicativeBasale: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Sheet explicative") {
     SheetExplicativeBasale()
 }
@@ -89,3 +90,4 @@ struct SheetExplicativeBasale: View {
     SheetExplicativeBasale()
         .preferredColorScheme(.dark)
 }
+#endif

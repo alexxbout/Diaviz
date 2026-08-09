@@ -280,6 +280,7 @@ struct TimelineNuitsVue: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Timeline - Standard") {
     TimelineNuitsVue(timeline: AnalyseBasaleDetail.mockStandard14j.timeline)
         .padding(16)
@@ -297,3 +298,4 @@ struct TimelineNuitsVue: View {
         .padding(16)
         .background(Color(.systemGroupedBackground))
 }
+#endif

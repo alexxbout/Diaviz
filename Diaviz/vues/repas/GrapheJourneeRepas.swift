@@ -579,6 +579,7 @@ private let _previewMockToday: [RepasGraph] = [
     ),
 ]
 
+#if DEBUG
 #Preview("5 repas variés (spec)") {
     @Previewable @State var date = Calendar.current.startOfDay(for: Date())
     ScrollView {
@@ -602,3 +603,4 @@ private let _previewMockToday: [RepasGraph] = [
 #Preview("Sheet info") {
     InfoLectureGraphe()
 }
+#endif

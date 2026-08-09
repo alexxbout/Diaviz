@@ -494,6 +494,7 @@ struct GrapheJourneeMedications: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Journée typique") {
     @Previewable @State var date = Calendar.current.startOfDay(for: Date())
     let injections = InjectionsService.echantillonsApercu()
@@ -522,3 +523,4 @@ struct GrapheJourneeMedications: View {
     }
     .background(Color(.systemGroupedBackground))
 }
+#endif

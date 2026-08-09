@@ -56,6 +56,7 @@ struct LigneResultatRecherche: View {
     }
 }
 
+#if DEBUG
 #Preview {
     let pomme = AlimentCiqual(id: 1, nom: "Pomme, pulpe et peau, crue", calories: 52, glucides: 12.6, sucres: 10.4, proteines: 0.3, lipides: 0.2, fibres: 2.4, emoji: "🍎")
     let nutella = AlimentOFF(code: "3017620422003", nom: "Nutella", marque: "Ferrero", calories: 539, glucides: 57.5, sucres: 56.3, proteines: 6.3, lipides: 30.9, fibres: nil, imagePetiteURL: nil, imageURL: nil)
@@ -67,3 +68,4 @@ struct LigneResultatRecherche: View {
         LigneResultatRecherche(aliment: .off(mystere))
     }
 }
+#endif

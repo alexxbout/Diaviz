@@ -174,6 +174,7 @@ struct SousPageDonnees: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Ratios") {
     NavigationStack { SousPageRatios() }
         .environment(ProfilService.mockAvecRatiosParMoment())
@@ -188,3 +189,4 @@ struct SousPageDonnees: View {
     NavigationStack { SousPageRepas() }
         .environment(ProfilService.mockComplet())
 }
+#endif

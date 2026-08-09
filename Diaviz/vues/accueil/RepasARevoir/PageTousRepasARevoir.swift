@@ -33,6 +33,7 @@ struct PageTousRepasARevoir: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview {
     NavigationStack {
         PageTousRepasARevoir(repas: [.mockPadThai, .mockPizza, .mockBigMac, .mockSushi])
@@ -44,3 +45,4 @@ struct PageTousRepasARevoir: View {
         PageTousRepasARevoir(repas: [])
     }
 }
+#endif

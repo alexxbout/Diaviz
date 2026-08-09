@@ -168,6 +168,7 @@ extension AppTabVues {
     }
 }
 
+#if DEBUG
 #Preview("App complète") {
     // `ProfilService.shared` dans le process de preview est isolé du vrai
     // profil de l'iPhone (`UserDefaults` séparé de l'appareil réel) — sans
@@ -196,4 +197,5 @@ extension AppTabVues {
     return AppTabVues()
         .modelContainer(AppTabVues.conteneurApercuComplet)
 }
+#endif
 #endif

@@ -2013,6 +2013,7 @@ private struct _PreviewWrapperBasalChart: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Toutes - 8 nuits") {
     _PreviewWrapperBasalChart(nights: AnalyseBasaleDetail.mockTropHaute.nightChartData)
         .padding(16)
@@ -2057,3 +2058,4 @@ private struct _PreviewWrapperBasalChart: View {
     .padding(16)
     .background(Color(.systemGroupedBackground))
 }
+#endif

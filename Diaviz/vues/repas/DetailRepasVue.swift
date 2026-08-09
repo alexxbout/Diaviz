@@ -443,6 +443,7 @@ extension Repas {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Repas avec analyse") {
     NavigationStack {
         DetailRepasVue(
@@ -472,3 +473,4 @@ extension Repas {
     }
     .environment(RepasService.apercu())
 }
+#endif

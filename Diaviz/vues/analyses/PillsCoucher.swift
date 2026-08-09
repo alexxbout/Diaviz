@@ -141,6 +141,7 @@ struct PillsCoucher: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Pills coucher") {
     struct Demo: View {
         @State private var selection = 0
@@ -163,3 +164,4 @@ struct PillsCoucher: View {
     }
     return Demo()
 }
+#endif

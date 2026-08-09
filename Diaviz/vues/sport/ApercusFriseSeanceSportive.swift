@@ -209,6 +209,7 @@ private struct ApercuFrise: View {
 
 // MARK: - Correctif hypo
 
+#if DEBUG
 #Preview("01 · Correctif — remonté") {
     let s = ApercusFrise.scenario(
         courbe: [(-30, 145), (0, 140), (30, 105), (45, 62), (60, 95), (90, 120)],
@@ -537,5 +538,6 @@ private struct ApercuFrise: View {
         scenario: s
     )
 }
+#endif
 
 #endif

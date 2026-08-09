@@ -64,6 +64,7 @@ struct JournalConteneurVue: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Journal détail — Repas") {
     NavigationStack {
         JournalConteneurVue(initialSection: .repas)
@@ -90,3 +91,4 @@ struct JournalConteneurVue: View {
     .environment(RepasService.apercu())
     .environment(HealthKitImportService.mockVide())
 }
+#endif

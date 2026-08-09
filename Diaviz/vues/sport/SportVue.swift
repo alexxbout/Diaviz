@@ -329,6 +329,7 @@ private enum SheetSport: Identifiable {
 // Santé » avec deux activités mockées. Mis en premier pour que Xcode
 // sélectionne ce rendu à l'ouverture du fichier (l'autre variante,
 // sans imports, sert juste à vérifier la dégradation gracieuse).
+#if DEBUG
 #Preview("Sport - Avec imports") {
     NavigationStack {
         SportVue()
@@ -346,3 +347,4 @@ private enum SheetSport: Identifiable {
     .modelContainer(ActivitesSportService.conteneurApercu)
     .environment(HealthKitImportService.mockVide())
 }
+#endif

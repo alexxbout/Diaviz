@@ -745,6 +745,7 @@ private struct ApercuAvecSlider: View {
     }
 }
 
+#if DEBUG
 #Preview("Slider de score") {
     ApercuAvecSlider()
 }
@@ -825,3 +826,4 @@ private struct ApercuAvecSlider: View {
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(Color(.systemGroupedBackground))
 }
+#endif

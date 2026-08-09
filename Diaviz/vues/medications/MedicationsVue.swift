@@ -293,9 +293,11 @@ private enum SheetMedication: Identifiable {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview {
     NavigationStack {
         MedicationsVue()
     }
     .modelContainer(InjectionsService.conteneurApercu)
 }
+#endif

@@ -657,6 +657,7 @@ private extension String {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Activité manuelle") {
     NavigationStack {
         DetailActiviteVue(
@@ -720,6 +721,7 @@ private extension String {
         )
     }
 }
+#endif
 
 /// Génère une courbe synthétique partant de 130 mg/dL et descendant en
 /// hypoglycémie (62 mg/dL) en fin de séance. Utilisée uniquement par le

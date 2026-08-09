@@ -119,6 +119,7 @@ extension BadgeIOB {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Tous les niveaux") {
     VStack(spacing: 16) {
         BadgeIOB(iob: 0.5)
@@ -128,3 +129,4 @@ extension BadgeIOB {
     .padding()
     .background(Color(.systemGroupedBackground))
 }
+#endif

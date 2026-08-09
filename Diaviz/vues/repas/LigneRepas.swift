@@ -139,6 +139,7 @@ private func _previewHeure(_ h: Int, _ m: Int = 0) -> Date {
     Calendar.current.date(bySettingHour: h, minute: m, second: 0, of: Date()) ?? Date()
 }
 
+#if DEBUG
 #Preview("Tous les états") {
     List {
         Section("Petit déjeuner") {
@@ -212,3 +213,4 @@ private func _previewHeure(_ h: Int, _ m: Int = 0) -> Date {
     .listStyle(.insetGrouped)
     .environment(RepasService.apercu())
 }
+#endif

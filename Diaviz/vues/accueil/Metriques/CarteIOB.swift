@@ -63,6 +63,7 @@ struct CarteIOB: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("IOB - 3.2u actif") {
     CarteIOB(
         valeur: MetriquesAccueil.mockNormal.iob,
@@ -79,3 +80,4 @@ struct CarteIOB: View {
         .padding()
         .background(Color(.systemGroupedBackground))
 }
+#endif

@@ -98,6 +98,7 @@ struct MiniCourbeReponse: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Tous les états") {
     ScrollView {
         VStack(alignment: .leading, spacing: 10) {
@@ -132,6 +133,7 @@ struct MiniCourbeReponse: View {
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(Color(.systemBackground))
 }
+#endif
 
 @ViewBuilder
 private func sectionTitre(_ titre: String) -> some View {

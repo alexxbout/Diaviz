@@ -61,8 +61,10 @@ struct LegendeCoucher: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Légende") {
     LegendeCoucher()
         .padding()
         .background(Color(.systemGroupedBackground))
 }
+#endif

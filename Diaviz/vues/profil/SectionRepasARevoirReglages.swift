@@ -79,6 +79,7 @@ struct SectionRepasARevoirReglages: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview {
     Form {
         SectionRepasARevoirReglages()
@@ -86,3 +87,4 @@ struct SectionRepasARevoirReglages: View {
     .formStyle(.grouped)
     .environment(ProfilService.mockComplet())
 }
+#endif

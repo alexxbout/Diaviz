@@ -52,6 +52,7 @@ struct BoutonRadioIntensite: View {
     }
 }
 
+#if DEBUG
 #Preview {
     HStack(spacing: 8) {
         BoutonRadioIntensite(intensite: .faible, selectionnee: false) {}
@@ -60,3 +61,4 @@ struct BoutonRadioIntensite: View {
     }
     .padding()
 }
+#endif

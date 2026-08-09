@@ -108,6 +108,7 @@ struct CarteSection: View {
     }
 }
 
+#if DEBUG
 #Preview {
     VStack(spacing: 16) {
         CarteSection(
@@ -134,3 +135,4 @@ struct CarteSection: View {
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(Color(.systemGroupedBackground))
 }
+#endif

@@ -264,6 +264,7 @@ struct SheetCorrection: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Création") {
     SheetCorrection(
         derniereZoneRapide: .ventre,
@@ -284,3 +285,4 @@ struct SheetCorrection: View {
         onValider: { _ in }
     )
 }
+#endif

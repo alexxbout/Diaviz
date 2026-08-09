@@ -147,6 +147,7 @@ extension View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Glow autour d'une carte sombre") {
     VStack(spacing: 24) {
         Text("Phrase générée par Apple Intelligence — le glow signale la nature IA du contenu.")
@@ -182,3 +183,4 @@ extension View {
         .background(Color(.systemGroupedBackground))
         .preferredColorScheme(.dark)
 }
+#endif

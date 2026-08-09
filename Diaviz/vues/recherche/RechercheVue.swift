@@ -22,7 +22,9 @@ struct RecercheVue: View {
     }
 }
 
+#if DEBUG
 #Preview {
     RecercheVue()
         .environment(ProfilService.mockComplet())
 }
+#endif

@@ -58,6 +58,7 @@ struct EnTetePage: View {
     }
 }
 
+#if DEBUG
 #Preview("Accueil") {
     VStack(spacing: 0) {
         EnTetePage(titre: "Accueil")
@@ -73,3 +74,4 @@ struct EnTetePage: View {
     }
     .environment(ProfilService.mockVide())
 }
+#endif

@@ -116,6 +116,7 @@ struct CarteHypos: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Hypos - 0 avec courbe") {
     CarteHypos(
         count: 0,
@@ -139,3 +140,4 @@ struct CarteHypos: View {
     .padding()
     .background(Color(.systemGroupedBackground))
 }
+#endif

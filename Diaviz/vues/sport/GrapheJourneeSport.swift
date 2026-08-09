@@ -437,6 +437,7 @@ struct GrapheJourneeSport: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Journée typique") {
     @Previewable @State var date = Calendar.current.startOfDay(for: Date())
     let activites = ActivitesSportService.echantillonsApercu()
@@ -459,3 +460,4 @@ struct GrapheJourneeSport: View {
     }
     .background(Color(.systemGroupedBackground))
 }
+#endif

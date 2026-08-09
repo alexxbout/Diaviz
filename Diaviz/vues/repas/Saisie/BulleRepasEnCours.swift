@@ -155,6 +155,7 @@ struct BulleRepasEnCours: View {
     }
 }
 
+#if DEBUG
 #Preview {
     @Previewable @State var alimentsRepas: [EntreeAliment] = [
         EntreeAliment(
@@ -174,3 +175,4 @@ struct BulleRepasEnCours: View {
         }
     }
 }
+#endif

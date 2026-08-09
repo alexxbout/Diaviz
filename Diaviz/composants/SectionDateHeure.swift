@@ -35,6 +35,7 @@ struct SectionDateHeure: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview {
     @Previewable @State var date = Date()
     Form {
@@ -42,3 +43,4 @@ struct SectionDateHeure: View {
     }
     .formStyle(.grouped)
 }
+#endif

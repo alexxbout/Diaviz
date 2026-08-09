@@ -122,6 +122,7 @@ extension SoirCoucher {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Chips soirée") {
     FlowLayout(spacing: 6) {
         ChipCharge(charge: .intense)
@@ -132,3 +133,4 @@ extension SoirCoucher {
     }
     .padding()
 }
+#endif

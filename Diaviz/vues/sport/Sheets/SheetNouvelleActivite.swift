@@ -445,6 +445,7 @@ struct SheetNouvelleActivite: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Création") {
     SheetNouvelleActivite(onValider: { _ in })
 }
@@ -460,3 +461,4 @@ struct SheetNouvelleActivite: View {
     )
     return SheetNouvelleActivite(activiteExistante: act, onValider: { _ in })
 }
+#endif

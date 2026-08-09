@@ -88,6 +88,7 @@ private struct SegmentBarreVue: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Barre segments") {
     VStack(spacing: 16) {
         BarreSegments3(segments: [
@@ -104,3 +105,4 @@ private struct SegmentBarreVue: View {
     .padding()
     .background(Color(.systemGroupedBackground))
 }
+#endif

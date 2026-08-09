@@ -469,6 +469,7 @@ struct AccueilVue: View {
         .modelContainer(ScoreService.conteneurApercu())
 }
 
+#if DEBUG
 #Preview("Profil neuf") {
     AccueilVue()
         .environment(ProfilService.mockVide())
@@ -477,4 +478,5 @@ struct AccueilVue: View {
         .environment(AnalyseRatioService())
         .modelContainer(ScoreService.conteneurApercu())
 }
+#endif
 #endif

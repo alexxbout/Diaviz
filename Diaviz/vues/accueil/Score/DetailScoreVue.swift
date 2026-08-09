@@ -395,6 +395,7 @@ private struct CercleScoreDetail: View {
 
 // MARK: - Previews
 
+#if DEBUG
 #Preview("Hier") {
     NavigationStack {
         DetailScoreVue(jourInitial: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date())
@@ -414,3 +415,4 @@ private struct CercleScoreDetail: View {
         DetailScoreVue(jourInitial: Date())
     }
 }
+#endif

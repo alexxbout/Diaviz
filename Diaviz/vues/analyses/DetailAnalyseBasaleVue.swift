@@ -318,6 +318,7 @@ private struct CarteFondementsVerdict: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Page - Normal (verdict sufficient)") {
     NavigationStack {
         DetailAnalyseBasaleVue(analyse: .mockStandard14j, endormissement: .mock, corrections: .mock)
@@ -351,3 +352,4 @@ private struct CarteFondementsVerdict: View {
 #Preview("Sheet explicative") {
     SheetExplicativeBasale()
 }
+#endif

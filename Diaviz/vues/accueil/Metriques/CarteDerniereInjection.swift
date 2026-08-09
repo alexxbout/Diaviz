@@ -66,6 +66,7 @@ struct CarteDerniereInjection: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Injection - Rapide") {
     CarteDerniereInjection(derniere: (dose: 6.5, depuis: 3900, type: .rapide))
         .surfaceCarte()
@@ -86,3 +87,4 @@ struct CarteDerniereInjection: View {
         .padding()
         .background(Color(.systemGroupedBackground))
 }
+#endif

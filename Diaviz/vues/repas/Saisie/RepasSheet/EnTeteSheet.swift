@@ -30,7 +30,9 @@ struct EnTeteSheet: View {
     }
 }
 
+#if DEBUG
 #Preview {
     EnTeteSheet(nombreAliments: 3, totalGlucides: 47.5)
         .padding()
 }
+#endif

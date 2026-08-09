@@ -242,6 +242,7 @@ struct CarteWorkoutImport: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Non sélectionnée") {
     StatefulPreviewWrapper(
         EtatSelectionWorkout(intensite: .moderee)
@@ -259,6 +260,7 @@ struct CarteWorkoutImport: View {
             .padding()
     }
 }
+#endif
 
 // MARK: - Helper de preview
 //

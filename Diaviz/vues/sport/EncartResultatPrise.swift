@@ -66,6 +66,7 @@ struct EncartResultatPrise: View {
     }
 }
 
+#if DEBUG
 #Preview {
     VStack(spacing: 12) {
         EncartResultatPrise(
@@ -96,3 +97,4 @@ struct EncartResultatPrise: View {
     .padding()
     .background(Color(.systemGroupedBackground))
 }
+#endif

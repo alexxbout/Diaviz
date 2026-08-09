@@ -130,6 +130,7 @@ private struct FeuilleExplicationIOB: View {
     }
 }
 
+#if DEBUG
 #Preview {
     let maintenant = Date()
     let iob = IOB(
@@ -143,3 +144,4 @@ private struct FeuilleExplicationIOB: View {
         .padding()
         .background(Color(.systemGroupedBackground))
 }
+#endif

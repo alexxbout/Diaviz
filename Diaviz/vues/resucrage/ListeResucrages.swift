@@ -97,9 +97,11 @@ private extension String {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview {
     NavigationStack {
         ListeResucrages()
     }
     .modelContainer(ResucragesService.conteneurApercu)
 }
+#endif

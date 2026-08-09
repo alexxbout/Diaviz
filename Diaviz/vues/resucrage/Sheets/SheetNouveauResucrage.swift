@@ -127,6 +127,8 @@ struct SheetNouveauResucrage: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview {
     SheetNouveauResucrage(onValider: { _ in })
 }
+#endif

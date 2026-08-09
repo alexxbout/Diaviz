@@ -59,6 +59,7 @@ struct BoutonValiderRepas: View {
     }
 }
 
+#if DEBUG
 #Preview {
     VStack {
         Spacer()
@@ -66,3 +67,4 @@ struct BoutonValiderRepas: View {
     }
     .background(Color(.systemGroupedBackground))
 }
+#endif

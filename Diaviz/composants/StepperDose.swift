@@ -234,6 +234,7 @@ struct StepperDose: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Dose simple") {
     @Previewable @State var dose: Double = 4.5
     Form {
@@ -269,3 +270,4 @@ struct StepperDose: View {
     }
     .formStyle(.grouped)
 }
+#endif

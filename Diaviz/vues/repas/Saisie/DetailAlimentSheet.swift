@@ -666,6 +666,7 @@ struct DetailAlimentSheet: View {
 
 // MARK: - Prévisualisation
 
+#if DEBUG
 #Preview {
     let aliment = AlimentCiqual(
         id: 1,
@@ -683,3 +684,4 @@ struct DetailAlimentSheet: View {
         print("Validé : \(entree.aliment.nom) — \(entree.quantiteGrammes)g")
     }
 }
+#endif

@@ -88,6 +88,8 @@ struct SheetRechercheAlimentSimple: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview {
     SheetRechercheAlimentSimple(titre: "Glucides pré-sport", onValider: { _ in })
 }
+#endif

@@ -68,6 +68,7 @@ private func _previewAvecUnMasque() -> AlimentsCachesSheet {
     return AlimentsCachesSheet()
 }
 
+#if DEBUG
 #Preview {
     _previewAvecUnMasque()
 }
@@ -75,3 +76,4 @@ private func _previewAvecUnMasque() -> AlimentsCachesSheet {
 #Preview("Vide") {
     AlimentsCachesSheet()
 }
+#endif

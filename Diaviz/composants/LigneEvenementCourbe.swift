@@ -156,6 +156,7 @@ extension View {
     }
 }
 
+#if DEBUG
 #Preview {
     VStack(spacing: 0) {
         LigneEvenementCourbe(
@@ -188,3 +189,4 @@ extension View {
     .padding()
     .background(Color(.systemGroupedBackground))
 }
+#endif

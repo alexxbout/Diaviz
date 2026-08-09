@@ -59,6 +59,7 @@ struct DetailsSection: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Site standard") {
     @Previewable @State var site = SiteInjection.parDefaut
     Form {
@@ -82,3 +83,4 @@ struct DetailsSection: View {
     }
     .formStyle(.grouped)
 }
+#endif

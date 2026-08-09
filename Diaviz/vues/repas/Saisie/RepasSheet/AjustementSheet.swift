@@ -201,6 +201,7 @@ struct AjustementSheet: View {
 
 }
 
+#if DEBUG
 #Preview {
     Color.clear
         .sheet(isPresented: .constant(true)) {
@@ -210,3 +211,4 @@ struct AjustementSheet: View {
             )
         }
 }
+#endif

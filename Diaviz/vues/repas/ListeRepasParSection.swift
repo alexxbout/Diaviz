@@ -123,6 +123,7 @@ struct ListeRepasParSection: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Avec repas") {
     NavigationStack {
         ListeRepasParSection()
@@ -136,3 +137,4 @@ struct ListeRepasParSection: View {
     }
     .environment(RepasService())
 }
+#endif

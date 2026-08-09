@@ -129,7 +129,9 @@ struct SheetQuantiteAlimentSimple: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview {
     let pomme = AlimentCiqual(id: 1, nom: "Pomme, pulpe et peau, crue", calories: 52, glucides: 12.6, sucres: 10.4, proteines: 0.3, lipides: 0.2, fibres: 2.4, emoji: "🍎")
     SheetQuantiteAlimentSimple(aliment: .ciqual(pomme), onValider: { _ in })
 }
+#endif

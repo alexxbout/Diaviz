@@ -38,6 +38,7 @@ struct BoutonStepper: View {
     }
 }
 
+#if DEBUG
 #Preview {
     HStack {
         BoutonStepper(systemImage: "minus") {}
@@ -50,3 +51,4 @@ struct BoutonStepper: View {
     }
     .padding()
 }
+#endif

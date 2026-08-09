@@ -154,8 +154,10 @@ struct DetailFicheEncyclopedie: View {
     }
 }
 
+#if DEBUG
 #Preview {
     NavigationStack {
         DetailFicheEncyclopedie(fiche: CatalogueEncyclopedie.fiches[0])
     }
 }
+#endif

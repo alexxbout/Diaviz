@@ -68,6 +68,8 @@ struct InfoLectureGraphe: View {
     }
 }
 
+#if DEBUG
 #Preview {
     InfoLectureGraphe()
 }
+#endif

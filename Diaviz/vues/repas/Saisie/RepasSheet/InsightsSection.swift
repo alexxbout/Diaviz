@@ -99,6 +99,7 @@ private let _previewContexteCoherent = ContexteInsights(
     iob: nil
 )
 
+#if DEBUG
 #Preview("Trois alertes") {
     Form {
         InsightsSection(contexte: _previewContexteComplet)
@@ -125,3 +126,4 @@ private let _previewContexteCoherent = ContexteInsights(
     }
     .formStyle(.grouped)
 }
+#endif

@@ -75,6 +75,8 @@ struct SheetExplicativeVerdictsResucrage: View {
     }
 }
 
+#if DEBUG
 #Preview {
     SheetExplicativeVerdictsResucrage()
 }
+#endif

@@ -239,6 +239,7 @@ struct InsulineSection: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Sans ajustements") {
     @Previewable @State var ajustements: [Ajustement] = []
     @Previewable @State var correction: Double = 0
@@ -295,3 +296,4 @@ struct InsulineSection: View {
     }
     .formStyle(.grouped)
 }
+#endif

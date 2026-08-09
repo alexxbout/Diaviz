@@ -77,6 +77,7 @@ struct SectionInsights: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Insights - 4 observations") {
     ScrollView {
         SectionInsights(insights: InsightsAccueilServiceMock.mockComplet())
@@ -109,3 +110,4 @@ struct SectionInsights: View {
     .background(Color(.systemGroupedBackground))
     .preferredColorScheme(.dark)
 }
+#endif

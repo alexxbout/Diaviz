@@ -610,6 +610,7 @@ private struct EvenementSeance: Identifiable {
     let detail: String
 }
 
+#if DEBUG
 #Preview("En cours") {
     SeanceEnCoursVue(
         session: SessionSportiveEnCours(type: .course, dateDebut: Date().addingTimeInterval(-754)),
@@ -630,3 +631,4 @@ private struct EvenementSeance: Identifiable {
         onAnnuler: {}
     )
 }
+#endif

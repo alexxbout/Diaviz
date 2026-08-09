@@ -123,6 +123,7 @@ private func _apercuHeure(_ h: Int, _ m: Int = 0) -> Date {
     Calendar.current.date(bySettingHour: h, minute: m, second: 0, of: Date()) ?? Date()
 }
 
+#if DEBUG
 #Preview("Correction + ajustement + contexte") {
     List {
         Section("Dîner") {
@@ -170,3 +171,4 @@ private func _apercuHeure(_ h: Int, _ m: Int = 0) -> Date {
     }
     .listStyle(.insetGrouped)
 }
+#endif

@@ -268,6 +268,7 @@ struct SheetImportAppleHealth: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview("Aucune activité") {
     SheetImportAppleHealth(service: .mockVide())
 }
@@ -283,3 +284,4 @@ struct SheetImportAppleHealth: View {
         service: .mockAvecActivites([.mockCourse, .mockYoga, .mockMusculation])
     )
 }
+#endif

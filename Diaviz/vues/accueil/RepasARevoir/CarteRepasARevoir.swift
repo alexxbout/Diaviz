@@ -411,6 +411,7 @@ struct CarteRepasARevoir: View {
 
 // MARK: - Aperçus
 
+#if DEBUG
 #Preview("Carte - Big Mac hyper") {
     CarteRepasARevoir(repas: .mockBigMac)
         .padding()
@@ -429,3 +430,4 @@ struct CarteRepasARevoir: View {
         .background(Color(.systemGroupedBackground))
         .preferredColorScheme(.dark)
 }
+#endif

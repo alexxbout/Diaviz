@@ -231,6 +231,7 @@ private struct CarteZone: View {
 
 // MARK: - Aperçu
 
+#if DEBUG
 #Preview {
     @Previewable @State var site = SiteInjection.parDefaut
     Color.gray.opacity(0.2)
@@ -239,3 +240,4 @@ private struct CarteZone: View {
             SiteInjectionPicker(site: $site, derniereZoneRapide: .ventre)
         }
 }
+#endif
