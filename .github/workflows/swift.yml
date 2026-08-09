@@ -31,6 +31,16 @@ jobs:
             -destination "generic/platform=iOS Simulator" \
             build
 
+      # TestFlight builde en Release : sans cette étape, une régression qui ne
+      # casse que la configuration Release (typiquement du code debug-only
+      # référencé hors #if DEBUG) passe inaperçue jusqu'à l'upload.
+      - name: Build (Release)
+        run: |
+          xcodebuild -project Diaviz.xcodeproj -scheme Diaviz \
+            -destination "generic/platform=iOS Simulator" \
+            -configuration Release \
+            build
+
       - name: Test
         run: |
           xcodebuild -project Diaviz.xcodeproj -scheme Diaviz \
