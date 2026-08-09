@@ -45,19 +45,13 @@ struct AnalysesVue: View {
         )
     }
 
-    /// Analyse réelle passée à la carte (→ page détail). `nil` en preview pour
-    /// retomber sur le snapshot mocké routé par le verdict.
-    private var analyseReelle: AnalyseBasaleDetail? {
-        coucherOverride == nil ? basaleService.analyse : nil
-    }
-
-    private var endormissementReel: AnalyseEndormissement? {
-        coucherOverride == nil ? endormissementService.analyse : nil
-    }
-
-    private var correctionsReelles: AnalyseCorrections? {
-        coucherOverride == nil ? correctionsService.analyse : nil
-    }
+    /// Analyses réelles passées à la carte (→ page détail). Toujours celles des
+    /// services, y compris en preview : les services non démarrés exposent leur
+    /// état vide, qui est un état légitime — jamais un snapshot mocké, qui
+    /// afficherait un faux constat.
+    private var analyseReelle: AnalyseBasaleDetail { basaleService.analyse }
+    private var endormissementReel: AnalyseEndormissement { endormissementService.analyse }
+    private var correctionsReelles: AnalyseCorrections { correctionsService.analyse }
 
     /// `true` tant qu'au moins une des 3 analyses recalcule — remplace le
     /// chevron de la carte par un spinner (`CarteAnalyseCoucher.chargement`).

@@ -70,9 +70,13 @@ struct DetailAnalyseBasaleVue: View {
         }
     }
 
-    init(analyse: AnalyseBasaleDetail = .mockStandard14j,
-         endormissement: AnalyseEndormissement = .mock,
-         corrections: AnalyseCorrections = .mock,
+    /// Aucune valeur par défaut : les snapshots mockés ne doivent pas être
+    /// atteignables depuis le chemin de production — un appelant qui oublie un
+    /// argument afficherait un faux constat. Les previews passent leurs
+    /// fixtures explicitement.
+    init(analyse: AnalyseBasaleDetail,
+         endormissement: AnalyseEndormissement,
+         corrections: AnalyseCorrections,
          onApparition: ((AnalyseBasaleDetail) -> Void)? = nil) {
         self.analyse = analyse
         self.endormissement = endormissement
@@ -316,31 +320,31 @@ private struct CarteFondementsVerdict: View {
 
 #Preview("Page - Normal (verdict sufficient)") {
     NavigationStack {
-        DetailAnalyseBasaleVue(analyse: .mockStandard14j)
+        DetailAnalyseBasaleVue(analyse: .mockStandard14j, endormissement: .mock, corrections: .mock)
     }
 }
 
 #Preview("Page - Pipeline réel (synthétique)") {
     NavigationStack {
-        DetailAnalyseBasaleVue(analyse: CalculAnalyseBasale.apercu())
+        DetailAnalyseBasaleVue(analyse: CalculAnalyseBasale.apercu(), endormissement: .mock, corrections: .mock)
     }
 }
 
 #Preview("Page - Recent change") {
     NavigationStack {
-        DetailAnalyseBasaleVue(analyse: .mockRecentChange)
+        DetailAnalyseBasaleVue(analyse: .mockRecentChange, endormissement: .mock, corrections: .mock)
     }
 }
 
 #Preview("Page - No data") {
     NavigationStack {
-        DetailAnalyseBasaleVue(analyse: .mockNoData)
+        DetailAnalyseBasaleVue(analyse: .mockNoData, endormissement: .mock, corrections: .mock)
     }
 }
 
 #Preview("Page - Basale adaptée") {
     NavigationStack {
-        DetailAnalyseBasaleVue(analyse: .mockAdaptee)
+        DetailAnalyseBasaleVue(analyse: .mockAdaptee, endormissement: .mock, corrections: .mock)
     }
 }
 

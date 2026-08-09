@@ -91,9 +91,7 @@ struct ResumeSousAnalyse: Identifiable, Equatable, Sendable {
 /// Forme plate et `Equatable` pour piloter previews et animations.
 struct ResumeAnalyseCoucher: Equatable, Sendable {
 
-    /// Verdict B1 — sert à router vers le bon snapshot de détail
-    /// (`AnalyseBasaleServiceMock.charger(verdict:)`) en attendant la page
-    /// fusionnée. La ligne glance « Tendance basale » en dérive son affichage.
+    /// Verdict B1 — la ligne glance « Tendance basale » en dérive son affichage.
     let verdictBasale: VerdictBasale
 
     /// Les trois lignes glance, dans l'ordre vertical B1 → B2 → B3.
@@ -117,13 +115,14 @@ struct CarteAnalyseCoucher: View {
 
     let resume: ResumeAnalyseCoucher
 
-    /// Analyse B1 **réelle** (calculée depuis le hub). `nil` en preview → la
-    /// carte retombe sur le snapshot mocké routé par le verdict.
-    var analyse: AnalyseBasaleDetail? = nil
-
-    /// Analyses B2/B3 **réelles**. `nil` en preview → retombent sur `.mock`.
-    var endormissement: AnalyseEndormissement? = nil
-    var corrections: AnalyseCorrections? = nil
+    /// Analyses réelles (calculées depuis le hub), transmises telles quelles à
+    /// la page de détail. Volontairement **non optionnelles** : un fallback vers
+    /// un snapshot mocké ferait afficher un faux constat sur un écran de suivi
+    /// de santé si l'appelant oubliait de les fournir. Les previews passent
+    /// explicitement leurs fixtures.
+    var analyse: AnalyseBasaleDetail
+    var endormissement: AnalyseEndormissement
+    var corrections: AnalyseCorrections
 
     /// `true` pendant le recalcul des 3 analyses — remplace le chevron par un
     /// spinner (la carte reste tappable, elle ouvre les données déjà connues).
@@ -138,9 +137,9 @@ struct CarteAnalyseCoucher: View {
     var body: some View {
         NavigationLink {
             DetailAnalyseBasaleVue(
-                analyse: analyse ?? AnalyseBasaleServiceMock.charger(verdict: resume.verdictBasale),
-                endormissement: endormissement ?? .mock,
-                corrections: corrections ?? .mock,
+                analyse: analyse,
+                endormissement: endormissement,
+                corrections: corrections,
                 onApparition: onOuvrirDetail
             )
         } label: {
@@ -321,7 +320,12 @@ extension ResumeAnalyseCoucher {
 
 #Preview("Coucher - Défaut") {
     NavigationStack {
-        CarteAnalyseCoucher(resume: .mockDefault)
+        CarteAnalyseCoucher(
+            resume: .mockDefault,
+            analyse: AnalyseBasaleServiceMock.charger(verdict: ResumeAnalyseCoucher.mockDefault.verdictBasale),
+            endormissement: .mock,
+            corrections: .mock
+        )
             .padding(16)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(Color(.systemGroupedBackground))
@@ -330,7 +334,12 @@ extension ResumeAnalyseCoucher {
 
 #Preview("Coucher - Mature") {
     NavigationStack {
-        CarteAnalyseCoucher(resume: .mockMature)
+        CarteAnalyseCoucher(
+            resume: .mockMature,
+            analyse: AnalyseBasaleServiceMock.charger(verdict: ResumeAnalyseCoucher.mockMature.verdictBasale),
+            endormissement: .mock,
+            corrections: .mock
+        )
             .padding(16)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(Color(.systemGroupedBackground))
@@ -339,7 +348,12 @@ extension ResumeAnalyseCoucher {
 
 #Preview("Coucher - Débutant") {
     NavigationStack {
-        CarteAnalyseCoucher(resume: .mockDebutant)
+        CarteAnalyseCoucher(
+            resume: .mockDebutant,
+            analyse: AnalyseBasaleServiceMock.charger(verdict: ResumeAnalyseCoucher.mockDebutant.verdictBasale),
+            endormissement: .mock,
+            corrections: .mock
+        )
             .padding(16)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(Color(.systemGroupedBackground))
@@ -348,7 +362,12 @@ extension ResumeAnalyseCoucher {
 
 #Preview("Coucher - Mature (sombre)") {
     NavigationStack {
-        CarteAnalyseCoucher(resume: .mockMature)
+        CarteAnalyseCoucher(
+            resume: .mockMature,
+            analyse: AnalyseBasaleServiceMock.charger(verdict: ResumeAnalyseCoucher.mockMature.verdictBasale),
+            endormissement: .mock,
+            corrections: .mock
+        )
             .padding(16)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(Color(.systemGroupedBackground))
