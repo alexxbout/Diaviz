@@ -66,6 +66,7 @@ nonisolated enum RaisonExclusion: String, Sendable, Equatable {
     case iobResiduel = "IOB résiduel"
     case sportTardif = "Sport tardif"
     case repasCopieux = "Repas tardif copieux"
+    case resucrage = "Resucrage en nuit profonde"
     case cgmIncomplet = "Couverture CGM insuffisante"
     case bolusCorrection = "Correction au coucher"
     case chaotique = "Glycémie instable"

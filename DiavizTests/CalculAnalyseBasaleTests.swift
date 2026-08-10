@@ -291,6 +291,19 @@ struct CalculAnalyseBasaleTests {
         #expect(analyse.nightChartData.first?.motifExclusion == RaisonExclusion.modePause.rawValue)
     }
 
+    @Test("Resucrage dans la nuit profonde → zone exclue, même sous le seuil copieux")
+    func resucrageEnZone3() {
+        var spec = SpecNuit(decalage: 1)
+        spec.creux = [Creux(debutMinutes: 180, dureeMinutes: 10)]   // en zone 3
+        let resucrage = [(heure: lente(1).addingTimeInterval(185 * 60), glucides: 15)]   // 15 g < seuil copieux
+        let analyse = analyser([spec], fenetre: 2, repas: resucrage)
+
+        #expect(analyse.nightChartData.first?.motifExclusion == RaisonExclusion.resucrage.rawValue)
+        #expect(analyse.nuitsAnalysees == 0)
+        // Le signal hypo reste conservé malgré l'exclusion de la zone.
+        #expect(analyse.hyposNocturnes == 1)
+    }
+
     @Test("Nuit chaotique (variabilité forte) → zone exclue")
     func nuitChaotique() {
         let analyse = analyser([SpecNuit(decalage: 1, depart: 120, bruit: 80)], fenetre: 2)

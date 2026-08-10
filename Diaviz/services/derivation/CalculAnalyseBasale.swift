@@ -267,7 +267,8 @@ nonisolated enum CalculAnalyseBasale {
         let pointsZ3 = cgmFenetre.filter { z3.contains($0.date) }
         let evalZ3 = evaluerZone3(
             points: pointsZ3, plage: z3, enPause: enPause,
-            rapides: entrees.rapides, repas: entrees.repas, config: config
+            rapides: entrees.rapides, repas: entrees.repas,
+            episodes: episodes, config: config
         )
 
         // Évaluation de la zone 2 (pour la répartition + statut partiel).
@@ -338,6 +339,7 @@ nonisolated enum CalculAnalyseBasale {
         enPause: Bool,
         rapides: [(heure: Date, dose: Double, correction: Bool)],
         repas: [(heure: Date, glucides: Int)],
+        episodes: [EpisodeHypo],
         config: ConfigBasale
     ) -> EvalZone3 {
         func exclue(_ raison: RaisonExclusion) -> EvalZone3 {
@@ -352,6 +354,12 @@ nonisolated enum CalculAnalyseBasale {
         if Double(points.count) / Double(attendus) < 0.80 { return exclue(.cgmIncomplet) }
         if rapides.contains(where: { $0.correction && plage.contains($0.heure) }) {
             return exclue(.bolusCorrection)
+        }
+        // Resucrage dans la zone → rebond glucidique qui fausse la pente,
+        // quelle que soit sa taille (contrairement au repas copieux ci-dessous,
+        // qui vise un repas ordinaire tardif).
+        if resucrageDans(plage, episodes: episodes, repas: repas, config: config) {
+            return exclue(.resucrage)
         }
         // Repas copieux dans la zone → glucides confondent le signal basal.
         if repas.contains(where: { plage.contains($0.heure) && $0.glucides > config.seuilRepasCopieux }) {
@@ -821,6 +829,23 @@ private nonisolated extension CalculAnalyseBasale {
         }
         cloturer()
         return resultat
+    }
+
+    /// Un épisode hypo de la zone (bas dans la plage, ou chevauchant) suivi
+    /// d'un repas loggé — même fenêtre que le resucrage de `bilanHypos`.
+    /// Détecté indépendamment du bilan complet (fenêtre de sommeil entière)
+    /// car requis avant lui dans le pipeline, sur la seule plage de la zone.
+    static func resucrageDans(
+        _ plage: ClosedRange<Date>,
+        episodes: [EpisodeHypo],
+        repas: [(heure: Date, glucides: Int)],
+        config: ConfigBasale
+    ) -> Bool {
+        episodes.contains { episode in
+            guard plage.overlaps(episode.debut...episode.fin) else { return false }
+            let borne = max(episode.fin, episode.debut.addingTimeInterval(config.fenetreResucrageMin * 60))
+            return repas.contains { $0.heure >= episode.debut && $0.heure <= borne }
+        }
     }
 
     /// Taxonomie des épisodes hypo d'une nuit (cf. doc `BilanHyposNuit`).
