@@ -1,9 +1,11 @@
 //
-//  RepasAReevoirServiceMock.swift
+//  ApercusRepasAReevoir.swift
 //  diaviz
 //
 //  Created by Alexandre on 16/05/2026.
 //
+
+#if DEBUG
 
 import Foundation
 
@@ -33,3 +35,5 @@ enum RepasAReevoirServiceMock {
         ]
     }
 }
+
+#endif

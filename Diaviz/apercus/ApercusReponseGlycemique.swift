@@ -1,9 +1,11 @@
 //
-//  ReponseGlycemiqueServiceMock.swift
+//  ApercusReponseGlycemique.swift
 //  diaviz
 //
 //  Created by Alexandre on 30/04/2026.
 //
+
+#if DEBUG
 
 import Foundation
 
@@ -403,3 +405,5 @@ enum ReponseGlycemiqueServiceMock {
         return dernier.valeur
     }
 }
+
+#endif

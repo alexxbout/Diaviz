@@ -381,6 +381,8 @@ private extension String {
     }
 }
 
+#if DEBUG
+
 // MARK: - Mocks pour previews
 //
 // Le modèle `Repas` n'a pas d'helper de mock dédié — on crée ici quelques
@@ -443,7 +445,6 @@ extension Repas {
 
 // MARK: - Aperçu
 
-#if DEBUG
 #Preview("Repas avec analyse") {
     NavigationStack {
         DetailRepasVue(
