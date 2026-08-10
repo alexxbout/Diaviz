@@ -1153,16 +1153,17 @@ extension NightChartData {
     /// Nuit valide « manuel » avec pente zone 3 ≈ -1.8 mg/dL/h, sans
     /// hypo ni resucrage. Sert au preview « Par nuit — valide ».
     static var mockNuitValide: NightChartData {
-        var rng = SeededRNG(state: 0xCAFE_C0DE)
-        let n = AnalyseBasaleServiceMock.genererNightChartData(
+        let nuits = AnalyseBasaleServiceMock.genererNightChartData(
             rngSeed: 0xCAFE_C0DE,
             stables: 0, basses: 1, hautes: 0,
             hyposATotaliser: 0,
             resucragesATotaliser: 0,
             doseLente: 18
-        ).first!
-        _ = rng.next() // garde la même seed pour reproductibilité
-        return n
+        )
+        guard let nuit = nuits.first else {
+            preconditionFailure("genererNightChartData(basses: 1) doit produire au moins une nuit")
+        }
+        return nuit
     }
 
     /// Nuit partiellement valide : zone 2 chaotique (oscillations),
