@@ -7,7 +7,7 @@ import Foundation
 
 /// Regroupe les repas récents par composition et remonte ceux dont la
 /// **dernière** occurrence a un verdict mauvais — alimente la section accueil
-/// « Repas à revoir » (remplace `RepasAReevoirServiceMock`).
+/// « Repas à revoir ».
 ///
 /// Distinct du mining `CalculRatioObserve` (qui lit `verdictPersiste` sur
 /// tout l'historique) : ici il faut afficher une vraie courbe CGM par
