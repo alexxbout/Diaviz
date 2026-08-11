@@ -51,6 +51,9 @@ struct AccueilVue: View {
     /// dans la pile d'insights (voir `insightsAffiches`).
     @Environment(AnalyseRatioService.self) private var analyseRatioService
 
+    /// Tendance hebdomadaire de glucides — alimente `CarteGlucidesSemaine`.
+    @Environment(GlucidesHebdoService.self) private var glucidesHebdoService
+
     /// Service hub des repas — source réelle de « Repas à revoir » et
     /// « Repas avec contexte » (courbes CGM encore en mémoire pour les repas
     /// récents).
@@ -158,6 +161,11 @@ struct AccueilVue: View {
     /// Pilote l'ouverture de la sheet d'enregistrement de la lente.
     @State private var sheetLenteOuverte: Bool = false
 
+    /// Pilote le push de `PageGlucides` — porte la synthèse plutôt qu'un
+    /// simple booléen (même pattern que `jourDetailScore`), pour ne jamais
+    /// pousser la page avec des données obsolètes ou absentes.
+    @State private var syntheseGlucidesPourPage: SyntheseGlucidesHebdo?
+
     /// `false` jusqu'au premier remplissage des données. Tant qu'il est faux,
     /// l'`.animation` de la carte lente est neutralisée : le passage initial
     /// `nil`→valeur d'`etatLente` (données async au boot) n'anime rien — évite le
@@ -245,6 +253,18 @@ struct AccueilVue: View {
                                         removal: .move(edge: .top).combined(with: .opacity)
                                     ))
                                 }
+
+                                // Auto-masquée tant que l'historique ne
+                                // couvre pas assez de jours (voir
+                                // `CalculGlucidesHebdo.joursMinimumParSemaine`)
+                                // — dégradation gracieuse plutôt qu'une
+                                // moyenne calculée sur un trou de saisie.
+                                if let synthese = glucidesHebdoService.synthese {
+                                    CarteGlucidesSemaine(
+                                        synthese: synthese,
+                                        onTap: { syntheseGlucidesPourPage = synthese }
+                                    )
+                                }
                             }
                             // Anime UNIQUEMENT l'insertion/sortie de la carte
                             // lente. Portée restreinte à ce VStack (et non au
@@ -325,6 +345,9 @@ struct AccueilVue: View {
             .navigationDestination(isPresented: $afficherTousRepasARevoir) {
                 PageTousRepasARevoir(repas: repasARevoir)
             }
+            .navigationDestination(item: $syntheseGlucidesPourPage) { synthese in
+                PageGlucides(synthese: synthese)
+            }
             .alert(
                 "Supprimer cette tendance ?",
                 isPresented: Binding(
@@ -341,7 +364,10 @@ struct AccueilVue: View {
                 // Tout groupe ayant au moins un repas exploitable — c'est le
                 // seuil par tranche (`effectifMinimalBucket`) qui décide seul
                 // de ce qui est comparable, la sheet montre le reste tel quel.
-                SheetEcartRatio(sections: analyseRatioService.analyse.sections.filter { !$0.entrees.isEmpty })
+                SheetEcartRatio(
+                    sections: analyseRatioService.analyse.sections.filter { !$0.entrees.isEmpty },
+                    apercusChangementRatio: analyseRatioService.apercusChangementRatio
+                )
             }
             .sheet(isPresented: $sheetLenteOuverte) {
                 // Sheet d'enregistrement de la lente, préremplie : dose =
@@ -466,6 +492,7 @@ struct AccueilVue: View {
         .environment(AnalyseBasaleService())
         .environment(RepasService.apercu())
         .environment(AnalyseRatioService())
+        .environment(GlucidesHebdoService.apercu())
         .modelContainer(ScoreService.conteneurApercu())
 }
 
@@ -476,6 +503,7 @@ struct AccueilVue: View {
         .environment(AnalyseBasaleService())
         .environment(RepasService.apercu())
         .environment(AnalyseRatioService())
+        .environment(GlucidesHebdoService.apercu())
         .modelContainer(ScoreService.conteneurApercu())
 }
 #endif

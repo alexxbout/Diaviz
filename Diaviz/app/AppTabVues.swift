@@ -64,6 +64,10 @@ struct AppTabVues: View {
     /// directement, aucun fetch SwiftData séparé.
     @State private var analyseRatioService = AnalyseRatioService()
 
+    /// Service de la tendance hebdomadaire de glucides — même pattern que
+    /// `analyseRatioService` (cache mémoire, recalculé sur mutation du hub).
+    @State private var glucidesHebdoService = GlucidesHebdoService()
+
     /// Contexte SwiftData du hub (pour récupérer le `ModelContainer`).
     @Environment(\.modelContext) private var modelContext
 
@@ -110,9 +114,11 @@ struct AppTabVues: View {
         .environment(analyseEndormissementService)
         .environment(analyseCorrectionsService)
         .environment(analyseRatioService)
+        .environment(glucidesHebdoService)
         .task {
             repasService.demarrer(contexte: modelContext)
             analyseRatioService.recalculer(depuis: repasService.repas)
+            glucidesHebdoService.recalculer(depuis: repasService.repas)
             // B1 doit être démarré (et son `analyse` à jour) avant B2/B3, qui
             // lisent `analyseBasaleService.analyse` — d'où l'attente séquentielle.
             await analyseBasaleService.demarrer(contexte: modelContext)
@@ -131,6 +137,7 @@ struct AppTabVues: View {
             // Les verdicts persistés viennent de changer (repas passés de
             // enAttente à disponible) : remine le ratio observé.
             analyseRatioService.recalculer(depuis: repasService.repas)
+            glucidesHebdoService.recalculer(depuis: repasService.repas)
         }
     }
 

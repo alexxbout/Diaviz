@@ -16,6 +16,11 @@ import SwiftUI
 struct SheetEcartRatio: View {
 
     let sections: [ObservationRatioSection]
+    /// Comparaison dose/verdict avant-après le dernier changement de ratio,
+    /// par section — absente pour une section jamais modifiée (badge et bloc
+    /// masqués, section inchangée). Défaut vide pour ne pas casser les
+    /// appelants existants.
+    var apercusChangementRatio: [SectionRepas?: ApercuChangementRatio] = [:]
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -42,7 +47,11 @@ struct SheetEcartRatio: View {
                         }
 
                         ForEach(sections, id: \.groupe) { section in
-                            Section(CalculRatioObserve.libelleGroupe(section.groupe)) {
+                            Section {
+                                if let apercu = apercusChangementRatio[section.groupe] {
+                                    blocDepuisChangement(apercu)
+                                }
+
                                 GraphiqueZonesRatio(entrees: section.entrees)
                                     .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
 
@@ -56,6 +65,8 @@ struct SheetEcartRatio: View {
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
+                            } header: {
+                                enTeteSection(section)
                             }
                         }
 
@@ -81,6 +92,118 @@ struct SheetEcartRatio: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationBackground(Color(.systemGroupedBackground))
+    }
+
+    // MARK: - Depuis le changement de ratio
+
+    /// Titre de section standard + badge date/effectif quand le ratio de
+    /// cette section a déjà changé. `.textCase(nil)` contre-carre
+    /// l'uppercase automatique des headers de `Form`, qui s'appliquerait
+    /// sinon aussi au badge.
+    @ViewBuilder
+    private func enTeteSection(_ section: ObservationRatioSection) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(CalculRatioObserve.libelleGroupe(section.groupe))
+            Spacer(minLength: 8)
+            if let apercu = apercusChangementRatio[section.groupe] {
+                let jour = apercu.dateChangement.formatted(.dateTime.day().month(.abbreviated))
+                Label("\(jour) · \(apercu.effectifDepuis) repas", systemImage: "calendar")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(Color.accentColor)
+                    .textCase(nil)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 3)
+                    .background(Color.accentColor.opacity(0.14), in: Capsule())
+            }
+        }
+    }
+
+    /// Dose moyenne + taux en cible (3h post-injection) avant/après le
+    /// changement, ou un état « pas encore comparable » sous le seuil
+    /// (`CalculDoseRatioChangement.effectifMinimalComparaison`).
+    @ViewBuilder
+    private func blocDepuisChangement(_ apercu: ApercuChangementRatio) -> some View {
+        if let comparaison = apercu.comparaison {
+            ligneComparaison(
+                icone: "syringe",
+                titre: "Dose moyenne",
+                sousTitre: comparaison.avant.map { "vs avant le changement (\($0.doseMoyenne.doseInsulineFormatee))" }
+                    ?? "aucun repas avant ce changement",
+                valeur: comparaison.apres.doseMoyenne.doseInsulineFormatee,
+                delta: comparaison.avant.map { pourcentageDelta(avant: $0.doseMoyenne, apres: comparaison.apres.doseMoyenne) }
+            )
+            ligneComparaison(
+                icone: "target",
+                titre: "En cible, 3h après l'injection",
+                sousTitre: comparaison.avant.map { "contre \(pourcentageEntier($0.tauxBon)) % avant le changement" }
+                    ?? "aucune comparaison avant ce changement",
+                valeur: "\(pourcentageEntier(comparaison.apres.tauxBon)) %",
+                delta: comparaison.avant.map { pointsDelta(avant: $0.tauxBon, apres: comparaison.apres.tauxBon) }
+            )
+        } else {
+            Label("Pas encore comparable", systemImage: "hourglass")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Text("\(CalculDoseRatioChangement.effectifMinimalComparaison) repas minimum depuis le changement pour comparer")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func ligneComparaison(icone: String, titre: String, sousTitre: String, valeur: String, delta: String?) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: Radius.small, style: .continuous)
+                    .fill(Color.accentColor.opacity(0.14))
+                Image(systemName: icone)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(Color.accentColor)
+            }
+            .frame(width: 34, height: 34)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(titre)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                Text(sousTitre)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 8)
+
+            VStack(alignment: .trailing, spacing: 1) {
+                Text(valeur)
+                    .font(.title3.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(.primary)
+                if let delta {
+                    Text(delta)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private func pourcentageEntier(_ taux: Double) -> Int {
+        Int((taux * 100).rounded())
+    }
+
+    /// Écart relatif signé entre deux doses, en points de pourcentage
+    /// entiers (« +12 % », « −8 % ») — signe typographique, même convention
+    /// que `Double.ecartDoseFormate`.
+    private func pourcentageDelta(avant: Double, apres: Double) -> String {
+        guard avant > 0 else { return "—" }
+        let delta = Int((((apres / avant) - 1) * 100).rounded())
+        return delta < 0 ? "\u{2212}\(abs(delta)) %" : "+\(delta) %"
+    }
+
+    /// Écart signé en points de taux entre deux proportions déjà en 0…1
+    /// (« +14 pts », « −6 pts »).
+    private func pointsDelta(avant: Double, apres: Double) -> String {
+        let delta = Int(((apres - avant) * 100).rounded())
+        return delta < 0 ? "\u{2212}\(abs(delta)) pts" : "+\(delta) pts"
     }
 
     @ViewBuilder
@@ -246,9 +369,34 @@ private func _mockSectionCentreSeul() -> [ObservationRatioSection] {
     )]
 }
 
+/// Un déjeuner comparable (assez de repas depuis le changement) et un dîner
+/// tout juste changé (badge visible, bloc en « pas encore comparable »).
+private func _mockApercusChangementRatio() -> [SectionRepas?: ApercuChangementRatio] {
+    [
+        .dejeuner: ApercuChangementRatio(
+            dateChangement: Calendar.current.date(byAdding: .day, value: -18, to: Date()) ?? Date(),
+            effectifDepuis: 23,
+            comparaison: ComparaisonChangementRatio(
+                dateChangement: Date(),
+                avant: StatsPeriodeRatio(doseMoyenne: 6.6, tauxBon: 0.54, effectif: 20),
+                apres: StatsPeriodeRatio(doseMoyenne: 5.8, tauxBon: 0.68, effectif: 23)
+            )
+        ),
+        .diner: ApercuChangementRatio(
+            dateChangement: Calendar.current.date(byAdding: .day, value: -3, to: Date()) ?? Date(),
+            effectifDepuis: 3,
+            comparaison: nil
+        ),
+    ]
+}
+
 #if DEBUG
 #Preview("Écart et ratio confirmé") {
     SheetEcartRatio(sections: _mockSections())
+}
+
+#Preview("Depuis le changement de ratio") {
+    SheetEcartRatio(sections: _mockSections(), apercusChangementRatio: _mockApercusChangementRatio())
 }
 
 #Preview("Trop peu de repas") {

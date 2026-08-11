@@ -15,11 +15,27 @@ import Observation
 /// Pattern de démarrage aligné sur `AnalyseBasaleService` : `analyse` prêt à
 /// l'affichage dès l'init (état « données insuffisantes »), recalculé via
 /// `recalculer(depuis:)` après chaque mutation connue du hub.
+/// Ce qu'affiche le bloc « depuis le changement de ratio » d'une section :
+/// date + effectif toujours peuplés (alimentent le badge même sous le seuil
+/// de comparaison), `comparaison` `nil` tant que l'effectif après changement
+/// n'atteint pas `CalculDoseRatioChangement.effectifMinimalComparaison`.
+nonisolated struct ApercuChangementRatio: Sendable, Equatable {
+    let dateChangement: Date
+    let effectifDepuis: Int
+    let comparaison: ComparaisonChangementRatio?
+}
+
 @Observable
 @MainActor
 final class AnalyseRatioService {
 
     private(set) var analyse: AnalyseRatioObserve = .vide
+
+    /// Comparaison dose/verdict avant-après le dernier changement de ratio,
+    /// par section — seulement les sections dont le ratio a déjà changé une
+    /// fois (`nil` = jamais modifié, rien à comparer). Alimente le bloc
+    /// « depuis le changement de ratio » de `SheetEcartRatio`.
+    private(set) var apercusChangementRatio: [SectionRepas?: ApercuChangementRatio] = [:]
 
     /// Recalcule depuis les repas déjà chargés/annotés par `RepasService` —
     /// aucun fetch CGM ni régression ici, juste un mapping en value types et
@@ -29,6 +45,7 @@ final class AnalyseRatioService {
         let profil = ProfilService.shared.profil
         let entrees = mapperEntrees(repas, profil: profil)
         analyse = CalculRatioObserve.analyser(entrees: entrees)
+        apercusChangementRatio = construireApercusChangementRatio(repas, profil: profil)
     }
 
     /// Explose chaque repas exploitable en une `EntreeRatioRepas` (une par
@@ -71,6 +88,62 @@ final class AnalyseRatioService {
         }
 
         return entrees
+    }
+
+    // MARK: - Comparaison avant/après changement de ratio
+
+    /// Explose chaque repas exploitable en `EntreeDoseChangement`, groupé par
+    /// section — **tout** l'historique, sans borne de date, contrairement à
+    /// `mapperEntrees`. Mêmes exclusions (pause, contexte libre, ajustement,
+    /// verdict indéterminé, dose nulle) que `mapperEntrees`, dupliquées
+    /// intentionnellement : les deux mappers produisent des value types
+    /// différents (celui-ci n'a pas besoin du ratio configuré, donc pas de
+    /// dose suggérée à calculer), les faire dépendre l'un de l'autre
+    /// couplerait deux usages qui doivent pouvoir diverger séparément.
+    private func mapperEntreesDoseChangement(
+        _ repas: [Repas], profil: ProfilUtilisateur
+    ) -> [SectionRepas?: [EntreeDoseChangement]] {
+        var parGroupe: [SectionRepas?: [EntreeDoseChangement]] = [:]
+        for r in repas {
+            guard !r.exclureDesAnalyses, r.contexteLibre == nil, r.ajustements.isEmpty else { continue }
+            guard let verdict = r.verdictPersiste, verdict != .indetermine, r.totalGlucides > 0 else { continue }
+            let doseCouvrante = r.totalInsuline - (r.doseCorrection ?? 0)
+            guard doseCouvrante > 0 else { continue }
+
+            let sectionReelle = SectionRepas(heure: r.heure, horaires: profil.horairesRepas)
+            let groupe = profil.modeRatio == .unique ? nil : sectionReelle
+            parGroupe[groupe, default: []].append(
+                EntreeDoseChangement(heure: r.heure, doseAppliquee: doseCouvrante, verdict: verdict)
+            )
+        }
+        return parGroupe
+    }
+
+    /// Un `ApercuChangementRatio` par section dont le ratio a déjà changé —
+    /// absente du dictionnaire pour une section jamais modifiée (rien à
+    /// comparer, pas d'entrée « nulle » à filtrer côté vue).
+    private func construireApercusChangementRatio(
+        _ repas: [Repas], profil: ProfilUtilisateur
+    ) -> [SectionRepas?: ApercuChangementRatio] {
+        let entreesParGroupe = mapperEntreesDoseChangement(repas, profil: profil)
+        var resultat: [SectionRepas?: ApercuChangementRatio] = [:]
+        for (groupe, entrees) in entreesParGroupe {
+            guard let date = dateChangementEffective(groupe: groupe, profil: profil) else { continue }
+            let effectifDepuis = entrees.filter { $0.heure >= date }.count
+            resultat[groupe] = ApercuChangementRatio(
+                dateChangement: date,
+                effectifDepuis: effectifDepuis,
+                comparaison: CalculDoseRatioChangement.comparer(entrees: entrees, dateChangement: date)
+            )
+        }
+        return resultat
+    }
+
+    /// Date de changement pour un groupe potentiellement `nil` (mode ratio
+    /// unique) — même repli que `CarteAnalyseRatio.dateChangement(_:)`.
+    private func dateChangementEffective(groupe: SectionRepas?, profil: ProfilUtilisateur) -> Date? {
+        guard let groupe else { return profil.datesChangementRatioEffectives.unique }
+        return dateChangement(section: groupe, profil: profil)
     }
 
     /// Date du dernier changement du ratio applicable à cette section — même

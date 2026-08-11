@@ -42,6 +42,7 @@ struct AjouterRepasVue: View {
     /// Mining R1 (ratio observé) — recalculé après chaque repas validé, comme
     /// les autres services dérivés du hub (metriquesService, iobService…).
     @Environment(AnalyseRatioService.self) private var analyseRatioService
+    @Environment(GlucidesHebdoService.self) private var glucidesHebdoService
 
     @State private var recherche: String = ""
     @State private var resultats: [AlimentCiqual] = []
@@ -232,6 +233,9 @@ struct AjouterRepasVue: View {
         // rempli), mais un repas plus ancien a pu changer de statut entre
         // deux ouvertures — remine par précaution, coût négligeable.
         analyseRatioService.recalculer(depuis: repasService.repas)
+        // Un repas de plus (ou de moins) change la moyenne hebdomadaire de
+        // glucides — même remine par précaution que la ligne au-dessus.
+        glucidesHebdoService.recalculer(depuis: repasService.repas)
         // Marqué "récemment ajouté" seulement maintenant, à la persistance
         // réelle du repas — pas à la simple composition en cours.
         // La quantité est mémorisée en même temps : elle prérempli la
@@ -589,5 +593,6 @@ struct AjouterRepasVue: View {
     }
     .environment(RepasService.apercu())
     .environment(AnalyseRatioService())
+    .environment(GlucidesHebdoService())
 }
 #endif
