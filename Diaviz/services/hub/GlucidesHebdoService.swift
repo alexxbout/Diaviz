@@ -20,11 +20,17 @@ final class GlucidesHebdoService {
 
     private(set) var synthese: SyntheseGlucidesHebdo?
 
+    /// Jours avec au moins un repas exploitable sur les 7 derniers jours —
+    /// numérateur du garde-fou, gardé même quand `synthese` est `nil` pour que
+    /// le placeholder d'accueil affiche la progression réelle vers le seuil.
+    private(set) var joursAvecRepasCetteSemaine: Int = 0
+
     /// Recalcule depuis les repas déjà chargés par `RepasService` — volume
     /// trivial (agrégation sur 14 jours au grand maximum), pas besoin de
     /// `Task.detached`.
     func recalculer(depuis repas: [Repas]) {
         synthese = CalculGlucidesHebdo.analyser(repas: repas)
+        joursAvecRepasCetteSemaine = CalculGlucidesHebdo.joursAvecRepasCetteSemaine(repas: repas)
     }
 }
 
@@ -34,9 +40,13 @@ extension GlucidesHebdoService {
     /// Instance de preview peuplée directement (pas de fetch), pour les
     /// vues qui consomment ce service via `@Environment`.
     @MainActor
-    static func apercu(synthese: SyntheseGlucidesHebdo? = .mockCroissance) -> GlucidesHebdoService {
+    static func apercu(
+        synthese: SyntheseGlucidesHebdo? = .mockCroissance,
+        joursAvecRepasCetteSemaine: Int = 7
+    ) -> GlucidesHebdoService {
         let service = GlucidesHebdoService()
         service.synthese = synthese
+        service.joursAvecRepasCetteSemaine = joursAvecRepasCetteSemaine
         return service
     }
 }

@@ -132,6 +132,39 @@ struct AccueilVue: View {
             .sorted(by: CalculRepasARevoir.plusSevereEnPremier)
     }
 
+    /// Progression affichée sous le placeholder « Nouvelles tendances » —
+    /// nuits déjà analysées par B1 vers le minimum exploitable, seul seuil
+    /// chiffré connu à ce stade (R1 n'a pas de seuil global équivalent, son
+    /// garde-fou est par tranche). `nil` avant la toute première nuit : un
+    /// « 0 sur 3 » n'apprend rien de plus que la phrase du placeholder.
+    private var progressionTendances: CartePlaceholderAccueil.Progression? {
+        let nuits = analyseBasaleService.analyse.nuitsAnalysees
+        guard nuits > 0, nuits < Self.nuitsRequisesPremiereTendance else { return nil }
+        return .init(
+            actuel: nuits,
+            requis: Self.nuitsRequisesPremiereTendance,
+            libelle: "\(nuits) nuit\(nuits > 1 ? "s" : "") analysée\(nuits > 1 ? "s" : "") sur \(Self.nuitsRequisesPremiereTendance)"
+        )
+    }
+
+    /// Même valeur que le seuil `.collecte` de la carte sommaire des analyses
+    /// (`AnalyseBasaleService.etatBasale`) — dupliquée ici plutôt qu'exposée,
+    /// pour ne pas transformer un détail d'affichage de B1 en API publique.
+    private static let nuitsRequisesPremiereTendance = 3
+
+    /// Progression affichée sous le placeholder « Glucides » — jours avec
+    /// repas cette semaine vers `joursMinimumParSemaine`. `nil` tant qu'aucun
+    /// repas n'a été enregistré cette semaine.
+    private var progressionGlucides: CartePlaceholderAccueil.Progression? {
+        let jours = glucidesHebdoService.joursAvecRepasCetteSemaine
+        let requis = CalculGlucidesHebdo.joursMinimumParSemaine
+        guard jours > 0, jours < requis else { return nil }
+        return .init(
+            actuel: jours, requis: requis,
+            libelle: "\(jours) jour\(jours > 1 ? "s" : "") avec repas cette semaine sur \(requis)"
+        )
+    }
+
     /// Charge les faits du hub utilisés en superposition des courbes. Fenêtre
     /// alignée sur celle des cartes (`CalculRepasARevoir.fenetreJours`) : rien
     /// à remonter au-delà, les courbes CGM n'existent plus en mémoire.
@@ -166,6 +199,12 @@ struct AccueilVue: View {
     /// pousser la page avec des données obsolètes ou absentes.
     @State private var syntheseGlucidesPourPage: SyntheseGlucidesHebdo?
 
+    /// Pilote la sheet Profil ouverte depuis le placeholder « aucun ratio
+    /// configuré ». `EnTetePage` porte déjà sa propre sheet pour l'avatar :
+    /// les deux points d'entrée sont indépendants, aucun état partagé (le
+    /// composant d'en-tête est réutilisé tel quel sur les 4 onglets).
+    @State private var afficherProfil = false
+
     /// `false` jusqu'au premier remplissage des données. Tant qu'il est faux,
     /// l'`.animation` de la carte lente est neutralisée : le passage initial
     /// `nil`→valeur d'`etatLente` (données async au boot) n'anime rien — évite le
@@ -198,10 +237,11 @@ struct AccueilVue: View {
                     VStack(spacing: 28) {
                         // Section « Nouvelles tendances » — pile des
                         // observations ML, désormais en tête de page.
-                        // Auto-masquée quand le tableau d'insights est
-                        // vide pour ne pas laisser une coquille en haut.
+                        // Vide, elle affiche un placeholder disant ce qui
+                        // s'affichera ici et où en est la collecte de nuits.
                         SectionInsights(
                             insights: insightsAffiches,
+                            progressionCollecte: progressionTendances,
                             onDemandeSuppression: { insightASupprimer = $0 },
                             onTap: { insight in
                                 // Seul l'insight R1 a une destination pour
@@ -254,15 +294,23 @@ struct AccueilVue: View {
                                     ))
                                 }
 
-                                // Auto-masquée tant que l'historique ne
-                                // couvre pas assez de jours (voir
-                                // `CalculGlucidesHebdo.joursMinimumParSemaine`)
-                                // — dégradation gracieuse plutôt qu'une
-                                // moyenne calculée sur un trou de saisie.
+                                // Tant que l'historique ne couvre pas assez de
+                                // jours (voir
+                                // `CalculGlucidesHebdo.joursMinimumParSemaine`),
+                                // la moyenne n'est pas calculée — dégradation
+                                // gracieuse plutôt qu'un chiffre tiré d'un trou
+                                // de saisie — mais la place est tenue par un
+                                // placeholder qui montre où en est la collecte.
                                 if let synthese = glucidesHebdoService.synthese {
                                     CarteGlucidesSemaine(
                                         synthese: synthese,
                                         onTap: { syntheseGlucidesPourPage = synthese }
+                                    )
+                                } else {
+                                    CartePlaceholderAccueil(
+                                        icone: "carrot.fill",
+                                        message: "La moyenne de glucides par jour, comparée à la semaine dernière, s'affichera ici.",
+                                        progression: progressionGlucides
                                     )
                                 }
                             }
@@ -284,8 +332,8 @@ struct AccueilVue: View {
                         // Section « Repas à revoir » — repas récurrents ET
                         // contextualisés sortis de cible, fusionnés en une
                         // seule section (le plus sévère en carte détaillée,
-                        // les suivants en lignes compactes). Auto-masquée
-                        // quand le tableau est vide. « Tout voir » pousse
+                        // les suivants en lignes compactes). Vide, elle
+                        // affiche son placeholder. « Tout voir » pousse
                         // `PageTousRepasARevoir` (toutes les cartes en grand,
                         // sans version repliée).
                         SectionRepasARevoir(
@@ -303,11 +351,13 @@ struct AccueilVue: View {
                                 value: repasARevoir.count
                             )
 
-                        // Progression du mining R1 (ratio observé) vers son
-                        // seuil par groupe — auto-masquée par la vue
-                        // elle-même une fois tous les groupes complets ou
-                        // sans ratio configuré.
-                        CarteAnalyseRatio(onTap: { afficherDetailEcartRatio = true })
+                        // Verdict du mining R1 (ratio observé) par groupe —
+                        // ou, sans aucun ratio configuré, un placeholder
+                        // ouvrant le profil.
+                        CarteAnalyseRatio(
+                            onTap: { afficherDetailEcartRatio = true },
+                            onOuvrirProfil: { afficherProfil = true }
+                        )
 
                         // Grille de 4 cartes métriques — aperçu
                         // instantané de l'état courant. Le service
@@ -347,6 +397,16 @@ struct AccueilVue: View {
             }
             .navigationDestination(item: $syntheseGlucidesPourPage) { synthese in
                 PageGlucides(synthese: synthese)
+            }
+            .sheet(isPresented: $afficherProfil) {
+                // Même présentation que la sheet de l'avatar
+                // (`EnTetePage`) — l'utilisateur doit retrouver le même
+                // écran quel que soit le point d'entrée.
+                NavigationStack {
+                    ProfilVue()
+                }
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
             }
             .alert(
                 "Supprimer cette tendance ?",
@@ -504,6 +564,30 @@ struct AccueilVue: View {
         .environment(RepasService.apercu())
         .environment(AnalyseRatioService())
         .environment(GlucidesHebdoService.apercu())
+        .modelContainer(ScoreService.conteneurApercu())
+}
+
+/// Compte neuf, hub vide : toutes les sections tiennent leur place en
+/// placeholder plutôt que de laisser une page quasi blanche.
+#Preview("Aucune donnée (placeholders)") {
+    AccueilVue()
+        .environment(ProfilService.mockVide())
+        .environment(AnalyseBasaleService())
+        .environment(RepasService())
+        .environment(AnalyseRatioService())
+        .environment(GlucidesHebdoService.apercu(synthese: nil, joursAvecRepasCetteSemaine: 0))
+        .modelContainer(ScoreService.conteneurApercu())
+}
+
+/// Quelques jours de saisie : les placeholders affichent leur progression
+/// chiffrée vers les seuils déjà appliqués par les calculateurs.
+#Preview("Collecte en cours (progression)") {
+    AccueilVue()
+        .environment(ProfilService.mockComplet())
+        .environment(AnalyseBasaleService())
+        .environment(RepasService())
+        .environment(AnalyseRatioService())
+        .environment(GlucidesHebdoService.apercu(synthese: nil, joursAvecRepasCetteSemaine: 2))
         .modelContainer(ScoreService.conteneurApercu())
 }
 #endif

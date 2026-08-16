@@ -22,7 +22,9 @@ import SwiftUI
 /// d'apparition/disparition (fondu + léger scale) sur chaque forme, animée par
 /// le changement de `idEtendu`.
 ///
-/// Auto-masquée si le tableau est vide.
+/// Quand le tableau est vide, affiche un `CartePlaceholderAccueil` au lieu de
+/// se masquer — la structure de l'accueil reste la même avant et après le
+/// premier repas sorti de cible.
 struct SectionRepasARevoir: View {
 
     let repas: [RepasARevoir]
@@ -50,7 +52,20 @@ struct SectionRepasARevoir: View {
     private var restants: Int { max(repas.count - Self.maxAffiches, 0) }
 
     var body: some View {
-        if !repas.isEmpty {
+        if repas.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                entete
+                // Pas de compteur de progression ici, contrairement aux
+                // tendances ou aux glucides : « repas à revoir » n'attend
+                // aucun seuil de volume (un seul repas sorti de cible suffit
+                // à remonter). Afficher une barre laisserait croire à une
+                // collecte en cours qui n'existe pas.
+                CartePlaceholderAccueil(
+                    icone: "fork.knife",
+                    message: "Les repas dont la glycémie est sortie de cible s'afficheront ici."
+                )
+            }
+        } else {
             VStack(alignment: .leading, spacing: 8) {
                 entete
 
@@ -89,7 +104,7 @@ struct SectionRepasARevoir: View {
     /// 3 montrés).
     private var entete: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text("Repas à revoir (\(repas.count))")
+            Text(repas.isEmpty ? "Repas à revoir" : "Repas à revoir (\(repas.count))")
                 .font(.title2.bold())
                 .foregroundStyle(.primary)
                 .accessibilityAddTraits(.isHeader)
@@ -135,7 +150,7 @@ struct SectionRepasARevoir: View {
     .background(Color(.systemGroupedBackground))
 }
 
-#Preview("Vide") {
+#Preview("Vide (placeholder)") {
     ScrollView {
         SectionRepasARevoir(repas: [])
             .padding(16)

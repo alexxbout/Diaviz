@@ -12,14 +12,22 @@ import SwiftUI
 /// est en bas (interactive, swipe vertical), les cartes suivantes
 /// pointent au-dessus.
 ///
-/// La section se masque entièrement quand le tableau est vide pour ne
-/// pas laisser une coquille vide sur la page.
+/// Quand le tableau est vide, la section affiche un `CartePlaceholderAccueil`
+/// plutôt que de se masquer : sur un compte neuf, l'accueil ne disait pas ce
+/// qui viendrait s'afficher ici un jour. Le titre reste en place dans les deux
+/// cas, la structure de la page ne bouge donc pas quand la première
+/// observation arrive.
 ///
 /// Position sur l'accueil : en tête de page, au-dessus de la section
 /// « Aujourd'hui » (carte score + rappel lente).
 struct SectionInsights: View {
 
     let insights: [Insight]
+
+    /// Progression vers le premier verdict analysable (nuits B1 collectées),
+    /// affichée sous le placeholder quand elle est connue. `nil` → placeholder
+    /// sans compteur.
+    var progressionCollecte: CartePlaceholderAccueil.Progression? = nil
 
     /// Appelé quand l'utilisateur demande la suppression d'un insight (swipe
     /// gauche ou appui long sur la carte active) — le parent affiche la
@@ -34,7 +42,16 @@ struct SectionInsights: View {
     @State private var pageActive: Int = 0
 
     var body: some View {
-        if !insights.isEmpty {
+        if insights.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                titre
+                CartePlaceholderAccueil(
+                    icone: "chart.line.uptrend.xyaxis",
+                    message: "Les tendances repérées dans tes nuits et tes repas s'afficheront ici.",
+                    progression: progressionCollecte
+                )
+            }
+        } else {
             // Spacing 18 entre le titre et la pile pour aérer sous
             // l'en-tête. Le `.padding(.bottom, -14)` resserre ensuite la
             // section sur la suivante (« Aujourd'hui ») en annulant une
@@ -44,15 +61,7 @@ struct SectionInsights: View {
             // section quand elle est masquée (tableau vide).
             VStack(alignment: .leading, spacing: 18) {
 
-                // MARK: Titre de section — compte d'observations
-                // Style aligné sur « Aperçu du jour » dans `AccueilVue`
-                // (title2.bold, .primary) pour homogénéiser les en-têtes
-                // de section sur l'accueil.
-                Text(libelleTendances)
-                    .font(.title2.bold())
-                    .foregroundStyle(.primary)
-                    .padding(.leading, 4)
-                    .accessibilityAddTraits(.isHeader)
+                titre
 
                 // MARK: Pile
                 PileVerticaleInsights(
@@ -67,9 +76,22 @@ struct SectionInsights: View {
         }
     }
 
+    /// Titre de section — style aligné sur « Aperçu du jour » dans
+    /// `AccueilVue` (title2.bold, .primary) pour homogénéiser les en-têtes de
+    /// section sur l'accueil.
+    private var titre: some View {
+        Text(libelleTendances)
+            .font(.title2.bold())
+            .foregroundStyle(.primary)
+            .padding(.leading, 4)
+            .accessibilityAddTraits(.isHeader)
+    }
+
     /// Libellé du titre — accord singulier/pluriel français.
-    /// Format : « Nouvelles tendances (4) » ou « Nouvelle tendance (1) ».
+    /// Format : « Nouvelles tendances (4) », « Nouvelle tendance (1) », ou
+    /// « Nouvelles tendances » sans compteur quand il n'y a rien à compter.
     private var libelleTendances: String {
+        guard !insights.isEmpty else { return "Nouvelles tendances" }
         let pluriel = insights.count > 1 ? "s" : ""
         return "Nouvelle\(pluriel) tendance\(pluriel) (\(insights.count))"
     }
@@ -94,10 +116,21 @@ struct SectionInsights: View {
     .background(Color(.systemGroupedBackground))
 }
 
-#Preview("Insights - Aucun") {
+#Preview("Insights - Aucun (placeholder)") {
     ScrollView {
         SectionInsights(insights: [])
-            .padding(.vertical, 16)
+            .padding(16)
+    }
+    .background(Color(.systemGroupedBackground))
+}
+
+#Preview("Insights - Aucun, collecte en cours") {
+    ScrollView {
+        SectionInsights(
+            insights: [],
+            progressionCollecte: .init(actuel: 2, requis: 3, libelle: "2 nuits analysées sur 3")
+        )
+        .padding(16)
     }
     .background(Color(.systemGroupedBackground))
 }

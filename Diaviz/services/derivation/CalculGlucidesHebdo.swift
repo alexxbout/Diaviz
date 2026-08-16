@@ -77,6 +77,24 @@ nonisolated enum CalculGlucidesHebdo {
         )
     }
 
+    /// Jours **avec au moins un repas exploitable** sur les 7 derniers jours —
+    /// c'est le numérateur du garde-fou `joursMinimumParSemaine`, exposé pour
+    /// que l'accueil puisse afficher « 2 jours sur 3 » plutôt qu'un placeholder
+    /// muet quand `analyser` retourne `nil`. Recompté ici plutôt que remonté
+    /// par `analyser` : cette dernière renvoie `nil` justement quand il n'y a
+    /// rien à porter.
+    static func joursAvecRepasCetteSemaine(
+        repas: [Repas], maintenant: Date = Date(), calendrier: Calendar = .current
+    ) -> Int {
+        let aujourdhui = calendrier.startOfDay(for: maintenant)
+        guard let borne = calendrier.date(byAdding: .day, value: -6, to: aujourdhui) else { return 0 }
+        let jours = repas
+            .filter { !$0.exclureDesAnalyses }
+            .map { calendrier.startOfDay(for: $0.heure) }
+            .filter { $0 >= borne && $0 <= aujourdhui }
+        return Set(jours).count
+    }
+
     private static func moyenne(jours: [Date], totaux: [Date: Int], joursAvecRepas: Set<Date>) -> Double? {
         let actifs = jours.filter { joursAvecRepas.contains($0) }
         guard actifs.count >= joursMinimumParSemaine else { return nil }

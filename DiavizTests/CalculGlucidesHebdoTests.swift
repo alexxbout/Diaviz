@@ -106,6 +106,30 @@ struct CalculGlucidesHebdoTests {
         #expect(synthese?.moyenneSemaineDerniere == 100)
     }
 
+    // MARK: - Progression vers le seuil (placeholder d'accueil)
+
+    @Test("Jours avec repas cette semaine : jours distincts des 7 derniers jours")
+    func joursAvecRepasCetteSemaine() {
+        let repas = [
+            self.repas(joursAvant: 0, heure: 8, glucides: 40), self.repas(joursAvant: 0, heure: 19, glucides: 60),
+            self.repas(joursAvant: 3, glucides: 60),
+            // J-6 : dernier jour inclus dans la fenêtre.
+            self.repas(joursAvant: 6, glucides: 60),
+            // J-7 : hors fenêtre.
+            self.repas(joursAvant: 7, glucides: 60),
+        ]
+        #expect(CalculGlucidesHebdo.joursAvecRepasCetteSemaine(repas: repas, maintenant: aujourdhui) == 3)
+    }
+
+    @Test("Jour dont le seul repas est exclu des analyses → pas compté")
+    func joursAvecRepasIgnoreLesExclus() {
+        let repas = [
+            self.repas(joursAvant: 0, glucides: 100, exclu: true),
+            self.repas(joursAvant: 1, glucides: 60),
+        ]
+        #expect(CalculGlucidesHebdo.joursAvecRepasCetteSemaine(repas: repas, maintenant: aujourdhui) == 1)
+    }
+
     // MARK: - Série journalière
 
     @Test("Série de 14 points, jour sans repas à 0")

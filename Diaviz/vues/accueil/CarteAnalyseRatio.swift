@@ -15,15 +15,20 @@ import SwiftUI
 /// changer un ratio remet son historique à zéro — d'où l'état dédié « ratio
 /// changé le … » qui rend ce reset visible.
 ///
-/// Masquée seulement si aucun ratio n'est configuré : contrairement à la
-/// version « progression », un verdict reste utile une fois les données
-/// accumulées.
+/// Sans aucun ratio configuré, la carte n'est plus masquée non plus : elle
+/// affiche un `CartePlaceholderAccueil` disant ce qui s'affichera ici, avec un
+/// accès direct au profil — le seul état où la section dépend d'un réglage
+/// manquant plutôt que d'un volume de données.
 struct CarteAnalyseRatio: View {
 
     @Environment(AnalyseRatioService.self) private var analyseRatioService
 
     /// Ouvre la sheet de détail « Écart de ratio » quand non-nil.
     var onTap: (() -> Void)? = nil
+
+    /// Ouvre le profil depuis l'état « aucun ratio configuré ». `nil` → le
+    /// placeholder reste affiché sans bouton (la carte ne se masque plus).
+    var onOuvrirProfil: (() -> Void)? = nil
 
     private var profil: ProfilUtilisateur { ProfilService.shared.profil }
 
@@ -75,34 +80,40 @@ struct CarteAnalyseRatio: View {
     }
 
     var body: some View {
-        if !lignes.isEmpty {
-            // En-tête hors de la carte, au même niveau que « Aujourd'hui » /
-            // « Repas à revoir » (`SectionRepasARevoir.entete`) — la carte ne
-            // porte plus son propre titre interne.
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("Analyse des ratios")
-                        .font(.title2.bold())
-                        .foregroundStyle(.primary)
-                        .accessibilityAddTraits(.isHeader)
+        // En-tête hors de la carte, au même niveau que « Aujourd'hui » /
+        // « Repas à revoir » (`SectionRepasARevoir.entete`) — la carte ne
+        // porte plus son propre titre interne.
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Analyse des ratios")
+                    .font(.title2.bold())
+                    .foregroundStyle(.primary)
+                    .accessibilityAddTraits(.isHeader)
 
-                    Spacer(minLength: 8)
+                Spacer(minLength: 8)
 
-                    // Affordance de tap — même bouton texte que « Tout voir »
-                    // de `SectionRepasARevoir`, plus explicite qu'un chevron.
-                    if let onTap {
-                        Button("Voir le détail", action: onTap)
-                            .font(.subheadline)
-                    }
+                // Affordance de tap — même bouton texte que « Tout voir »
+                // de `SectionRepasARevoir`, plus explicite qu'un chevron.
+                // Masquée sur le placeholder : il n'y a pas encore de détail
+                // à ouvrir.
+                if let onTap, !lignes.isEmpty {
+                    Button("Voir le détail", action: onTap)
+                        .font(.subheadline)
                 }
-                .padding(.leading, 4)
+            }
+            .padding(.leading, 4)
 
-                if let onTap {
-                    Button(action: onTap) { contenu }
-                        .buttonStyle(.plain)
-                } else {
-                    contenu
-                }
+            if lignes.isEmpty {
+                CartePlaceholderAccueil(
+                    icone: "slider.horizontal.3",
+                    message: "Aucun ratio configuré. Le résultat de tes ratios, moment par moment, s'affichera ici.",
+                    action: onOuvrirProfil.map { (libelle: "Ouvrir le profil", executer: $0) }
+                )
+            } else if let onTap {
+                Button(action: onTap) { contenu }
+                    .buttonStyle(.plain)
+            } else {
+                contenu
             }
         }
     }
@@ -423,9 +434,12 @@ private func carteApercu(_ service: AnalyseRatioService) -> some View {
         .environment(\.dynamicTypeSize, .accessibility2)
 }
 
-#Preview("Aucun ratio configuré (carte masquée)") {
+#Preview("Aucun ratio configuré (placeholder)") {
     ProfilService.shared.mettreAJour { $0 = ProfilUtilisateur.parDefaut() }
-    return carteApercu(_serviceVide())
+    return CarteAnalyseRatio(onTap: {}, onOuvrirProfil: {})
+        .padding()
+        .background(Color(.systemGroupedBackground))
+        .environment(_serviceVide())
 }
 #endif
 #endif
