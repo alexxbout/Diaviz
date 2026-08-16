@@ -130,9 +130,8 @@ struct CalculRepasARevoirTests {
 
     @Test("exclureDesAnalyses → repas totalement ignoré même s'il matche tout le reste")
     func exclureDesAnalyses() {
-        let aliments = [aliment("Burger", glucides: 55)]
-        let r1 = repasMauvais(heure: heure(joursAvant: 5), aliments: aliments, exclu: true)
-        let r2 = repasMauvais(heure: heure(joursAvant: 1), aliments: aliments, exclu: true)
+        let r1 = repasMauvais(heure: heure(joursAvant: 5), aliments: [aliment("Burger", glucides: 55)], exclu: true)
+        let r2 = repasMauvais(heure: heure(joursAvant: 1), aliments: [aliment("Burger", glucides: 55)], exclu: true)
         #expect(analyser([r1, r2], maintenant: maintenant).isEmpty)
     }
 
@@ -155,9 +154,8 @@ struct CalculRepasARevoirTests {
 
     @Test("Dernier repas du groupe en verdict mauvais, occurrences suffisantes → carte produite")
     func dernierMauvaisProduitCarte() {
-        let aliments = [aliment("Pâtes bolognaise", glucides: 65)]
-        let r1 = repasMauvais(heure: heure(joursAvant: 10), aliments: aliments)
-        let r2 = repasMauvais(heure: heure(joursAvant: 2), aliments: aliments)
+        let r1 = repasMauvais(heure: heure(joursAvant: 10), aliments: [aliment("Pâtes bolognaise", glucides: 65)])
+        let r2 = repasMauvais(heure: heure(joursAvant: 2), aliments: [aliment("Pâtes bolognaise", glucides: 65)])
         let resultat = analyser([r1, r2], maintenant: maintenant)
         #expect(resultat.count == 1)
         #expect(resultat.first?.idRepasSource == r2.id)
@@ -165,10 +163,12 @@ struct CalculRepasARevoirTests {
 
     @Test("Dernier repas du groupe en bon/moyen/indéterminé → groupe entier ignoré")
     func dernierNonMauvaisIgnore() {
-        let aliments = [aliment("Pâtes bolognaise", glucides: 65)]
-        let ancien = repasMauvais(heure: heure(joursAvant: 10), aliments: aliments)
+        // `ancien` reconstruit à chaque itération : un `Aliment` partagé
+        // entre plusieurs `Repas` se retrouve réassigné au dernier
+        // constructeur (relation à parent unique, cf. `Aliment.repasParent`).
         for verdict: VerdictGlycemique in [.bon, .moyen, .indetermine] {
-            let recent = repasVerdict(heure: heure(joursAvant: 2), aliments: aliments, verdict: verdict)
+            let ancien = repasMauvais(heure: heure(joursAvant: 10), aliments: [aliment("Pâtes bolognaise", glucides: 65)])
+            let recent = repasVerdict(heure: heure(joursAvant: 2), aliments: [aliment("Pâtes bolognaise", glucides: 65)], verdict: verdict)
             #expect(analyser([ancien, recent], maintenant: maintenant).isEmpty)
         }
     }
@@ -195,9 +195,8 @@ struct CalculRepasARevoirTests {
 
     @Test("Exactement occurrencesMinimales après filtrage tolérance → carte produite")
     func occurrencesAuSeuil() {
-        let aliments = [aliment("Riz", glucides: 60)]
-        let r1 = repasMauvais(heure: heure(joursAvant: 10), aliments: aliments)
-        let r2 = repasMauvais(heure: heure(joursAvant: 2), aliments: aliments)
+        let r1 = repasMauvais(heure: heure(joursAvant: 10), aliments: [aliment("Riz", glucides: 60)])
+        let r2 = repasMauvais(heure: heure(joursAvant: 2), aliments: [aliment("Riz", glucides: 60)])
         #expect(analyser([r1, r2], occurrencesMinimales: 2, maintenant: maintenant).count == 1)
     }
 
@@ -209,12 +208,11 @@ struct CalculRepasARevoirTests {
 
     @Test("occurrencesMinimales personnalisé (3) respecté")
     func occurrencesMinimalesPersonnalise() {
-        let aliments = [aliment("Riz", glucides: 60)]
-        let r1 = repasMauvais(heure: heure(joursAvant: 10), aliments: aliments)
-        let r2 = repasMauvais(heure: heure(joursAvant: 5), aliments: aliments)
+        let r1 = repasMauvais(heure: heure(joursAvant: 10), aliments: [aliment("Riz", glucides: 60)])
+        let r2 = repasMauvais(heure: heure(joursAvant: 5), aliments: [aliment("Riz", glucides: 60)])
         #expect(analyser([r1, r2], occurrencesMinimales: 3, maintenant: maintenant).isEmpty)
 
-        let r3 = repasMauvais(heure: heure(joursAvant: 2), aliments: aliments)
+        let r3 = repasMauvais(heure: heure(joursAvant: 2), aliments: [aliment("Riz", glucides: 60)])
         #expect(analyser([r1, r2, r3], occurrencesMinimales: 3, maintenant: maintenant).count == 1)
     }
 
@@ -222,12 +220,11 @@ struct CalculRepasARevoirTests {
 
     @Test("Hypo tardive après 240 min → détectée comme événement principal malgré la troncature d'affichage")
     func hypoTardiveApres240Min() {
-        let aliments = [aliment("Riz", glucides: 60)]
         let points: [(minutes: Double, valeur: Double)] = [
             (0, 120), (60, 220), (120, 180), (180, 130), (240, 90), (300, 55), (360, 80),
         ]
-        let r1 = repasMauvais(heure: heure(joursAvant: 10), aliments: aliments, points: points, valeurPic: 220, tempsPic: 3_600)
-        let r2 = repasMauvais(heure: heure(joursAvant: 2), aliments: aliments, points: points, valeurPic: 220, tempsPic: 3_600)
+        let r1 = repasMauvais(heure: heure(joursAvant: 10), aliments: [aliment("Riz", glucides: 60)], points: points, valeurPic: 220, tempsPic: 3_600)
+        let r2 = repasMauvais(heure: heure(joursAvant: 2), aliments: [aliment("Riz", glucides: 60)], points: points, valeurPic: 220, tempsPic: 3_600)
         let resultat = analyser([r1, r2], maintenant: maintenant)
         #expect(resultat.first?.estHypo == true)
         #expect(resultat.first?.evenementMinutes == 300)
@@ -236,10 +233,9 @@ struct CalculRepasARevoirTests {
 
     @Test("Pas d'hypo sur la courbe → pic utilisé comme événement principal")
     func picUtiliseQuandPasHypo() {
-        let aliments = [aliment("Riz", glucides: 60)]
         let points: [(minutes: Double, valeur: Double)] = [(0, 140), (60, 260), (120, 220), (180, 200)]
-        let r1 = repasMauvais(heure: heure(joursAvant: 10), aliments: aliments, points: points, valeurPic: 260, tempsPic: 3_600)
-        let r2 = repasMauvais(heure: heure(joursAvant: 2), aliments: aliments, points: points, valeurPic: 260, tempsPic: 3_600)
+        let r1 = repasMauvais(heure: heure(joursAvant: 10), aliments: [aliment("Riz", glucides: 60)], points: points, valeurPic: 260, tempsPic: 3_600)
+        let r2 = repasMauvais(heure: heure(joursAvant: 2), aliments: [aliment("Riz", glucides: 60)], points: points, valeurPic: 260, tempsPic: 3_600)
         let resultat = analyser([r1, r2], maintenant: maintenant)
         #expect(resultat.first?.estHypo == false)
         #expect(resultat.first?.evenementValeur == 260)
@@ -250,14 +246,13 @@ struct CalculRepasARevoirTests {
 
     @Test("Masquer une occurrence puis nouvelle mauvaise occurrence du même repas → carte réapparaît")
     func masquageReapparaitSurNouvelleOccurrence() {
-        let aliments = [aliment("Riz", glucides: 60)]
-        let r1 = repasMauvais(heure: heure(joursAvant: 10), aliments: aliments)
-        let r2 = repasMauvais(heure: heure(joursAvant: 5), aliments: aliments)
+        let r1 = repasMauvais(heure: heure(joursAvant: 10), aliments: [aliment("Riz", glucides: 60)])
+        let r2 = repasMauvais(heure: heure(joursAvant: 5), aliments: [aliment("Riz", glucides: 60)])
 
         let masque = analyser([r1, r2], idsMasques: [r2.id], maintenant: maintenant)
         #expect(masque.isEmpty)
 
-        let r3 = repasMauvais(heure: heure(joursAvant: 1), aliments: aliments)
+        let r3 = repasMauvais(heure: heure(joursAvant: 1), aliments: [aliment("Riz", glucides: 60)])
         let apresNouvelleOccurrence = analyser([r1, r2, r3], idsMasques: [r2.id], maintenant: maintenant)
         #expect(apresNouvelleOccurrence.count == 1)
         #expect(apresNouvelleOccurrence.first?.idRepasSource == r3.id)
@@ -268,9 +263,8 @@ struct CalculRepasARevoirTests {
     @Test("Tri : hypos avant hypers, puis sévérité décroissante dans chaque catégorie")
     func triSeverite() {
         func groupe(nom: String, points: [(minutes: Double, valeur: Double)], pic: Double) -> (ancien: Repas, dernier: Repas) {
-            let aliments = [aliment(nom, glucides: 60)]
-            let ancien = repasMauvais(heure: heure(joursAvant: 10), aliments: aliments, points: points, valeurPic: pic, tempsPic: 3_600)
-            let dernier = repasMauvais(heure: heure(joursAvant: 2), aliments: aliments, points: points, valeurPic: pic, tempsPic: 3_600)
+            let ancien = repasMauvais(heure: heure(joursAvant: 10), aliments: [aliment(nom, glucides: 60)], points: points, valeurPic: pic, tempsPic: 3_600)
+            let dernier = repasMauvais(heure: heure(joursAvant: 2), aliments: [aliment(nom, glucides: 60)], points: points, valeurPic: pic, tempsPic: 3_600)
             return (ancien, dernier)
         }
 
@@ -294,10 +288,9 @@ struct CalculRepasARevoirTests {
         var tousLesRepas: [Repas] = []
         for i in 0..<11 {
             let pic = 200.0 + Double(i) // i = 10 → le plus sévère (pic le plus haut)
-            let aliments = [aliment("Repas\(i)", glucides: 60)]
             let points: [(minutes: Double, valeur: Double)] = [(0, 120), (60, pic)]
-            let ancien = repasMauvais(heure: heure(joursAvant: 10), aliments: aliments, points: points, valeurPic: pic, tempsPic: 3_600)
-            let dernier = repasMauvais(heure: heure(joursAvant: 2), aliments: aliments, points: points, valeurPic: pic, tempsPic: 3_600)
+            let ancien = repasMauvais(heure: heure(joursAvant: 10), aliments: [aliment("Repas\(i)", glucides: 60)], points: points, valeurPic: pic, tempsPic: 3_600)
+            let dernier = repasMauvais(heure: heure(joursAvant: 2), aliments: [aliment("Repas\(i)", glucides: 60)], points: points, valeurPic: pic, tempsPic: 3_600)
             derniers.append(dernier)
             tousLesRepas.append(contentsOf: [ancien, dernier])
         }
