@@ -18,19 +18,22 @@ import SwiftData
 ///
 /// `repasAssocieId` remonte au repas d'origine pour les bolus ; `labelRepas` /
 /// `emojiRepas` sont des dénormalisations d'affichage (évitent un join).
+/// Valeurs par défaut ci-dessous : filet de secours schema-only exigé par
+/// CloudKit, jamais exercé par le flux normal (l'`init` garde tous ses
+/// paramètres obligatoires) — voir `GlucoseReading` pour le principe.
 @Model
 final class Injection {
-    var id: UUID
-    var type: TypeInsuline
-    var dose: Double
+    var id: UUID = UUID()
+    var type: TypeInsuline = TypeInsuline.lente
+    var dose: Double = 0
     /// Horodatage absolu de l'injection (clé de tri / découpage).
-    var heure: Date
+    var heure: Date = Date.distantPast
 
     /// Site d'injection — décomposé en zone × côté pour rester compatible
     /// avec le `SiteInjectionPicker` et faciliter la statistique future
     /// (rotation des sites, alerte lipodystrophie).
-    var zoneInjection: ZoneInjection
-    var coteInjection: CoteInjection
+    var zoneInjection: ZoneInjection = ZoneInjection.ventre
+    var coteInjection: CoteInjection = CoteInjection.centre
 
     var note: String?
 
@@ -56,7 +59,7 @@ final class Injection {
     var motif: MotifInjection?
 
     /// Provenance de la saisie.
-    var source: SourceDonnee
+    var source: SourceDonnee = SourceDonnee.manuel
 
     init(
         id: UUID = UUID(),

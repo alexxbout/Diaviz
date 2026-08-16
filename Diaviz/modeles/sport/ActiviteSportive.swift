@@ -19,12 +19,12 @@ import SwiftData
 /// simplement dire qu'aucun aliment n'a été ajouté.
 @Model
 final class ActiviteSportive {
-    var id: UUID
-    var type: TypeSport
+    var id: UUID = UUID()
+    var type: TypeSport = TypeSport.course
     /// Instant de début (absolu). La fin se déduit de `dateDebut + dureeMinutes`.
-    var dateDebut: Date
-    var dureeMinutes: Int
-    var intensite: IntensiteSport
+    var dateDebut: Date = Date.distantPast
+    var dureeMinutes: Int = 0
+    var intensite: IntensiteSport = IntensiteSport.faible
     /// Aliments ingérés juste avant l'activité.
     ///
     /// **Champ historique.** Les nouvelles saisies ne l'alimentent plus : les
@@ -38,7 +38,14 @@ final class ActiviteSportive {
     /// conservent une saisie en grammes convertie en aliment générique, et par
     /// les activités enregistrées avant ce changement. Les écrans qui
     /// l'affichent traitent donc un cas résiduel, pas le chemin courant.
-    @Relationship(deleteRule: .cascade) var alimentsPreSport: [Aliment]
+    /// Stockage réel — **optionnel**, exigé par CloudKit pour toute relation
+    /// (y compris à plusieurs). `alimentsPreSport` ci-dessous en donne une
+    /// vue non-optionnelle — voir le même pattern sur `Repas._aliments`.
+    @Relationship(deleteRule: .cascade, inverse: \Aliment.activiteSportiveParent) var _alimentsPreSport: [Aliment]? = []
+    var alimentsPreSport: [Aliment] {
+        get { _alimentsPreSport ?? [] }
+        set { _alimentsPreSport = newValue }
+    }
     /// Structure de l'effort (continu/fractionné) — pertinent uniquement pour
     /// `CategorieSport.cardio`, `nil` sinon (musculation/yoga/autre).
     var structureEffort: StructureEffort?
@@ -54,7 +61,7 @@ final class ActiviteSportive {
     var pauses: [IntervallePauseSeance] = []
     var note: String?
     /// Provenance de la saisie (manuelle vs import HealthKit).
-    var source: SourceActivite
+    var source: SourceActivite = SourceActivite.manuel
     /// Snapshot des métriques HealthKit conservées à l'import. `nil` hors `.healthKit`.
     var healthKitData: HealthKitWorkoutData?
     /// Insuline rapide encore active au démarrage de l'activité (unités). `nil`
@@ -80,7 +87,7 @@ final class ActiviteSportive {
         self.dateDebut = dateDebut
         self.dureeMinutes = dureeMinutes
         self.intensite = intensite
-        self.alimentsPreSport = alimentsPreSport
+        self._alimentsPreSport = alimentsPreSport
         self.structureEffort = structureEffort
         self.pauses = pauses
         self.note = note

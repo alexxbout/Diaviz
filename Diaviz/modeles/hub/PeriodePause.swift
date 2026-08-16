@@ -12,10 +12,10 @@ import SwiftData
 @Model
 final class PeriodePause {
     /// Début de la pause (horodatage absolu).
-    var debut: Date
+    var debut: Date = Date.distantPast
     /// Fin de la pause. `nil` = pause toujours en cours.
     var fin: Date?
-    var motif: MotifPause
+    var motif: MotifPause = MotifPause.voyage
     var note: String?
 
     init(debut: Date, fin: Date? = nil, motif: MotifPause, note: String? = nil) {

@@ -15,15 +15,25 @@ import SwiftData
 ///
 /// Distinct du flag `Aliment.resucrage` (déclaré *au sein* d'un repas) —
 /// celui-ci reste pour ce cas précis, mais n'est plus le chemin principal.
+/// Valeurs par défaut ci-dessous : filet de secours schema-only exigé par
+/// CloudKit, jamais exercé par le flux normal — voir `GlucoseReading`.
 @Model
 final class Resucrage {
-    var id: UUID
+    var id: UUID = UUID()
     /// Horodatage absolu de la prise (clé de tri / corrélation).
-    var date: Date
+    var date: Date = Date.distantPast
     /// Pourquoi ce resucrage — obligatoire, jamais déduit (voir `IntentionResucrage`).
-    var intention: IntentionResucrage
+    var intention: IntentionResucrage = IntentionResucrage.correctifHypo
+    /// Stockage réel — **optionnel**, exigé par CloudKit pour toute relation
+    /// (y compris à plusieurs). `aliments` ci-dessous en donne une vue
+    /// non-optionnelle — voir le même pattern sur `Repas._aliments`.
+    @Relationship(deleteRule: .cascade, inverse: \Aliment.resucrageParent) var _aliments: [Aliment]? = []
+
     /// Aliments pris — recherche aliment, même moteur que glucides pré-sport.
-    @Relationship(deleteRule: .cascade) var aliments: [Aliment]
+    var aliments: [Aliment] {
+        get { _aliments ?? [] }
+        set { _aliments = newValue }
+    }
     /// Glycémie visée, seulement quand l'utilisateur cible une valeur
     /// précise. `nil` ≠ 0 — pas de cible par défaut implicite.
     var glycemieCible: Double?
@@ -38,7 +48,7 @@ final class Resucrage {
         self.id = id
         self.date = date
         self.intention = intention
-        self.aliments = aliments
+        self._aliments = aliments
         self.glycemieCible = glycemieCible
     }
 }

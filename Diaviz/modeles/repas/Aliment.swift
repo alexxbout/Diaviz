@@ -13,12 +13,12 @@ import SwiftData
 /// `AlimentCiqual`) et de `AlimentCiqual` (référentiel, hors hub).
 @Model
 final class Aliment {
-    var id: UUID
-    var emoji: String
-    var nom: String
-    var quantite: Int
-    var glucides: Int
-    var insuline: Double
+    var id: UUID = UUID()
+    var emoji: String = ""
+    var nom: String = ""
+    var quantite: Int = 0
+    var glucides: Int = 0
+    var insuline: Double = 0
     /// Photo du produit (Open Food Facts) — `nil` pour un aliment CIQUAL ou
     /// les repas antérieurs à l'ajout du champ (migration légère).
     var imageURL: URL?
@@ -33,6 +33,29 @@ final class Aliment {
     /// moment de l'affichage plutôt qu'à la saisie : un renommage ultérieur
     /// se reflète alors même sur des repas déjà enregistrés.
     var idCiqualSource: Int?
+
+    /// Inverses des trois relations `@Relationship(deleteRule: .cascade)`
+    /// possibles vers cet `Aliment` (`Repas.aliments`, `Resucrage.aliments`,
+    /// `ActiviteSportive.alimentsPreSport`) — CloudKit exige que toute
+    /// relation ait un inverse déclaré, sinon le container échoue à
+    /// l'initialisation (constaté à l'exécution, invisible à la compilation).
+    /// Un `Aliment` n'appartient jamais qu'à un seul des trois à la fois ;
+    /// les deux autres restent `nil`. Jamais lus directement par le code de
+    /// l'app (uniquement là pour satisfaire la contrainte du schéma).
+    ///
+    /// ⚠️ Effet de bord une fois l'inverse déclaré : SwiftData applique la
+    /// propriété « un seul parent à la fois » même sur des objets construits
+    /// hors `ModelContext`. Réutiliser la **même instance** `Aliment` dans
+    /// plusieurs `Repas`/`Resucrage`/`ActiviteSportive` (raccourci de fixture
+    /// pratique avant l'ajout de l'inverse) la « vole » silencieusement au
+    /// dernier parent assigné — les précédents se retrouvent avec `aliments`
+    /// vide. Toujours construire une instance `Aliment` **distincte** par
+    /// parent, même à contenu identique (reflète d'ailleurs la vraie donnée :
+    /// deux repas identiques ont chacun leurs propres lignes `Aliment` en
+    /// production, jamais une ligne partagée).
+    var repasParent: Repas?
+    var resucrageParent: Resucrage?
+    var activiteSportiveParent: ActiviteSportive?
 
     init(
         id: UUID = UUID(),
@@ -93,13 +116,24 @@ final class Aliment {
 /// **dérivation** calculée depuis le CGM — jamais persistée, d'où `@Transient`.
 @Model
 final class Repas {
-    var id: UUID
+    var id: UUID = UUID()
     /// Horodatage absolu du repas (clé de tri / découpage).
-    var heure: Date
+    var heure: Date = Date.distantPast
+
+    /// Stockage réel de la relation — **optionnel**, exigé par CloudKit pour
+    /// toute relation (y compris à plusieurs) : la synchro ne garantit pas
+    /// que le graphe entier arrive d'un coup, un objet peut être là sans que
+    /// sa relation le soit encore, ce qui se traduit par `nil`. `aliments`
+    /// ci-dessous en donne une vue non-optionnelle, seule utilisée par le
+    /// reste du code (aucun appelant ne touche `_aliments` directement).
+    @Relationship(deleteRule: .cascade, inverse: \Aliment.repasParent) var _aliments: [Aliment]? = []
 
     /// Aliments du repas. Relation cascade : supprimer le repas supprime ses
     /// aliments (ils n'existent pas hors d'un repas).
-    @Relationship(deleteRule: .cascade) var aliments: [Aliment]
+    var aliments: [Aliment] {
+        get { _aliments ?? [] }
+        set { _aliments = newValue }
+    }
 
     /// Insuline rapide encore active au démarrage du repas (unités). Snapshot
     /// figé à la saisie ; `nil` si non calculé (legacy ou pas de bolus récent).
@@ -184,7 +218,7 @@ final class Repas {
     ) {
         self.id = id
         self.heure = heure
-        self.aliments = aliments
+        self._aliments = aliments
         self.etatAnalyse = etatAnalyse
         self.iobAuDebut = iobAuDebut
         self.doseGlobale = doseGlobale

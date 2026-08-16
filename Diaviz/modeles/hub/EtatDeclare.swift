@@ -12,8 +12,8 @@ import SwiftData
 @Model
 final class EtatDeclare {
     /// Horodatage absolu de la déclaration (clé de tri / découpage).
-    var date: Date
-    var type: TypeEtat
+    var date: Date = Date.distantPast
+    var type: TypeEtat = TypeEtat.stress
     /// Échelle subjective d'intensité, libre (ex. 1–5). `nil` si non renseignée.
     var intensite: Int?
     var note: String?

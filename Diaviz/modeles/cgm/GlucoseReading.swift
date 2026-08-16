@@ -15,16 +15,22 @@ import SwiftData
 /// Remplace le mock `PointCgm` (relatif). Toutes les vues dérivées (NightChartData,
 /// TIR/GRI, tendances) se calculent à la volée depuis des tranches de cette entité.
 ///
-/// `date` est `unique` : c'est la clé naturelle de déduplication. Ré-ingérer la
-/// même plage écrase au lieu de doublonner (idempotence au niveau du store).
+/// `date` est la clé naturelle de déduplication, appliquée **côté app**
+/// (`HealthKitCGMService.datesExistantes`, fetch + filtre avant insert) —
+/// pas une contrainte `.unique` du store : CloudKit ne les supporte pas.
+///
+/// Pas de valeur par défaut réellement utilisée en pratique ci-dessous :
+/// l'`init` garde tous ses paramètres obligatoires. C'est un filet de
+/// secours exigé par le schéma CloudKit (récupération partielle de sync),
+/// jamais exercé par le flux normal de l'app — cf. `ActiviteSportive.pauses`
+/// pour le précédent qui a motivé cette règle.
 @Model
 final class GlucoseReading {
     /// Horodatage absolu (= `systemTime` UTC pour la source `.dexcom`).
-    /// Clé naturelle : unique pour garantir l'ingestion idempotente.
-    @Attribute(.unique) var date: Date
+    var date: Date = Date.distantPast
 
     /// Glycémie en mg/dL.
-    var valeur: Int
+    var valeur: Int = 0
 
     /// Trajectoire au moment de la mesure (flèche Dexcom), si fournie.
     var tendance: TendanceGlycemie?
@@ -33,7 +39,7 @@ final class GlucoseReading {
     var tauxVariation: Double?
 
     /// Provenance de la mesure.
-    var source: SourceDonnee
+    var source: SourceDonnee = SourceDonnee.manuel
 
     init(
         date: Date,
