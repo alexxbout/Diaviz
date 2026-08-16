@@ -84,6 +84,13 @@
 			);
 			target = ACA3F2FD30116F2700BC62D0 /* DiavizSportWidgetExtension */;
 		};
+		ACB855A230322015008A2688 /* Exceptions for "Diaviz" folder in "Diaviz" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = ACE15C512F94FC0B00F08D3A /* Diaviz */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -98,6 +105,7 @@
 		ACE15C542F94FC0B00F08D3A /* Diaviz */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
+				ACB855A230322015008A2688 /* Exceptions for "Diaviz" folder in "Diaviz" target */,
 				ACA3F31B3011703B00BC62D0 /* Exceptions for "Diaviz" folder in "DiavizSportWidgetExtension" target */,
 			);
 			path = Diaviz;
@@ -610,6 +618,7 @@
 				DEVELOPMENT_TEAM = 76DQF9D5W2;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Diaviz/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Diaviz;
 				INFOPLIST_KEY_CFBundleLocalizations = "fr en";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Diaviz utilise la caméra pour scanner le code-barres d'un produit et retrouver ses informations nutritionnelles sur Open Food Facts.";
@@ -655,6 +664,7 @@
 				DEVELOPMENT_TEAM = 76DQF9D5W2;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Diaviz/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Diaviz;
 				INFOPLIST_KEY_CFBundleLocalizations = "fr en";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Diaviz utilise la caméra pour scanner le code-barres d'un produit et retrouver ses informations nutritionnelles sur Open Food Facts.";

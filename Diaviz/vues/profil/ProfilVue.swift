@@ -35,6 +35,11 @@ struct ProfilVue: View {
     /// et fermer quand même.
     @State private var afficherAlerteIncomplet: Bool = false
 
+    /// Drapeau de revisite volontaire de l'onboarding — indépendant du
+    /// `fullScreenCover` de premier lancement dans `AppTabVues` (celui-là
+    /// se déclenche sur profil invalide, celui-ci sur demande explicite).
+    @State private var afficherOnboarding: Bool = false
+
     var body: some View {
         Form {
             SectionPhotoProfil()
@@ -88,6 +93,14 @@ struct ProfilVue: View {
                     resume: "Ce que dit la littérature scientifique"
                 ) { EncyclopedieVue() }
             }
+
+            Section {
+                Button {
+                    afficherOnboarding = true
+                } label: {
+                    Label("Revoir la configuration initiale", systemImage: "arrow.counterclockwise")
+                }
+            }
         }
         .formStyle(.grouped)
         .scrollDismissesKeyboard(.immediately)
@@ -110,6 +123,10 @@ struct ProfilVue: View {
             Certains champs requis ne sont pas renseignés. Vous \
             pouvez les compléter maintenant ou plus tard.
             """)
+        }
+        .fullScreenCover(isPresented: $afficherOnboarding) {
+            OnboardingVue()
+                .environment(service)
         }
     }
 

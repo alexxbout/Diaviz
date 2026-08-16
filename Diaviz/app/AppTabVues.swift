@@ -76,6 +76,13 @@ struct AppTabVues: View {
     /// via binding qui déclenche la push via `navigationDestination(item:)`.
     @State private var jourDetailScore: Date?
 
+    /// Gate d'onboarding au premier lancement — vrai tant que le profil
+    /// n'est pas valide (prénom + ratio de base renseignés). Calculée une
+    /// fois à la création de la vue ; une revisite volontaire depuis le
+    /// profil passe par son propre `fullScreenCover` local dans
+    /// `ProfilVue`, indépendant de celui-ci.
+    @State private var afficherOnboarding = !ProfilService.shared.profil.estValide
+
     var body: some View {
         TabView(selection: $ongletActif) {
             Tab("Accueil", systemImage: "house", value: "accueil") {
@@ -115,6 +122,17 @@ struct AppTabVues: View {
         .environment(analyseCorrectionsService)
         .environment(analyseRatioService)
         .environment(glucidesHebdoService)
+        .fullScreenCover(isPresented: $afficherOnboarding) {
+            // Réinjection explicite : `afficherOnboarding` démarre à `true`
+            // quand le profil est invalide, donc cette cover peut s'ouvrir
+            // dès le tout premier rendu — avant que l'héritage normal de
+            // `.environment(profilService)` ci-dessus soit garanti pour ce
+            // premier affichage. Sans ça, `EtapeIdentiteOnboarding` etc.
+            // plantent au lancement (« No Observable object of type
+            // ProfilService found »).
+            OnboardingVue()
+                .environment(profilService)
+        }
         .task {
             repasService.demarrer(contexte: modelContext)
             analyseRatioService.recalculer(depuis: repasService.repas)
