@@ -5,6 +5,7 @@
 
 import Foundation
 import FoundationModels
+import SwiftData
 
 /// Référentiel des contextes de repas normalisés — un « voiture », un
 /// « stress boulot »… vers lesquels convergent différentes formulations
@@ -18,32 +19,25 @@ import FoundationModels
 ///   — réutilise `suggestions` en premier (fast path, pas de LLM si déjà
 ///   connu), sinon appelle Foundation Models via `ContexteNormaliseGenerator`.
 ///
-/// Persisté en JSON dans UserDefaults, pas dans le hub SwiftData : ce n'est
-/// pas un fait brut horodaté mais un référentiel de catégorisation, à
-/// l'échelle de quelques dizaines d'entrées pour un usage personnel — même
-/// classe de stockage que `AlimentsRecentsService` (snapshots JSON). Limite
-/// connue : contrairement au hub, ce référentiel n'est PAS sauvegardé par
-/// CloudKit — en cas de perte (réinstall, nouvel iPhone), les
-/// `Repas.contexteNormalise` déjà résolus restent affichés tels quels
-/// (persistés côté hub), seule la convergence future de nouvelles
-/// formulations vers les entrées existantes est perdue (un nouveau doublon
-/// serait recréé) — dégradation gracieuse, pas de perte de donnée visible.
+/// Persisté dans le hub SwiftData (`ContexteNormaliseEnregistre`), donc
+/// synchronisé par CloudKit. Ce n'est pas un fait brut horodaté mais un
+/// référentiel de catégorisation, à l'échelle de quelques dizaines d'entrées
+/// pour un usage personnel — il vit néanmoins dans le hub pour survivre à une
+/// réinstallation : le perdre ferait recréer des doublons pour des
+/// formulations déjà rattachées, et l'utilisateur n'a aucun moyen de le
+/// reconstruire à la main.
 @MainActor
 @Observable
 final class ReferentielContextesService {
     static let shared = ReferentielContextesService()
 
-    private let cleStockage = "referentielContextesNormalises"
     private let limiteVariantesParEntree = 20
 
     private(set) var entrees: [ContexteNormalise] = []
 
-    private init() {
-        if let data = UserDefaults.standard.data(forKey: cleStockage),
-           let decodees = try? JSONDecoder().decode([ContexteNormalise].self, from: data) {
-            entrees = decodees
-        }
-    }
+    private var contexte: ModelContext?
+
+    private init() {}
 
     // MARK: - Matching local (temps réel, aucun appel LLM)
 
@@ -122,8 +116,71 @@ final class ReferentielContextesService {
         persister()
     }
 
+    // MARK: - Persistance
+
+    /// Branche le service sur le hub et charge le référentiel. Idempotent.
+    func demarrer(contexte: ModelContext) {
+        guard self.contexte == nil else { return }
+        self.contexte = contexte
+        recharger()
+    }
+
+    /// Recharge depuis le store — appelé après un import CloudKit, pour
+    /// récupérer les entrées créées sur un autre appareil.
+    func recharger() {
+        guard let contexte else { return }
+        let lignes = (try? contexte.fetch(
+            FetchDescriptor<ContexteNormaliseEnregistre>(sortBy: [SortDescriptor(\.rang)])
+        )) ?? []
+        entrees = lignes.map {
+            ContexteNormalise(
+                id: $0.identifiant,
+                libelle: $0.libelle,
+                emoji: $0.emoji,
+                variantes: $0.variantes
+            )
+        }
+    }
+
+    /// Réécrit les lignes à l'image de `entrees`, en réutilisant celles qui
+    /// existent déjà (identité stable, donc pas de churn côté CloudKit).
     private func persister() {
-        guard let data = try? JSONEncoder().encode(entrees) else { return }
-        UserDefaults.standard.set(data, forKey: cleStockage)
+        guard let contexte else { return }
+
+        var parId: [UUID: ContexteNormaliseEnregistre] = [:]
+        let existantes = (try? contexte.fetch(FetchDescriptor<ContexteNormaliseEnregistre>())) ?? []
+        for ligne in existantes {
+            if parId[ligne.identifiant] == nil {
+                parId[ligne.identifiant] = ligne
+            } else {
+                // Doublon né d'une fusion CloudKit : une seule ligne par id.
+                contexte.delete(ligne)
+            }
+        }
+
+        for (rang, entree) in entrees.enumerated() {
+            if let ligne = parId.removeValue(forKey: entree.id) {
+                ligne.libelle = entree.libelle
+                ligne.emoji = entree.emoji
+                ligne.variantes = entree.variantes
+                ligne.rang = rang
+            } else {
+                contexte.insert(ContexteNormaliseEnregistre(
+                    identifiant: entree.id,
+                    libelle: entree.libelle,
+                    emoji: entree.emoji,
+                    variantes: entree.variantes,
+                    rang: rang
+                ))
+            }
+        }
+
+        // Suppression objet par objet (jamais en batch) pour que CloudKit
+        // exporte réellement le retrait.
+        for ligne in parId.values {
+            contexte.delete(ligne)
+        }
+
+        try? contexte.save()
     }
 }

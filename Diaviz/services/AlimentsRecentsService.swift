@@ -6,34 +6,29 @@
 //
 
 import Foundation
+import SwiftData
 
 /// Historique MRU des aliments utilisés, toutes sources confondues (CIQUAL et
-/// Open Food Facts), persisté dans UserDefaults.
+/// Open Food Facts).
 ///
 /// Clés composites `"ciqual:123"` / `"off:3017620422003"` (voir
 /// `ResultatRechercheAliment.id`). Les aliments CIQUAL sont résolus à la volée
 /// depuis la base locale ; les produits OFF n'ont pas de base locale, donc un
 /// **snapshot JSON** du produit est conservé au moment de l'utilisation.
 ///
-/// Migration douce : l'ancien stockage (`"alimentsRecents"`, `[Int]` CIQUAL)
-/// est converti vers le format composite au premier lancement, sans être
-/// supprimé (rollback possible vers une version antérieure de l'app).
+/// Persisté dans le hub SwiftData (`AlimentRecentEnregistre`), donc
+/// synchronisé par CloudKit : les habitudes de saisie (dernière quantité,
+/// taille de portion, mode) survivent à une réinstallation. Elles
+/// représentent beaucoup d'usage accumulé — les perdre obligerait à re-régler
+/// chaque aliment.
+///
+/// L'état est tenu en mémoire pour la lecture (`position` est appelé pendant
+/// le classement des résultats de recherche) et le store n'est écrit qu'aux
+/// mutations.
 @Observable
 final class AlimentsRecentsService {
     static let shared = AlimentsRecentsService()
 
-    /// Ancien stockage V1 — `[Int]` d'ids CIQUAL. Lu pour migration uniquement.
-    private let cleStockageV1 = "alimentsRecents"
-    /// Stockage courant — `[String]` de clés composites, ordre MRU.
-    private let cleStockageV2 = "alimentsRecentsV2"
-    /// Snapshots des produits OFF récents — `[code: JSON(AlimentOFF)]`.
-    private let cleSnapshotsOFF = "alimentsRecentsSnapshotsOFF"
-    /// Dernière quantité saisie par aliment — `[cléComposite: grammes]`.
-    private let cleQuantites = "alimentsRecentsQuantites"
-    /// Taille d'une portion définie par l'utilisateur — `[cléComposite: grammes]`.
-    private let cleTaillesPortion = "alimentsRecentsTaillesPortion"
-    /// Dernier mode de saisie utilisé — `[cléComposite: "grammes"|"portions"]`.
-    private let cleModesQuantite = "alimentsRecentsModesQuantite"
     private let limiteRecents = 50
 
     /// Clés composites des aliments récents, du plus récent au plus ancien.
@@ -56,8 +51,41 @@ final class AlimentsRecentsService {
     /// aliment — repropose le même mode la prochaine fois.
     private var modesQuantite: [String: ModeQuantiteAliment] = [:]
 
-    private init() {
-        charger()
+    private var contexte: ModelContext?
+
+    private init() {}
+
+    /// Branche le service sur le hub et charge l'état. Idempotent.
+    func demarrer(contexte: ModelContext) {
+        guard self.contexte == nil else { return }
+        self.contexte = contexte
+        recharger()
+    }
+
+    /// Recharge depuis le store — appelé après un import CloudKit.
+    func recharger() {
+        guard let contexte else { return }
+        let lignes = (try? contexte.fetch(
+            FetchDescriptor<AlimentRecentEnregistre>(sortBy: [SortDescriptor(\.rang)])
+        )) ?? []
+
+        clesRecentes = lignes.map(\.cle)
+        snapshotsOFF = [:]
+        quantites = [:]
+        taillesPortion = [:]
+        modesQuantite = [:]
+
+        for ligne in lignes {
+            if let data = ligne.snapshot,
+               let produit = try? JSONDecoder().decode(AlimentOFF.self, from: data) {
+                snapshotsOFF[produit.code] = produit
+            }
+            if let quantite = ligne.quantite { quantites[ligne.cle] = quantite }
+            if let taille = ligne.taillePortion { taillesPortion[ligne.cle] = taille }
+            if let mode = ligne.modeQuantite.flatMap(ModeQuantiteAliment.init(rawValue:)) {
+                modesQuantite[ligne.cle] = mode
+            }
+        }
     }
 
     // MARK: - API
@@ -142,12 +170,13 @@ final class AlimentsRecentsService {
         quantites = [:]
         taillesPortion = [:]
         modesQuantite = [:]
-        UserDefaults.standard.removeObject(forKey: cleStockageV2)
-        UserDefaults.standard.removeObject(forKey: cleSnapshotsOFF)
-        UserDefaults.standard.removeObject(forKey: cleQuantites)
-        UserDefaults.standard.removeObject(forKey: cleTaillesPortion)
-        UserDefaults.standard.removeObject(forKey: cleModesQuantite)
-        UserDefaults.standard.removeObject(forKey: cleStockageV1)
+        guard let contexte else { return }
+        // Objet par objet : un `delete(model:)` ne serait pas exporté vers
+        // CloudKit et les récents reviendraient à la synchronisation suivante.
+        for ligne in lignesExistantes() {
+            contexte.delete(ligne)
+        }
+        try? contexte.save()
     }
 
     // MARK: - Résolution
@@ -188,44 +217,71 @@ final class AlimentsRecentsService {
 
     // MARK: - Persistance
 
-    private func charger() {
-        let defaults = UserDefaults.standard
-
-        if let v2 = defaults.array(forKey: cleStockageV2) as? [String] {
-            clesRecentes = v2
-        } else if let v1 = defaults.array(forKey: cleStockageV1) as? [Int] {
-            // Migration V1 → V2 : les anciens récents étaient tous CIQUAL.
-            // L'ancienne clé est conservée telle quelle (rollback possible).
-            clesRecentes = v1.map { "ciqual:\($0)" }
-            defaults.set(clesRecentes, forKey: cleStockageV2)
-        }
-
-        if let data = defaults.data(forKey: cleSnapshotsOFF),
-           let snapshots = try? JSONDecoder().decode([String: AlimentOFF].self, from: data) {
-            snapshotsOFF = snapshots
-        }
-
-        if let stockees = defaults.dictionary(forKey: cleQuantites) as? [String: Double] {
-            quantites = stockees
-        }
-
-        if let stockees = defaults.dictionary(forKey: cleTaillesPortion) as? [String: Double] {
-            taillesPortion = stockees
-        }
-
-        if let stockes = defaults.dictionary(forKey: cleModesQuantite) as? [String: String] {
-            modesQuantite = stockes.compactMapValues(ModeQuantiteAliment.init(rawValue:))
-        }
+    private func lignesExistantes() -> [AlimentRecentEnregistre] {
+        guard let contexte else { return [] }
+        return (try? contexte.fetch(FetchDescriptor<AlimentRecentEnregistre>())) ?? []
     }
 
+    /// Réécrit les lignes pour refléter l'état mémoire : met à jour celles
+    /// qui subsistent (en conservant leur identité, donc sans churn côté
+    /// CloudKit), crée les nouvelles, supprime celles sorties de la liste.
     private func sauvegarder() {
-        let defaults = UserDefaults.standard
-        defaults.set(clesRecentes, forKey: cleStockageV2)
-        if let data = try? JSONEncoder().encode(snapshotsOFF) {
-            defaults.set(data, forKey: cleSnapshotsOFF)
+        guard let contexte else { return }
+
+        var parCle: [String: AlimentRecentEnregistre] = [:]
+        for ligne in lignesExistantes() {
+            // Doublon éventuel (deux appareils ayant inséré la même clé
+            // avant fusion) : on garde la première et on supprime le reste.
+            if parCle[ligne.cle] == nil {
+                parCle[ligne.cle] = ligne
+            } else {
+                contexte.delete(ligne)
+            }
         }
-        defaults.set(quantites, forKey: cleQuantites)
-        defaults.set(taillesPortion, forKey: cleTaillesPortion)
-        defaults.set(modesQuantite.mapValues(\.rawValue), forKey: cleModesQuantite)
+
+        // Les clés à conserver : la liste MRU, plus celles portant une taille
+        // de portion. Une taille définie est une décision durable de
+        // l'utilisateur (« un bol = 250 g ») : elle doit survivre à la sortie
+        // de l'aliment de la liste des récents, sinon elle serait à
+        // redéfinir. Ces clés hors MRU sont rangées après, sans quantité ni
+        // snapshot (état de saisie, lui, périmé).
+        let clesHorsMRU = taillesPortion.keys.filter { !clesRecentes.contains($0) }
+        let aPersister = clesRecentes + clesHorsMRU
+
+        for (rang, cle) in aPersister.enumerated() {
+            let dansMRU = rang < clesRecentes.count
+            let snapshot = dansMRU ? snapshotOFFEncode(pour: cle) : nil
+            if let ligne = parCle.removeValue(forKey: cle) {
+                ligne.rang = rang
+                ligne.quantite = dansMRU ? quantites[cle] : nil
+                ligne.taillePortion = taillesPortion[cle]
+                ligne.modeQuantite = modesQuantite[cle]?.rawValue
+                ligne.snapshot = snapshot
+            } else {
+                contexte.insert(AlimentRecentEnregistre(
+                    cle: cle,
+                    rang: rang,
+                    quantite: dansMRU ? quantites[cle] : nil,
+                    taillePortion: taillesPortion[cle],
+                    modeQuantite: modesQuantite[cle]?.rawValue,
+                    snapshot: snapshot
+                ))
+            }
+        }
+
+        // Ce qui reste ne sert plus à rien : ni récent, ni porteur d'une
+        // taille de portion.
+        for ligne in parCle.values {
+            contexte.delete(ligne)
+        }
+
+        try? contexte.save()
+    }
+
+    private func snapshotOFFEncode(pour cle: String) -> Data? {
+        guard cle.hasPrefix("off:") else { return nil }
+        let code = String(cle.dropFirst("off:".count))
+        guard let produit = snapshotsOFF[code] else { return nil }
+        return try? JSONEncoder().encode(produit)
     }
 }

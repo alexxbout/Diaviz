@@ -284,7 +284,7 @@ private func _posarProfil(
     dates: DatesChangementRatio? = nil
 ) {
     ProfilService.shared.mettreAJour {
-        $0 = ProfilUtilisateur(
+        $0.appliquer(depuis: ProfilUtilisateur(
             prenom: "Camille",
             poidsKg: 78,
             insulineRapide: .fiasp,
@@ -299,7 +299,7 @@ private func _posarProfil(
             horairesRepas: HorairesRepas.defaut(),
             seuilsGlycemiques: SeuilsGlycemiques(),
             preferencesAvancees: PreferencesAvancees()
-        )
+        ))
         $0.datesChangementRatio = dates
     }
 }
@@ -408,14 +408,14 @@ private func carteApercu(_ service: AnalyseRatioService) -> some View {
 
 #Preview("Un seul moment configuré") {
     ProfilService.shared.mettreAJour {
-        $0 = ProfilUtilisateur(
+        $0.appliquer(depuis: ProfilUtilisateur(
             prenom: "Camille", poidsKg: 78,
             insulineRapide: .fiasp, insulineLente: .tresiba,
             dureeActionInsulineHeures: 3.5, modeRatio: .parMoment, ratioUnique: nil,
             ratiosParMoment: RatiosParMoment(dejeuner: 12),
             ratioCorrection: 35, horairesRepas: HorairesRepas.defaut(),
             seuilsGlycemiques: SeuilsGlycemiques(), preferencesAvancees: PreferencesAvancees()
-        )
+        ))
     }
     return carteApercu(_serviceCible([(.dejeuner, 20, 27)]))
 }
@@ -435,7 +435,7 @@ private func carteApercu(_ service: AnalyseRatioService) -> some View {
 }
 
 #Preview("Aucun ratio configuré (placeholder)") {
-    ProfilService.shared.mettreAJour { $0 = ProfilUtilisateur.parDefaut() }
+    ProfilService.shared.mettreAJour { $0.appliquer(depuis: .parDefaut()) }
     return CarteAnalyseRatio(onTap: {}, onOuvrirProfil: {})
         .padding()
         .background(Color(.systemGroupedBackground))

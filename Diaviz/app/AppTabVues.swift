@@ -5,6 +5,8 @@
 //  Created by Alexandre on 19/04/2026.
 //
 
+import CoreData
+import HealthKit
 import SwiftData
 import SwiftUI
 
@@ -76,12 +78,28 @@ struct AppTabVues: View {
     /// via binding qui déclenche la push via `navigationDestination(item:)`.
     @State private var jourDetailScore: Date?
 
-    /// Gate d'onboarding au premier lancement — vrai tant que le profil
-    /// n'est pas valide (prénom + ratio de base renseignés). Calculée une
-    /// fois à la création de la vue ; une revisite volontaire depuis le
-    /// profil passe par son propre `fullScreenCover` local dans
-    /// `ProfilVue`, indépendant de celui-ci.
-    @State private var afficherOnboarding = !ProfilService.shared.profil.estValide
+    /// États possibles de la séquence de démarrage, résolus une fois dans
+    /// `.task` (impossible de la résoudre plus tôt : ni le `ModelContext`
+    /// ni la détection CloudKit ne sont disponibles à l'initialisation de
+    /// la vue). Une revisite volontaire de l'onboarding depuis le profil
+    /// passe par son propre `fullScreenCover` local dans `ProfilVue`,
+    /// indépendant de celui-ci.
+    private enum EtatDemarrage {
+        /// En cours de résolution — rien à afficher par-dessus le `TabView`
+        /// (l'app est de toute façon vide/normale à ce stade).
+        case verification
+        /// Aucune donnée trouvée (ni locale, ni sur iCloud après attente) :
+        /// onboarding classique.
+        case onboarding
+        /// Données trouvées (hub non vide ou profil valide) mais alors que
+        /// le profil courant n'était pas encore configuré sur cet appareil
+        /// — propose de les récupérer ou de repartir de zéro.
+        case choixRestauration
+        /// Rien à afficher, l'app se lance normalement.
+        case pret
+    }
+
+    @State private var etatDemarrage: EtatDemarrage = .verification
 
     var body: some View {
         TabView(selection: $ongletActif) {
@@ -122,18 +140,47 @@ struct AppTabVues: View {
         .environment(analyseCorrectionsService)
         .environment(analyseRatioService)
         .environment(glucidesHebdoService)
-        .fullScreenCover(isPresented: $afficherOnboarding) {
-            // Réinjection explicite : `afficherOnboarding` démarre à `true`
-            // quand le profil est invalide, donc cette cover peut s'ouvrir
-            // dès le tout premier rendu — avant que l'héritage normal de
+        .fullScreenCover(isPresented: Binding(
+            get: { etatDemarrage == .onboarding || etatDemarrage == .choixRestauration },
+            set: { presente in
+                guard !presente else { return }
+                // L'utilisateur vient de terminer l'onboarding : la question
+                // du premier lancement est close. Sans ça, l'app ayant entre
+                // temps exporté vers iCloud, la zone existerait au prochain
+                // démarrage et l'écran de restauration lui serait reproposé
+                // alors qu'il vient tout juste de se configurer.
+                marquerDemarrageResolu()
+                etatDemarrage = .pret
+            }
+        )) {
+            // Réinjection explicite : cette cover peut s'ouvrir dès le tout
+            // premier rendu — avant que l'héritage normal de
             // `.environment(profilService)` ci-dessus soit garanti pour ce
             // premier affichage. Sans ça, `EtapeIdentiteOnboarding` etc.
             // plantent au lancement (« No Observable object of type
             // ProfilService found »).
-            OnboardingVue()
-                .environment(profilService)
+            Group {
+                switch etatDemarrage {
+                case .choixRestauration:
+                    ChoixRestaurationICloudVue(
+                        onRecuperer: {
+                            marquerDemarrageResolu()
+                            etatDemarrage = .pret
+                        },
+                        onRepartirDeZero: {
+                            marquerDemarrageResolu()
+                            etatDemarrage = .onboarding
+                        }
+                    )
+                default:
+                    OnboardingVue()
+                }
+            }
+            .environment(profilService)
         }
         .task {
+            await resoudreEtatDemarrage()
+            demarrerServicesPreferences()
             repasService.demarrer(contexte: modelContext)
             analyseRatioService.recalculer(depuis: repasService.repas)
             glucidesHebdoService.recalculer(depuis: repasService.repas)
@@ -143,6 +190,18 @@ struct AppTabVues: View {
             async let endo: Void = analyseEndormissementService.demarrer(contexte: modelContext, basale: analyseBasaleService)
             async let corr: Void = analyseCorrectionsService.demarrer(contexte: modelContext, basale: analyseBasaleService)
             _ = await (endo, corr)
+            // `HealthKitCGMService` et `HealthKitImportService` demandent
+            // chacun leur propre type (glycémies / workouts) via leur
+            // propre `HKHealthStore` — sans ce préflight groupé, chaque
+            // `demanderAcces()` déclenche sa propre sheet système, donc
+            // deux sheets HealthKit à la suite au premier lancement. Une
+            // fois un type tranché (accordé ou refusé), HealthKit ne
+            // redemande jamais — les deux `demanderAcces()` ci-dessous
+            // retombent donc à un no-op silencieux après ce préflight.
+            _ = try? await HKHealthStore().requestAuthorization(
+                toShare: [],
+                read: [HKQuantityType(.bloodGlucose), HKObjectType.workoutType()]
+            )
             await healthKit.demanderAcces()
             await healthKit.synchroniser(container: modelContext.container)
             healthKit.demarrerSurveillance(container: modelContext.container)
@@ -157,6 +216,129 @@ struct AppTabVues: View {
             analyseRatioService.recalculer(depuis: repasService.repas)
             glucidesHebdoService.recalculer(depuis: repasService.repas)
         }
+        // `.task` séparé : tourne pour toute la durée de vie de l'app (vue
+        // racine), indépendamment de la séquence de démarrage ci-dessus.
+        // Suit l'activité CloudKit (affichée dans la page Données) et
+        // rattrape à chaque réception les données arrivées d'un autre
+        // appareil, que les services tiennent en mémoire.
+        .task {
+            await SyncICloudService.shared.observer {
+                profilService.rafraichirDepuisCloudKit()
+                rechargerServicesPreferences()
+            }
+        }
+    }
+
+    /// Vrai une fois que la détection iCloud a déjà tranché une fois sur cet
+    /// appareil (accès direct à l'app, onboarding terminé, ou choix
+    /// restauration/repartir de zéro fait). Sans ce flag, la détection (avec
+    /// son attente CloudKit) se rejouerait à **chaque** lancement tant que le
+    /// profil reste incomplet — recommandation Apple DTS explicite (cf. plan)
+    /// pour éviter exactement ce problème.
+    private static let cleDemarrageResolu = "demarragePremierLancementResolu"
+
+    // MARK: - Séquence de démarrage (onboarding vs restauration iCloud)
+
+    /// Décide de l'état de démarrage. Fait la détection AVANT d'appeler
+    /// `profilService.demarrer(contexte:)` : sur un compte iCloud avec des
+    /// données pas encore importées, démarrer le service tout de suite
+    /// créerait une ligne profil locale vide, qui coexisterait ensuite avec
+    /// la ligne distante une fois importée — exactement le cas « plusieurs
+    /// lignes » que `ProfilService.demarrer` sait gérer, mais qu'il vaut
+    /// mieux éviter de provoquer inutilement à chaque lancement.
+    private func resoudreEtatDemarrage() async {
+        profilService.demarrer(contexte: modelContext)
+
+        // Question déjà tranchée sur cet appareil : l'app démarre
+        // normalement, l'écran de restauration ne revient jamais.
+        if UserDefaults.standard.bool(forKey: Self.cleDemarrageResolu) {
+            etatDemarrage = profilService.profil.estValide ? .pret : .onboarding
+            return
+        }
+
+        // Des données sont déjà là (relance rapide après une installation
+        // dont la synchronisation avait commencé) : la question se pose.
+        if detecterDonneesExistantes(modelContext) {
+            etatDemarrage = .choixRestauration
+            return
+        }
+
+        // Sinon, demander directement au serveur. On n'attend surtout pas un
+        // événement d'import : le premier arrive souvent vide, à la mise en
+        // place du store, et conclure dessus faisait manquer des données qui
+        // arrivaient une poignée de secondes plus tard.
+        switch await SyncICloudService.interrogerDonneesICloud() {
+        case .presentes:
+            // Pas de `marquerDemarrageResolu()` ici : la décision appartient
+            // encore à l'utilisateur. Le poser maintenant ferait disparaître
+            // l'écran pour de bon si l'app était tuée avant qu'il ait choisi
+            // — ce sont les callbacks de `ChoixRestaurationICloudVue`, et la
+            // fermeture de l'onboarding, qui le posent une fois tranché.
+            etatDemarrage = .choixRestauration
+
+        case .vide:
+            etatDemarrage = .onboarding
+            marquerDemarrageResolu()
+
+        case .indetermine:
+            // Compte iCloud injoignable : on laisse l'utilisateur avancer,
+            // mais sans marquer la question résolue. Conclure « vide » ici
+            // condamnerait définitivement des données bien réelles, juste
+            // parce que le réseau manquait au mauvais moment.
+            etatDemarrage = .onboarding
+        }
+    }
+
+    /// Mémorise que la question du premier lancement a été tranchée sur cet
+    /// appareil — évite de rejouer la détection (et son attente CloudKit) à
+    /// chaque lancement suivant.
+    private func marquerDemarrageResolu() {
+        UserDefaults.standard.set(true, forKey: Self.cleDemarrageResolu)
+    }
+
+    /// Branche les services de préférences (renommages, masquages, aliments
+    /// récents, contextes) sur le hub. Ils y sont persistés — et donc
+    /// synchronisés par CloudKit — depuis leur sortie de `UserDefaults`, qui
+    /// les perdait à chaque désinstallation.
+    private func demarrerServicesPreferences() {
+        NomsPersonnalisesService.shared.demarrer(contexte: modelContext)
+        AlimentsCachesService.shared.demarrer(contexte: modelContext)
+        AlimentsRecentsService.shared.demarrer(contexte: modelContext)
+        RepasARevoirMasquesService.shared.demarrer(contexte: modelContext)
+        ReferentielContextesService.shared.demarrer(contexte: modelContext)
+    }
+
+    /// Recharge les préférences après un import CloudKit — sans ça, celles
+    /// arrivées d'un autre appareil (ou d'une restauration) resteraient
+    /// invisibles jusqu'au prochain lancement, puisque chaque service tient
+    /// son état en mémoire pour la lecture.
+    private func rechargerServicesPreferences() {
+        NomsPersonnalisesService.shared.recharger()
+        AlimentsCachesService.shared.recharger()
+        AlimentsRecentsService.shared.recharger()
+        RepasARevoirMasquesService.shared.recharger()
+        ReferentielContextesService.shared.recharger()
+    }
+
+    /// Vrai si le hub contient déjà au moins une donnée, ou si un profil
+    /// valide existe — dans les deux cas, l'app n'est pas dans l'état
+    /// « premier lancement, aucune donnée nulle part ».
+    private func detecterDonneesExistantes(_ contexte: ModelContext) -> Bool {
+        let profils = (try? contexte.fetch(FetchDescriptor<ProfilUtilisateur>())) ?? []
+        if profils.contains(where: { $0.estValide }) { return true }
+
+        let comptes: [Int] = [
+            (try? contexte.fetchCount(FetchDescriptor<GlucoseReading>())) ?? 0,
+            (try? contexte.fetchCount(FetchDescriptor<Injection>())) ?? 0,
+            (try? contexte.fetchCount(FetchDescriptor<Repas>())) ?? 0,
+            (try? contexte.fetchCount(FetchDescriptor<Aliment>())) ?? 0,
+            (try? contexte.fetchCount(FetchDescriptor<ActiviteSportive>())) ?? 0,
+            (try? contexte.fetchCount(FetchDescriptor<EtatDeclare>())) ?? 0,
+            (try? contexte.fetchCount(FetchDescriptor<Medicament>())) ?? 0,
+            (try? contexte.fetchCount(FetchDescriptor<PeriodePause>())) ?? 0,
+            (try? contexte.fetchCount(FetchDescriptor<Resucrage>())) ?? 0,
+        ]
+        return comptes.contains { $0 > 0 }
     }
 
 }
@@ -180,7 +362,7 @@ extension AppTabVues {
         let container = try! ModelContainer(
             for: GlucoseReading.self, Injection.self, Repas.self, Aliment.self,
                  ActiviteSportive.self, EtatDeclare.self, Medicament.self, PeriodePause.self,
-                 Resucrage.self,
+                 Resucrage.self, ProfilUtilisateur.self,
             configurations: config
         )
         let contexte = container.mainContext
@@ -188,18 +370,12 @@ extension AppTabVues {
         for repas in RepasService.echantillonsApercu() + RepasService.echantillonsApercuR1() { contexte.insert(repas) }
         for injection in InjectionsService.echantillonsApercu() { contexte.insert(injection) }
         for activite in ActivitesSportService.echantillonsApercu() { contexte.insert(activite) }
-        try? contexte.save()
-        return container
-    }
-}
-
-#if DEBUG
-#Preview("App complète") {
-    // `ProfilService.shared` dans le process de preview est isolé du vrai
-    // profil de l'iPhone (`UserDefaults` séparé de l'appareil réel) — sans
-    // ça les cartes de ratio, seuils, etc. resteraient vides ici.
-    ProfilService.shared.mettreAJour {
-        $0 = ProfilUtilisateur(
+        // Profil pré-rempli inséré directement dans le container plutôt que via
+        // `ProfilService.shared.mettreAJour` : `ProfilService.demarrer(contexte:)`
+        // (appelé par `AppTabVues.task`) fait un fetch-ou-création sur CE
+        // container — une mutation posée avant coup sur le singleton serait
+        // écrasée dès que `demarrer` tourne et ne trouve rien dans le container.
+        contexte.insert(ProfilUtilisateur(
             prenom: "Camille",
             poidsKg: 78,
             insulineRapide: .fiasp,
@@ -217,9 +393,15 @@ extension AppTabVues {
             horairesRepas: HorairesRepas.defaut(),
             seuilsGlycemiques: SeuilsGlycemiques(),
             preferencesAvancees: PreferencesAvancees()
-        )
+        ))
+        try? contexte.save()
+        return container
     }
-    return AppTabVues()
+}
+
+#if DEBUG
+#Preview("App complète") {
+    AppTabVues()
         .modelContainer(AppTabVues.conteneurApercuComplet)
 }
 #endif

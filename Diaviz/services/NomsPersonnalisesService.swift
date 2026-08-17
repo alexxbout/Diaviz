@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import SwiftData
 
 /// Personnalisation utilisateur des aliments CIQUAL — nom et emoji — avec
 /// restauration possible de la valeur d'origine. Le référentiel CIQUAL
@@ -21,12 +22,14 @@ import Foundation
 /// les repas déjà enregistrés ont leur nom figé dans le modèle SwiftData
 /// `Aliment` au moment de l'ajout, une personnalisation ultérieure ne les
 /// modifie pas.
+///
+/// Persisté dans le hub SwiftData (`PreferenceAlimentCiqual`), donc
+/// synchronisé par CloudKit — un renommage survit à une réinstallation.
+/// L'état reste tenu en mémoire pour la lecture (appelée sur chaque ligne de
+/// résultat de recherche), le store n'étant touché qu'à l'écriture.
 @Observable
 final class NomsPersonnalisesService {
     static let shared = NomsPersonnalisesService()
-
-    private let cleStockageNoms = "nomsPersonnalisesCiqual"
-    private let cleStockageEmojis = "emojisPersonnalisesCiqual"
 
     /// Noms personnalisés, indexés par id CIQUAL.
     private(set) var noms: [Int: String] = [:]
@@ -34,8 +37,29 @@ final class NomsPersonnalisesService {
     /// Emojis personnalisés, indexés par id CIQUAL.
     private(set) var emojis: [Int: String] = [:]
 
-    private init() {
-        charger()
+    private var contexte: ModelContext?
+
+    private init() {}
+
+    /// Branche le service sur le hub et charge l'état. Idempotent.
+    func demarrer(contexte: ModelContext) {
+        guard self.contexte == nil else { return }
+        self.contexte = contexte
+        recharger()
+    }
+
+    /// Recharge depuis le store — appelé après un import CloudKit, pour que
+    /// des personnalisations arrivées d'un autre appareil soient prises en
+    /// compte sans redémarrage.
+    func recharger() {
+        guard let contexte else { return }
+        let lignes = (try? contexte.fetch(FetchDescriptor<PreferenceAlimentCiqual>())) ?? []
+        noms = [:]
+        emojis = [:]
+        for ligne in lignes {
+            if let nom = ligne.nomPersonnalise { noms[ligne.idCiqual] = nom }
+            if let emoji = ligne.emojiPersonnalise { emojis[ligne.idCiqual] = emoji }
+        }
     }
 
     // MARK: - Nom
@@ -44,12 +68,12 @@ final class NomsPersonnalisesService {
         let nom = nom.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !nom.isEmpty else { return }
         noms[id] = nom
-        sauvegarder()
+        PreferencesAlimentsStockage.modifier(id, contexte: contexte) { $0.nomPersonnalise = nom }
     }
 
     func restaurerNom(_ id: Int) {
         noms.removeValue(forKey: id)
-        sauvegarder()
+        PreferencesAlimentsStockage.modifier(id, contexte: contexte) { $0.nomPersonnalise = nil }
     }
 
     func nomPersonnalise(pour id: Int) -> String? {
@@ -68,12 +92,12 @@ final class NomsPersonnalisesService {
         let emoji = emoji.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !emoji.isEmpty else { return }
         emojis[id] = emoji
-        sauvegarder()
+        PreferencesAlimentsStockage.modifier(id, contexte: contexte) { $0.emojiPersonnalise = emoji }
     }
 
     func restaurerEmoji(_ id: Int) {
         emojis.removeValue(forKey: id)
-        sauvegarder()
+        PreferencesAlimentsStockage.modifier(id, contexte: contexte) { $0.emojiPersonnalise = nil }
     }
 
     func emojiPersonnalise(pour id: Int) -> String? {
@@ -122,26 +146,48 @@ final class NomsPersonnalisesService {
     func idCiqual(pourNomOrigine nom: String) -> Int? {
         idsParNomOrigine[nom]
     }
+}
 
-    // MARK: - Persistance
+// MARK: - Stockage partagé des préférences par aliment CIQUAL
 
-    private func charger() {
-        if let stockes = UserDefaults.standard.dictionary(forKey: cleStockageNoms) as? [String: String] {
-            noms = Dictionary(uniqueKeysWithValues: stockes.compactMap { cle, valeur in
-                Int(cle).map { ($0, valeur) }
-            })
+/// Accès à `PreferenceAlimentCiqual`, partagé entre
+/// `NomsPersonnalisesService` et `AlimentsCachesService` : les deux écrivent
+/// des champs différents de la **même** ligne, une par aliment.
+enum PreferencesAlimentsStockage {
+
+    /// Modifie (ou crée) la ligne d'un aliment, puis la supprime si elle ne
+    /// porte plus aucun réglage — inutile de faire voyager sur iCloud des
+    /// lignes neutres nées d'un renommage annulé.
+    @MainActor
+    static func modifier(
+        _ idCiqual: Int,
+        contexte: ModelContext?,
+        _ modification: (PreferenceAlimentCiqual) -> Void
+    ) {
+        guard let contexte else { return }
+
+        let ligne: PreferenceAlimentCiqual
+        if let existante = chercher(idCiqual, contexte: contexte) {
+            ligne = existante
+        } else {
+            ligne = PreferenceAlimentCiqual(idCiqual: idCiqual)
+            contexte.insert(ligne)
         }
-        if let stockes = UserDefaults.standard.dictionary(forKey: cleStockageEmojis) as? [String: String] {
-            emojis = Dictionary(uniqueKeysWithValues: stockes.compactMap { cle, valeur in
-                Int(cle).map { ($0, valeur) }
-            })
+
+        modification(ligne)
+
+        if ligne.estVide {
+            contexte.delete(ligne)
         }
+        try? contexte.save()
     }
 
-    private func sauvegarder() {
-        let nomsStockes = Dictionary(uniqueKeysWithValues: noms.map { (String($0.key), $0.value) })
-        UserDefaults.standard.set(nomsStockes, forKey: cleStockageNoms)
-        let emojisStockes = Dictionary(uniqueKeysWithValues: emojis.map { (String($0.key), $0.value) })
-        UserDefaults.standard.set(emojisStockes, forKey: cleStockageEmojis)
+    @MainActor
+    static func chercher(_ idCiqual: Int, contexte: ModelContext) -> PreferenceAlimentCiqual? {
+        var descripteur = FetchDescriptor<PreferenceAlimentCiqual>(
+            predicate: #Predicate { $0.idCiqual == idCiqual }
+        )
+        descripteur.fetchLimit = 1
+        return (try? contexte.fetch(descripteur))?.first
     }
 }

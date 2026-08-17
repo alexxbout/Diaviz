@@ -6,33 +6,51 @@
 //
 
 import Foundation
+import SwiftData
 
-/// Aliments CIQUAL masqués des suggestions (recherche + récents), persisté
-/// dans UserDefaults. Uniquement CIQUAL — les produits Open Food Facts sont
-/// déjà filtrés par la recherche explicite de l'utilisateur, masquer n'a de
-/// sens que pour la base CIQUAL qui propose des correspondances automatiques.
+/// Aliments CIQUAL masqués des suggestions (recherche + récents). Uniquement
+/// CIQUAL — les produits Open Food Facts sont déjà filtrés par la recherche
+/// explicite de l'utilisateur, masquer n'a de sens que pour la base CIQUAL
+/// qui propose des correspondances automatiques.
+///
+/// Persisté dans le hub SwiftData (`PreferenceAlimentCiqual`, partagé avec
+/// `NomsPersonnalisesService`), donc synchronisé par CloudKit. L'état reste
+/// en mémoire pour la lecture : `estCache` est appelé sur chaque ligne de
+/// résultat de recherche, un fetch à chaque appel serait absurde.
 @Observable
 final class AlimentsCachesService {
     static let shared = AlimentsCachesService()
 
-    private let cleStockage = "alimentsCachesCiqual"
-
     private(set) var idsCaches: Set<Int> = []
 
-    private init() {
-        charger()
+    private var contexte: ModelContext?
+
+    private init() {}
+
+    /// Branche le service sur le hub et charge l'état. Idempotent.
+    func demarrer(contexte: ModelContext) {
+        guard self.contexte == nil else { return }
+        self.contexte = contexte
+        recharger()
+    }
+
+    /// Recharge depuis le store — appelé après un import CloudKit.
+    func recharger() {
+        guard let contexte else { return }
+        let lignes = (try? contexte.fetch(FetchDescriptor<PreferenceAlimentCiqual>())) ?? []
+        idsCaches = Set(lignes.filter(\.masque).map(\.idCiqual))
     }
 
     // MARK: - API
 
     func cacher(_ id: Int) {
         idsCaches.insert(id)
-        sauvegarder()
+        PreferencesAlimentsStockage.modifier(id, contexte: contexte) { $0.masque = true }
     }
 
     func demasquer(_ id: Int) {
         idsCaches.remove(id)
-        sauvegarder()
+        PreferencesAlimentsStockage.modifier(id, contexte: contexte) { $0.masque = false }
     }
 
     func estCache(_ id: Int) -> Bool {
@@ -44,17 +62,5 @@ final class AlimentsCachesService {
         CiqualService.shared.aliments
             .filter { idsCaches.contains($0.id) }
             .sorted { $0.nom < $1.nom }
-    }
-
-    // MARK: - Persistance
-
-    private func charger() {
-        if let ids = UserDefaults.standard.array(forKey: cleStockage) as? [Int] {
-            idsCaches = Set(ids)
-        }
-    }
-
-    private func sauvegarder() {
-        UserDefaults.standard.set(Array(idsCaches), forKey: cleStockage)
     }
 }

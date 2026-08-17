@@ -19,16 +19,20 @@ private enum EtapeOnboarding: Int, CaseIterable {
 /// (`SectionPhotoProfil`, `SectionInsuline`, `SectionRatios`,
 /// `SectionRatioCorrection`) sauf le poids, qui a sa propre saisie
 /// (voir `EtapePoidsOnboarding`). Auto-save à chaque champ via
-/// `ProfilService`, comme partout ailleurs dans l'app — la sortie
-/// (bouton « Terminer », ou fermeture prématurée) n'est jamais
-/// bloquée, seulement signalée si des champs requis manquent.
+/// `ProfilService`, comme partout ailleurs dans l'app.
+///
+/// Contrairement à la sheet `ProfilVue` (qui laisse toujours sortir),
+/// l'onboarding bloque vraiment la progression sur les étapes qui portent
+/// un champ requis : « Suivant »/« Terminer » restent désactivés et
+/// « Passer » n'est pas proposé tant que le prénom (étape identité) ou un
+/// ratio (étape ratios) manque — c'est le seul endroit où « requis » a un
+/// sens si on ne peut pas le contourner.
 struct OnboardingVue: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(ProfilService.self) private var service
 
     @State private var etape: EtapeOnboarding = .bienvenue
-    @State private var afficherAlerteIncomplet = false
 
     /// Compteur de déclenchement du retour haptique de fin de parcours —
     /// `.sensoryFeedback` a besoin d'une valeur qui change, pas d'un appel
@@ -72,19 +76,6 @@ struct OnboardingVue: View {
         // `.sensoryFeedback` déjà en place ailleurs dans l'app.
         .sensoryFeedback(.selection, trigger: etape)
         .sensoryFeedback(.success, trigger: triggerTermine)
-        .alert(
-            "Profil incomplet",
-            isPresented: $afficherAlerteIncomplet
-        ) {
-            Button("Continuer la saisie", role: .cancel) { }
-            Button("Terminer quand même") { dismiss() }
-        } message: {
-            Text("""
-            Certains champs requis ne sont pas renseignés. Vous \
-            pouvez les compléter maintenant ou plus tard, depuis \
-            le profil.
-            """)
-        }
     }
 
     // MARK: - En-tête (chevron retour + « Étape X sur 4 » + progression)
@@ -108,13 +99,13 @@ struct OnboardingVue: View {
                 // en bas il se retrouvait juste sous « Suivant », deux
                 // actions concurrentes collées. En top bar il reste
                 // accessible sans jamais entrer en compétition avec l'action
-                // principale. Rendu invisible (mais présent) sur la dernière
-                // étape, où « Terminer » couvre déjà la sortie — ça garde
+                // principale. Rendu invisible (mais présent) sur les étapes
+                // qui portent un champ requis (identité, ratios) — ça garde
                 // aussi le compteur d'étapes centré.
                 Button("Passer", action: avancer)
                     .font(.subheadline.weight(.medium))
-                    .opacity(etape == .ratios ? 0 : 1)
-                    .disabled(etape == .ratios)
+                    .opacity(etapePorteUnRequis ? 0 : 1)
+                    .disabled(etapePorteUnRequis)
             }
             // Compteur en overlay, pas dans le flux du `HStack` : le chevron
             // et « Passer » n'ont pas la même largeur, un placement entre deux
@@ -182,6 +173,7 @@ struct OnboardingVue: View {
         .buttonStyle(.borderedProminent)
         .controlSize(.large)
         .frame(maxWidth: .infinity)
+        .disabled(!peutAvancer)
         .padding(.horizontal, 20)
         .padding(.top, 8)
         .padding(.bottom, 16)
@@ -193,6 +185,29 @@ struct OnboardingVue: View {
     private var nombreEtapes: Int { EtapeOnboarding.allCases.count - 1 }
     private var peutReculer: Bool { etape.rawValue > EtapeOnboarding.identite.rawValue }
 
+    /// Vrai sur les étapes qui portent un champ vraiment requis — sert à la
+    /// fois à masquer « Passer » et, combiné à `peutAvancer`, à bloquer
+    /// « Suivant »/« Terminer » tant qu'il n'est pas rempli.
+    private var etapePorteUnRequis: Bool {
+        etape == .identite || etape == .ratios
+    }
+
+    /// Condition de progression de l'étape courante. Seules `identite`
+    /// (prénom) et `ratios` (au moins un ratio, selon le mode) ont une
+    /// vraie contrainte ; les autres étapes n'ont rien de requis.
+    private var peutAvancer: Bool {
+        switch etape {
+        case .identite:
+            !service.profil.prenom.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .ratios:
+            // Le prénom est déjà garanti à ce stade (étape identité
+            // bloquante) : `estValide` ne teste donc plus ici que le ratio.
+            service.profil.estValide
+        case .bienvenue, .poids, .insuline:
+            true
+        }
+    }
+
     private func avancer() {
         guard let suivante = EtapeOnboarding(rawValue: etape.rawValue + 1) else { return }
         etape = suivante
@@ -203,15 +218,9 @@ struct OnboardingVue: View {
         etape = precedente
     }
 
-    /// Même logique que `ProfilVue.tenterFermeture()` : on ne bloque
-    /// jamais la sortie, on prévient juste si le profil est incomplet.
     private func terminer() {
-        if service.profil.estValide {
-            triggerTermine += 1
-            dismiss()
-        } else {
-            afficherAlerteIncomplet = true
-        }
+        triggerTermine += 1
+        dismiss()
     }
 }
 

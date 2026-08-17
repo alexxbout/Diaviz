@@ -35,6 +35,11 @@ struct DiavizApp: App {
             Medicament.self,
             PeriodePause.self,
             Resucrage.self,
+            ProfilUtilisateur.self,
+            PreferenceAlimentCiqual.self,
+            AlimentRecentEnregistre.self,
+            ContexteNormaliseEnregistre.self,
+            RepasARevoirMasque.self,
         ])
         let configuration = ModelConfiguration(schema: schema, cloudKitDatabase: .automatic)
         do {
