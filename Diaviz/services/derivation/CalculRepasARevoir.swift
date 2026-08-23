@@ -127,7 +127,20 @@ nonisolated enum CalculRepasARevoir {
         guard occurrences.count >= occurrencesMinimales else { return nil }
 
         guard let courbeDerniere = courbeAffichage(dernier) else { return nil }
-        let courbesPassees = occurrences.dropLast().compactMap(courbeAffichage)
+        // Chaque occurrence passée conserve son verdict : la carte doit
+        // pouvoir distinguer un plat qui rate systématiquement d'un plat qui
+        // n'a raté qu'une fois. Sans ça, le nuage gris uniforme suggérait
+        // « ça marche d'habitude », y compris quand c'était faux.
+        let occurrencesPassees = occurrences.dropLast().compactMap { repas -> OccurrencePassee? in
+            guard let points = courbeAffichage(repas) else { return nil }
+            let horsCible: Bool
+            if case .disponible(let reponse) = repas.etatAnalyse {
+                horsCible = reponse.verdict == .mauvais
+            } else {
+                horsCible = false
+            }
+            return OccurrencePassee(points: points, horsCible: horsCible)
+        }
 
         // Événement principal calculé sur la courbe **complète** (pas
         // tronquée à 180 min comme l'affichage) : une hypo tardive ne doit
@@ -145,7 +158,7 @@ nonisolated enum CalculRepasARevoir {
         return RepasARevoir(
             aliments: dernier.aliments,
             nombreOccurrences: occurrences.count,
-            pointsOccurrencesPassees: Array(courbesPassees),
+            occurrencesPassees: occurrencesPassees,
             pointsDerniereFois: courbeDerniere,
             evenementMinutes: evenementMinutes,
             evenementValeur: evenementValeur,

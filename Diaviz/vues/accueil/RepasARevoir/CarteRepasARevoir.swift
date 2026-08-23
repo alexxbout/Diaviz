@@ -45,6 +45,7 @@ struct CarteRepasARevoir: View {
             graphe
                 .padding(.top, 6)
             pied
+            ligneRecurrence
             legendeEvenements
         }
         .padding(16)
@@ -207,17 +208,24 @@ struct CarteRepasARevoir: View {
                         .lineStyle(StrokeStyle(lineWidth: 0.5, dash: [3, 3]))
                 }
 
-                // Nuage gris : une série distincte par occurrence passée,
-                // sinon SwiftCharts les relie en une seule polyligne.
-                ForEach(Array(repas.pointsOccurrencesPassees.enumerated()), id: \.offset) { idx, courbe in
-                    ForEach(courbe) { point in
+                // Nuage des occurrences passées : une série distincte par
+                // occurrence, sinon SwiftCharts les relie en une seule
+                // polyligne. Celles hors cible sont teintées de rouge au lieu
+                // du gris commun — un gris uniforme rendait un plat raté 3
+                // fois sur 3 identique à un plat raté 1 fois sur 3.
+                ForEach(Array(repas.occurrencesPassees.enumerated()), id: \.offset) { idx, occurrence in
+                    ForEach(occurrence.points) { point in
                         LineMark(
                             x: .value("T", point.minutes),
                             y: .value("G", point.glycemie),
                             series: .value("Occurrence", "passee-\(idx)")
                         )
-                        .foregroundStyle(Color.secondary.opacity(0.22))
-                        .lineStyle(StrokeStyle(lineWidth: 1))
+                        .foregroundStyle(
+                            occurrence.horsCible
+                                ? Color.red.opacity(0.35)
+                                : Color.secondary.opacity(0.22)
+                        )
+                        .lineStyle(StrokeStyle(lineWidth: occurrence.horsCible ? 1.5 : 1))
                         .interpolationMethod(.catmullRom)
                     }
                 }
@@ -365,6 +373,22 @@ struct CarteRepasARevoir: View {
         }
     }
 
+    /// « 1 fois sur 3 hors cible », juste sous le verdict.
+    ///
+    /// Le compteur « ×3 » de l'en-tête dit combien de fois le plat a été
+    /// mangé, jamais combien de fois il a mal tourné — deux lectures
+    /// opposées pour un même visuel, et rien ne permettait de trancher. Le
+    /// dénominateur lève l'ambiguïté et donne à lire le nuage : quand toutes
+    /// les occurrences sont hors cible, la ligne passe en rouge.
+    @ViewBuilder
+    private var ligneRecurrence: some View {
+        if let libelle = repas.libelleRecurrenceEchecs {
+            Text(libelle)
+                .font(.caption)
+                .foregroundStyle(repas.echecSystematique ? Color.red : Color.secondary)
+        }
+    }
+
     // MARK: - Légende des événements
 
     /// Pastille + libellé (déjà explicite : « Bolus repas », « Correction »,
@@ -404,7 +428,8 @@ struct CarteRepasARevoir: View {
         let evenements = repas.evenements.isEmpty
             ? ""
             : " Pendant la fenêtre : " + repas.evenements.map(\.libelle).joined(separator: ", ") + "."
-        return "\(nom), \(repas.libelleDate). \(repas.nombreOccurrences) fois enregistré.\(contexte) "
+        let recurrence = repas.libelleRecurrenceEchecs.map { " \($0)." } ?? ""
+        return "\(nom), \(repas.libelleDate). \(repas.nombreOccurrences) fois enregistré.\(recurrence)\(contexte) "
             + "\(repas.libelleEvenement).\(ratio)\(evenements)"
     }
 }

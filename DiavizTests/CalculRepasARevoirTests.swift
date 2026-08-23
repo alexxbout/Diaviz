@@ -311,7 +311,7 @@ struct CalculRepasARevoirTests {
 
         let resultat = analyser([horsTolerance, dansTolerance, dernier], maintenant: maintenant)
         #expect(resultat.first?.nombreOccurrences == 2)
-        #expect(resultat.first?.pointsOccurrencesPassees.count == 1)
+        #expect(resultat.first?.occurrencesPassees.count == 1)
         #expect(resultat.first?.glucidesMin == 60)
         #expect(resultat.first?.glucidesMax == 70)
     }

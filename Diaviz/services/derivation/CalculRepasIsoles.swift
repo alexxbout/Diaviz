@@ -59,7 +59,7 @@ nonisolated enum CalculRepasIsoles {
             return RepasARevoir(
                 aliments: r.aliments,
                 nombreOccurrences: 1,
-                pointsOccurrencesPassees: [],
+                occurrencesPassees: [],
                 pointsDerniereFois: courbe,
                 evenementMinutes: evenementMinutes,
                 evenementValeur: evenementValeur,

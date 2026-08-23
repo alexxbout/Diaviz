@@ -23,7 +23,7 @@ extension RepasARevoir {
             Aliment(emoji: "🥤", nom: "Coca", quantite: 250, glucides: 27, insuline: 2.5),
         ],
         nombreOccurrences: 5,
-        pointsOccurrencesPassees: [
+        occurrencesPassees: [
             // 4 occurrences passées, peaks 185–220, échelonnés sur
             // 60–85 min — dispersion modérée, repas "presque
             // prévisible" sauf la dernière fois.
@@ -87,7 +87,7 @@ extension RepasARevoir {
                 PointCourbeRepas(minutes: 165, glycemie: 118),
                 PointCourbeRepas(minutes: 180, glycemie: 110),
             ],
-        ],
+        ].map { OccurrencePassee(points: $0) },
         pointsDerniereFois: [
             PointCourbeRepas(minutes: 0,   glycemie: 110),
             PointCourbeRepas(minutes: 15,  glycemie: 130),
@@ -126,7 +126,7 @@ extension RepasARevoir {
             Aliment(emoji: "🍰", nom: "Tiramisu", quantite: 120, glucides: 28, insuline: 2.5),
         ],
         nombreOccurrences: 3,
-        pointsOccurrencesPassees: [
+        occurrencesPassees: [
             // 2 courbes passées, peaks 220–235 — moins haut que la
             // dernière fois mais toujours dans la zone hyper.
             [
@@ -159,7 +159,7 @@ extension RepasARevoir {
                 PointCourbeRepas(minutes: 165, glycemie: 150),
                 PointCourbeRepas(minutes: 180, glycemie: 138),
             ],
-        ],
+        ].map { OccurrencePassee(points: $0) },
         pointsDerniereFois: [
             PointCourbeRepas(minutes: 0,   glycemie: 115),
             PointCourbeRepas(minutes: 15,  glycemie: 135),
@@ -200,24 +200,29 @@ extension RepasARevoir {
             Aliment(emoji: "🌱", nom: "Edamame", quantite: 100, glucides: 8, insuline: 0.5),
         ],
         nombreOccurrences: 2,
-        pointsOccurrencesPassees: [
-            // 1 seule courbe passée — peak doux 165 à 60 min,
-            // très proche de la dernière fois (repas régulier).
-            [
-                PointCourbeRepas(minutes: 0,   glycemie: 100),
-                PointCourbeRepas(minutes: 15,  glycemie: 112),
-                PointCourbeRepas(minutes: 30,  glycemie: 135),
-                PointCourbeRepas(minutes: 45,  glycemie: 155),
-                PointCourbeRepas(minutes: 60,  glycemie: 165),
-                PointCourbeRepas(minutes: 75,  glycemie: 158),
-                PointCourbeRepas(minutes: 90,  glycemie: 145),
-                PointCourbeRepas(minutes: 105, glycemie: 132),
-                PointCourbeRepas(minutes: 120, glycemie: 120),
-                PointCourbeRepas(minutes: 135, glycemie: 112),
-                PointCourbeRepas(minutes: 150, glycemie: 105),
-                PointCourbeRepas(minutes: 165, glycemie: 102),
-                PointCourbeRepas(minutes: 180, glycemie: 100),
-            ],
+        occurrencesPassees: [
+            // 1 seule courbe passée, **elle aussi hors cible** (pic 262) :
+            // ce mock exerce le cas « échec systématique » — toutes les
+            // occurrences ratées, courbe passée teintée de rouge et compteur
+            // « 2 fois sur 2 hors cible » en rouge.
+            OccurrencePassee(
+                points: [
+                    PointCourbeRepas(minutes: 0,   glycemie: 100),
+                    PointCourbeRepas(minutes: 15,  glycemie: 128),
+                    PointCourbeRepas(minutes: 30,  glycemie: 168),
+                    PointCourbeRepas(minutes: 45,  glycemie: 215),
+                    PointCourbeRepas(minutes: 60,  glycemie: 248),
+                    PointCourbeRepas(minutes: 75,  glycemie: 262),
+                    PointCourbeRepas(minutes: 90,  glycemie: 255),
+                    PointCourbeRepas(minutes: 105, glycemie: 240),
+                    PointCourbeRepas(minutes: 120, glycemie: 228),
+                    PointCourbeRepas(minutes: 135, glycemie: 215),
+                    PointCourbeRepas(minutes: 150, glycemie: 205),
+                    PointCourbeRepas(minutes: 165, glycemie: 198),
+                    PointCourbeRepas(minutes: 180, glycemie: 192),
+                ],
+                horsCible: true
+            ),
         ],
         pointsDerniereFois: [
             PointCourbeRepas(minutes: 0,   glycemie: 105),
@@ -254,7 +259,7 @@ extension RepasARevoir {
             Aliment(emoji: "🥜", nom: "Cacahuètes", quantite: 20, glucides: 4, insuline: 0.0),
         ],
         nombreOccurrences: 3,
-        pointsOccurrencesPassees: [
+        occurrencesPassees: [
             // 2 courbes passées qui oscillent doucement autour de
             // 120–150, sans franchir la cible — ce sont les "bonnes"
             // expériences précédentes qui rendent la dernière fois
@@ -289,7 +294,7 @@ extension RepasARevoir {
                 PointCourbeRepas(minutes: 165, glycemie: 120),
                 PointCourbeRepas(minutes: 180, glycemie: 118),
             ],
-        ],
+        ].map { OccurrencePassee(points: $0) },
         pointsDerniereFois: [
             // Montée modérée à 140 sur 60 min puis plongée en hypo :
             // T+2h = 62 mg/dL (point exact pour caler le PointMark),

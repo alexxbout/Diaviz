@@ -126,14 +126,14 @@ struct CalculRepasIsolesTests {
 
     // MARK: - Occurrence unique (pas de récurrence)
 
-    @Test("Chaque carte est une occurrence unique : nombreOccurrences == 1, pointsOccurrencesPassees vide")
+    @Test("Chaque carte est une occurrence unique : nombreOccurrences == 1, occurrencesPassees vide")
     func occurrenceUnique() {
         let r1 = repas(heure: heure(joursAvant: 5), aliments: [aliment("Pizza", glucides: 60)], contexteLibre: "Contexte")
         let r2 = repas(heure: heure(joursAvant: 1), aliments: [aliment("Pizza", glucides: 60)], contexteLibre: "Contexte")
         let resultat = analyser([r1, r2], maintenant: maintenant)
         #expect(resultat.count == 2)
         #expect(resultat.allSatisfy { $0.nombreOccurrences == 1 })
-        #expect(resultat.allSatisfy { $0.pointsOccurrencesPassees.isEmpty })
+        #expect(resultat.allSatisfy { $0.occurrencesPassees.isEmpty })
     }
 
     // MARK: - Masquage

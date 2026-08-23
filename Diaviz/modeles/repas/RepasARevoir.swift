@@ -110,6 +110,29 @@ struct BadgeAjustement: Identifiable {
     let estSport: Bool
 }
 
+// MARK: - Occurrence passée
+
+/// Une occurrence antérieure du même repas, avec sa courbe **et son
+/// verdict**.
+///
+/// Le verdict est porté ici parce que le nuage gris uniforme d'avant était
+/// trompeur : une occurrence passée en hypo à 45 se dessinait exactement
+/// comme une occurrence parfaite. Un plat raté 3 fois sur 3 était donc
+/// visuellement identique à un plat raté 1 fois sur 3, alors que c'est la
+/// distinction la plus utile de la carte — l'une appelle une remise en
+/// question du ratio, l'autre suggère un facteur ponctuel.
+struct OccurrencePassee: Identifiable {
+    let id = UUID()
+    let points: [PointCourbeRepas]
+    /// `true` si le verdict de cette occurrence était `.mauvais`.
+    let horsCible: Bool
+
+    init(points: [PointCourbeRepas], horsCible: Bool = false) {
+        self.points = points
+        self.horsCible = horsCible
+    }
+}
+
 // MARK: - RepasARevoir
 
 /// Repas signalé comme « à revoir » sur l'accueil : au moins un
@@ -134,16 +157,17 @@ struct RepasARevoir: Identifiable {
 
     /// Nombre total de fois où ce repas (composition équivalente) a
     /// été enregistré dans l'historique. Compte la dernière fois
-    /// incluse — `pointsOccurrencesPassees.count + 1` doit être égal
+    /// incluse — `occurrencesPassees.count + 1` doit être égal
     /// à cette valeur.
     let nombreOccurrences: Int
 
-    /// Toutes les courbes des occurrences passées **sauf** la dernière.
-    /// Chacune est rendue en gris discret dans le mini-chart pour
-    /// donner une impression de nuage / dispersion. Si le tableau est
-    /// vide (un seul enregistrement total), seule la courbe colorée
-    /// « dernière fois » apparaît.
-    let pointsOccurrencesPassees: [[PointCourbeRepas]]
+    /// Toutes les occurrences passées **sauf** la dernière, avec leur
+    /// verdict. Rendues en gris discret dans le mini-chart pour donner une
+    /// impression de nuage / dispersion — sauf celles hors cible, teintées
+    /// de rouge pour rester distinguables. Si le tableau est vide (un seul
+    /// enregistrement total), seule la courbe colorée « dernière fois »
+    /// apparaît.
+    let occurrencesPassees: [OccurrencePassee]
 
     /// Courbe de la dernière occurrence — celle qui motive le
     /// « à revoir ». Affichée en trait plein dans la couleur de sévérité.
@@ -210,7 +234,7 @@ struct RepasARevoir: Identifiable {
     init(
         aliments: [Aliment],
         nombreOccurrences: Int,
-        pointsOccurrencesPassees: [[PointCourbeRepas]],
+        occurrencesPassees: [OccurrencePassee],
         pointsDerniereFois: [PointCourbeRepas],
         evenementMinutes: Int,
         evenementValeur: Double,
@@ -227,7 +251,7 @@ struct RepasARevoir: Identifiable {
     ) {
         self.aliments = aliments
         self.nombreOccurrences = nombreOccurrences
-        self.pointsOccurrencesPassees = pointsOccurrencesPassees
+        self.occurrencesPassees = occurrencesPassees
         self.pointsDerniereFois = pointsDerniereFois
         self.evenementMinutes = evenementMinutes
         self.evenementValeur = evenementValeur
@@ -257,8 +281,33 @@ struct RepasARevoir: Identifiable {
     /// peine de tracer la ligne si aucune courbe ne s'en approche.
     var aHypoDansCourbes: Bool {
         let toutesValeurs = pointsDerniereFois.map(\.glycemie)
-            + pointsOccurrencesPassees.flatMap { $0.map(\.glycemie) }
+            + occurrencesPassees.flatMap { $0.points.map(\.glycemie) }
         return toutesValeurs.contains { $0 < 70 }
+    }
+
+    /// Nombre d'occurrences hors cible, **dernière fois comprise** — celle-ci
+    /// l'est toujours par construction (c'est ce qui motive la carte).
+    var nombreOccurrencesHorsCible: Int {
+        1 + occurrencesPassees.filter(\.horsCible).count
+    }
+
+    /// « 1 fois sur 3 hors cible » — le fait que la carte ne disait pas.
+    ///
+    /// Sans ce dénominateur, une carte affichant « ×3 » laisse croire que le
+    /// plat pose problème à chaque fois, alors qu'il peut n'avoir raté qu'une
+    /// seule fois sur trois : deux lectures opposées pour un même visuel.
+    /// `nil` sur une occurrence unique (« 1 fois sur 1 » n'apprend rien).
+    var libelleRecurrenceEchecs: String? {
+        guard nombreOccurrences > 1 else { return nil }
+        return "\(nombreOccurrencesHorsCible) fois sur \(nombreOccurrences) hors cible"
+    }
+
+    /// `true` quand **toutes** les occurrences connues sont hors cible — le
+    /// plat échoue systématiquement, pas ponctuellement. Pilote une teinte
+    /// d'alerte sur le compteur : c'est le cas qui justifie de revoir le
+    /// ratio, par opposition à un raté isolé.
+    var echecSystematique: Bool {
+        nombreOccurrences > 1 && nombreOccurrencesHorsCible == nombreOccurrences
     }
 
     /// Couleur de sévérité appliquée à la courbe « dernière fois », au
@@ -334,7 +383,7 @@ struct RepasARevoir: Identifiable {
     /// pertinents (70 si une hypo existe, 180 comme repère de cible).
     var domaineY: ClosedRange<Double> {
         let valeurs = pointsDerniereFois.map(\.glycemie)
-            + pointsOccurrencesPassees.flatMap { $0.map(\.glycemie) }
+            + occurrencesPassees.flatMap { $0.points.map(\.glycemie) }
         guard let brut = valeurs.min(), let haut = valeurs.max() else { return 50...300 }
         var bas = brut
         var plafond = haut
