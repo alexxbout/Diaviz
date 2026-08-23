@@ -3,7 +3,7 @@
 //  DiavizTests
 //
 //  R1 — mining du ratio observé. Seuls garde-fous : 5 repas par tranche,
-//  ±20 % autour de la dose suggérée, 25 points de taux d'écart. Un `<` de
+//  ±1 g/u autour du ratio configuré, 25 points de taux d'écart. Un `<` de
 //  travers ici fait apparaître (ou disparaître) une alerte « écart détecté »
 //  sur l'accueil.
 //
@@ -50,24 +50,46 @@ struct CalculRatioObserveTests {
 
     // MARK: - Classification en tranche
 
-    @Test("Dose égale à la dose suggérée → tranche « proche »")
-    func trancheProche() {
-        #expect(CalculRatioObserve.tranche(doseAppliquee: 10, doseSuggeree: 10) == .doseProche)
+    // Jeu d'essai calibré pour donner des ratios ronds : 99 g pour une dose
+    // suggérée de 9,9 u = un ratio configuré de **1u/10g**. Les bornes de la
+    // tolérance (±1 g/u) tombent alors sur des doses entières : 9 u donne
+    // 1u/11g, 11 u donne 1u/9g.
+    private static let glucidesTest = 99
+    private static let doseSuggereeTest = 9.9
+
+    private func tranche(dose: Double, doseSuggeree: Double = doseSuggereeTest) -> TrancheRatio {
+        CalculRatioObserve.tranche(
+            glucides: Self.glucidesTest, doseAppliquee: dose, doseSuggeree: doseSuggeree
+        )
     }
 
-    @Test("Bornes exactes de la tolérance de ±20 %")
+    @Test("Dose égale à la dose suggérée → tranche « proche »")
+    func trancheProche() {
+        // 99 g pour 9,9 u = 1u/10g, exactement le ratio configuré.
+        #expect(tranche(dose: 9.9) == .doseProche)
+    }
+
+    @Test("Bornes exactes de la tolérance de ±1 g/u")
     func bornesDeLaTolerance() {
-        // Exactement −20 % et +20 % basculent hors du bucket « proche ».
-        #expect(CalculRatioObserve.tranche(doseAppliquee: 8, doseSuggeree: 10) == .doseNettementFaible)
-        #expect(CalculRatioObserve.tranche(doseAppliquee: 12, doseSuggeree: 10) == .doseNettementForte)
-        // Juste à l'intérieur.
-        #expect(CalculRatioObserve.tranche(doseAppliquee: 8.1, doseSuggeree: 10) == .doseProche)
-        #expect(CalculRatioObserve.tranche(doseAppliquee: 11.9, doseSuggeree: 10) == .doseProche)
+        // Le ratio s'exprimant en grammes par unité, il varie à l'inverse de
+        // l'insuline : moins de dose = plus de grammes couverts par unité.
+        // 9 u → 1u/11g, soit +1 g/u : bascule en « dose plus faible ».
+        #expect(tranche(dose: 9) == .doseNettementFaible)
+        // 11 u → 1u/9g, soit −1 g/u : bascule en « dose plus élevée ».
+        #expect(tranche(dose: 11) == .doseNettementForte)
+        // Juste à l'intérieur de la bande, des deux côtés.
+        #expect(tranche(dose: 9.1) == .doseProche)
+        #expect(tranche(dose: 10.9) == .doseProche)
     }
 
     @Test("Dose suggérée nulle → classée « proche » (aucun écart calculable)")
     func doseSuggereeNulle() {
-        #expect(CalculRatioObserve.tranche(doseAppliquee: 5, doseSuggeree: 0) == .doseProche)
+        #expect(tranche(dose: 5, doseSuggeree: 0) == .doseProche)
+    }
+
+    @Test("Dose appliquée nulle → classée « proche » (ratio effectif indéfini)")
+    func doseAppliqueeNulle() {
+        #expect(tranche(dose: 0) == .doseProche)
     }
 
     // MARK: - Effectifs et buckets
