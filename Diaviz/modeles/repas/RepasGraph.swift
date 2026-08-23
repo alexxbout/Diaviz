@@ -32,6 +32,51 @@ enum VerdictGlycemique: Hashable, Codable, Sendable {
     }
 }
 
+/// Pourquoi un repas a reçu le verdict `.mauvais` — une hypoglycémie et un
+/// pic élevé sont deux événements opposés, les confondre sous une seule
+/// couleur rouge masquait l'information la plus utile.
+///
+/// Volontairement **séparée** de `VerdictGlycemique` plutôt qu'ajoutée comme
+/// un quatrième cas : l'enum du verdict est persisté (`Repas.verdictPersiste`,
+/// export JSON d'`ArchiveDonneesService`) et lu par une quinzaine de fichiers.
+/// Un champ à part se greffe sans migration ni recompilation en cascade.
+enum RaisonMauvaisVerdict: String, Hashable, Codable, Sendable {
+    /// Glycémie descendue sous le seuil d'hypoglycémie du profil.
+    case hypoglycemie
+    /// Pic élevé, ou excursion jamais redescendue en cible.
+    case hyperglycemie
+
+    /// Rouge réservé à l'hypoglycémie — convention des lecteurs CGM (Dexcom,
+    /// Libre) où le rouge signale toujours le bas. Le pic élevé prend un brun
+    /// qui prolonge l'axe « trop haut » déjà porté par l'orange du verdict
+    /// `.moyen` : orange = pic modéré, brun = pic élevé.
+    var couleur: Color {
+        switch self {
+        case .hypoglycemie: .red
+        case .hyperglycemie: .brown
+        }
+    }
+
+    var libelle: String {
+        switch self {
+        case .hypoglycemie: "Hypoglycémie"
+        case .hyperglycemie: "Pic élevé"
+        }
+    }
+
+    /// Précision affichée en légende — « hypoglycémie » seul ne dit ni le
+    /// seuil ni la fenêtre, alors que les deux sont paramétrables ou peu
+    /// évidents.
+    func precision(seuils: SeuilsGlycemiques) -> String {
+        switch self {
+        case .hypoglycemie:
+            return "sous \(Int(seuils.hypoglycemie)) mg/dL dans les 4 h"
+        case .hyperglycemie:
+            return "pic ≥ 250, ou jamais redescendu sous \(Int(seuils.hyperglycemie))"
+        }
+    }
+}
+
 struct RepasGraph: Identifiable, Hashable {
     let id: UUID
     let heure: Date

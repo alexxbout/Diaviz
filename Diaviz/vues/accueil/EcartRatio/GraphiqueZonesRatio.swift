@@ -22,44 +22,96 @@ struct GraphiqueZonesRatio: View {
 
     let entrees: [EntreeRatioRepas]
 
+    /// Un point par repas, positionné sur son **ratio effectif en g/u**
+    /// (`glucides ÷ dose donnée`) — la même unité que les réglages, plutôt
+    /// qu'un rapport de doses sans signification lisible.
+    ///
+    /// L'axe est ensuite **inversé** (voir `domaine`) pour que « moins
+    /// d'insuline » reste à gauche : le ratio en g/u variant à l'inverse de
+    /// l'insuline, un axe croissant mettrait le moins d'insuline à droite et
+    /// invaliderait toutes les formulations de la sheet.
     private var points: [(id: UUID, ratio: Double, jitter: Double, couleur: Color)] {
         entrees.compactMap { entree in
-            guard entree.doseSuggeree > 0 else { return nil }
-            let ratio = entree.doseAppliquee / entree.doseSuggeree
-            return (entree.id, ratio, jitter(entree.id), entree.verdict.couleur)
+            guard entree.doseAppliquee > 0, entree.glucides > 0 else { return nil }
+            let ratioEffectif = Double(entree.glucides) / entree.doseAppliquee
+            // Un `.mauvais` se colore selon sa cause quand elle est connue :
+            // hypo et pic élevé sont deux échecs opposés. Les repas annotés
+            // avant l'ajout du champ retombent sur le rouge d'origine.
+            let couleur = entree.raisonMauvais?.couleur ?? entree.verdict.couleur
+            return (entree.id, ratioEffectif, jitter(entree.id), couleur)
         }
     }
 
-    private var borneFaible: Double { 1 - CalculRatioObserve.toleranceRatio }
-    private var borneForte: Double { 1 + CalculRatioObserve.toleranceRatio }
+    /// Ratio configuré du groupe, reconstitué en g/u depuis n'importe quelle
+    /// entrée (`glucides ÷ dose suggérée`) — identique pour tout le groupe,
+    /// le filtrage par date de changement le garantit en amont.
+    private var ratioConfigure: Double? {
+        guard let reference = entrees.first(where: { $0.doseSuggeree > 0 && $0.glucides > 0 }) else { return nil }
+        return Double(reference.glucides) / reference.doseSuggeree
+    }
 
-    /// Domaine data-driven : englobe toujours la zone « proche », s'étend
-    /// aux valeurs réelles si elles dépassent — même logique que
-    /// `GraphiqueGlycemique.Configuration.echelleY` (coller aux données).
-    private var domaine: ClosedRange<Double> {
+    /// Bornes de la zone « à ton ratio », en g/u. `borneMoinsInsuline` porte
+    /// **plus** de grammes par unité — d'où le nom, qui suit l'insuline et
+    /// non le chiffre.
+    private var borneMoinsInsuline: Double? {
+        ratioConfigure.map { $0 + CalculRatioObserve.toleranceGrammesParUnite }
+    }
+    private var borneePlusInsuline: Double? {
+        ratioConfigure.map { $0 - CalculRatioObserve.toleranceGrammesParUnite }
+    }
+
+    /// Domaine data-driven, exprimé en g/u et **renvoyé décroissant** : la
+    /// borne haute (beaucoup de grammes par unité = peu d'insuline) est à
+    /// gauche. Englobe toujours la zone de tolérance, s'étend aux valeurs
+    /// réelles si elles dépassent.
+    private var domaine: [Double] {
         let valeurs = points.map(\.ratio)
-        let bas = min(valeurs.min() ?? borneFaible, borneFaible) - 0.05
-        let haut = max(valeurs.max() ?? borneForte, borneForte) + 0.05
-        return bas...haut
+        let reference = ratioConfigure ?? valeurs.first ?? 10
+        let hautDefaut = borneMoinsInsuline ?? reference
+        let basDefaut = borneePlusInsuline ?? reference
+        let haut = max(valeurs.max() ?? hautDefaut, hautDefaut) + 0.5
+        let bas = min(valeurs.min() ?? basDefaut, basDefaut) - 0.5
+        return [haut, bas]
     }
 
     var body: some View {
+        VStack(spacing: 6) {
+            graphique
+
+            // Sens de lecture rappelé sous chaque graphique : la sheet en
+            // empile plusieurs, obliger à remonter jusqu'à une légende
+            // commune ne marche pas à l'usage.
+            HStack {
+                Text("← moins d'insuline")
+                Spacer()
+                Text("plus d'insuline →")
+            }
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+        }
+    }
+
+    private var graphique: some View {
         Chart {
-            RuleMark(x: .value("Borne faible", borneFaible))
-                .foregroundStyle(Color(.separator))
-                .lineStyle(StrokeStyle(lineWidth: 0.5))
+            if let borneMoinsInsuline, let borneePlusInsuline {
+                RuleMark(x: .value("Borne moins d'insuline", borneMoinsInsuline))
+                    .foregroundStyle(Color(.separator))
+                    .lineStyle(StrokeStyle(lineWidth: 0.5))
 
-            RuleMark(x: .value("Borne forte", borneForte))
-                .foregroundStyle(Color(.separator))
-                .lineStyle(StrokeStyle(lineWidth: 0.5))
+                RuleMark(x: .value("Borne plus d'insuline", borneePlusInsuline))
+                    .foregroundStyle(Color(.separator))
+                    .lineStyle(StrokeStyle(lineWidth: 0.5))
+            }
 
-            RuleMark(x: .value("Ratio configuré", 1.0))
-                .foregroundStyle(Color.secondary.opacity(0.5))
-                .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 3]))
+            if let ratioConfigure {
+                RuleMark(x: .value("Ratio configuré", ratioConfigure))
+                    .foregroundStyle(Color.secondary.opacity(0.5))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 3]))
+            }
 
             ForEach(points, id: \.id) { point in
                 PointMark(
-                    x: .value("Ratio", point.ratio),
+                    x: .value("Ratio effectif", point.ratio),
                     y: .value("", point.jitter)
                 )
                 .foregroundStyle(point.couleur)
@@ -69,7 +121,20 @@ struct GraphiqueZonesRatio: View {
         }
         .chartXScale(domain: domaine)
         .chartYScale(domain: 0...1)
-        .chartXAxis(.hidden)
+        // Axe X visible désormais : il porte de vraies valeurs de ratio
+        // (« 11g », « 12g »…), directement comparables aux réglages.
+        .chartXAxis {
+            AxisMarks(values: .automatic(desiredCount: 4)) { valeur in
+                AxisGridLine().foregroundStyle(Color.clear)
+                AxisValueLabel {
+                    if let grammes = valeur.as(Double.self) {
+                        Text("\(Int(grammes.rounded()))g")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+            }
+        }
         .chartYAxis(.hidden)
         .chartLegend(.hidden)
         // Zone « proche du ratio » dessinée en fond plutôt qu'en `RectangleMark`
@@ -78,13 +143,16 @@ struct GraphiqueZonesRatio: View {
         // coordonnées du plot area en a un directement.
         .chartBackground { proxy in
             GeometryReader { geo in
+                // `abs` sur la largeur : l'axe étant inversé, la borne
+                // « moins d'insuline » se projette à gauche de l'autre.
                 if let plotFrame = proxy.plotFrame,
-                   let xDebut = proxy.position(forX: borneFaible),
-                   let xFin = proxy.position(forX: borneForte) {
+                   let borneMoinsInsuline, let borneePlusInsuline,
+                   let xDebut = proxy.position(forX: borneMoinsInsuline),
+                   let xFin = proxy.position(forX: borneePlusInsuline) {
                     let cadre = geo[plotFrame]
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(Color(.tertiarySystemFill))
-                        .frame(width: xFin - xDebut, height: cadre.height)
+                        .frame(width: abs(xFin - xDebut), height: cadre.height)
                         .position(x: cadre.minX + (xDebut + xFin) / 2, y: cadre.midY)
                 }
             }
@@ -103,21 +171,34 @@ struct GraphiqueZonesRatio: View {
 
 // MARK: - Aperçus
 
+/// Repas de démo pour un ratio configuré de `1u/12g`, générés directement à
+/// partir d'un **ratio effectif cible en g/u** — la dose est déduite, dans le
+/// même sens que le vrai calcul (`dose = glucides ÷ ratio effectif`).
 private func _mockEntrees(faible: (bon: Int, total: Int), proche: (bon: Int, total: Int), forte: (bon: Int, total: Int)) -> [EntreeRatioRepas] {
+    let glucides = 60
+    let ratioConfigure = 12.0
+
     func lot(_ compte: (bon: Int, total: Int), plage: ClosedRange<Double>) -> [EntreeRatioRepas] {
         (0..<compte.total).map { i in
-            let ratio = plage.lowerBound + (plage.upperBound - plage.lowerBound) * Double(i) / Double(max(1, compte.total - 1))
+            let ratioEffectif = plage.lowerBound
+                + (plage.upperBound - plage.lowerBound) * Double(i) / Double(max(1, compte.total - 1))
             // Les repas « pas bon » alternent moyen/mauvais — pour que le
             // rouge (mauvais) apparaisse aussi dans les previews, pas
             // seulement l'orange.
             let verdict: VerdictGlycemique = i < compte.bon ? .bon : (i.isMultiple(of: 2) ? .moyen : .mauvais)
             return EntreeRatioRepas(
-                id: UUID(), groupe: nil, doseAppliquee: ratio * 10, doseSuggeree: 10,
-                glucides: 40, verdict: verdict
+                id: UUID(), groupe: nil,
+                doseAppliquee: Double(glucides) / ratioEffectif,
+                doseSuggeree: Double(glucides) / ratioConfigure,
+                glucides: glucides, verdict: verdict
             )
         }
     }
-    return lot(faible, plage: 0.55...0.78) + lot(proche, plage: 0.85...1.15) + lot(forte, plage: 1.22...1.55)
+
+    // Moins d'insuline = plus de grammes par unité, donc au-dessus de 13.
+    return lot(faible, plage: 13.2...16.0)
+        + lot(proche, plage: 11.2...12.8)
+        + lot(forte, plage: 9.0...10.8)
 }
 
 #if DEBUG

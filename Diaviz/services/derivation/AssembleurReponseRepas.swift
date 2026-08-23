@@ -109,18 +109,34 @@ enum AssembleurReponseRepas {
             $0.secondesDepuisRepas > pointPic.secondesDepuisRepas && $0.valeur <= seuils.hyperglycemie
         }?.secondesDepuisRepas
 
+        let verdictCalcule = verdict(
+            postRepas: postRepas,
+            pic: pointPic.valeur,
+            tempsRetourCible: tempsRetourCible,
+            seuils: seuils
+        )
+
         return ReponseGlycemique(
             pointsCgm: points,
-            verdict: verdict(
-                postRepas: postRepas,
-                pic: pointPic.valeur,
-                tempsRetourCible: tempsRetourCible,
-                seuils: seuils
-            ),
+            verdict: verdictCalcule,
+            raisonMauvais: verdictCalcule == .mauvais
+                ? raisonMauvais(postRepas: postRepas, seuils: seuils)
+                : nil,
             valeurPic: pointPic.valeur,
             tempsPic: pointPic.secondesDepuisRepas,
             tempsRetourCible: tempsRetourCible
         )
+    }
+
+    /// Distingue les deux façons de rater un repas. L'hypoglycémie prime sur
+    /// le pic : si les deux surviennent dans la fenêtre, c'est l'hypo qui
+    /// compte — c'est l'événement le plus lourd de conséquence, et souvent la
+    /// cause du pic qui suit (resucrage).
+    private static func raisonMauvais(
+        postRepas: [PointCgm], seuils: SeuilsGlycemiques
+    ) -> RaisonMauvaisVerdict {
+        let minPost = postRepas.map(\.valeur).min() ?? .greatestFiniteMagnitude
+        return minPost < seuils.hypoglycemie ? .hypoglycemie : .hyperglycemie
     }
 
     // MARK: - Verdict (règle « excursion + retour »)

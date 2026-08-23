@@ -83,7 +83,8 @@ final class AnalyseRatioService {
 
             entrees.append(EntreeRatioRepas(
                 id: r.id, groupe: groupe, doseAppliquee: doseCouvrante, doseSuggeree: doseSuggeree,
-                glucides: r.totalGlucides, verdict: verdict
+                glucides: r.totalGlucides, verdict: verdict,
+                raisonMauvais: r.raisonMauvaisPersistee
             ))
         }
 

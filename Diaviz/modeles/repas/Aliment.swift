@@ -160,6 +160,13 @@ final class Repas {
     /// observé) sur tout l'historique, sans dépendre du CGM en mémoire.
     var verdictPersiste: VerdictGlycemique?
 
+    /// Cause du verdict `.mauvais`, figée en même temps que lui — `nil` pour
+    /// tout autre verdict, et pour les repas annotés avant l'ajout du champ
+    /// (hors fenêtre de ré-annotation de 45 jours, ils ne repasseront jamais
+    /// par l'assembleur). Optionnel sans contrainte : compatible CloudKit et
+    /// sans migration.
+    var raisonMauvaisPersistee: RaisonMauvaisVerdict?
+
     /// Ratio effectif appliqué (grammes de glucides par unité), figé quand
     /// `verdictPersiste` est renseigné. Calculé sur la dose couvrant les
     /// glucides (`totalInsuline - doseCorrection`), pas sur la dose totale.
@@ -210,6 +217,7 @@ final class Repas {
         doseGlobale: Double? = nil,
         doseCorrection: Double? = nil,
         verdictPersiste: VerdictGlycemique? = nil,
+        raisonMauvaisPersistee: RaisonMauvaisVerdict? = nil,
         ratioEffectifPersiste: Double? = nil,
         ajustements: [Ajustement] = [],
         contexteLibre: String? = nil,
@@ -224,6 +232,7 @@ final class Repas {
         self.doseGlobale = doseGlobale
         self.doseCorrection = doseCorrection
         self.verdictPersiste = verdictPersiste
+        self.raisonMauvaisPersistee = raisonMauvaisPersistee
         self.ratioEffectifPersiste = ratioEffectifPersiste
         self.ajustements = ajustements
         self.contexteLibre = contexteLibre

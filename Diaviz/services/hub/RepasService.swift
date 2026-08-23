@@ -318,8 +318,11 @@ final class RepasService {
             let doseCouvrante = unRepas.totalInsuline - (unRepas.doseCorrection ?? 0)
             let ratio = unRepas.totalGlucides > 0 && doseCouvrante > 0
                 ? Double(unRepas.totalGlucides) / doseCouvrante : nil
-            if unRepas.verdictPersiste != reponse.verdict || unRepas.ratioEffectifPersiste != ratio {
+            if unRepas.verdictPersiste != reponse.verdict
+                || unRepas.ratioEffectifPersiste != ratio
+                || unRepas.raisonMauvaisPersistee != reponse.raisonMauvais {
                 unRepas.verdictPersiste = reponse.verdict
+                unRepas.raisonMauvaisPersistee = reponse.raisonMauvais
                 unRepas.ratioEffectifPersiste = ratio
                 doseASauvegarder = true
             }

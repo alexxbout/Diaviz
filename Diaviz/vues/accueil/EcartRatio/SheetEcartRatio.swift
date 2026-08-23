@@ -34,18 +34,6 @@ struct SheetEcartRatio: View {
                     )
                 } else {
                     Form {
-                        Section("Constat") {
-                            Label("Un point = un repas, placé selon la dose donnée vs celle de ton ratio (zone grisée).", systemImage: "chart.dots.scatter")
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
-                            Label("Vert en cible, orange pic modéré, rouge pic élevé ou hypo.", systemImage: "circle.fill")
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
-                            Label("Un côté qui bat le milieu = ratio trop fort à gauche, trop faible à droite.", systemImage: "arrow.left.arrow.right")
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
-                        }
-
                         ForEach(sections, id: \.groupe) { section in
                             Section {
                                 if let apercu = apercusChangementRatio[section.groupe] {
@@ -68,6 +56,27 @@ struct SheetEcartRatio: View {
                             } header: {
                                 enTeteSection(section)
                             }
+                        }
+
+                        // Constat placé **après** les graphiques : c'est une
+                        // clé de lecture, pas le contenu — la remonter en tête
+                        // repoussait les données réelles sous la ligne de
+                        // flottaison.
+                        Section("Constat") {
+                            ligneConstat("Un point = un repas, placé selon la dose donnée vs celle de ton ratio (zone grisée).", icone: "chart.dots.scatter")
+                            ligneConstat("Un côté qui bat le milieu = ratio trop fort à gauche, trop faible à droite.", icone: "arrow.left.arrow.right")
+                            ligneCouleur("Glycémie restée en cible", couleur: .green)
+                            ligneCouleur("Pic modéré", couleur: .orange)
+                            ligneCouleur(
+                                RaisonMauvaisVerdict.hyperglycemie.libelle,
+                                precision: RaisonMauvaisVerdict.hyperglycemie.precision(seuils: seuils),
+                                couleur: RaisonMauvaisVerdict.hyperglycemie.couleur
+                            )
+                            ligneCouleur(
+                                RaisonMauvaisVerdict.hypoglycemie.libelle,
+                                precision: RaisonMauvaisVerdict.hypoglycemie.precision(seuils: seuils),
+                                couleur: RaisonMauvaisVerdict.hypoglycemie.couleur
+                            )
                         }
 
                         Section {
@@ -108,11 +117,11 @@ struct SheetEcartRatio: View {
             if let apercu = apercusChangementRatio[section.groupe] {
                 let jour = apercu.dateChangement.formatted(.dateTime.day().month(.abbreviated))
                 Label("\(jour) · \(apercu.effectifDepuis) repas", systemImage: "calendar")
-                    .font(.caption2.weight(.semibold))
+                    .font(.footnote.weight(.semibold))
                     .foregroundStyle(Color.accentColor)
                     .textCase(nil)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 3)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
                     .background(Color.accentColor.opacity(0.14), in: Capsule())
             }
         }
@@ -156,10 +165,10 @@ struct SheetEcartRatio: View {
                 RoundedRectangle(cornerRadius: Radius.small, style: .continuous)
                     .fill(Color.accentColor.opacity(0.14))
                 Image(systemName: icone)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Color.accentColor)
             }
-            .frame(width: 34, height: 34)
+            .frame(width: 28, height: 28)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(titre)
@@ -253,6 +262,48 @@ struct SheetEcartRatio: View {
     /// sans ça il n'y a rien à confronter, et conclure « ratio confirmé »
     /// serait faux (c'était le cas avant : un groupe à 1 repas affichait un
     /// badge vert sur une colonne marquée « insuffisant »).
+    /// Ligne d'explication du Constat — icône légèrement réduite par rapport
+    /// au `Label` standard, le bloc en empile plusieurs.
+    private func ligneConstat(_ texte: String, icone: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icone)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(width: 16)
+            Text(texte)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    /// Ligne de légende des couleurs — pastille plutôt qu'icône SF, c'est
+    /// exactement la forme des points du graphique. `precision` porte le
+    /// seuil et la fenêtre quand le libellé seul serait vague.
+    private func ligneCouleur(_ texte: String, precision: String? = nil, couleur: Color) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Circle()
+                .fill(couleur)
+                .frame(width: 9, height: 9)
+                .frame(width: 16)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(texte)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                if let precision {
+                    Text(precision)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+        }
+    }
+
+    /// Seuils du profil — le seuil d'hypo est réglable, la légende doit
+    /// afficher celui de l'utilisateur et pas une valeur en dur.
+    private var seuils: SeuilsGlycemiques {
+        ProfilService.shared.profil.seuilsGlycemiques
+    }
+
     private func comparaisonPossible(_ section: ObservationRatioSection) -> Bool {
         let aCentre = section.buckets.contains { $0.tranche == .doseProche }
         let aLateral = section.buckets.contains { $0.tranche != .doseProche }
@@ -267,12 +318,41 @@ struct SheetEcartRatio: View {
         return tranche == .doseProche ? ("ratio confirmé", .green) : nil
     }
 
-    /// Phrase de repli quand aucune comparaison n'est possible — dit ce qu'on
-    /// a, pas ce qu'on n'a pas.
+    /// Phrase de repli quand aucune comparaison n'est possible — nomme ce qui
+    /// bloque **réellement**, zone par zone.
+    ///
+    /// Le seuil porte sur une **zone**, pas sur le groupe : cinq repas
+    /// éparpillés sur les trois zones ne débloquent rien. L'ancien libellé
+    /// (« 5 repas — 5 minimum par zone ») laissait croire au contraire que le
+    /// total suffisait, et se contredisait visiblement à l'écran.
     private func mentionRecul(_ section: ObservationRatioSection) -> String {
         let minimum = CalculRatioObserve.effectifMinimalBucket
         guard section.effectif > 0 else { return "Aucun repas analysé" }
-        return "\(section.effectif) repas — \(minimum) minimum par zone pour comparer"
+
+        let aCentre = section.buckets.contains { $0.tranche == .doseProche }
+        let aLateral = section.buckets.contains { $0.tranche != .doseProche }
+
+        // Le centre est prêt, il manque un point de comparaison hors zone.
+        if aCentre && !aLateral {
+            return "Il faut aussi \(minimum) repas hors de ton ratio pour comparer"
+        }
+        // À l'inverse : des repas hors zone, mais rien à quoi les comparer.
+        if aLateral && !aCentre {
+            return "Il faut aussi \(minimum) repas faits à ton ratio pour comparer"
+        }
+
+        let plusGrandeZone = repartition(section).map(\.value).max() ?? 0
+        return "\(section.effectif) repas, \(plusGrandeZone) au plus dans une même zone — il en faut \(minimum)"
+    }
+
+    /// Nombre de repas par zone, recompté depuis les points eux-mêmes : les
+    /// `buckets` ne contiennent que les zones ayant franchi le seuil, donc ils
+    /// ne peuvent pas servir à dire où on en est en dessous.
+    private func repartition(_ section: ObservationRatioSection) -> [TrancheRatio: Int] {
+        Dictionary(grouping: section.entrees) {
+            CalculRatioObserve.tranche(glucides: $0.glucides, doseAppliquee: $0.doseAppliquee, doseSuggeree: $0.doseSuggeree)
+        }
+        .mapValues(\.count)
     }
 
     private func libelleCourt(_ tranche: TrancheRatio) -> String {

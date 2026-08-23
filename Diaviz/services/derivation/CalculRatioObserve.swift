@@ -30,6 +30,10 @@ nonisolated struct EntreeRatioRepas: Sendable, Equatable {
     let doseSuggeree: Double
     let glucides: Int
     let verdict: VerdictGlycemique
+    /// Cause du verdict `.mauvais` — sert uniquement à colorer le point du
+    /// graphique (hypo et pic élevé sont deux événements opposés). Le mining
+    /// lui-même ne la lit pas : il ne distingue que « bon » vs « pas bon ».
+    var raisonMauvais: RaisonMauvaisVerdict? = nil
 }
 
 // MARK: - Tranche de ratio
@@ -122,8 +126,15 @@ nonisolated enum CalculRatioObserve {
     /// Écart minimal de taux de bons verdicts entre bucket optimal et bucket
     /// configuré pour signaler un écart (points de taux).
     static let ecartMinimal = 0.25
-    /// Tolérance (±) autour de la dose suggérée pour le bucket « proche ».
-    static let toleranceRatio = 0.20
+    /// Tolérance (±) autour du **ratio configuré**, exprimée en grammes par
+    /// unité — la même unité que les réglages (`1u/12g`).
+    ///
+    /// Remplace depuis le 2026-08-08 une tolérance relative de ±20 % sur la
+    /// dose. Le pourcentage ne parlait pas : il ne correspondait à rien de
+    /// manipulable, et sa largeur en grammes variait avec le ratio (±20 %
+    /// autour de `1u/12g` couvrait `1u/10g` à `1u/15g`, soit cinq crans de
+    /// réglage). En g/u, la bande se lit directement : `1u/11g` à `1u/13g`.
+    static let toleranceGrammesParUnite = 1.0
 
     // MARK: Point d'entrée
 
@@ -144,11 +155,21 @@ nonisolated enum CalculRatioObserve {
 
     // MARK: Classification en tranche
 
-    static func tranche(doseAppliquee: Double, doseSuggeree: Double) -> TrancheRatio {
-        guard doseSuggeree > 0 else { return .doseProche }
-        let ratio = doseAppliquee / doseSuggeree
-        if ratio <= 1 - toleranceRatio { return .doseNettementFaible }
-        if ratio >= 1 + toleranceRatio { return .doseNettementForte }
+    /// Classe un repas en comparant son **ratio effectif** (`glucides ÷ dose
+    /// réellement donnée`, en g/u) au ratio configuré, lui aussi reconstitué
+    /// en g/u (`glucides ÷ dose suggérée`).
+    ///
+    /// Attention au sens : le ratio s'exprimant en grammes couverts par unité,
+    /// il varie **à l'inverse** de l'insuline. Un ratio effectif *plus élevé*
+    /// que le configuré (plus de grammes par unité) signifie qu'on a mis
+    /// *moins* d'insuline — donc `.doseNettementFaible`.
+    static func tranche(glucides: Int, doseAppliquee: Double, doseSuggeree: Double) -> TrancheRatio {
+        guard doseSuggeree > 0, doseAppliquee > 0, glucides > 0 else { return .doseProche }
+        let ratioEffectif = Double(glucides) / doseAppliquee
+        let ratioConfigure = Double(glucides) / doseSuggeree
+        let ecart = ratioEffectif - ratioConfigure
+        if ecart >= toleranceGrammesParUnite { return .doseNettementFaible }
+        if ecart <= -toleranceGrammesParUnite { return .doseNettementForte }
         return .doseProche
     }
 
@@ -158,7 +179,7 @@ nonisolated enum CalculRatioObserve {
         groupe: SectionRepas?, repas: [EntreeRatioRepas]
     ) -> ObservationRatioSection {
         let parTranche = Dictionary(grouping: repas) {
-            tranche(doseAppliquee: $0.doseAppliquee, doseSuggeree: $0.doseSuggeree)
+            tranche(glucides: $0.glucides, doseAppliquee: $0.doseAppliquee, doseSuggeree: $0.doseSuggeree)
         }
 
         let buckets = TrancheRatio.allCases.compactMap { t -> BucketRatioObserve? in

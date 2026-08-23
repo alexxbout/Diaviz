@@ -405,6 +405,9 @@ private struct RepasArchive: Codable {
     var doseGlobale: Double?
     var doseCorrection: Double?
     var verdictPersiste: VerdictGlycemique?
+    /// Optionnel avec valeur par défaut : les archives écrites avant l'ajout
+    /// du champ se réimportent sans erreur de décodage.
+    var raisonMauvaisPersistee: RaisonMauvaisVerdict? = nil
     var ratioEffectifPersiste: Double?
     var ajustements: [Ajustement]
     var contexteLibre: String?
@@ -419,6 +422,7 @@ private struct RepasArchive: Codable {
         doseGlobale = modele.doseGlobale
         doseCorrection = modele.doseCorrection
         verdictPersiste = modele.verdictPersiste
+        raisonMauvaisPersistee = modele.raisonMauvaisPersistee
         ratioEffectifPersiste = modele.ratioEffectifPersiste
         ajustements = modele.ajustements
         contexteLibre = modele.contexteLibre
@@ -435,6 +439,7 @@ private struct RepasArchive: Codable {
             doseGlobale: doseGlobale,
             doseCorrection: doseCorrection,
             verdictPersiste: verdictPersiste,
+            raisonMauvaisPersistee: raisonMauvaisPersistee,
             ratioEffectifPersiste: ratioEffectifPersiste,
             ajustements: ajustements,
             contexteLibre: contexteLibre,

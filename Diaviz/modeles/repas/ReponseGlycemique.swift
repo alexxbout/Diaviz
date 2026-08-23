@@ -36,6 +36,10 @@ struct ReponseGlycemique: Codable, Sendable {
     /// Échantillons CGM normalisés autour de T0 (l'heure du repas).
     let pointsCgm: [PointCgm]
     let verdict: VerdictGlycemique
+    /// Ce qui a déclenché un verdict `.mauvais` — `nil` pour tout autre
+    /// verdict. Optionnel avec valeur par défaut : les archives JSON écrites
+    /// avant l'ajout du champ se décodent sans broncher.
+    var raisonMauvais: RaisonMauvaisVerdict? = nil
     /// Glycémie maximale observée après le repas (mg/dL).
     let valeurPic: Double
     /// Délai entre le repas et le pic (en secondes). Aligné sur l'un
