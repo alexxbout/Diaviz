@@ -86,6 +86,15 @@ enum ResultatRechercheAliment: Identifiable, Hashable, Codable {
         }
     }
 
+    /// Faux uniquement pour un produit OFF sans énergie renseignée — CIQUAL
+    /// couvre toujours ce nutriment.
+    var caloriesRenseignees: Bool {
+        switch self {
+        case .ciqual:     return true
+        case .off(let p): return p.caloriesRenseignees
+        }
+    }
+
     private func valeur(
         _ cheminCiqual: KeyPath<AlimentCiqual, Double>,
         _ cheminOFF: KeyPath<AlimentOFF, Double?>

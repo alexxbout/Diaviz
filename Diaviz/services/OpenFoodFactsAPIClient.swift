@@ -302,7 +302,7 @@ private struct ProduitOFF: Decodable {
             code: code,
             nom: nom,
             marque: brands?.trimmingCharacters(in: .whitespacesAndNewlines).nilSiVide,
-            calories: nutriments?.energyKcal100g,
+            calories: nutriments?.caloriesKcal100g,
             glucides: nutriments?.carbohydrates100g,
             sucres: nutriments?.sugars100g,
             proteines: nutriments?.proteins100g,
@@ -316,6 +316,7 @@ private struct ProduitOFF: Decodable {
 
 private struct NutrimentsOFF: Decodable {
     let energyKcal100g: Double?
+    let energyKj100g: Double?
     let carbohydrates100g: Double?
     let sugars100g: Double?
     let proteins100g: Double?
@@ -324,11 +325,33 @@ private struct NutrimentsOFF: Decodable {
 
     enum CodingKeys: String, CodingKey {
         case energyKcal100g = "energy-kcal_100g"
+        case energyKj100g = "energy-kj_100g"
         case carbohydrates100g = "carbohydrates_100g"
         case sugars100g = "sugars_100g"
         case proteins100g = "proteins_100g"
         case fat100g = "fat_100g"
         case fiber100g = "fiber_100g"
+    }
+
+    /// Facteur de conversion officiel (Règlement UE 1169/2011, annexe XIV) —
+    /// 1 kcal = 4,184 kJ.
+    private static let kjParKcal = 4.184
+
+    /// Énergie **en kcal pour 100 g**, quelle que soit l'unité renseignée
+    /// côté OFF.
+    ///
+    /// Le lookup par code-barres (API v2) calcule toujours `energy-kcal_100g`,
+    /// même quand le contributeur n'a saisi que des kilojoules. L'index de
+    /// recherche (search-a-licious), lui, ne remonte que les champs
+    /// réellement stockés : sur un produit saisi en kJ — cas fréquent, les
+    /// étiquettes européennes affichant les deux unités mais les
+    /// contributeurs ne recopiant parfois que la première — seul
+    /// `energy-kj_100g` existe. Sans cette conversion, le même produit
+    /// affichait « 0 kcal » via la recherche et sa vraie valeur via le scan.
+    var caloriesKcal100g: Double? {
+        if let energyKcal100g { return energyKcal100g }
+        guard let energyKj100g else { return nil }
+        return energyKj100g / Self.kjParKcal
     }
 }
 

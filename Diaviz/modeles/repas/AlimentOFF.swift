@@ -17,7 +17,10 @@ struct AlimentOFF: Codable, Identifiable, Hashable {
     let code: String
     let nom: String
     let marque: String?
-    /// Nutriments pour 100 g, tels que fournis par OFF.
+    /// Nutriments pour 100 g, tels que fournis par OFF. L'énergie est
+    /// toujours **en kcal** : quand OFF ne stocke que des kilojoules, la
+    /// conversion est faite au décodage (`NutrimentsOFF.caloriesKcal100g`),
+    /// jamais à l'affichage.
     let calories: Double?
     let glucides: Double?
     let sucres: Double?
@@ -33,4 +36,8 @@ struct AlimentOFF: Codable, Identifiable, Hashable {
 
     /// Vrai si les glucides — la donnée vitale de l'app — sont renseignés.
     var glucidesRenseignes: Bool { glucides != nil }
+
+    /// Vrai si l'énergie est connue — permet d'afficher « — » plutôt qu'un
+    /// « 0 kcal » qui se lirait comme une valeur mesurée.
+    var caloriesRenseignees: Bool { calories != nil }
 }

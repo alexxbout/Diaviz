@@ -594,7 +594,13 @@ struct DetailAlimentSheet: View {
                 Spacer()
                 colonneNutriment(label: "Lipides", valeur: lipides, unite: "g")
                 Spacer()
-                colonneNutriment(label: "Calories", valeur: calories, unite: "kcal")
+                // « — » plutôt que « 0.0 » quand OFF ne renseigne aucune
+                // énergie : un zéro se lirait comme une valeur mesurée.
+                colonneNutriment(
+                    label: "Calories",
+                    valeur: aliment.caloriesRenseignees ? calories : nil,
+                    unite: "kcal"
+                )
             }
             .padding(.bottom, 8)
         }
@@ -644,19 +650,24 @@ struct DetailAlimentSheet: View {
 
     /// Colonne verticale label + valeur utilisée dans la row macros.
     @ViewBuilder
-    private func colonneNutriment(label: String, valeur: Double, unite: String) -> some View {
+    /// `valeur` à `nil` = nutriment non renseigné par la source : la colonne
+    /// affiche « — » sans unité, jamais un zéro trompeur.
+    private func colonneNutriment(label: String, valeur: Double?, unite: String) -> some View {
         VStack(spacing: 2) {
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
             HStack(alignment: .lastTextBaseline, spacing: 1) {
-                Text(String(format: "%.1f", valeur))
+                Text(valeur.map { String(format: "%.1f", $0) } ?? "—")
                     .font(.body.bold())
+                    .foregroundStyle(valeur == nil ? .secondary : .primary)
                     .contentTransition(.numericText())
                     .animation(.spring(response: 0.3), value: valeur)
-                Text(unite)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                if valeur != nil {
+                    Text(unite)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .frame(maxWidth: .infinity)
