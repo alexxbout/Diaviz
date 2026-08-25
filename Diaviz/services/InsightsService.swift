@@ -106,14 +106,17 @@ struct ValidationRatio {
     }
 }
 
-/// Sport détecté dans la fenêtre récente (3h par défaut) — un **fait** du
-/// hub, au même titre que l'IOB.
+/// Activité sportive récente — un **fait** du hub, au même titre que l'IOB.
+///
+/// « Récente » se mesure depuis la **fin** de la séance et non son début :
+/// `RatiosSport.fenetreEffetHeures` décrit un effet qui court après l'effort.
+/// Compter depuis le début faisait sortir une longue séance de la fenêtre
+/// alors qu'elle venait de se terminer.
 ///
 /// `ratioAjuste` est le ratio post-sport **saisi dans le profil** pour ce type
-/// d'activité, `nil` s'il n'y en a pas ou si la séance est sortie de la
-/// fenêtre d'effet réglée. Quand il existe, c'est lui qui juge la dose
-/// (`ValidationRatio`) : la carte sport n'affiche donc plus le chiffre, pour
-/// qu'un seul endroit dise quel ratio fait foi.
+/// d'activité, `nil` s'il n'y en a pas. Quand il existe, c'est lui qui juge la
+/// dose (`ValidationRatio`) : la carte sport n'affiche donc plus le chiffre,
+/// pour qu'un seul endroit dise quel ratio fait foi.
 ///
 /// Aucun décompte de séances historiques ici : le champ existait, toujours
 /// figé à 0, et faisait dire à la carte « basé sur 0 séances » à propos d'un
@@ -122,8 +125,20 @@ struct ValidationRatio {
 struct SportDetecte {
     let typeSport: String
     let icone: String
-    let ilYAMinutes: Int
+    let intensite: String
+    let dureeMinutes: Int
+    let debut: Date
+    let fin: Date
+    /// Minutes écoulées depuis la fin de la séance. `0` tant qu'elle est en
+    /// cours (voir `enCours`), jamais négatif.
+    let minutesDepuisFin: Int
+    /// Séance non terminée à l'instant du repas.
+    let enCours: Bool
     let ratioAjuste: ProfilRatio?
+    /// Minutes restantes avant que la fenêtre d'effet ne se referme et que le
+    /// ratio du moment reprenne la main. `nil` quand aucun ratio post-sport
+    /// n'est configuré pour ce type (il n'y a alors rien à voir expirer).
+    let minutesRestantesEffet: Int?
 }
 
 /// Une injection rapide encore active (insuline IOB = "Insulin On Board").
@@ -156,9 +171,9 @@ struct ContexteInsights {
 /// - **Validation ratio** : dose **de base** du repas (hors ajustements et
 ///   correction) vs dose issue du ratio configuré en vigueur — celui du sport
 ///   récent s'il existe, sinon celui du moment de la journée.
-/// - **Sport** : présence d'une activité sportive dans les 3h précédant le
-///   repas, et ratio post-sport du profil s'il est renseigné — auquel cas
-///   c'est lui, et non le ratio du moment, qui juge la dose.
+/// - **Sport** : séance terminée (ou en cours) dans la fenêtre d'effet réglée
+///   au profil, et ratio post-sport s'il est renseigné pour ce type — auquel
+///   cas c'est lui, et non le ratio du moment, qui juge la dose.
 /// - **IOB** : insuline rapide encore active, via `IOBCalculateur` et la DIA du
 ///   profil — même modèle que la carte « Insuline active » de l'accueil.
 ///
@@ -166,8 +181,12 @@ struct ContexteInsights {
 /// un conseil de dose.
 enum InsightsService {
 
-    /// Fenêtre de détection d'un sport « récent » avant le repas (3h).
-    private static let fenetreSport: TimeInterval = 3 * 3600
+    /// Marge de recherche en amont de la fenêtre d'effet, pour rattraper les
+    /// séances **longues** : la requête filtre sur `dateDebut` (seul champ
+    /// stocké — `dateFin` est calculé), or une séance de 3h terminée il y a
+    /// 10 min a commencé il y a plus de 3h. Le tri final se fait sur la fin
+    /// réelle, en mémoire.
+    private static let margeSeanceLongue: TimeInterval = 12 * 3600
 
     // MARK: API publique
 
@@ -270,35 +289,61 @@ enum InsightsService {
 
     // MARK: Sport récent (présence uniquement)
 
+    /// Séance dont la **fin** tombe dans la fenêtre d'effet configurée
+    /// (`RatiosSport.fenetreEffetHeures`), ou qui est encore en cours.
+    ///
+    /// La fenêtre de détection était figée à 3h en dur, indépendamment du
+    /// réglage : passer la fenêtre d'effet à 5h ne servait à rien, la séance
+    /// n'était même pas détectée entre 3h et 5h, donc le ratio post-sport ne
+    /// s'appliquait jamais sur cette plage — silencieusement.
     private static func sportRecent(avant instant: Date, contexte: ModelContext?) -> SportDetecte? {
         guard let contexte else { return nil }
-        let depuis = instant.addingTimeInterval(-fenetreSport)
+        let ratios = ProfilService.shared.profil.ratiosSportEffectifs
+        let fenetre = ratios.fenetreEffetHeures * 3600
+        let borneRecherche = instant.addingTimeInterval(-(fenetre + margeSeanceLongue))
         let descripteur = FetchDescriptor<ActiviteSportive>(
-            predicate: #Predicate { $0.dateDebut >= depuis && $0.dateDebut <= instant },
+            predicate: #Predicate { $0.dateDebut >= borneRecherche && $0.dateDebut <= instant },
             sortBy: [SortDescriptor(\.dateDebut, order: .reverse)]
         )
-        guard let activite = try? contexte.fetch(descripteur).first else { return nil }
-        let minutes = Int(instant.timeIntervalSince(activite.dateDebut) / 60)
+        let candidates = (try? contexte.fetch(descripteur)) ?? []
+        // `dateFin` réintègre les pauses : filtrable seulement en mémoire.
+        guard let activite = candidates
+            .filter({ instant.timeIntervalSince($0.dateFin) <= fenetre })
+            .max(by: { $0.dateFin < $1.dateFin })
+        else { return nil }
+
+        let secondesDepuisFin = instant.timeIntervalSince(activite.dateFin)
+        let enCours = secondesDepuisFin < 0
+        let minutesDepuisFin = max(0, Int(secondesDepuisFin / 60))
+        let ratio = ratioSportConfigure(type: activite.type)
         return SportDetecte(
             typeSport: activite.type.rawValue,
             icone: activite.type.icone,
-            ilYAMinutes: minutes,
-            ratioAjuste: ratioSportConfigure(type: activite.type, ilYAMinutes: minutes)
+            intensite: activite.intensite.rawValue,
+            dureeMinutes: activite.dureeMinutes,
+            debut: activite.dateDebut,
+            fin: activite.dateFin,
+            minutesDepuisFin: minutesDepuisFin,
+            enCours: enCours,
+            ratioAjuste: ratio,
+            minutesRestantesEffet: ratio == nil
+                ? nil
+                : max(0, Int((fenetre - max(0, secondesDepuisFin)) / 60))
         )
     }
 
     /// Ratio post-sport **saisi par l'utilisateur** dans le profil (et non
     /// dérivé de son historique — l'analyse R2 reste à faire). `nil` si aucun
-    /// ratio n'est configuré pour ce sport, ou si la séance est déjà sortie de
-    /// la fenêtre d'effet réglée : la carte retombe alors sur son message
-    /// « pas assez de données ».
-    private static func ratioSportConfigure(type: TypeSport, ilYAMinutes: Int) -> ProfilRatio? {
+    /// ratio n'est configuré pour ce type de sport : le ratio du moment garde
+    /// alors la main.
+    ///
+    /// Plus de contrôle de fenêtre ici : `sportRecent` ne remonte déjà que les
+    /// séances dans la fenêtre d'effet, le vérifier deux fois avec deux
+    /// références temporelles différentes est précisément ce qui produisait
+    /// des états incohérents.
+    private static func ratioSportConfigure(type: TypeSport) -> ProfilRatio? {
         let ratios = ProfilService.shared.profil.ratiosSportEffectifs
-        guard Double(ilYAMinutes) <= ratios.fenetreEffetHeures * 60,
-              let grammesParUnite = ratios.ratio(pour: type),
-              grammesParUnite > 0
-        else { return nil }
-
+        guard let grammesParUnite = ratios.ratio(pour: type), grammesParUnite > 0 else { return nil }
         return ProfilRatio(
             grammesParUnite: grammesParUnite,
             libelle: "post-\(type.rawValue.lowercased())"

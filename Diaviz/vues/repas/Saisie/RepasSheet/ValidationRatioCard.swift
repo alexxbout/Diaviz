@@ -68,11 +68,15 @@ struct ValidationRatioCard: View {
             // Deux badges de nature différente : le ratio **en vigueur**
             // (celui qui a produit le verdict) et, le cas échéant, la
             // déviation volontaire que l'app ne juge pas.
-            HStack(spacing: 6) {
-                badgeProfil
-                if validation.ajustements != 0 {
-                    badgeAjustement
-                }
+            //
+            // Côte à côte seulement s'ils tiennent réellement sur la ligne :
+            // « 1u/15g profil post-musculation » à côté d'un ajustement se
+            // faisait comprimer et le texte partait sur trois lignes dans la
+            // capsule. `ViewThatFits` bascule alors en pile verticale, et les
+            // badges gardent leur largeur naturelle (`fixedSize`).
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 6) { badges }
+                VStack(alignment: .leading, spacing: 6) { badges }
             }
 
             if validation.etat != .coherente {
@@ -117,6 +121,14 @@ struct ValidationRatioCard: View {
         }
     }
 
+    @ViewBuilder
+    private var badges: some View {
+        badgeProfil
+        if validation.ajustements != 0 {
+            badgeAjustement
+        }
+    }
+
     /// Écart volontaire signalé sans être jugé — teinte ambre fixe, jamais la
     /// couleur d'état de la carte : un ajustement n'est pas une erreur, et
     /// faire virer la carte au rouge à chaque fois apprendrait à ignorer le
@@ -127,7 +139,9 @@ struct ValidationRatioCard: View {
                 .font(.caption2.bold())
             Text("Ajustement \(validation.ajustements.ecartDoseFormate)")
                 .font(.caption.bold())
+                .lineLimit(1)
         }
+        .fixedSize()
         .foregroundStyle(.orange)
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
@@ -170,7 +184,9 @@ struct ValidationRatioCard: View {
                 .font(.caption2.bold())
             Text(validation.profil.description)
                 .font(.caption.bold())
+                .lineLimit(1)
         }
+        .fixedSize()
         .foregroundStyle(.tint)
         .padding(.horizontal, 8)
         .padding(.vertical, 3)

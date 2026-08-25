@@ -7,12 +7,15 @@
 
 import SwiftUI
 
-/// Carte affichée quand un sport a été détecté dans la fenêtre récente.
-/// Indique si on a un ratio ajusté disponible (basé sur l'historique) ou
-/// si on n'a pas encore assez de données.
+/// Carte affichée quand une séance sportive est terminée (ou en cours) dans
+/// la fenêtre d'effet réglée au profil.
+///
+/// Purement **factuelle** : elle dit ce qui s'est passé et quel ratio en
+/// découle, jamais un chiffre de ratio — celui-ci vit dans la carte de
+/// validation de la dose, seule à le confronter à la dose saisie.
 ///
 /// Design aligné sur les autres cartes : icône en cercle bleu à gauche,
-/// titre + ratio ajusté + détail à droite, fond uni à `0.10` d'opacité.
+/// titre + détail à droite, fond uni à `0.10` d'opacité.
 struct SportDetecteCard: View {
 
     let sport: SportDetecte
@@ -40,7 +43,7 @@ struct SportDetecteCard: View {
         }
         .buttonStyle(.plain)
         .sheet(isPresented: $afficherExplication) {
-            FeuilleExplicationSport(sport: sport)
+            FeuilleDetailSport(sport: sport)
         }
     }
 
@@ -57,7 +60,7 @@ struct SportDetecteCard: View {
 
     private var contenu: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Label("\(sport.typeSport) détecté il y a \(libelleTemps)", systemImage: sport.icone)
+            Label(titre, systemImage: sport.icone)
                 .font(.body.bold())
                 .foregroundStyle(.primary)
                 .multilineTextAlignment(.leading)
@@ -69,12 +72,13 @@ struct SportDetecteCard: View {
         }
     }
 
-    private var libelleTemps: String {
-        let m = sport.ilYAMinutes
-        if m < 60 { return "\(m)min" }
-        let h = m / 60
-        let r = m % 60
-        return r == 0 ? "\(h)h" : "\(h)h\(r)"
+    /// Le temps écoulé se compte depuis la **fin** de la séance : c'est de là
+    /// que court l'effet sur la sensibilité, et c'est cette référence qu'utilise
+    /// la fenêtre du profil.
+    private var titre: String {
+        sport.enCours
+            ? "\(sport.typeSport) en cours"
+            : "\(sport.typeSport) terminé il y a \(FormatDureeSport.libelle(minutes: sport.minutesDepuisFin))"
     }
 
     /// Dit d'où vient le ratio en vigueur, sans répéter son chiffre — il est
@@ -87,39 +91,80 @@ struct SportDetecteCard: View {
             ? "Ton ratio post-\(sport.typeSport.lowercased()) est appliqué à la dose de ce repas."
             : "Aucun ratio post-\(sport.typeSport.lowercased()) configuré : le ratio du moment reste appliqué."
     }
-
 }
 
-// MARK: - Sheet explicative (placeholder)
+// MARK: - Format partagé
 
-private struct FeuilleExplicationSport: View {
+/// Durées en minutes rendues en « 45min » / « 2h » / « 1h20 » — partagé par la
+/// carte et sa sheet pour que le même délai ne s'écrive pas de deux façons.
+enum FormatDureeSport {
+    static func libelle(minutes: Int) -> String {
+        if minutes < 60 { return "\(minutes)min" }
+        let h = minutes / 60
+        let r = minutes % 60
+        return r == 0 ? "\(h)h" : "\(h)h\(r)"
+    }
+}
+
+// MARK: - Sheet de détail
+
+/// Détail de la séance et de son effet sur le ratio.
+///
+/// L'ancienne version n'affichait que le type et un délai, plus un décompte de
+/// séances toujours nul et une phrase promettant une analyse d'historique qui
+/// n'existe pas. Elle montre désormais les faits réellement disponibles dans
+/// le hub — horaires, durée, intensité — et ce qui en découle concrètement :
+/// quel ratio s'applique, d'où il vient, et pendant combien de temps encore.
+private struct FeuilleDetailSport: View {
     let sport: SportDetecte
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Activité détectée") {
+                Section("Séance") {
                     LabeledContent("Type") {
                         Label(sport.typeSport, systemImage: sport.icone)
                     }
-                    LabeledContent("Il y a", value: "\(sport.ilYAMinutes) min")
+                    LabeledContent("Intensité", value: sport.intensite)
+                    LabeledContent("Durée", value: FormatDureeSport.libelle(minutes: sport.dureeMinutes))
+                    LabeledContent("Horaires", value: horaires)
+                    LabeledContent(
+                        sport.enCours ? "État" : "Terminée",
+                        value: sport.enCours
+                            ? "En cours"
+                            : "il y a \(FormatDureeSport.libelle(minutes: sport.minutesDepuisFin))"
+                    )
                 }
+
                 if let ratio = sport.ratioAjuste {
-                    Section("Ratio appliqué") {
-                        Text(ratio.description)
-                        Text("Saisi dans ton profil, section Ratios sport.")
+                    Section("Ratio appliqué à ce repas") {
+                        LabeledContent("Ratio", value: ratio.description)
+                        if let restant = sport.minutesRestantesEffet {
+                            LabeledContent(
+                                "Encore actif",
+                                value: restant > 0 ? FormatDureeSport.libelle(minutes: restant) : "expire maintenant"
+                            )
+                        }
+                        Text("Ratio saisi dans ton profil, section Ratios sport. Il remplace celui du moment de la journée tant que la fenêtre d'effet court.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+                } else {
+                    Section("Ratio appliqué à ce repas") {
+                        Text("Aucun ratio post-\(sport.typeSport.lowercased()) configuré : c'est le ratio du moment de la journée qui s'applique.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
                 }
+
                 Section {
-                    Text("Le sport peut modifier la sensibilité à l'insuline pendant plusieurs heures. Le ratio appliqué ici est celui que tu as renseigné pour ce type d'activité — Diaviz ne le déduit pas de ton historique.")
+                    Text("Le sport peut modifier la sensibilité à l'insuline pendant plusieurs heures. Le ratio appliqué ici est celui que tu as renseigné pour ce type d'activité — Diaviz ne le déduit pas de ton historique de séances.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
             }
-            .navigationTitle("Sport détecté")
+            .navigationTitle("Activité récente")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -131,24 +176,45 @@ private struct FeuilleExplicationSport: View {
         .presentationDragIndicator(.visible)
         .presentationBackground(Color(.systemGroupedBackground))
     }
+
+    private var horaires: String {
+        let debut = sport.debut.formatted(date: .omitted, time: .shortened)
+        let fin = sport.fin.formatted(date: .omitted, time: .shortened)
+        return "\(debut) → \(fin)"
+    }
 }
 
 #if DEBUG
-#Preview {
-    let avec = SportDetecte(
-        typeSport: "Yoga", icone: "figure.yoga", ilYAMinutes: 60,
-        ratioAjuste: ProfilRatio(grammesParUnite: 14, libelle: "post-yoga")
+private func _sport(
+    ratio: ProfilRatio? = ProfilRatio(grammesParUnite: 14, libelle: "post-yoga"),
+    minutesDepuisFin: Int = 45,
+    enCours: Bool = false,
+    restant: Int? = 135
+) -> SportDetecte {
+    let fin = Date().addingTimeInterval(-Double(minutesDepuisFin) * 60)
+    return SportDetecte(
+        typeSport: "Yoga", icone: "figure.yoga", intensite: "Modérée", dureeMinutes: 75,
+        debut: fin.addingTimeInterval(-75 * 60), fin: fin,
+        minutesDepuisFin: minutesDepuisFin, enCours: enCours,
+        ratioAjuste: ratio, minutesRestantesEffet: ratio == nil ? nil : restant
     )
-    let sans = SportDetecte(
-        typeSport: "Yoga", icone: "figure.yoga", ilYAMinutes: 60,
-        ratioAjuste: nil
-    )
+}
 
+#Preview("Cartes") {
     VStack(spacing: 12) {
-        SportDetecteCard(sport: avec)
-        SportDetecteCard(sport: sans)
+        SportDetecteCard(sport: _sport())
+        SportDetecteCard(sport: _sport(ratio: nil))
+        SportDetecteCard(sport: _sport(minutesDepuisFin: 0, enCours: true, restant: 180))
     }
     .padding()
     .background(Color(.systemGroupedBackground))
+}
+
+#Preview("Sheet — ratio configuré") {
+    FeuilleDetailSport(sport: _sport())
+}
+
+#Preview("Sheet — sans ratio") {
+    FeuilleDetailSport(sport: _sport(ratio: nil))
 }
 #endif
