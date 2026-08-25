@@ -10,18 +10,24 @@ import SwiftData
 
 // MARK: - Modèles d'insights
 
-/// Profil de ratio insuline/glucides actif sur la période actuelle de la journée.
-/// Les valeurs sont mockées : on simulerait normalement un profil par tranche horaire.
+/// Profil de ratio insuline/glucides actif sur la période actuelle de la
+/// journée, tel qu'il est **configuré dans le profil**.
 struct ProfilRatio {
-    /// Unités d'insuline par 10g de glucides (ex : 1.0 = 1u/10g).
-    let unitesPour10g: Double
+    /// Grammes de glucides couverts par 1 unité d'insuline (ex : 12 = 1u/12g)
+    /// — même sens et même unité que `RatiosParMoment` / `RatiosSport` dans le
+    /// profil.
+    ///
+    /// L'affichage utilisait auparavant l'inverse (« 0.8u/10g »), une valeur
+    /// que l'utilisateur ne saisit nulle part et doit convertir de tête pour
+    /// la rapprocher de son réglage.
+    let grammesParUnite: Double
     /// Libellé humain du profil actif (ex : "midi", "soir", "matin").
     let libelle: String
 
     var description: String {
-        let formatte = unitesPour10g == floor(unitesPour10g)
-            ? String(format: "%.0fu/10g", unitesPour10g)
-            : String(format: "%.1fu/10g", unitesPour10g)
+        let formatte = grammesParUnite == floor(grammesParUnite)
+            ? String(format: "1u/%.0fg", grammesParUnite)
+            : String(format: "1u/%.1fg", grammesParUnite)
         return "\(formatte) profil \(libelle)"
     }
 }
@@ -30,9 +36,25 @@ struct ProfilRatio {
 /// L'écart est `doseSaisie - doseSuggeree`.
 /// On considère cohérent si l'écart absolu est inférieur à 0.5u.
 struct ValidationRatio {
+    /// Dose **de base** du repas, celle qui prétend couvrir les glucides —
+    /// hors ajustements et hors correction d'hyperglycémie. C'est la seule
+    /// comparable au ratio : un ajustement est une déviation volontaire, une
+    /// correction répond à la glycémie du moment, ni l'un ni l'autre ne
+    /// prétend couvrir des glucides.
     let doseSaisie: Double
     let doseSuggeree: Double
     let profil: ProfilRatio
+    /// Somme signée des ajustements intentionnels du repas (0 = aucun).
+    /// Exclue du verdict, rapportée à part : l'app n'a aucune base pour
+    /// juger une déviation décidée par l'utilisateur.
+    let ajustements: Double
+    /// Glucides du repas (g) — sert à exprimer le ratio réellement appliqué
+    /// une fois les ajustements inclus.
+    let glucides: Double
+    /// `true` quand le ratio en vigueur est celui d'une séance récente et non
+    /// celui du moment de la journée. Le mining R1 ne couvrant que les ratios
+    /// par moment, ses observations sont alors hors sujet et masquées.
+    let ratioSportApplique: Bool
     /// Écart factuel entre le ratio configuré et un ratio mieux observé
     /// historiquement pour ce moment (mining R1, `CalculRatioObserve`) — `nil`
     /// tant qu'aucune tranche n'atteint `CalculRatioObserve.effectifMinimalBucket`
@@ -45,17 +67,35 @@ struct ValidationRatio {
 
     init(
         doseSaisie: Double, doseSuggeree: Double, profil: ProfilRatio,
+        ajustements: Double = 0,
+        glucides: Double = 0,
+        ratioSportApplique: Bool = false,
         ecartObserve: EcartRatioObserve? = nil,
         effectifGroupe: Int = 0
     ) {
         self.doseSaisie = doseSaisie
         self.doseSuggeree = doseSuggeree
         self.profil = profil
+        self.ajustements = ajustements
+        self.glucides = glucides
+        self.ratioSportApplique = ratioSportApplique
         self.ecartObserve = ecartObserve
         self.effectifGroupe = effectifGroupe
     }
 
     var ecart: Double { doseSaisie - doseSuggeree }
+
+    /// Ratio réellement appliqué au repas une fois les ajustements inclus
+    /// (grammes couverts par 1u) — un **fait**, jamais confronté à un seuil :
+    /// il ne mesure plus le ratio configuré mais l'écart volontaire qu'on lui
+    /// a fait subir. `nil` si aucun ajustement, ou si la dose totale tombe à
+    /// zéro (rien à rapporter).
+    var ratioEffectifApresAjustement: Double? {
+        guard ajustements != 0, glucides > 0 else { return nil }
+        let totalCouvrant = doseSaisie + ajustements
+        guard totalCouvrant > 0 else { return nil }
+        return glucides / totalCouvrant
+    }
 
     /// 3 états visuels possibles selon le signe et l'amplitude de l'écart.
     enum Etat { case coherente, faible, elevee }
@@ -66,15 +106,24 @@ struct ValidationRatio {
     }
 }
 
-/// Sport détecté dans la fenêtre récente (3h par défaut).
-/// Si `ratioAjuste` est nil, on n'a pas encore assez de données historiques
-/// pour proposer un ratio personnalisé après ce type d'activité.
+/// Sport détecté dans la fenêtre récente (3h par défaut) — un **fait** du
+/// hub, au même titre que l'IOB.
+///
+/// `ratioAjuste` est le ratio post-sport **saisi dans le profil** pour ce type
+/// d'activité, `nil` s'il n'y en a pas ou si la séance est sortie de la
+/// fenêtre d'effet réglée. Quand il existe, c'est lui qui juge la dose
+/// (`ValidationRatio`) : la carte sport n'affiche donc plus le chiffre, pour
+/// qu'un seul endroit dise quel ratio fait foi.
+///
+/// Aucun décompte de séances historiques ici : le champ existait, toujours
+/// figé à 0, et faisait dire à la carte « basé sur 0 séances » à propos d'un
+/// ratio qui venait en réalité du profil. Le mining par type de sport, c'est
+/// S1/R2 — pas encore fait, donc rien à afficher.
 struct SportDetecte {
     let typeSport: String
     let icone: String
     let ilYAMinutes: Int
     let ratioAjuste: ProfilRatio?
-    let nombreSeancesHistorique: Int
 }
 
 /// Une injection rapide encore active (insuline IOB = "Insulin On Board").
@@ -104,11 +153,12 @@ struct ContexteInsights {
 
 /// Source d'insights contextuels affichés dans la section « Alertes » de
 /// `RepasSheet`, dérivés **du hub** (aucun mock) :
-/// - **Validation ratio** : dose saisie vs dose issue du ratio *configuré* dans
-///   le profil pour le moment de la journée. Factuel — pas le « ratio optimal
-///   observé » (analyse R1, non implémentée).
+/// - **Validation ratio** : dose **de base** du repas (hors ajustements et
+///   correction) vs dose issue du ratio configuré en vigueur — celui du sport
+///   récent s'il existe, sinon celui du moment de la journée.
 /// - **Sport** : présence d'une activité sportive dans les 3h précédant le
-///   repas. Le ratio ajusté post-sport (analyse R2) reste `nil`.
+///   repas, et ratio post-sport du profil s'il est renseigné — auquel cas
+///   c'est lui, et non le ratio du moment, qui juge la dose.
 /// - **IOB** : insuline rapide encore active, via `IOBCalculateur` et la DIA du
 ///   profil — même modèle que la carte « Insuline active » de l'accueil.
 ///
@@ -124,8 +174,11 @@ enum InsightsService {
     /// Construit le contexte d'insights pour un repas en cours de composition.
     ///
     /// - Parameters:
-    ///   - doseSaisie: total d'insuline saisi (aliments + ajustements + correction).
+    ///   - doseSaisie: dose **de base** du repas (aliments ou dose globale),
+    ///     hors ajustements et hors correction — la seule comparable au ratio.
     ///   - glucides: total de glucides du repas (g).
+    ///   - ajustements: somme signée des ajustements intentionnels, rapportée
+    ///     à part sans jamais entrer dans le verdict.
     ///   - heure: instant de référence (T0 — l'instant de saisie).
     ///   - section: moment du repas, pour choisir le ratio en mode `.parMoment`.
     ///   - contexte: contexte du hub (sport + IOB). `nil` → ces deux blocs absents.
@@ -135,43 +188,61 @@ enum InsightsService {
     static func contexte(
         doseSaisie: Double,
         glucides: Double,
+        ajustements: Double = 0,
         heure: Date,
         section: SectionRepas,
         contexte: ModelContext?,
         analyseRatioObserve: AnalyseRatioObserve = .vide
     ) -> ContexteInsights {
-        ContexteInsights(
+        // Le sport est résolu **avant** la validation : quand une séance
+        // récente a un ratio configuré, c'est lui qui fait foi pour juger la
+        // dose — le ratio du moment est alors hors sujet. Les deux cartes
+        // affichaient auparavant deux ratios contradictoires, celui de la
+        // carte sport n'étant utilisé par aucun calcul.
+        let sport = sportRecent(avant: heure, contexte: contexte)
+        return ContexteInsights(
             validation: validation(
-                doseSaisie: doseSaisie, glucides: glucides, section: section,
+                doseSaisie: doseSaisie, glucides: glucides, ajustements: ajustements,
+                section: section, ratioSport: sport?.ratioAjuste,
                 analyseRatioObserve: analyseRatioObserve
             ),
-            sport: sportRecent(avant: heure, contexte: contexte),
+            sport: sport,
             iob: iobActif(a: heure, contexte: contexte)
         )
     }
 
     // MARK: Validation ratio (profil configuré)
 
+    /// - Parameter ratioSport: ratio post-sport en vigueur, quand une séance
+    ///   récente en a un de configuré. Prioritaire sur le ratio du moment.
     private static func validation(
-        doseSaisie: Double, glucides: Double, section: SectionRepas,
+        doseSaisie: Double, glucides: Double, ajustements: Double, section: SectionRepas,
+        ratioSport: ProfilRatio?,
         analyseRatioObserve: AnalyseRatioObserve
     ) -> ValidationRatio? {
         guard glucides > 0 else { return nil }
         let profil = ProfilService.shared.profil
-        guard let grammesParUnite = ratioConfigure(section: section, profil: profil), grammesParUnite > 0 else {
-            // Ratio non renseigné dans le profil → pas de suggestion possible.
-            return nil
+        let profilRatio: ProfilRatio
+        if let ratioSport {
+            profilRatio = ratioSport
+        } else {
+            guard let grammesParUnite = ratioConfigure(section: section, profil: profil), grammesParUnite > 0 else {
+                // Ratio non renseigné dans le profil → pas de suggestion possible.
+                return nil
+            }
+            profilRatio = ProfilRatio(
+                grammesParUnite: grammesParUnite,
+                libelle: section.titre.lowercased()
+            )
         }
-        let suggeree = glucides / grammesParUnite
-        let profilRatio = ProfilRatio(
-            unitesPour10g: 10 / grammesParUnite,
-            libelle: section.titre.lowercased()
-        )
+        let suggeree = glucides / profilRatio.grammesParUnite
         let sectionRecherchee = profil.modeRatio == .unique ? nil : section
         let sectionMining = analyseRatioObserve.sections.first { $0.groupe == sectionRecherchee }
 
         return ValidationRatio(
             doseSaisie: doseSaisie, doseSuggeree: suggeree, profil: profilRatio,
+            ajustements: ajustements, glucides: glucides,
+            ratioSportApplique: ratioSport != nil,
             ecartObserve: sectionMining?.ecart, effectifGroupe: sectionMining?.effectif ?? 0
         )
     }
@@ -212,8 +283,7 @@ enum InsightsService {
             typeSport: activite.type.rawValue,
             icone: activite.type.icone,
             ilYAMinutes: minutes,
-            ratioAjuste: ratioSportConfigure(type: activite.type, ilYAMinutes: minutes),
-            nombreSeancesHistorique: 0
+            ratioAjuste: ratioSportConfigure(type: activite.type, ilYAMinutes: minutes)
         )
     }
 
@@ -230,7 +300,7 @@ enum InsightsService {
         else { return nil }
 
         return ProfilRatio(
-            unitesPour10g: 10 / grammesParUnite,
+            grammesParUnite: grammesParUnite,
             libelle: "post-\(type.rawValue.lowercased())"
         )
     }

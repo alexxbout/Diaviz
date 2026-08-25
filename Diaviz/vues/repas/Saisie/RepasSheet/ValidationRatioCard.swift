@@ -65,7 +65,15 @@ struct ValidationRatioCard: View {
                 .foregroundStyle(.primary)
                 .multilineTextAlignment(.leading)
 
-            badgeProfil
+            // Deux badges de nature différente : le ratio **en vigueur**
+            // (celui qui a produit le verdict) et, le cas échéant, la
+            // déviation volontaire que l'app ne juge pas.
+            HStack(spacing: 6) {
+                badgeProfil
+                if validation.ajustements != 0 {
+                    badgeAjustement
+                }
+            }
 
             if validation.etat != .coherente {
                 Text(ligneEcart)
@@ -75,23 +83,63 @@ struct ValidationRatioCard: View {
                     .padding(.top, 2)
             }
 
-            // Observation R1 (mining du ratio observé) : jamais une dose à
-            // utiliser, toujours restituée avec ses dénominateurs bruts.
-            if let ecartObserve = validation.ecartObserve {
-                Text(ligneEcartObserve(ecartObserve))
+            // Ratio réellement appliqué une fois l'ajustement inclus : un
+            // fait, sans verdict. Le verdict au-dessus ne porte que sur la
+            // dose de base, seule part censée couvrir les glucides.
+            if let ratioEffectif = validation.ratioEffectifApresAjustement {
+                Text(ligneRatioEffectif(ratioEffectif))
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .padding(.top, 2)
-            } else {
-                // Pas d'écart significatif : dit combien de repas alimentent
-                // déjà l'analyse de ce moment — jamais une conclusion, juste
-                // où on en est.
-                Text(ligneEffectif)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
                     .padding(.top, 2)
             }
+
+            // Observation R1 (mining du ratio observé) : jamais une dose à
+            // utiliser, toujours restituée avec ses dénominateurs bruts. Rien
+            // sous ratio sport — le mining ne couvre que les ratios par
+            // moment de la journée, il n'a rien à dire sur celui-ci.
+            if !validation.ratioSportApplique {
+                if let ecartObserve = validation.ecartObserve {
+                    Text(ligneEcartObserve(ecartObserve))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 2)
+                } else {
+                    // Pas d'écart significatif : dit combien de repas
+                    // alimentent déjà l'analyse de ce moment — jamais une
+                    // conclusion, juste où on en est.
+                    Text(ligneEffectif)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 2)
+                }
+            }
         }
+    }
+
+    /// Écart volontaire signalé sans être jugé — teinte ambre fixe, jamais la
+    /// couleur d'état de la carte : un ajustement n'est pas une erreur, et
+    /// faire virer la carte au rouge à chaque fois apprendrait à ignorer le
+    /// rouge.
+    private var badgeAjustement: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "slider.horizontal.3")
+                .font(.caption2.bold())
+            Text("Ajustement \(validation.ajustements.ecartDoseFormate)")
+                .font(.caption.bold())
+        }
+        .foregroundStyle(.orange)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(Color.orange.opacity(0.14), in: Capsule())
+    }
+
+    private func ligneRatioEffectif(_ grammesParUnite: Double) -> String {
+        let total = validation.doseSaisie + validation.ajustements
+        let formatteRatio = grammesParUnite == floor(grammesParUnite)
+            ? String(format: "1u/%.0fg", grammesParUnite)
+            : String(format: "1u/%.1fg", grammesParUnite)
+        return "Ajustement inclus : \(format(total))u pour \(format(validation.glucides))g, soit \(formatteRatio)."
     }
 
     /// Formulation factuelle de l'écart observé — jamais « utilise tel ratio »,
@@ -179,16 +227,29 @@ private struct FeuilleExplicationValidation: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Ratio actif") {
+                Section("Ratio en vigueur") {
                     Text(validation.profil.description)
+                    if validation.ratioSportApplique {
+                        Text("Ratio post-sport de ton profil — il remplace celui du moment de la journée tant que la séance est dans la fenêtre d'effet réglée.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 Section("Calcul") {
-                    LabeledContent("Dose saisie", value: "\(String(format: "%.1f", validation.doseSaisie))u")
+                    LabeledContent("Dose de base", value: "\(String(format: "%.1f", validation.doseSaisie))u")
                     LabeledContent("Dose suggérée", value: "\(String(format: "%.1f", validation.doseSuggeree))u")
                     LabeledContent("Écart", value: "\(String(format: "%.1f", validation.ecart))u")
                 }
+                if validation.ajustements != 0 {
+                    Section("Ajustement") {
+                        LabeledContent("Ajustement saisi", value: validation.ajustements.ecartDoseFormate)
+                        Text("Exclu du calcul ci-dessus : une déviation décidée volontairement ne mesure plus le ratio. Elle est reportée telle quelle, sans verdict.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 Section {
-                    Text("Cette analyse est basée sur ton ratio insuline/glucides moyen sur les dernières semaines, sans tenir compte du sport ni de l'IOB.")
+                    Text("Le calcul confronte la seule dose de base du repas au ratio en vigueur. La correction d'hyperglycémie et l'IOB n'y entrent pas.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
@@ -208,12 +269,49 @@ private struct FeuilleExplicationValidation: View {
 }
 
 #if DEBUG
-#Preview {
-    let profil = ProfilRatio(unitesPour10g: 1.0, libelle: "midi")
+#Preview("Trois états") {
+    let profil = ProfilRatio(grammesParUnite: 10, libelle: "midi")
     VStack(spacing: 12) {
         ValidationRatioCard(validation: ValidationRatio(doseSaisie: 9.5, doseSuggeree: 9.5, profil: profil))
         ValidationRatioCard(validation: ValidationRatio(doseSaisie: 0, doseSuggeree: 9.5, profil: profil))
         ValidationRatioCard(validation: ValidationRatio(doseSaisie: 6.5, doseSuggeree: 4.5, profil: profil))
+    }
+    .padding()
+    .background(Color(.systemGroupedBackground))
+}
+
+/// Le ratio est respecté sur la part repas, l'ajustement est signalé à part :
+/// carte verte + badge ambre, jamais un faux « dose faible ».
+#Preview("Avec ajustement") {
+    let profil = ProfilRatio(grammesParUnite: 10, libelle: "dîner")
+    VStack(spacing: 12) {
+        ValidationRatioCard(validation: ValidationRatio(
+            doseSaisie: 12, doseSuggeree: 12, profil: profil,
+            ajustements: -2, glucides: 120, effectifGroupe: 7
+        ))
+        ValidationRatioCard(validation: ValidationRatio(
+            doseSaisie: 12, doseSuggeree: 12, profil: profil,
+            ajustements: 1.5, glucides: 120
+        ))
+    }
+    .padding()
+    .background(Color(.systemGroupedBackground))
+}
+
+/// Séance récente : le ratio post-sport remplace celui du moment, et les
+/// observations R1 (qui ne portent que sur les ratios par moment) disparaissent.
+#Preview("Ratio sport en vigueur") {
+    VStack(spacing: 12) {
+        ValidationRatioCard(validation: ValidationRatio(
+            doseSaisie: 8.5, doseSuggeree: 8.6,
+            profil: ProfilRatio(grammesParUnite: 14, libelle: "post-musculation"),
+            glucides: 120, ratioSportApplique: true, effectifGroupe: 7
+        ))
+        ValidationRatioCard(validation: ValidationRatio(
+            doseSaisie: 12, doseSuggeree: 8.6,
+            profil: ProfilRatio(grammesParUnite: 14, libelle: "post-course à pied"),
+            glucides: 120, ratioSportApplique: true
+        ))
     }
     .padding()
     .background(Color(.systemGroupedBackground))

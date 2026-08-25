@@ -13,9 +13,9 @@ import SwiftUI
 /// bordure extérieure — l'identité visuelle vient du fond gradient et
 /// de l'icône colorée.
 ///
-/// Ordre de priorité d'affichage :
-/// 1. ValidationRatioCard (vert / orange / rouge selon état)
-/// 2. SportDetecteCard (bleu)
+/// Ordre d'affichage :
+/// 1. SportDetecteCard (bleu) — fait du hub, peut changer le ratio en vigueur
+/// 2. ValidationRatioCard (vert / orange / rouge selon état)
 /// 3. IOBCard (indigo)
 struct InsightsSection: View {
 
@@ -29,11 +29,13 @@ struct InsightsSection: View {
         } else {
             Section {
                 VStack(spacing: 10) {
-                    if let validation = contexte.validation {
-                        ValidationRatioCard(validation: validation)
-                    }
+                    // Le sport d'abord : c'est lui qui peut changer le ratio
+                    // en vigueur, donc la cause avant la conséquence.
                     if let sport = contexte.sport {
                         SportDetecteCard(sport: sport)
+                    }
+                    if let validation = contexte.validation {
+                        ValidationRatioCard(validation: validation)
                     }
                     if let iob = contexte.iob {
                         IOBCard(iob: iob)
@@ -79,11 +81,11 @@ struct InsightsSection: View {
 
 // MARK: - Aperçu
 
-private let _previewProfil = ProfilRatio(unitesPour10g: 1.0, libelle: "midi")
+private let _previewProfil = ProfilRatio(grammesParUnite: 10, libelle: "midi")
 
 private let _previewContexteComplet = ContexteInsights(
     validation: ValidationRatio(doseSaisie: 0, doseSuggeree: 4.5, profil: _previewProfil),
-    sport: SportDetecte(typeSport: "Yoga", icone: "figure.yoga", ilYAMinutes: 60, ratioAjuste: nil, nombreSeancesHistorique: 2),
+    sport: SportDetecte(typeSport: "Yoga", icone: "figure.yoga", ilYAMinutes: 60, ratioAjuste: nil),
     iob: IOB(
         unitesTotales: 1.8,
         injections: [

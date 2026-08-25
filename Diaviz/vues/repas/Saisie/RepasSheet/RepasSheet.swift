@@ -132,21 +132,27 @@ struct RepasSheet: View {
         max(0, doseBaseRepas + totalAjustements + correctionHyper)
     }
 
-    /// Dose couvrant les glucides du repas — c'est elle qu'on confronte au
-    /// ratio, pas `totalInjecte`. Le repas peut porter **deux ajustements
-    /// distincts**, à traiter différemment vis-à-vis du ratio :
-    /// - `ajustements` (`[Ajustement]`, ex. "sport récent") : modulent la
-    ///   dose *pour les glucides* (le repas en nécessite moins/plus dans ce
-    ///   contexte) → **inclus** ici.
-    /// - `correctionHyper` : répond à la glycémie du moment, pas aux
-    ///   glucides du repas ; **exclu**, positif ou négatif. L'inclure
-    ///   faussait le constat de cohérence dès qu'on ajoutait une correction
-    ///   (la dose totale ne respectait alors plus le ratio, alors que la
-    ///   part "repas" le respectait toujours).
+    /// Dose confrontée au ratio — **la seule part du repas qui prétend
+    /// couvrir les glucides**, donc ni les ajustements ni la correction.
+    ///
+    /// - `correctionHyper` répond à la glycémie du moment, pas aux glucides.
+    /// - `ajustements` (`[Ajustement]`, ex. « sport récent ») sont des
+    ///   déviations **volontaires** au ratio : les inclure ici garantissait un
+    ///   écart mécanique, et la carte annonçait « dose faible vs ratio » alors
+    ///   que le ratio était scrupuleusement respecté sur la part repas. Ils
+    ///   sont désormais rapportés à part par `ValidationRatioCard` (badge
+    ///   ambre + ratio effectif), sans verdict — l'app n'a aucune base pour
+    ///   juger une déviation décidée par l'utilisateur.
+    ///
+    /// Même définition que la dose du mining R1
+    /// (`AnalyseRatioService.mapperEntrees`, `totalInsuline - doseCorrection`),
+    /// qui lui non plus ne compte pas les ajustements : saisie et analyse
+    /// parlent enfin de la même dose.
+    ///
     /// En mode dose globale, la base est la dose globale — la validation du
     /// ratio fonctionne à l'identique (glucides totaux vs dose unique).
     private var doseCouvrantGlucides: Double {
-        max(0, doseBaseRepas + totalAjustements)
+        max(0, doseBaseRepas)
     }
 
     // MARK: - Exclusion des analyses
@@ -200,6 +206,7 @@ struct RepasSheet: View {
         return InsightsService.contexte(
             doseSaisie: doseCouvrantGlucides,
             glucides: glucidesTotal,
+            ajustements: totalAjustements,
             heure: heureRepas,
             section: section,
             contexte: modelContext,

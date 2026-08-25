@@ -62,28 +62,11 @@ struct SportDetecteCard: View {
                 .foregroundStyle(.primary)
                 .multilineTextAlignment(.leading)
 
-            if let ratio = sport.ratioAjuste {
-                badgeRatioAjuste(ratio: ratio)
-            }
-
             Text(messageContextuel)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.top, 2)
         }
-    }
-
-    private func badgeRatioAjuste(ratio: ProfilRatio) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: "wand.and.stars")
-                .font(.caption2.bold())
-            Text("Ratio ajusté \(ratio.description)")
-                .font(.caption.bold())
-        }
-        .foregroundStyle(couleurAccent)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .background(couleurAccent.opacity(0.14), in: Capsule())
     }
 
     private var libelleTemps: String {
@@ -94,12 +77,15 @@ struct SportDetecteCard: View {
         return r == 0 ? "\(h)h" : "\(h)h\(r)"
     }
 
+    /// Dit d'où vient le ratio en vigueur, sans répéter son chiffre — il est
+    /// affiché une seule fois, dans la carte de validation de la dose.
+    /// L'ancien message (« basé sur N séances ») attribuait à un historique
+    /// inexistant un ratio qui venait du profil : le décompte était figé à 0
+    /// et le mining par type de sport n'existe pas encore (S1/R2).
     private var messageContextuel: String {
-        if sport.ratioAjuste != nil {
-            return "Basé sur \(sport.nombreSeancesHistorique) séances post-\(sport.typeSport.lowercased())"
-        } else {
-            return "Pas assez de données post-\(sport.typeSport.lowercased()) pour ajuster le ratio"
-        }
+        sport.ratioAjuste != nil
+            ? "Ton ratio post-\(sport.typeSport.lowercased()) est appliqué à la dose de ce repas."
+            : "Aucun ratio post-\(sport.typeSport.lowercased()) configuré : le ratio du moment reste appliqué."
     }
 
 }
@@ -118,15 +104,17 @@ private struct FeuilleExplicationSport: View {
                         Label(sport.typeSport, systemImage: sport.icone)
                     }
                     LabeledContent("Il y a", value: "\(sport.ilYAMinutes) min")
-                    LabeledContent("Historique", value: "\(sport.nombreSeancesHistorique) séances")
                 }
                 if let ratio = sport.ratioAjuste {
-                    Section("Ratio ajusté") {
+                    Section("Ratio appliqué") {
                         Text(ratio.description)
+                        Text("Saisi dans ton profil, section Ratios sport.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 Section {
-                    Text("Le sport peut modifier la sensibilité à l'insuline pendant plusieurs heures. Diaviz observe cet effet sur ton historique pour proposer un ratio plus juste après chaque type d'activité.")
+                    Text("Le sport peut modifier la sensibilité à l'insuline pendant plusieurs heures. Le ratio appliqué ici est celui que tu as renseigné pour ce type d'activité — Diaviz ne le déduit pas de ton historique.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
@@ -149,12 +137,11 @@ private struct FeuilleExplicationSport: View {
 #Preview {
     let avec = SportDetecte(
         typeSport: "Yoga", icone: "figure.yoga", ilYAMinutes: 60,
-        ratioAjuste: ProfilRatio(unitesPour10g: 1.0 / 1.4, libelle: "post-yoga"),
-        nombreSeancesHistorique: 8
+        ratioAjuste: ProfilRatio(grammesParUnite: 14, libelle: "post-yoga")
     )
     let sans = SportDetecte(
         typeSport: "Yoga", icone: "figure.yoga", ilYAMinutes: 60,
-        ratioAjuste: nil, nombreSeancesHistorique: 2
+        ratioAjuste: nil
     )
 
     VStack(spacing: 12) {
