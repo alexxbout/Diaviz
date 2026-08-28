@@ -90,7 +90,7 @@ struct CalculRepasIsolesTests {
         let r = repas(heure: heure(joursAvant: 1), contexteLibre: "Repas au restaurant")
         let resultat = analyser([r], maintenant: maintenant)
         #expect(resultat.count == 1)
-        #expect(resultat.first?.contextesAffiches == ["Repas au restaurant"])
+        #expect(resultat.first?.contextesAffiches.map(\.libelle) == ["Repas au restaurant"])
         #expect(resultat.first?.badgesAjustements.isEmpty == true)
     }
 
@@ -112,7 +112,7 @@ struct CalculRepasIsolesTests {
         )
         let resultat = analyser([r], maintenant: maintenant)
         #expect(resultat.count == 1)
-        #expect(resultat.first?.contextesAffiches == ["Fête entre amis"])
+        #expect(resultat.first?.contextesAffiches.map(\.libelle) == ["Fête entre amis"])
         #expect(resultat.first?.badgesAjustements.count == 1)
     }
 
