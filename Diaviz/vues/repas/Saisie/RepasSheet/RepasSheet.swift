@@ -211,7 +211,8 @@ struct RepasSheet: View {
             heure: heureRepas,
             section: section,
             contexte: modelContext,
-            analyseRatioObserve: analyseRatioService.analyse
+            analyseRatioObserve: analyseRatioService.analyse,
+            repartitions: analyseRatioService.repartitions
         )
     }
 

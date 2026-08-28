@@ -25,6 +25,74 @@ nonisolated struct ApercuChangementRatio: Sendable, Equatable {
     let comparaison: ComparaisonChangementRatio?
 }
 
+/// Ventilation des repas d'un moment de la journée entre ce qui alimente
+/// réellement le mining R1 et ce qui en est écarté, **avec la raison**.
+///
+/// La carte de saisie ne disposait que du total retenu, et disait donc
+/// « aucun repas encore analysé sur ce moment » aussi bien quand rien n'avait
+/// été saisi que quand quinze dîners attendaient leurs glycémies ou avaient
+/// été écartés pour cause d'ajustement. Quatre situations sans rapport sous
+/// une seule phrase : l'utilisateur en concluait que ses saisies étaient
+/// ignorées.
+///
+/// Chaque repas est compté **une seule fois**, dans la première catégorie qui
+/// le capture — l'ordre suit exactement celui des `guard` de `mapperEntrees`.
+/// Un repas à la fois ajusté et antérieur au changement de ratio compte donc
+/// comme « ajusté », jamais dans les deux.
+nonisolated struct RepartitionRepasMoment: Sendable, Equatable {
+    /// Repas retenus par le mining — le seul décompte qui alimente une
+    /// comparaison de ratio.
+    var analyses = 0
+    /// Fenêtre CGM pas encore complète (T+4h, plus le délai capteur).
+    var enAttente = 0
+    /// CGM absent ou couverture insuffisante sur la fenêtre.
+    var donneesManquantes = 0
+    /// Repas sans dose d'insuline : réponse glycémique non interprétable.
+    var sansInjection = 0
+    /// Dose volontairement déviée du ratio (`Repas.ajustements`).
+    var ajustes = 0
+    /// Événement en texte libre, jamais interprété par une analyse.
+    var contexteLibre = 0
+    /// Toggle « Exclure des analyses » posé à la main sur le repas.
+    var exclusManuellement = 0
+    /// Antérieurs au dernier changement de ratio de ce moment : plus
+    /// comparables au ratio actuel.
+    var avantChangementRatio = 0
+    /// Date de ce changement de ratio, quand il y en a eu un.
+    var dateChangementRatio: Date?
+    /// Nom du moment au singulier (« dîner », « en-cas », « repas » en mode
+    /// ratio unique) — porté ici parce que seul le service connaît la section
+    /// réelle, et que le libellé du profil vaut « post-musculation » dès qu'un
+    /// ratio sport prend la main.
+    var libelleMoment = "repas"
+    /// Pluriel du même libellé (« dîners », « en-cas » invariable).
+    var libelleMomentPluriel = "repas"
+
+    /// Total de repas rattachés à ce moment, toutes situations confondues.
+    var total: Int {
+        analyses + enAttente + donneesManquantes + sansInjection
+            + ajustes + contexteLibre + exclusManuellement + avantChangementRatio
+    }
+
+    /// Repas mis de côté sur décision de l'utilisateur (ajustement, contexte
+    /// libre, exclusion manuelle) — par opposition aux repas simplement pas
+    /// encore analysables.
+    var ecartes: Int { ajustes + contexteLibre + exclusManuellement }
+
+    /// Classe un repas sans verdict exploitable d'après son `EtatAnalyse`
+    /// (dérivation `@Transient` posée par `RepasService` sur les repas
+    /// récents). Sans état — repas trop ancien pour être ré-annoté —, on
+    /// retombe sur « données manquantes » : c'est ce qui est vrai côté
+    /// mining, la courbe n'existe plus en mémoire.
+    mutating func compterVerdictIndisponible(etat: EtatAnalyse?) {
+        switch etat {
+        case .enAttente:     enAttente += 1
+        case .sansInjection: sansInjection += 1
+        default:             donneesManquantes += 1
+        }
+    }
+}
+
 @Observable
 @MainActor
 final class AnalyseRatioService {
@@ -37,50 +105,83 @@ final class AnalyseRatioService {
     /// « depuis le changement de ratio » de `SheetEcartRatio`.
     private(set) var apercusChangementRatio: [SectionRepas?: ApercuChangementRatio] = [:]
 
+    /// Ventilation des repas par moment — dit à la carte de saisie *pourquoi*
+    /// un moment n'a pas (encore) de repas analysé.
+    private(set) var repartitions: [SectionRepas?: RepartitionRepasMoment] = [:]
+
     /// Recalcule depuis les repas déjà chargés/annotés par `RepasService` —
     /// aucun fetch CGM ni régression ici, juste un mapping en value types et
     /// un comptage : volume trivial (quelques milliers de repas au grand
     /// maximum), pas besoin de `Task.detached`.
     func recalculer(depuis repas: [Repas]) {
         let profil = ProfilService.shared.profil
-        let entrees = mapperEntrees(repas, profil: profil)
+        var ventilation: [SectionRepas?: RepartitionRepasMoment] = [:]
+        let entrees = mapperEntrees(repas, profil: profil, repartitions: &ventilation)
         analyse = CalculRatioObserve.analyser(entrees: entrees)
         apercusChangementRatio = construireApercusChangementRatio(repas, profil: profil)
+        repartitions = ventilation
     }
 
     /// Explose chaque repas exploitable en une `EntreeRatioRepas` (une par
     /// repas — plus d'explosion multi-groupe depuis que les ajustements sont
     /// exclus du mining, voir garde ci-dessous).
-    private func mapperEntrees(_ repas: [Repas], profil: ProfilUtilisateur) -> [EntreeRatioRepas] {
+    ///
+    /// Ventile au passage **chaque repas écarté** dans `repartitions`, avec la
+    /// raison : la boucle connaissait déjà ce motif à chaque `continue`, elle
+    /// l'oubliait simplement. C'est ce qui permet à la carte de saisie de dire
+    /// « 4 dîners en attente des glycémies » plutôt que « aucun repas analysé ».
+    private func mapperEntrees(
+        _ repas: [Repas], profil: ProfilUtilisateur,
+        repartitions: inout [SectionRepas?: RepartitionRepasMoment]
+    ) -> [EntreeRatioRepas] {
         var entrees: [EntreeRatioRepas] = []
 
         for r in repas {
+            // Le groupe est déterminé avant toute exclusion : un repas écarté
+            // doit quand même être compté dans le moment auquel il appartient.
+            let sectionReelle = SectionRepas(heure: r.heure, horaires: profil.horairesRepas)
+            let groupe = profil.modeRatio == .unique ? nil : sectionReelle
+            var repartition = repartitions[groupe] ?? Self.repartitionVierge(groupe: groupe)
+            defer { repartitions[groupe] = repartition }
+
             // Exclusions du mining, toutes au même niveau :
             // - toggle « Exclure des analyses » ;
-            // - contexte libre non structuré (jamais interprété) ;
+            // - événement / contexte libre non structuré (jamais interprété) ;
             // - ajustement intentionnel (sport, hypo…) : la dose appliquée
             //   dévie *volontairement* du ratio de base, comparer les deux
             //   ne mesure rien — voir doc R1 « Ajustements exclus du mining ».
-            guard !r.exclureDesAnalyses, !r.aUnEvenement, r.ajustements.isEmpty else { continue }
-            guard let verdict = r.verdictPersiste, verdict != .indetermine,
-                  r.totalGlucides > 0 else { continue }
-            let doseCouvrante = r.totalInsuline - (r.doseCorrection ?? 0)
-            guard doseCouvrante > 0 else { continue }
+            guard !r.exclureDesAnalyses else { repartition.exclusManuellement += 1; continue }
+            guard !r.aUnEvenement else { repartition.contexteLibre += 1; continue }
+            guard r.ajustements.isEmpty else { repartition.ajustes += 1; continue }
 
-            let sectionReelle = SectionRepas(heure: r.heure, horaires: profil.horairesRepas)
+            guard let verdict = r.verdictPersiste, verdict != .indetermine,
+                  r.totalGlucides > 0 else {
+                repartition.compterVerdictIndisponible(etat: r.etatAnalyse)
+                continue
+            }
+            let doseCouvrante = r.totalInsuline - (r.doseCorrection ?? 0)
+            guard doseCouvrante > 0 else { repartition.sansInjection += 1; continue }
 
             // Un repas antérieur au dernier changement du ratio de cette
             // section n'est plus comparable au ratio actuel — voir
             // `dateChangement`.
-            let borne = dateChangement(section: sectionReelle, profil: profil) ?? .distantPast
-            guard r.heure >= borne else { continue }
+            let changement = dateChangement(section: sectionReelle, profil: profil)
+            repartition.dateChangementRatio = changement
+            guard r.heure >= (changement ?? .distantPast) else {
+                repartition.avantChangementRatio += 1
+                continue
+            }
 
             guard let ratioConfigure = InsightsService.ratioConfigure(section: sectionReelle, profil: profil),
-                  ratioConfigure > 0 else { continue }
+                  ratioConfigure > 0 else {
+                // Aucun ratio configuré pour ce moment : rien à comparer, et
+                // la carte de validation ne s'affiche pas non plus.
+                continue
+            }
 
             let doseSuggeree = Double(r.totalGlucides) / ratioConfigure
-            let groupe = profil.modeRatio == .unique ? nil : sectionReelle
 
+            repartition.analyses += 1
             entrees.append(EntreeRatioRepas(
                 id: r.id, groupe: groupe, doseAppliquee: doseCouvrante, doseSuggeree: doseSuggeree,
                 glucides: r.totalGlucides, verdict: verdict,
@@ -89,6 +190,19 @@ final class AnalyseRatioService {
         }
 
         return entrees
+    }
+
+    /// Répartition vide déjà porteuse des libellés du moment — c'est le
+    /// service qui connaît la section réelle, la vue n'a plus qu'à composer sa
+    /// phrase.
+    private static func repartitionVierge(groupe: SectionRepas?) -> RepartitionRepasMoment {
+        var vierge = RepartitionRepasMoment()
+        guard let groupe else { return vierge } // mode ratio unique : « repas »
+        let singulier = groupe.titre.lowercased()
+        vierge.libelleMoment = singulier
+        // « en-cas » est invariable, les autres prennent un s.
+        vierge.libelleMomentPluriel = singulier.hasSuffix("s") ? singulier : singulier + "s"
+        return vierge
     }
 
     // MARK: - Comparaison avant/après changement de ratio

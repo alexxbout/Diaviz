@@ -166,14 +166,45 @@ struct ValidationRatioCard: View {
             + "(\(ecart.bonsConfigure)/\(ecart.effectifConfigure)) à ton ratio actuel."
     }
 
-    /// Effectif du groupe, affiché faute d'écart à signaler — remplace le
-    /// silence, jamais une conclusion.
+    /// Où en est l'analyse de ce moment, faute d'écart à signaler — une
+    /// phrase par situation réelle, jamais une conclusion.
+    ///
+    /// Une phrase unique (« Aucun repas encore analysé sur ce moment »)
+    /// couvrait quatre cas sans rapport : rien de saisi, saisi mais verdict
+    /// en attente des glycémies, écarté volontairement, ou rendu incomparable
+    /// par un changement de ratio. Elle se lisait comme « l'app ignore mes
+    /// saisies » alors que les repas étaient bien là.
     private var ligneEffectif: String {
-        switch validation.effectifGroupe {
-        case 0:  return "Aucun repas encore analysé sur ce moment."
-        case 1:  return "1 repas analysé sur ce moment, pas d'écart à signaler."
-        default: return "\(validation.effectifGroupe) repas analysés sur ce moment, pas d'écart à signaler."
+        let r = validation.repartition
+        let un = r.libelleMoment
+        let plusieurs = r.libelleMomentPluriel
+
+        // Cas nominal : des repas alimentent déjà la comparaison. Ce qui
+        // reste en attente est mentionné, parce que c'est la seule part qui
+        // bougera d'elle-même.
+        if r.analyses > 0 {
+            let base = "\(r.analyses) \(r.analyses > 1 ? plusieurs : un) analysé\(r.analyses > 1 ? "s" : ""), pas d'écart à signaler."
+            guard r.enAttente > 0 else { return base }
+            return base + " \(r.enAttente) en attente des glycémies."
         }
+
+        // Rien d'analysé : dire *pourquoi*, du motif le plus temporaire au
+        // plus définitif.
+        if r.enAttente > 0 {
+            return "\(r.enAttente) \(r.enAttente > 1 ? plusieurs : un) enregistré\(r.enAttente > 1 ? "s" : ""), verdict en attente des glycémies."
+        }
+        if let date = r.dateChangementRatio, r.avantChangementRatio > 0 {
+            let jour = date.formatted(.dateTime.day().month(.abbreviated))
+            return "Ratio changé le \(jour) : les \(r.avantChangementRatio) \(plusieurs) d'avant ne sont plus comparables."
+        }
+        if r.ecartes > 0 {
+            return "\(r.ecartes) \(r.ecartes > 1 ? plusieurs : un) écarté\(r.ecartes > 1 ? "s" : "") de l'analyse : ajustement ou contexte particulier."
+        }
+        if r.donneesManquantes + r.sansInjection > 0 {
+            let n = r.donneesManquantes + r.sansInjection
+            return "\(n) \(n > 1 ? plusieurs : un) sans glycémies exploitables sur leur fenêtre."
+        }
+        return "Aucun \(un) enregistré pour l'instant."
     }
 
     /// Badge profil ratio : capsule teintée d'accent avec icône "détection
@@ -285,6 +316,43 @@ private struct FeuilleExplicationValidation: View {
 }
 
 #if DEBUG
+private func _repartition(
+    analyses: Int = 0, enAttente: Int = 0, ajustes: Int = 0,
+    avantChangement: Int = 0, dateChangement: Date? = nil
+) -> RepartitionRepasMoment {
+    var r = RepartitionRepasMoment()
+    r.analyses = analyses
+    r.enAttente = enAttente
+    r.ajustes = ajustes
+    r.avantChangementRatio = avantChangement
+    r.dateChangementRatio = dateChangement
+    r.libelleMoment = "dîner"
+    r.libelleMomentPluriel = "dîners"
+    return r
+}
+
+/// Les cinq phrases possibles de la ligne d'état, à ratio inchangé.
+#Preview("États du décompte") {
+    let profil = ProfilRatio(grammesParUnite: 12, libelle: "dîner")
+    func carte(_ r: RepartitionRepasMoment) -> some View {
+        ValidationRatioCard(validation: ValidationRatio(
+            doseSaisie: 10, doseSuggeree: 10, profil: profil, glucides: 120, repartition: r
+        ))
+    }
+    return ScrollView {
+        VStack(spacing: 12) {
+            carte(_repartition(analyses: 7, enAttente: 4))
+            carte(_repartition(analyses: 7))
+            carte(_repartition(enAttente: 4))
+            carte(_repartition(avantChangement: 14, dateChangement: Calendar.current.date(byAdding: .day, value: -30, to: Date())))
+            carte(_repartition(ajustes: 8))
+            carte(_repartition())
+        }
+        .padding()
+    }
+    .background(Color(.systemGroupedBackground))
+}
+
 #Preview("Trois états") {
     let profil = ProfilRatio(grammesParUnite: 10, libelle: "midi")
     VStack(spacing: 12) {
@@ -303,7 +371,8 @@ private struct FeuilleExplicationValidation: View {
     VStack(spacing: 12) {
         ValidationRatioCard(validation: ValidationRatio(
             doseSaisie: 12, doseSuggeree: 12, profil: profil,
-            ajustements: -2, glucides: 120, effectifGroupe: 7
+            ajustements: -2, glucides: 120,
+            repartition: _repartition(analyses: 7)
         ))
         ValidationRatioCard(validation: ValidationRatio(
             doseSaisie: 12, doseSuggeree: 12, profil: profil,
@@ -321,7 +390,8 @@ private struct FeuilleExplicationValidation: View {
         ValidationRatioCard(validation: ValidationRatio(
             doseSaisie: 8.5, doseSuggeree: 8.6,
             profil: ProfilRatio(grammesParUnite: 14, libelle: "post-musculation"),
-            glucides: 120, ratioSportApplique: true, effectifGroupe: 7
+            glucides: 120, ratioSportApplique: true,
+            repartition: _repartition(analyses: 7)
         ))
         ValidationRatioCard(validation: ValidationRatio(
             doseSaisie: 12, doseSuggeree: 8.6,

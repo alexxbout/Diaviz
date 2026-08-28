@@ -61,9 +61,10 @@ struct ValidationRatio {
     /// ou qu'aucun écart significatif n'a été détecté. Jamais une dose à
     /// utiliser : toujours restitué avec ses dénominateurs bruts.
     let ecartObserve: EcartRatioObserve?
-    /// Repas déjà exploitables dans le groupe (moment) de ce repas — affiché
-    /// tel quel faute d'écart à signaler, pour ne pas rester muet.
-    let effectifGroupe: Int
+    /// Ventilation des repas de ce moment entre analysés, en attente et
+    /// écartés — remplace l'ancien effectif brut, qui ne permettait pas de
+    /// distinguer « rien saisi » de « saisi mais pas encore analysable ».
+    let repartition: RepartitionRepasMoment
 
     init(
         doseSaisie: Double, doseSuggeree: Double, profil: ProfilRatio,
@@ -71,7 +72,7 @@ struct ValidationRatio {
         glucides: Double = 0,
         ratioSportApplique: Bool = false,
         ecartObserve: EcartRatioObserve? = nil,
-        effectifGroupe: Int = 0
+        repartition: RepartitionRepasMoment = RepartitionRepasMoment()
     ) {
         self.doseSaisie = doseSaisie
         self.doseSuggeree = doseSuggeree
@@ -80,7 +81,7 @@ struct ValidationRatio {
         self.glucides = glucides
         self.ratioSportApplique = ratioSportApplique
         self.ecartObserve = ecartObserve
-        self.effectifGroupe = effectifGroupe
+        self.repartition = repartition
     }
 
     var ecart: Double { doseSaisie - doseSuggeree }
@@ -211,7 +212,8 @@ enum InsightsService {
         heure: Date,
         section: SectionRepas,
         contexte: ModelContext?,
-        analyseRatioObserve: AnalyseRatioObserve = .vide
+        analyseRatioObserve: AnalyseRatioObserve = .vide,
+        repartitions: [SectionRepas?: RepartitionRepasMoment] = [:]
     ) -> ContexteInsights {
         // Le sport est résolu **avant** la validation : quand une séance
         // récente a un ratio configuré, c'est lui qui fait foi pour juger la
@@ -223,7 +225,7 @@ enum InsightsService {
             validation: validation(
                 doseSaisie: doseSaisie, glucides: glucides, ajustements: ajustements,
                 section: section, ratioSport: sport?.ratioAjuste,
-                analyseRatioObserve: analyseRatioObserve
+                analyseRatioObserve: analyseRatioObserve, repartitions: repartitions
             ),
             sport: sport,
             iob: iobActif(a: heure, contexte: contexte)
@@ -237,7 +239,8 @@ enum InsightsService {
     private static func validation(
         doseSaisie: Double, glucides: Double, ajustements: Double, section: SectionRepas,
         ratioSport: ProfilRatio?,
-        analyseRatioObserve: AnalyseRatioObserve
+        analyseRatioObserve: AnalyseRatioObserve,
+        repartitions: [SectionRepas?: RepartitionRepasMoment]
     ) -> ValidationRatio? {
         guard glucides > 0 else { return nil }
         let profil = ProfilService.shared.profil
@@ -262,7 +265,8 @@ enum InsightsService {
             doseSaisie: doseSaisie, doseSuggeree: suggeree, profil: profilRatio,
             ajustements: ajustements, glucides: glucides,
             ratioSportApplique: ratioSport != nil,
-            ecartObserve: sectionMining?.ecart, effectifGroupe: sectionMining?.effectif ?? 0
+            ecartObserve: sectionMining?.ecart,
+            repartition: repartitions[sectionRecherchee] ?? RepartitionRepasMoment()
         )
     }
 
