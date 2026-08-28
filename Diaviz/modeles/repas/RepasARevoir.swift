@@ -103,7 +103,7 @@ struct EvenementCourbe: Identifiable, Sendable {
 /// Un badge d'ajustement affichable sur la carte — porte sa catégorie pour
 /// que la vue applique la bonne couleur (bleu pour le sport, violet pour les
 /// autres raisons). Le contexte libre (orange) est un champ séparé
-/// (`RepasARevoir.contexteAffiche`), pas structuré de la même façon.
+/// (`RepasARevoir.contextesAffiches`), pas structuré de la même façon.
 struct BadgeAjustement: Identifiable {
     let id = UUID()
     let libelle: String
@@ -198,11 +198,17 @@ struct RepasARevoir: Identifiable {
     /// raison, affiché systématiquement (bon, moyen ou mauvais verdict).
     let badgesAjustements: [BadgeAjustement]
 
-    /// Événement contextuel en texte libre (`Repas.contexteLibre`), affiché
-    /// tel quel — porté par les cartes de « Repas avec contexte » (occurrence
-    /// unique, `contexteLibre` exclut ce repas de la récurrence). `nil` pour
-    /// les cartes « Repas à revoir » classiques.
-    let contexteAffiche: String?
+    /// Événements de vie du repas (`Repas.evenementsAffiches`), un badge
+    /// chacun — porté par les cartes de « Repas avec contexte » (occurrence
+    /// unique : porter un événement exclut le repas de la récurrence). Vide
+    /// pour les cartes « Repas à revoir » classiques.
+    ///
+    /// Événements bruts, pas leur libellé déjà résolu : `CalculRepasIsoles`
+    /// est un calculateur pur `nonisolated`, il ne peut pas lire le
+    /// référentiel (`@MainActor`) pour appliquer un éventuel renommage. La
+    /// résolution (`EvenementRepas.affichageResolu`) se fait à l'affichage,
+    /// dans `CarteRepasARevoir`.
+    let contextesAffiches: [EvenementRepas]
 
     /// Ratio effectif du **dernier** repas (grammes de glucides couverts par
     /// 1 unité), déjà persisté sur le repas. Affiché en pied de carte à la
@@ -243,7 +249,7 @@ struct RepasARevoir: Identifiable {
         glucidesMax: Int,
         libelleSection: String = "",
         badgesAjustements: [BadgeAjustement] = [],
-        contexteAffiche: String? = nil,
+        contextesAffiches: [EvenementRepas] = [],
         ratioApplique: Double? = nil,
         evenements: [EvenementCourbe] = [],
         heureDerniereOccurrence: Date = Date(),
@@ -260,7 +266,7 @@ struct RepasARevoir: Identifiable {
         self.glucidesMax = glucidesMax
         self.libelleSection = libelleSection
         self.badgesAjustements = badgesAjustements
-        self.contexteAffiche = contexteAffiche
+        self.contextesAffiches = contextesAffiches
         self.ratioApplique = ratioApplique
         self.evenements = evenements
         self.heureDerniereOccurrence = heureDerniereOccurrence

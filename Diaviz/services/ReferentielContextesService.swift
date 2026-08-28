@@ -57,6 +57,88 @@ final class ReferentielContextesService {
         }
     }
 
+    // MARK: - Proposition live (frappe, avec appel LLM)
+
+    /// Propose un libellé + emoji pour `texte`, **sans rien persister**.
+    ///
+    /// Utilisé par `SheetEvenementsRepas` pendant la frappe, après un debounce
+    /// et seulement quand `suggestions(pour:)` ne trouve rien : appeler le
+    /// modèle pour un texte déjà connu du référentiel ne produirait qu'une
+    /// redite plus lente que le matching local.
+    ///
+    /// Contrairement à `resoudre(texte:)`, rien n'est écrit : l'utilisateur
+    /// doit valider la proposition. Une génération qu'il n'accepte pas ne doit
+    /// pas polluer le référentiel — c'est la différence entre suggérer et
+    /// décider.
+    ///
+    /// Renvoie aussi l'entrée existante quand le modèle rattache le texte à
+    /// une entrée déjà connue que le matching local avait ratée (formulation
+    /// trop éloignée, ex. « au volant » → « Voiture »).
+    func proposer(texte: String) async -> ContexteNormalise? {
+        let propre = texte.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard propre.count >= 2 else { return nil }
+        guard SystemLanguageModel.default.availability == .available else { return nil }
+        guard let resultat = await ContexteNormaliseGenerator.generer(texte: propre, referentiel: entrees) else {
+            return nil
+        }
+
+        if let libelleExistant = resultat.libelleExistant,
+           let cible = entrees.first(where: { $0.libelle.caseInsensitiveCompare(libelleExistant) == .orderedSame }) {
+            return cible
+        }
+
+        // Entrée candidate, volontairement pas encore dans `entrees` : elle
+        // n'y entrera qu'au moment où l'utilisateur l'ajoute au repas.
+        return ContexteNormalise(
+            id: UUID(),
+            libelle: resultat.nouveauLibelle,
+            emoji: resultat.emoji.first.map(String.init) ?? "🏷️",
+            variantes: [propre]
+        )
+    }
+
+    // MARK: - Édition du référentiel
+
+    /// Ajoute une entrée au référentiel si son id n'y est pas déjà, ou attache
+    /// simplement la variante si elle y est. Renvoie l'entrée telle qu'elle
+    /// vit dans le référentiel après l'opération.
+    @discardableResult
+    func adopter(_ entree: ContexteNormalise, texteBrut: String? = nil) -> ContexteNormalise {
+        if entrees.contains(where: { $0.id == entree.id }) {
+            if let texteBrut { attacherVariante(texteBrut, a: entree.id) }
+            return entrees.first { $0.id == entree.id } ?? entree
+        }
+        var nouvelle = entree
+        if let texteBrut {
+            let propre = texteBrut.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !nouvelle.variantes.contains(where: { $0.caseInsensitiveCompare(propre) == .orderedSame }) {
+                nouvelle.variantes.append(propre)
+            }
+        }
+        entrees.insert(nouvelle, at: 0)
+        persister()
+        return nouvelle
+    }
+
+    /// Retire une entrée du référentiel. Les `EvenementRepas` déjà posés sur
+    /// des repas ne sont **pas** touchés : ils portent leur propre libellé et
+    /// emoji, donc un repas tagué « Restaurant » le reste même si l'entrée
+    /// disparaît des suggestions. Supprimer ici ne réécrit jamais l'historique.
+    func supprimer(_ id: UUID) {
+        entrees.removeAll { $0.id == id }
+        persister()
+    }
+
+    /// Renomme une entrée (libellé et/ou emoji) sans toucher à ses variantes.
+    func renommer(_ id: UUID, libelle: String, emoji: String) {
+        guard let idx = entrees.firstIndex(where: { $0.id == id }) else { return }
+        let libellePropre = libelle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !libellePropre.isEmpty else { return }
+        entrees[idx].libelle = libellePropre
+        entrees[idx].emoji = emoji.first.map(String.init) ?? entrees[idx].emoji
+        persister()
+    }
+
     // MARK: - Résolution différée (post-enregistrement, jamais bloquante)
 
     /// Résout `texte` vers une entrée du référentiel : fast path local si un

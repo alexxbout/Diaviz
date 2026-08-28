@@ -48,6 +48,7 @@ struct DetailRepasVue: View {
     // MARK: - État local
 
     @State private var afficherConfirmationSuppression = false
+    @State private var afficherEvenements = false
 
     // MARK: - Corps
 
@@ -82,6 +83,11 @@ struct DetailRepasVue: View {
         } message: {
             Text("Cette action est irréversible.")
         }
+        .sheet(isPresented: $afficherEvenements) {
+            SheetEvenementsRepas(evenements: repas.evenementsAffiches) { nouveaux in
+                repasService.mettreAJourEvenements(nouveaux, sur: repas)
+            }
+        }
     }
 
     // MARK: - Toolbar
@@ -91,8 +97,14 @@ struct DetailRepasVue: View {
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
                 // Pas de « Modifier » ici : l'édition complète d'un repas n'est
-                // pas isolable du flow d'`AjouterRepasVue`, on n'affiche pas un
-                // bouton mort. Seule la suppression est proposée.
+                // pas isolable du flow d'`AjouterRepasVue`. Les événements font
+                // exception — ils sont indépendants de la composition et de la
+                // dose, donc éditables seuls sans rouvrir tout le flow.
+                Button {
+                    afficherEvenements = true
+                } label: {
+                    Label("Événements", systemImage: "tag")
+                }
                 Button(role: .destructive) {
                     afficherConfirmationSuppression = true
                 } label: {

@@ -169,7 +169,7 @@ struct AjouterRepasVue: View {
             RepasSheet(
                 aliments: $alimentsRepas,
                 onAjouterUnAliment: tapperAjouterAliment,
-                onValiderRepas: { dose, site, heure, doseGlobale, doseCorrection, ajustements, contexteLibre, exclureDesAnalyses in
+                onValiderRepas: { dose, site, heure, doseGlobale, doseCorrection, ajustements, evenements, exclureDesAnalyses in
                     validerRepas(
                         doseInjectee: dose,
                         site: site,
@@ -177,7 +177,7 @@ struct AjouterRepasVue: View {
                         doseGlobale: doseGlobale,
                         doseCorrection: doseCorrection,
                         ajustements: ajustements,
-                        contexteLibre: contexteLibre,
+                        evenements: evenements,
                         exclureDesAnalyses: exclureDesAnalyses
                     )
                 }
@@ -215,7 +215,7 @@ struct AjouterRepasVue: View {
         doseGlobale: Double?,
         doseCorrection: Double = 0,
         ajustements: [Ajustement] = [],
-        contexteLibre: String? = nil,
+        evenements: [EvenementRepas] = [],
         exclureDesAnalyses: Bool = false
     ) {
         repasService.enregistrerDepuisSaisie(
@@ -226,7 +226,7 @@ struct AjouterRepasVue: View {
             doseGlobale: doseGlobale,
             doseCorrection: doseCorrection,
             ajustements: ajustements,
-            contexteLibre: contexteLibre,
+            evenements: evenements,
             exclureDesAnalyses: exclureDesAnalyses
         )
         // Le verdict de ce repas n'est pas encore connu (CGM pas encore

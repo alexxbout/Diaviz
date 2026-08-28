@@ -61,7 +61,7 @@ final class AnalyseRatioService {
             // - ajustement intentionnel (sport, hypo…) : la dose appliquée
             //   dévie *volontairement* du ratio de base, comparer les deux
             //   ne mesure rien — voir doc R1 « Ajustements exclus du mining ».
-            guard !r.exclureDesAnalyses, r.contexteLibre == nil, r.ajustements.isEmpty else { continue }
+            guard !r.exclureDesAnalyses, !r.aUnEvenement, r.ajustements.isEmpty else { continue }
             guard let verdict = r.verdictPersiste, verdict != .indetermine,
                   r.totalGlucides > 0 else { continue }
             let doseCouvrante = r.totalInsuline - (r.doseCorrection ?? 0)
@@ -106,7 +106,7 @@ final class AnalyseRatioService {
     ) -> [SectionRepas?: [EntreeDoseChangement]] {
         var parGroupe: [SectionRepas?: [EntreeDoseChangement]] = [:]
         for r in repas {
-            guard !r.exclureDesAnalyses, r.contexteLibre == nil, r.ajustements.isEmpty else { continue }
+            guard !r.exclureDesAnalyses, !r.aUnEvenement, r.ajustements.isEmpty else { continue }
             guard let verdict = r.verdictPersiste, verdict != .indetermine, r.totalGlucides > 0 else { continue }
             let doseCouvrante = r.totalInsuline - (r.doseCorrection ?? 0)
             guard doseCouvrante > 0 else { continue }

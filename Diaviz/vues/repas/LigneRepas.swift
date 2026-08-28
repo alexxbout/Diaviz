@@ -80,9 +80,10 @@ struct LigneRepas: View {
     /// telle quelle.
     @ViewBuilder
     private var badgeContexte: some View {
-        if let contexte = repas.contexteNormalise ?? repas.contexteLibre {
-            RangeeBadges(items: [ItemBadge(contexte, couleur: .purple)])
-            .padding(.top, 4)
+        let evenements = repas.evenementsAffiches
+        if !evenements.isEmpty {
+            RangeeBadges(items: evenements.map { ItemBadge($0.affichageResolu, couleur: .purple) })
+                .padding(.top, 4)
         }
     }
 

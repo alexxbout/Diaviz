@@ -42,7 +42,7 @@ nonisolated enum CalculRepasIsoles {
 
         let cartes = repas.compactMap { r -> RepasARevoir? in
             guard r.heure >= borne, !r.exclureDesAnalyses,
-                  r.contexteLibre != nil || !r.ajustements.isEmpty else { return nil }
+                  r.aUnEvenement || !r.ajustements.isEmpty else { return nil }
             guard case .disponible(let reponse) = r.etatAnalyse, reponse.verdict == .mauvais else { return nil }
             guard let courbe = CalculRepasARevoir.courbeAffichage(r) else { return nil }
 
@@ -68,7 +68,7 @@ nonisolated enum CalculRepasIsoles {
                 glucidesMax: r.totalGlucides,
                 libelleSection: SectionRepas(heure: r.heure, horaires: horairesRepas).titre,
                 badgesAjustements: CalculRepasARevoir.badgesAjustements(r),
-                contexteAffiche: r.contexteLibre.map { r.contexteNormalise ?? $0 },
+                contextesAffiches: r.evenementsAffiches,
                 ratioApplique: r.ratioEffectifPersiste,
                 evenements: CalculRepasARevoir.evenements(
                     pour: r, injections: injections, activites: activites, tousRepas: repas

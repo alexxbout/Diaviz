@@ -145,15 +145,15 @@ struct CarteRepasARevoir: View {
     /// le contexte factuel.
     @ViewBuilder
     private var badges: some View {
-        if !repas.badgesAjustements.isEmpty || repas.contexteAffiche != nil {
+        if !repas.badgesAjustements.isEmpty || !repas.contextesAffiches.isEmpty {
             HStack(spacing: 6) {
                 ForEach(repas.badgesAjustements) { item in
                     badge(item.libelle,
                           background: (item.estSport ? Color.blue : Color.purple).opacity(0.15),
                           foreground: item.estSport ? .blue : .purple)
                 }
-                if let contexte = repas.contexteAffiche {
-                    badge(contexte, background: Color.orange.opacity(0.18), foreground: .orange)
+                ForEach(repas.contextesAffiches) { evenement in
+                    badge(evenement.affichageResolu, background: Color.orange.opacity(0.18), foreground: .orange)
                 }
                 Spacer(minLength: 0)
             }
@@ -419,8 +419,7 @@ struct CarteRepasARevoir: View {
 
     private var libelleAccessibilite: String {
         let nom = repas.libelleSection.isEmpty ? "Repas" : repas.libelleSection
-        let badges = (repas.badgesAjustements.map(\.libelle) + [repas.contexteAffiche])
-            .compactMap { $0 }
+        let badges = (repas.badgesAjustements.map(\.libelle) + repas.contextesAffiches.map(\.affichageResolu))
             .filter { !$0.isEmpty }
             .joined(separator: " · ")
         let contexte = badges.isEmpty ? "" : " \(badges)."

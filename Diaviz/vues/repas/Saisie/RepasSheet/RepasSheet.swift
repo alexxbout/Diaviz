@@ -40,7 +40,7 @@ struct RepasSheet: View {
         _ doseGlobale: Double?,
         _ doseCorrection: Double,
         _ ajustements: [Ajustement],
-        _ contexteLibre: String?,
+        _ evenements: [EvenementRepas],
         _ exclureDesAnalyses: Bool
     ) -> Void
 
@@ -48,10 +48,11 @@ struct RepasSheet: View {
 
     @State private var ajustements: [Ajustement] = []
     @State private var correctionHyper: Double = 0
-    /// Événement contextuel en texte libre — saisie ajoutée en lot 2 (section
-    /// UI dédiée) ; câblé dès maintenant pour ne toucher la signature de
-    /// validation qu'une seule fois.
-    @State private var contexteLibre: String = ""
+    /// Événements de vie du repas, édités via `SheetEvenementsRepas` — même
+    /// sheet qu'après enregistrement, pour ne pas maintenir deux UI de la
+    /// même donnée.
+    @State private var evenements: [EvenementRepas] = []
+    @State private var afficherEvenements = false
     /// Choix **explicite** de l'utilisateur sur l'exclusion des analyses.
     /// `nil` = jamais touché, la valeur suit alors la suggestion automatique
     /// (`exclusionSuggeree`). Un `Bool` simple ne suffit pas : il faut
@@ -239,7 +240,10 @@ struct RepasSheet: View {
                     onAjouterUnAliment: onAjouterUnAliment
                 )
 
-                SectionContexteRepas(contexteLibre: $contexteLibre)
+                SectionContexteRepas(
+                    evenements: evenements,
+                    onEditer: { afficherEvenements = true }
+                )
 
                 sectionExclusionAnalyses
 
@@ -279,7 +283,7 @@ struct RepasSheet: View {
                 onValider: {
                     onValiderRepas(
                         totalInjecte, siteInjection, heureRepas, doseGlobale, correctionHyper,
-                        ajustements, contexteLibre.isEmpty ? nil : contexteLibre, exclureDesAnalyses
+                        ajustements, evenements, exclureDesAnalyses
                     )
                 }
             )
@@ -289,6 +293,14 @@ struct RepasSheet: View {
         // sur un repas vide avec juste un bouton désactivé.
         .onChange(of: aliments.isEmpty) { _, videMaintenant in
             if videMaintenant { dismiss() }
+        }
+        // Événements de vie — même sheet qu'après enregistrement (voir
+        // `DetailRepasVue`). Ici la sélection n'est pas persistée à la
+        // fermeture : elle voyage avec le repas jusqu'à sa validation.
+        .sheet(isPresented: $afficherEvenements) {
+            SheetEvenementsRepas(evenements: evenements) { nouveaux in
+                evenements = nouveaux
+            }
         }
         // Sheet enfant — édition d'une entrée existante (tap sur une row).
         .sheet(item: $entreeEnEdition) { entree in

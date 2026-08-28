@@ -90,7 +90,7 @@ struct CalculRepasIsolesTests {
         let r = repas(heure: heure(joursAvant: 1), contexteLibre: "Repas au restaurant")
         let resultat = analyser([r], maintenant: maintenant)
         #expect(resultat.count == 1)
-        #expect(resultat.first?.contexteAffiche == "Repas au restaurant")
+        #expect(resultat.first?.contextesAffiches == ["Repas au restaurant"])
         #expect(resultat.first?.badgesAjustements.isEmpty == true)
     }
 
@@ -99,7 +99,7 @@ struct CalculRepasIsolesTests {
         let r = repas(heure: heure(joursAvant: 1), ajustements: [ajustement()])
         let resultat = analyser([r], maintenant: maintenant)
         #expect(resultat.count == 1)
-        #expect(resultat.first?.contexteAffiche == nil)
+        #expect(resultat.first?.contextesAffiches.isEmpty == true)
         #expect(resultat.first?.badgesAjustements.count == 1)
     }
 
@@ -112,7 +112,7 @@ struct CalculRepasIsolesTests {
         )
         let resultat = analyser([r], maintenant: maintenant)
         #expect(resultat.count == 1)
-        #expect(resultat.first?.contexteAffiche == "Fête entre amis")
+        #expect(resultat.first?.contextesAffiches == ["Fête entre amis"])
         #expect(resultat.first?.badgesAjustements.count == 1)
     }
 

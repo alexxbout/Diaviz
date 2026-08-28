@@ -136,6 +136,45 @@ final class RepasService {
     /// Les entrées sans aliment ne produisent rien : on n'enregistre pas un
     /// repas vide.
     @discardableResult
+    /// Remplace les événements d'un repas déjà enregistré et resauvegarde.
+    ///
+    /// Passe par `Repas.remplacerEvenements` pour solder au passage les champs
+    /// legacy : sans ça, retirer tous les événements d'un ancien repas le
+    /// laisserait afficher son `contexteLibre` d'origine, reconstruit par
+    /// `evenementsAffiches`.
+    ///
+    /// Conséquence à connaître : ajouter ou retirer un événement change
+    /// l'éligibilité du repas au mining du ratio (`AnalyseRatioService`
+    /// exclut sur `aUnEvenement`), d'où le recalcul demandé par l'appelant
+    /// après cette écriture.
+    func mettreAJourEvenements(_ evenements: [EvenementRepas], sur repas: Repas) {
+        repas.remplacerEvenements(evenements)
+        try? contexte?.save()
+        rattacherEvenementsNonResolus(de: repas)
+        recharger()
+    }
+
+    /// Rattache en tâche de fond les événements saisis sans passer par le
+    /// référentiel (`idReferentiel == nil`) — cas d'un ajout fait alors que
+    /// Foundation Models était indisponible. Jamais bloquant : si la
+    /// résolution échoue, l'événement garde son libellé brut indéfiniment,
+    /// sans retry.
+    private func rattacherEvenementsNonResolus(de repas: Repas) {
+        let aResoudre = repas.evenements.filter { $0.idReferentiel == nil }
+        guard !aResoudre.isEmpty else { return }
+        Task {
+            for evenement in aResoudre {
+                let texte = evenement.texteBrut ?? evenement.libelle
+                guard let resultat = await ReferentielContextesService.shared.resoudre(texte: texte) else { continue }
+                guard let idx = repas.evenements.firstIndex(where: { $0.id == evenement.id }) else { continue }
+                repas.evenements[idx].idReferentiel = resultat.id
+                repas.evenements[idx].libelle = resultat.libelle
+                repas.evenements[idx].emoji = resultat.emoji
+            }
+            try? contexte?.save()
+        }
+    }
+
     func enregistrerDepuisSaisie(
         entrees: [EntreeAliment],
         heure: Date = Date(),
@@ -144,7 +183,7 @@ final class RepasService {
         doseGlobale: Double? = nil,
         doseCorrection: Double = 0,
         ajustements: [Ajustement] = [],
-        contexteLibre: String? = nil,
+        evenements: [EvenementRepas] = [],
         exclureDesAnalyses: Bool = false
     ) -> Repas? {
         let alimentsHub = entrees.map(Aliment.init(depuis:))
@@ -160,7 +199,7 @@ final class RepasService {
             heure: heure, aliments: alimentsHub, doseGlobale: doseGlobale,
             doseCorrection: doseCorrection > 0 ? doseCorrection : nil,
             ajustements: ajustements,
-            contexteLibre: (contexteLibre?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 },
+            evenements: evenements,
             exclureDesAnalyses: exclureDesAnalyses
         )
         // IOB actif juste avant le repas — snapshot figé du contexte insuline
@@ -172,21 +211,7 @@ final class RepasService {
         }
         enregistrer(nouveau)
 
-        // Normalisation différée du contexte libre — jamais bloquante pour la
-        // validation du repas (la sheet peut déjà être fermée). Rien si
-        // `contexteLibre` est nil. Si la résolution échoue (modèle
-        // indisponible, erreur de génération), le badge reste sur le texte
-        // brut indéfiniment — dégradation gracieuse, pas de retry
-        // automatique. `nouveau` est un `@Model` (référence) déjà inséré
-        // dans `contexte` : le muter ici suffit, SwiftData notifie la vue
-        // automatiquement (pas de `recharger()` requis).
-        if let texteContexte = nouveau.contexteLibre {
-            Task {
-                guard let resultat = await ReferentielContextesService.shared.resoudre(texte: texteContexte) else { return }
-                nouveau.contexteNormalise = resultat.affichage
-                try? contexte?.save()
-            }
-        }
+        rattacherEvenementsNonResolus(de: nouveau)
 
         // Bolus repas → `Injection` rapide liée au repas dans le hub. C'est elle
         // que lisent l'IOB et la section « Bolus repas » de Médications (le hub

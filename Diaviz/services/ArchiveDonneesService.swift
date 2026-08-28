@@ -410,6 +410,10 @@ private struct RepasArchive: Codable {
     var raisonMauvaisPersistee: RaisonMauvaisVerdict? = nil
     var ratioEffectifPersiste: Double?
     var ajustements: [Ajustement]
+    /// Optionnel avec valeur par défaut, même raison que `raisonMauvaisPersistee` :
+    /// les archives écrites avant les événements se réimportent telles quelles,
+    /// leur `contexteLibre` restant lu par `Repas.evenementsAffiches`.
+    var evenements: [EvenementRepas]? = nil
     var contexteLibre: String?
     var contexteNormalise: String?
     var exclureDesAnalyses: Bool
@@ -425,6 +429,7 @@ private struct RepasArchive: Codable {
         raisonMauvaisPersistee = modele.raisonMauvaisPersistee
         ratioEffectifPersiste = modele.ratioEffectifPersiste
         ajustements = modele.ajustements
+        evenements = modele.evenements
         contexteLibre = modele.contexteLibre
         contexteNormalise = modele.contexteNormalise
         exclureDesAnalyses = modele.exclureDesAnalyses
@@ -442,6 +447,7 @@ private struct RepasArchive: Codable {
             raisonMauvaisPersistee: raisonMauvaisPersistee,
             ratioEffectifPersiste: ratioEffectifPersiste,
             ajustements: ajustements,
+            evenements: evenements ?? [],
             contexteLibre: contexteLibre,
             contexteNormalise: contexteNormalise,
             exclureDesAnalyses: exclureDesAnalyses

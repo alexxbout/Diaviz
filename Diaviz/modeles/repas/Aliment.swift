@@ -179,19 +179,23 @@ final class Repas {
     /// badges factuels. Vide par défaut (repas sans ajustement).
     var ajustements: [Ajustement] = []
 
-    /// Événement contextuel en texte libre, saisi par l'utilisateur (ex.
-    /// « je prends la voiture »). Non structuré : exclu de tout mining
-    /// (ratio observé + regroupement composition de Repas à revoir) tant
-    /// qu'il n'est pas normalisé, mais affiché tel quel si le verdict est
-    /// mauvais. `nil` = pas de contexte particulier.
+    /// Événements de vie attachés au repas (« 🚘 Voiture », « 🍽️ Restaurant »),
+    /// éditables après coup depuis `SheetEvenementsRepas`. Vide par défaut.
+    ///
+    /// Un repas qui en porte au moins un est **exclu du mining du ratio** :
+    /// une circonstance particulière rend la dose non représentative du ratio
+    /// de base. Conséquence assumée — taguer un ancien repas le retire
+    /// rétroactivement de l'analyse, retirer son dernier événement l'y remet.
+    var evenements: [EvenementRepas] = []
+
+    /// Ancien champ texte libre unique, conservé pour les repas enregistrés
+    /// avant `evenements` — jamais réécrit, seulement lu par
+    /// `evenementsAffiches`. La première édition d'un repas legacy le
+    /// matérialise dans `evenements` et remet ce champ à `nil`.
     var contexteLibre: String?
 
-    /// Libellé normalisé + emoji, résolu en tâche de fond par
-    /// `ReferentielContextesService` après l'enregistrement du repas (jamais
-    /// à la saisie). `nil` tant que non résolu (ou si la résolution échoue
-    /// définitivement) : l'affichage retombe alors sur `contexteLibre` brut.
-    /// N'affecte JAMAIS le mining — `AnalyseRatioService`/`CalculRatioObserve`
-    /// excluent toujours sur la seule présence de `contexteLibre`.
+    /// Libellé normalisé + emoji de l'ancien `contexteLibre`, résolu en tâche
+    /// de fond après enregistrement. Même statut legacy que ci-dessus.
     var contexteNormalise: String?
 
     /// `true` si l'utilisateur a explicitement demandé à exclure ce repas de
@@ -220,6 +224,7 @@ final class Repas {
         raisonMauvaisPersistee: RaisonMauvaisVerdict? = nil,
         ratioEffectifPersiste: Double? = nil,
         ajustements: [Ajustement] = [],
+        evenements: [EvenementRepas] = [],
         contexteLibre: String? = nil,
         contexteNormalise: String? = nil,
         exclureDesAnalyses: Bool = false
@@ -235,6 +240,7 @@ final class Repas {
         self.raisonMauvaisPersistee = raisonMauvaisPersistee
         self.ratioEffectifPersiste = ratioEffectifPersiste
         self.ajustements = ajustements
+        self.evenements = evenements
         self.contexteLibre = contexteLibre
         self.contexteNormalise = contexteNormalise
         self.exclureDesAnalyses = exclureDesAnalyses
@@ -242,6 +248,45 @@ final class Repas {
 
     var totalGlucides: Int {
         aliments.reduce(0) { $0 + $1.glucides }
+    }
+
+    // MARK: - Événements
+
+    /// Événements à afficher, `evenements` complété par une reconstruction des
+    /// repas legacy — ceux enregistrés quand le contexte était un champ texte
+    /// unique. Pas de migration en base : un repas ancien n'est réécrit que si
+    /// l'utilisateur l'édite (voir `remplacerEvenements(_:)`), ce qui évite de
+    /// toucher tout l'historique au premier lancement.
+    ///
+    /// L'ancien `contexteNormalise` est un affichage déjà combiné
+    /// (« 🚘 Voiture ») : impossible d'en réextraire proprement l'emoji, donc
+    /// l'événement reconstruit porte le tout en `libelle` et un emoji vide —
+    /// `EvenementRepas.affichage` gère ce cas.
+    var evenementsAffiches: [EvenementRepas] {
+        if !evenements.isEmpty { return evenements }
+        guard let contexteLibre else { return [] }
+        return [EvenementRepas(
+            libelle: contexteNormalise ?? contexteLibre,
+            emoji: "",
+            texteBrut: contexteLibre
+        )]
+    }
+
+    /// `true` dès qu'une circonstance particulière est déclarée sur ce repas.
+    /// C'est ce prédicat qui l'exclut du mining du ratio — jamais un test
+    /// direct sur `contexteLibre`, qui raterait les repas récents.
+    var aUnEvenement: Bool {
+        !evenements.isEmpty || contexteLibre != nil
+    }
+
+    /// Écrit la nouvelle liste d'événements et **solde le champ legacy** :
+    /// une fois le repas édité, `contexteLibre` n'a plus à être consulté, et
+    /// le laisser renseigné ferait réapparaître l'ancien contexte si
+    /// l'utilisateur retire tous les événements.
+    func remplacerEvenements(_ nouveaux: [EvenementRepas]) {
+        evenements = nouveaux
+        contexteLibre = nil
+        contexteNormalise = nil
     }
 
     /// Total d'insuline du repas : la dose globale quand le repas a été saisi
