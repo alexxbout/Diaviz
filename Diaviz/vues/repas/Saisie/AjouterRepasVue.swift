@@ -419,10 +419,15 @@ struct AjouterRepasVue: View {
         }
     }
 
-    /// Affiche les 10 derniers aliments utilisés, ou un état vide informatif.
+    /// Affiche les aliments récemment utilisés, ou un état vide informatif.
+    ///
+    /// Plus de troncature à 10 : la liste est déjà triée du plus récent au
+    /// plus ancien et défilante, donc en montrer davantage ne dégrade pas la
+    /// lecture des premiers — c'est le stockage
+    /// (`AlimentsRecentsService.limiteRecents`) qui borne la profondeur.
     @ViewBuilder
     private var vueRecents: some View {
-        let recents = AlimentsRecentsService.shared.alimentsRecents.prefix(10)
+        let recents = AlimentsRecentsService.shared.alimentsRecents
 
         if recents.isEmpty {
             ContentUnavailableView(

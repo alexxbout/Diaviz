@@ -29,7 +29,11 @@ import SwiftData
 final class AlimentsRecentsService {
     static let shared = AlimentsRecentsService()
 
-    private let limiteRecents = 50
+    /// Profondeur de l'historique MRU. Borne la liste affichée sur l'écran de
+    /// saisie, qui n'a plus de troncature propre (`AjouterRepasVue.vueRecents`).
+    /// Chaque entrée coûte une ligne SwiftData et, pour un produit OFF, son
+    /// snapshot JSON — quelques dizaines de Ko au total à cette échelle.
+    private let limiteRecents = 100
 
     /// Clés composites des aliments récents, du plus récent au plus ancien.
     private(set) var clesRecentes: [String] = []
@@ -243,7 +247,7 @@ final class AlimentsRecentsService {
 
     private func resoudre(cle: String) -> ResultatRechercheAliment? {
         if let idCiqual = Self.idCiqual(depuis: cle) {
-            guard let aliment = CiqualService.shared.aliments.first(where: { $0.id == idCiqual }) else {
+            guard let aliment = CiqualService.shared.aliment(id: idCiqual) else {
                 return nil
             }
             return .ciqual(aliment)

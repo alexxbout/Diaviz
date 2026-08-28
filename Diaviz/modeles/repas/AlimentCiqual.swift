@@ -30,8 +30,21 @@ final class CiqualService {
     static let shared = CiqualService()
     private(set) var aliments: [AlimentCiqual] = []
 
+    /// Index par id, construit une fois au chargement.
+    ///
+    /// La résolution d'un aliment récent se faisait par `first(where:)` sur
+    /// les ~3000 entrées : négligeable pour un aliment, plus du tout quand la
+    /// liste des récents en résout une centaine à chaque rendu de la vue.
+    private var parId: [Int: AlimentCiqual] = [:]
+
     private init() {
         chargerCiqual()
+    }
+
+    /// Aliment CIQUAL par son id, en temps constant. `nil` si l'id n'existe
+    /// pas dans le référentiel embarqué.
+    func aliment(id: Int) -> AlimentCiqual? {
+        parId[id]
     }
 
     private func chargerCiqual() {
@@ -42,6 +55,7 @@ final class CiqualService {
         do {
             let data = try Data(contentsOf: url)
             self.aliments = try JSONDecoder().decode([AlimentCiqual].self, from: data)
+            self.parId = Dictionary(aliments.map { ($0.id, $0) }, uniquingKeysWith: { premier, _ in premier })
         } catch {
             print("Erreur de chargement CIQUAL : \(error)")
         }
