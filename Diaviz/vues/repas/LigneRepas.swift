@@ -96,7 +96,7 @@ struct LigneRepas: View {
     // serait ambigu (laquelle des deux ?). Même condition que
     // `RecapDosesRepas.afficheVentilation`.
     private var doseVentileeAilleurs: Bool {
-        (repas.doseCorrection ?? 0) > 0 || !repas.ajustements.isEmpty
+        RecapDosesRepas.aUneVentilation(repas)
     }
 
     @ViewBuilder

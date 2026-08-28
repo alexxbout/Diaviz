@@ -31,9 +31,15 @@ struct RecapDosesRepas: View {
     /// La ventilation n'a de sens que si un terme s'ajoute à la dose de base.
     /// `Repas.totalInsuline` ne porte que celle-ci — ajustements et correction
     /// sont stockés à part et modifient tous deux le total réellement injecté.
-    private var afficheVentilation: Bool {
+    ///
+    /// Exposé en statique : `LigneRepas` et `DetailRepasVue` doivent décider du
+    /// même côté que cette vue s'il y a une ventilation à montrer, et la règle
+    /// s'y trouvait recopiée à l'identique.
+    static func aUneVentilation(_ repas: Repas) -> Bool {
         (repas.doseCorrection ?? 0) > 0 || !repas.ajustements.isEmpty
     }
+
+    private var afficheVentilation: Bool { Self.aUneVentilation(repas) }
 
     var body: some View {
         if afficheVentilation {

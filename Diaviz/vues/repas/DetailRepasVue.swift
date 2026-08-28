@@ -282,21 +282,27 @@ struct DetailRepasVue: View {
 
     // MARK: - Section 5 — Récap injection
     //
-    // Lignes : insuline totale, glucides totaux, ratio appliqué, heure,
+    // Lignes : insuline injectée, glucides totaux, ratio appliqué, heure,
     // site (placeholder pour l'instant — `Repas` ne stocke pas le site).
     // Affichée même quand `aUneInjection == false` pour rester structurée,
     // mais avec « — » sur les valeurs absentes.
+    //
+    // Dès qu'un ajustement ou une correction s'ajoute à la dose de base, les
+    // termes de la somme précèdent le total en rows atténuées. La page
+    // affichait auparavant `repas.totalInsuline` sous le libellé « Insuline
+    // totale » : la dose de base seule, donc un chiffre inférieur au « Total
+    // injecté » montré dans la liste pour le même repas — deux écrans, deux
+    // totaux.
+    //
+    // Rows natives et non le bloc encadré du journal (`RecapDosesRepas`) :
+    // celui-ci est dessiné pour vivre en row sœur sur le fond de la liste,
+    // posé dans cette carte il formait un cadre dans un cadre, avec sa propre
+    // typographie et ses propres marges. Ici, seuls les chiffres doivent être
+    // les mêmes — pas le contenant.
 
     private var sectionInjection: some View {
         CarteRegroupee {
-            LigneMetrique(
-                libelle: "Insuline totale",
-                valeur: formaterInsuline(repas.totalInsuline),
-                // Repas saisi en mode « dose globale » : signale que la dose
-                // n'est pas ventilée par aliment (les rows aliments affichent
-                // 0u, c'est normal).
-                sousValeur: repas.doseGlobale != nil ? "Dose globale" : nil
-            )
+            ventilationDoses
             Divider().padding(.leading, 16)
             LigneMetrique(
                 libelle: "Glucides totaux",
@@ -307,7 +313,10 @@ struct DetailRepasVue: View {
             LigneMetrique(
                 libelle: "Ratio appliqué",
                 valeur: ratioFormate,
-                sousValeur: nil
+                // Le ratio ne se mesure que sur la dose couvrant les glucides :
+                // sans cette mention, il paraîtrait contredire le total
+                // injecté affiché juste au-dessus.
+                sousValeur: RecapDosesRepas.aUneVentilation(repas) ? "sur la dose repas" : nil
             )
             Divider().padding(.leading, 16)
             LigneMetrique(
@@ -323,6 +332,57 @@ struct DetailRepasVue: View {
             )
         }
         .padding(.horizontal, 16)
+    }
+
+    /// Termes de la dose puis total injecté. Sans ajustement ni correction,
+    /// une seule row : ventiler une somme à un seul terme n'apprendrait rien.
+    @ViewBuilder
+    private var ventilationDoses: some View {
+        if RecapDosesRepas.aUneVentilation(repas) {
+            LigneMetrique(
+                libelle: "Repas",
+                valeur: repas.totalInsuline.doseInsulineFormatee,
+                sousValeur: repas.doseGlobale != nil ? "Dose globale" : nil
+            )
+            ForEach(repas.ajustements) { ajustement in
+                Divider().padding(.leading, 16)
+                LigneMetrique(
+                    libelle: libelleAjustement(ajustement),
+                    valeur: ajustement.valeur.ecartDoseFormate,
+                    couleur: .blue
+                )
+            }
+            if let correction = repas.doseCorrection, correction > 0 {
+                Divider().padding(.leading, 16)
+                LigneMetrique(
+                    libelle: "Correction",
+                    valeur: correction.ecartDoseFormate,
+                    couleur: .orange
+                )
+            }
+            Divider().padding(.leading, 16)
+            LigneMetrique(
+                libelle: "Total injecté",
+                valeur: formaterInsuline(repas.totalInjecte)
+            )
+        } else {
+            LigneMetrique(
+                libelle: "Insuline injectée",
+                valeur: formaterInsuline(repas.totalInjecte),
+                // Repas saisi en mode « dose globale » : signale que la dose
+                // n'est pas ventilée par aliment (les rows aliments affichent
+                // 0u, c'est normal).
+                sousValeur: repas.doseGlobale != nil ? "Dose globale" : nil
+            )
+        }
+    }
+
+    /// « Sport récent · Course à pied » — même libellé que la ventilation du
+    /// journal, le type de sport détecté qualifiant la raison quand il est
+    /// connu.
+    private func libelleAjustement(_ ajustement: Ajustement) -> String {
+        ajustement.typeSportDetecte.map { "\(ajustement.raison.libelle) · \($0)" }
+            ?? ajustement.raison.libelle
     }
 
     // MARK: - Helpers
@@ -351,7 +411,11 @@ struct DetailRepasVue: View {
         return site.libelle.capitalizedFirstLetter
     }
 
-    /// Ratio insuline-glucides « 1u/18g » — dérivé de glucides/dose.
+    /// Ratio insuline-glucides « 1u/18g » — dérivé de glucides / **dose de
+    /// base** : ni la correction (qui répond à la glycémie du moment) ni les
+    /// ajustements (déviations volontaires) ne prétendent couvrir des
+    /// glucides. Même définition que la dose confrontée au ratio à la saisie
+    /// (`RepasSheet.doseCouvrantGlucides`) et que celle du mining R1.
     /// `—` si la dose est nulle (division par zéro impossible et le
     /// calcul n'a pas de sens sans bolus).
     private var ratioFormate: String {
@@ -437,6 +501,23 @@ extension Repas {
         )
     }
 
+    /// Repas dont la dose de base est complétée par un ajustement et une
+    /// correction — le cas où la page affichait un total inférieur à celui du
+    /// journal (11u au lieu de 12u).
+    static var mockAvecVentilation: Repas {
+        let heure = Calendar.current.date(bySettingHour: 19, minute: 45, second: 0, of: Date()) ?? Date()
+        return Repas(
+            heure: heure,
+            aliments: [
+                Aliment(emoji: "🍚", nom: "Riz basmati", quantite: 70, glucides: 56, insuline: 5.0),
+                Aliment(emoji: "🐟", nom: "Saumon grillé", quantite: 130, glucides: 0, insuline: 0.0),
+            ],
+            etatAnalyse: ReponseGlycemiqueServiceMock.cas(.bon),
+            doseCorrection: 1,
+            ajustements: [Ajustement(raison: .sportRecent, valeur: -1.5, typeSportDetecte: "Musculation")]
+        )
+    }
+
     /// Repas sans bolus — pas d'analyse glycémique légitime à proposer.
     /// IOB élevé (2.2u) : prendre un en-cas sans dose alors qu'il
     /// reste 2u d'insuline active explique pourquoi le repas a été
@@ -472,6 +553,18 @@ extension Repas {
         DetailRepasVue(
             repas: .mockEnAttente,
             titreSection: "Déjeuner"
+        )
+    }
+    .environment(RepasService.apercu())
+}
+
+/// Correction + ajustement : la page doit montrer la **même** ventilation que
+/// la row du journal, et le même « Total injecté ».
+#Preview("Repas avec correction et ajustement") {
+    NavigationStack {
+        DetailRepasVue(
+            repas: .mockAvecVentilation,
+            titreSection: "Dîner"
         )
     }
     .environment(RepasService.apercu())
