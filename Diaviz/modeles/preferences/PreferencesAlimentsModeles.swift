@@ -78,6 +78,17 @@ final class AlimentRecentEnregistre {
     /// fetch, et CloudKit encore moins.
     var rang: Int = 0
 
+    /// `false` pour une ligne conservée **uniquement** parce qu'elle porte une
+    /// donnée durable (taille de portion, glucides corrigés) alors que
+    /// l'aliment est sorti de la liste des 50 récents.
+    ///
+    /// Sans ce drapeau, `recharger()` reconstruisait `clesRecentes` depuis
+    /// toutes les lignes du store : un aliment gardé pour sa seule taille de
+    /// portion redevenait « récent » au redémarrage, et la liste dépassait
+    /// silencieusement sa limite. Défaut `true` — les lignes écrites avant
+    /// l'ajout du champ sont toutes des récents.
+    var estRecent: Bool = true
+
     /// Dernière quantité saisie, en grammes.
     var quantite: Double?
 
@@ -90,20 +101,32 @@ final class AlimentRecentEnregistre {
     /// Produit Open Food Facts sérialisé (JSON). `nil` pour un aliment CIQUAL.
     var snapshot: Data?
 
+    /// Glucides pour 100 g corrigés par l'utilisateur, quand l'étiquette de
+    /// son paquet contredit la valeur de la base. `nil` = valeur d'origine.
+    ///
+    /// Ne réécrit jamais les repas déjà enregistrés : `Aliment.glucides` est
+    /// figé à la saisie et alimente `ratioEffectifPersiste`, `verdictPersiste`
+    /// et le mining. La correction ne vaut que pour les ajouts suivants.
+    var glucidesPour100g: Double?
+
     init(
         cle: String,
         rang: Int,
+        estRecent: Bool = true,
         quantite: Double? = nil,
         taillePortion: Double? = nil,
         modeQuantite: String? = nil,
-        snapshot: Data? = nil
+        snapshot: Data? = nil,
+        glucidesPour100g: Double? = nil
     ) {
         self.cle = cle
         self.rang = rang
+        self.estRecent = estRecent
         self.quantite = quantite
         self.taillePortion = taillePortion
         self.modeQuantite = modeQuantite
         self.snapshot = snapshot
+        self.glucidesPour100g = glucidesPour100g
     }
 }
 

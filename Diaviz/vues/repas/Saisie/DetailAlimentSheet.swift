@@ -121,6 +121,20 @@ struct DetailAlimentSheet: View {
     @State private var afficherChangementEmoji: Bool = false
     @State private var saisieEmojiTexte: String = ""
 
+    @State private var afficherCorrectionGlucides: Bool = false
+    @State private var saisieGlucides100gTexte: String = ""
+    /// Force la réévaluation du corps après une correction : le service n'est
+    /// pas observé ici (`aliment` est une valeur, pas un binding), donc rien
+    /// ne redéclencherait le rendu autrement.
+    @State private var rafraichirCorrection: Int = 0
+
+    /// `true` si les glucides de cet aliment ont été rectifiés. Lit
+    /// `rafraichirCorrection` pour que SwiftUI recalcule après une édition.
+    private var glucidesCorriges: Bool {
+        _ = rafraichirCorrection
+        return aliment.glucidesSontCorriges
+    }
+
     // MARK: - Valeurs calculées (proportionnelles à quantiteGrammes)
 
     private var glucides: Double  { aliment.glucides  * quantiteGrammes / 100 }
@@ -219,6 +233,15 @@ struct DetailAlimentSheet: View {
         } message: {
             Text("Visible partout où cet aliment apparaît.")
         }
+        // Alerte — correction des glucides pour 100 g
+        .alert("Glucides pour 100 g", isPresented: $afficherCorrectionGlucides) {
+            TextField("ex : 52", text: $saisieGlucides100gTexte)
+                .keyboardType(.decimalPad)
+            Button("OK") { appliquerCorrectionGlucides() }
+            Button("Annuler", role: .cancel) { saisieGlucides100gTexte = "" }
+        } message: {
+            Text("Valeur indiquée sur ton paquet, si elle diffère de celle de \(sourceAliment) (\(formateGlucides(aliment.glucidesOrigine)) g). Mémorisée pour ce produit ; les repas déjà enregistrés gardent leur valeur d'origine.")
+        }
     }
 
     // MARK: - Actions
@@ -283,6 +306,14 @@ struct DetailAlimentSheet: View {
         defer { saisieRenommageTexte = "" }
         guard let idCiqual else { return }
         NomsPersonnalisesService.shared.renommer(idCiqual, en: saisieRenommageTexte)
+    }
+
+    private func appliquerCorrectionGlucides() {
+        defer { saisieGlucides100gTexte = "" }
+        let texte = saisieGlucides100gTexte.replacingOccurrences(of: ",", with: ".")
+        guard let valeur = Double(texte), valeur >= 0, valeur <= 100 else { return }
+        AlimentsRecentsService.shared.corrigerGlucides(aliment, pour100g: valeur)
+        rafraichirCorrection += 1
     }
 
     private func appliquerChangementEmoji() {
@@ -556,15 +587,81 @@ struct DetailAlimentSheet: View {
         }
     }
 
+    /// Valeur de référence pour 100 g, éditable — c'est elle qu'on corrige
+    /// quand l'étiquette du paquet contredit la base.
+    ///
+    /// Centrée sous « dont sucres » plutôt qu'en row justifiée à part : tout
+    /// le bloc Nutrition est centré (titre, grand chiffre, colonnes de
+    /// macros), une ligne label-à-gauche / valeur-à-droite y cassait la
+    /// symétrie. La valeur d'origine et la restauration n'apparaissent
+    /// qu'une fois une correction posée, pour ne pas alourdir le cas nominal.
+    private var referenceGlucides: some View {
+        VStack(spacing: 3) {
+            Button {
+                saisieGlucides100gTexte = formateGlucides(aliment.glucides)
+                afficherCorrectionGlucides = true
+            } label: {
+                HStack(spacing: 4) {
+                    Text("Pour 100 g : \(formateGlucides(aliment.glucides)) g")
+                        .font(.caption)
+                        .fontWeight(glucidesCorriges ? .semibold : .regular)
+                    Image(systemName: "pencil")
+                        .font(.caption2)
+                }
+                .foregroundStyle(Color.accentColor)
+            }
+            .buttonStyle(.plain)
+
+            if glucidesCorriges {
+                HStack(spacing: 4) {
+                    Text("\(sourceAliment) : \(formateGlucides(aliment.glucidesOrigine)) g")
+                        .foregroundStyle(.secondary)
+                    Text("·")
+                        .foregroundStyle(.tertiary)
+                    Button("Restaurer") {
+                        AlimentsRecentsService.shared.restaurerGlucides(aliment)
+                        rafraichirCorrection += 1
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.accentColor)
+                }
+                .font(.caption2)
+            }
+        }
+    }
+
+    /// Nom de la base d'origine — sert à situer la valeur de référence face à
+    /// la correction (« Open Food Facts : 46,2 g »).
+    private var sourceAliment: String {
+        if case .off = aliment { return "Open Food Facts" }
+        return "CIQUAL"
+    }
+
+    private func formateGlucides(_ valeur: Double) -> String {
+        valeur == floor(valeur)
+            ? String(format: "%.0f", valeur)
+            : String(format: "%.1f", valeur)
+    }
+
     /// Row unique fusionnant glucides + macros séparés par un Divider.
     /// Une seule row = pas de séparateur automatique entre les deux blocs.
     private var rowNutritionPrincipale: some View {
         VStack(spacing: 12) {
             // Glucides — valeur principale mise en avant
             VStack(spacing: 4) {
-                Text("Glucides")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Text("Glucides")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if glucidesCorriges {
+                        Text("corrigé")
+                            .font(.caption2)
+                            .foregroundStyle(Color.accentColor)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2)
+                            .background(Color.accentColor.opacity(0.15), in: Capsule())
+                    }
+                }
 
                 HStack(alignment: .lastTextBaseline, spacing: 2) {
                     Text(String(format: "%.1f", glucides))
@@ -577,11 +674,21 @@ struct DetailAlimentSheet: View {
                         .foregroundStyle(.green)
                 }
 
-                Text(String(format: "dont sucres : %.1fg", sucres))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .contentTransition(.numericText())
-                    .animation(.spring(response: 0.3), value: sucres)
+                // Sucres masqués s'ils dépassent les glucides corrigés :
+                // « dont sucres » supérieur au total se lirait comme une
+                // incohérence de l'app, alors que c'est juste la valeur
+                // d'origine restée en place (seuls les glucides sont
+                // corrigeables).
+                if sucres <= glucides {
+                    Text(String(format: "dont sucres : %.1fg", sucres))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .contentTransition(.numericText())
+                        .animation(.spring(response: 0.3), value: sucres)
+                }
+
+                referenceGlucides
+                    .padding(.top, 6)
             }
             .frame(maxWidth: .infinity)
             .padding(.top, 8)

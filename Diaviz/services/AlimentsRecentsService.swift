@@ -51,6 +51,13 @@ final class AlimentsRecentsService {
     /// aliment — repropose le même mode la prochaine fois.
     private var modesQuantite: [String: ModeQuantiteAliment] = [:]
 
+    /// Glucides pour 100 g corrigés par l'utilisateur, quand l'étiquette de
+    /// son paquet contredit la base. Même statut durable que
+    /// `taillesPortion` : survit à la sortie de la liste MRU (voir
+    /// `sauvegarder`), sinon la correction serait à ressaisir au prochain
+    /// scan, paquet en main.
+    private var glucidesCorriges: [String: Double] = [:]
+
     private var contexte: ModelContext?
 
     private init() {}
@@ -69,11 +76,15 @@ final class AlimentsRecentsService {
             FetchDescriptor<AlimentRecentEnregistre>(sortBy: [SortDescriptor(\.rang)])
         )) ?? []
 
-        clesRecentes = lignes.map(\.cle)
+        // Seules les lignes marquées récentes reconstituent la liste MRU :
+        // les autres ne sont là que pour leur donnée durable (voir
+        // `AlimentRecentEnregistre.estRecent`).
+        clesRecentes = lignes.filter(\.estRecent).map(\.cle)
         snapshotsOFF = [:]
         quantites = [:]
         taillesPortion = [:]
         modesQuantite = [:]
+        glucidesCorriges = [:]
 
         for ligne in lignes {
             if let data = ligne.snapshot,
@@ -85,6 +96,7 @@ final class AlimentsRecentsService {
             if let mode = ligne.modeQuantite.flatMap(ModeQuantiteAliment.init(rawValue:)) {
                 modesQuantite[ligne.cle] = mode
             }
+            if let glucides = ligne.glucidesPour100g { glucidesCorriges[ligne.cle] = glucides }
         }
     }
 
@@ -126,6 +138,53 @@ final class AlimentsRecentsService {
     /// définie — le mode « Portions » propose alors de la définir.
     func tailleDePortion(_ aliment: ResultatRechercheAliment) -> Double? {
         taillesPortion[aliment.id]
+    }
+
+    // MARK: - Correction des glucides
+
+    /// Glucides pour 100 g corrigés pour cet aliment, `nil` si la valeur
+    /// d'origine (CIQUAL ou Open Food Facts) n'a jamais été rectifiée.
+    ///
+    /// Lu par `ResultatRechercheAliment.glucides` — point d'injection unique,
+    /// donc tout ce qui calcule une dose ou affiche des glucides suit.
+    func glucidesCorriges(_ aliment: ResultatRechercheAliment) -> Double? {
+        glucidesCorriges[aliment.id]
+    }
+
+    func glucidesCorriges(cle: String) -> Double? {
+        glucidesCorriges[cle]
+    }
+
+    /// Enregistre la valeur lue sur l'étiquette. Persisté immédiatement,
+    /// indépendamment de la validation du repas en cours : c'est une
+    /// correction durable du référentiel pour cet utilisateur, pas un réglage
+    /// de saisie.
+    func corrigerGlucides(_ aliment: ResultatRechercheAliment, pour100g: Double) {
+        guard pour100g >= 0 else { return }
+        glucidesCorriges[aliment.id] = pour100g
+        sauvegarder()
+    }
+
+    /// Restaure la valeur d'origine de la base.
+    func restaurerGlucides(_ aliment: ResultatRechercheAliment) {
+        restaurerGlucides(cle: aliment.id)
+    }
+
+    func restaurerGlucides(cle: String) {
+        guard glucidesCorriges.removeValue(forKey: cle) != nil else { return }
+        sauvegarder()
+    }
+
+    /// Aliments dont les glucides ont été corrigés, résolus depuis le
+    /// référentiel courant et triés par nom affiché — alimente la page de
+    /// gestion. Une clé irrésoluble (produit OFF dont le snapshot a été purgé
+    /// avec la liste MRU) est ignorée à l'affichage mais **conserve sa
+    /// correction** : elle se réappliquera au prochain scan du même
+    /// code-barres.
+    var alimentsCorriges: [ResultatRechercheAliment] {
+        glucidesCorriges.keys
+            .compactMap { resoudre(cle: $0) }
+            .sorted { $0.nom.localizedCaseInsensitiveCompare($1.nom) == .orderedAscending }
     }
 
     /// Définit (ou redéfinit) la taille d'une portion pour cet aliment.
@@ -170,6 +229,7 @@ final class AlimentsRecentsService {
         quantites = [:]
         taillesPortion = [:]
         modesQuantite = [:]
+        glucidesCorriges = [:]
         guard let contexte else { return }
         // Objet par objet : un `delete(model:)` ne serait pas exporté vers
         // CloudKit et les récents reviendraient à la synchronisation suivante.
@@ -205,7 +265,11 @@ final class AlimentsRecentsService {
     /// de la liste MRU) — sans ça, les deux dictionnaires grossiraient
     /// indéfiniment alors que la liste MRU, elle, est plafonnée.
     private func nettoyerSnapshots() {
-        let codesActifs = Set(clesRecentes.compactMap { cle -> String? in
+        // Les produits corrigés gardent leur snapshot même hors MRU : sans
+        // lui, `alimentsCorriges` ne saurait plus les résoudre et la page de
+        // gestion afficherait une correction sans nom ni marque.
+        let clesAvecSnapshot = Set(clesRecentes).union(glucidesCorriges.keys)
+        let codesActifs = Set(clesAvecSnapshot.compactMap { cle -> String? in
             guard cle.hasPrefix("off:") else { return nil }
             return String(cle.dropFirst("off:".count))
         })
@@ -240,37 +304,47 @@ final class AlimentsRecentsService {
         }
 
         // Les clés à conserver : la liste MRU, plus celles portant une taille
-        // de portion. Une taille définie est une décision durable de
-        // l'utilisateur (« un bol = 250 g ») : elle doit survivre à la sortie
-        // de l'aliment de la liste des récents, sinon elle serait à
-        // redéfinir. Ces clés hors MRU sont rangées après, sans quantité ni
-        // snapshot (état de saisie, lui, périmé).
-        let clesHorsMRU = taillesPortion.keys.filter { !clesRecentes.contains($0) }
+        // de portion ou une correction de glucides. Ces deux-là sont des
+        // décisions durables de l'utilisateur (« un bol = 250 g », « mon
+        // paquet indique 52 g ») : elles doivent survivre à la sortie de
+        // l'aliment de la liste des récents, sinon elles seraient à
+        // ressaisir — la correction, paquet en main. Ces clés hors MRU sont
+        // rangées après, sans quantité ni snapshot (état de saisie, lui,
+        // périmé).
+        let clesDurables = Set(taillesPortion.keys).union(glucidesCorriges.keys)
+        let clesHorsMRU = clesDurables.filter { !clesRecentes.contains($0) }.sorted()
         let aPersister = clesRecentes + clesHorsMRU
 
         for (rang, cle) in aPersister.enumerated() {
             let dansMRU = rang < clesRecentes.count
-            let snapshot = dansMRU ? snapshotOFFEncode(pour: cle) : nil
+            // Snapshot conservé hors MRU pour un produit corrigé (voir
+            // `nettoyerSnapshots`), sinon la correction deviendrait anonyme.
+            let gardeSnapshot = dansMRU || glucidesCorriges[cle] != nil
+            let snapshot = gardeSnapshot ? snapshotOFFEncode(pour: cle) : nil
             if let ligne = parCle.removeValue(forKey: cle) {
                 ligne.rang = rang
+                ligne.estRecent = dansMRU
                 ligne.quantite = dansMRU ? quantites[cle] : nil
                 ligne.taillePortion = taillesPortion[cle]
                 ligne.modeQuantite = modesQuantite[cle]?.rawValue
                 ligne.snapshot = snapshot
+                ligne.glucidesPour100g = glucidesCorriges[cle]
             } else {
                 contexte.insert(AlimentRecentEnregistre(
                     cle: cle,
                     rang: rang,
+                    estRecent: dansMRU,
                     quantite: dansMRU ? quantites[cle] : nil,
                     taillePortion: taillesPortion[cle],
                     modeQuantite: modesQuantite[cle]?.rawValue,
-                    snapshot: snapshot
+                    snapshot: snapshot,
+                    glucidesPour100g: glucidesCorriges[cle]
                 ))
             }
         }
 
         // Ce qui reste ne sert plus à rien : ni récent, ni porteur d'une
-        // taille de portion.
+        // taille de portion ou d'une correction de glucides.
         for ligne in parCle.values {
             contexte.delete(ligne)
         }

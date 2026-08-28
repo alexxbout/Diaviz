@@ -72,17 +72,42 @@ enum ResultatRechercheAliment: Identifiable, Hashable, Codable {
     /// Nutriments pour 100 g. Côté OFF, une valeur manquante vaut 0 dans les
     /// calculs — `glucidesRenseignes` permet de le signaler à l'écran.
     var calories: Double  { valeur(\.calories,  \.calories) }
-    var glucides: Double  { valeur(\.glucides,  \.glucides) }
+
+    /// Glucides pour 100 g — **corrigés** par l'utilisateur si son étiquette
+    /// contredit la base (`AlimentsRecentsService.glucidesCorriges`), sinon
+    /// valeur d'origine. Point d'injection unique : toute dose calculée et
+    /// tout affichage de glucides à la saisie suivent automatiquement.
+    ///
+    /// N'affecte que les ajouts à venir. Un repas déjà enregistré porte ses
+    /// glucides figés dans `Aliment.glucides`, qui alimentent
+    /// `ratioEffectifPersiste`, `verdictPersiste` et le mining : le repas a
+    /// été dosé avec l'ancienne valeur, la réécrire fausserait l'analyse.
+    var glucides: Double {
+        if let corriges = AlimentsRecentsService.shared.glucidesCorriges(self) { return corriges }
+        return glucidesOrigine
+    }
+
+    /// Glucides pour 100 g tels que fournis par CIQUAL / Open Food Facts,
+    /// sans correction — affiché en regard de la valeur corrigée.
+    var glucidesOrigine: Double { valeur(\.glucides, \.glucides) }
+
+    /// `true` si l'utilisateur a rectifié les glucides de cet aliment.
+    var glucidesSontCorriges: Bool {
+        AlimentsRecentsService.shared.glucidesCorriges(self) != nil
+    }
+
     var sucres: Double    { valeur(\.sucres,    \.sucres) }
     var proteines: Double { valeur(\.proteines, \.proteines) }
     var lipides: Double   { valeur(\.lipides,   \.lipides) }
     var fibres: Double    { valeur(\.fibres,    \.fibres) }
 
-    /// Faux uniquement pour un produit OFF sans glucides renseignés.
+    /// Faux uniquement pour un produit OFF sans glucides renseignés — et non
+    /// corrigé à la main : saisir la valeur du paquet lève précisément
+    /// l'avertissement « glucides non renseignés ».
     var glucidesRenseignes: Bool {
         switch self {
         case .ciqual:     return true
-        case .off(let p): return p.glucidesRenseignes
+        case .off(let p): return p.glucidesRenseignes || glucidesSontCorriges
         }
     }
 

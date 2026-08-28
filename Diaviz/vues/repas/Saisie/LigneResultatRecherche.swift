@@ -34,8 +34,19 @@ struct LigneResultatRecherche: View {
                         .font(.caption2)
                         .foregroundStyle(.tint)
                 }
-                Text(aliment.nom)
-                    .font(.body)
+                HStack(spacing: 5) {
+                    Text(aliment.nom)
+                        .font(.body)
+                    // Crayon discret : signale que les glucides affichés en
+                    // dessous ne sont pas ceux de la base mais la valeur
+                    // relevée sur l'étiquette.
+                    if aliment.glucidesSontCorriges {
+                        Image(systemName: "pencil")
+                            .font(.caption2)
+                            .foregroundStyle(Color.accentColor)
+                            .accessibilityLabel("Glucides corrigés")
+                    }
+                }
                 if let marque = aliment.marque {
                     Text(marque)
                         .font(.caption)

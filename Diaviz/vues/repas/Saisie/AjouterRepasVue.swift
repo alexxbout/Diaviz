@@ -69,6 +69,9 @@ struct AjouterRepasVue: View {
     /// Présentation de la sheet listant les aliments CIQUAL renommés.
     @State private var alimentsRenommesPresentee: Bool = false
 
+    /// Présentation de la sheet listant les aliments aux glucides corrigés.
+    @State private var alimentsCorrigesPresentee: Bool = false
+
     /// Trigger du retour haptique au masquage d'un aliment (swipe).
     @State private var triggerMasquage: Int = 0
 
@@ -191,6 +194,9 @@ struct AjouterRepasVue: View {
         }
         .sheet(isPresented: $alimentsRenommesPresentee) {
             AlimentsRenommesSheet()
+        }
+        .sheet(isPresented: $alimentsCorrigesPresentee) {
+            AlimentsCorrigesSheet()
         }
     }
 
@@ -578,6 +584,11 @@ struct AjouterRepasVue: View {
                     alimentsRenommesPresentee = true
                 } label: {
                     Label("Aliments renommés", systemImage: "pencil")
+                }
+                Button {
+                    alimentsCorrigesPresentee = true
+                } label: {
+                    Label("Glucides corrigés", systemImage: "number")
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")
