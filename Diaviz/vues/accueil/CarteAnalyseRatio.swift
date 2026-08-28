@@ -129,7 +129,10 @@ struct CarteAnalyseRatio: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        // `surfaceCarte()` et non un `RoundedRectangle` écrit à la main : le
+        // rayon était figé à 14pt, seul de son espèce sur l'accueil, où toutes
+        // les autres cartes posées sur le fond de page valent `Radius.large`.
+        .surfaceCarte()
         .accessibilityElement(children: .combine)
         .accessibilityLabel(labelAccessibilite)
     }
