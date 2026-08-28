@@ -123,8 +123,15 @@ private struct FeuilleDetailSport: View {
         NavigationStack {
             Form {
                 Section("Séance") {
-                    LabeledContent("Type") {
-                        Label(sport.typeSport, systemImage: sport.icone)
+                    // `LabeledContent(_:value:)` et non une content view
+                    // portant un `Label` : cette forme réservait une hauteur
+                    // de ligne démesurée dans le `Form` (gros bloc vide sous
+                    // la première row). L'icône vit dans le libellé de gauche,
+                    // où elle ne perturbe pas la mesure de la row.
+                    LabeledContent {
+                        Text(sport.typeSport)
+                    } label: {
+                        Label("Type", systemImage: sport.icone)
                     }
                     LabeledContent("Intensité", value: sport.intensite)
                     LabeledContent("Durée", value: FormatDureeSport.libelle(minutes: sport.dureeMinutes))
