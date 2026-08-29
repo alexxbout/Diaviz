@@ -19,8 +19,21 @@ struct EntreesBasale: Sendable {
     let lentes: [(heure: Date, dose: Double)]
     /// Injections rapides `(heure, dose, correction)` — IOB + bolus de correction.
     let rapides: [(heure: Date, dose: Double, correction: Bool)]
-    /// Repas `(heure, glucides g)` — exclusion repas tardif + resucrages.
+    /// Repas `(heure, glucides g)` — exclusion repas tardif. **Sans** les
+    /// resucrages, qui vivent dans `resucrages` (fait de hub distinct).
     let repas: [(heure: Date, glucides: Int)]
+    /// Resucrages `(heure, glucides g, intention)` — prises de glucides pour
+    /// traiter ou prévenir une hypo. Fait de hub à part entière depuis la
+    /// section « Resucrage » du Journal ; inclut aussi les repas dont tous
+    /// les aliments portent le badge `resucrage`.
+    ///
+    /// L'intention pèse différemment selon la question posée (option 2, doc
+    /// Eraser B1) : toutes intentions confondues pour l'exclusion de zone et
+    /// le libellé « resucré vs spontané » (des glucides restent des
+    /// glucides), mais seul `correctifHypo` peut produire une **rechute** —
+    /// une rechute signifie « ma correction a échoué », et on ne peut
+    /// échouer qu'une correction.
+    let resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)]
     /// Activités sportives `(début, durée min)` — exclusion sport tardif.
     let sports: [(debut: Date, dureeMin: Int)]
     /// Périodes de pause `(début, fin?)` — nuits exclues des analyses.
@@ -257,7 +270,7 @@ nonisolated enum CalculAnalyseBasale {
             cgmFenetre.filter { fenetreSommeil.contains($0.date) }, seuil: config.seuilHypo
         )
         let bilan = bilanHypos(
-            episodes: episodes, repas: entrees.repas,
+            episodes: episodes, resucrages: entrees.resucrages,
             finEndormissement: z2.upperBound, config: config
         )
         let aHypoZone3 = episodes.contains { z3.contains($0.bas) }
@@ -268,7 +281,7 @@ nonisolated enum CalculAnalyseBasale {
         let evalZ3 = evaluerZone3(
             points: pointsZ3, plage: z3, enPause: enPause,
             rapides: entrees.rapides, repas: entrees.repas,
-            episodes: episodes, config: config
+            resucrages: entrees.resucrages, episodes: episodes, config: config
         )
 
         // Évaluation de la zone 2 (pour la répartition + statut partiel).
@@ -278,7 +291,8 @@ nonisolated enum CalculAnalyseBasale {
         // Événements + structures graphiques.
         let events = construireEvents(
             lente: lente, cgm: cgmFenetre, plage: debutGrille...finGrille,
-            rapides: entrees.rapides, repas: entrees.repas, config: config
+            rapides: entrees.rapides, repas: entrees.repas,
+            resucrages: entrees.resucrages, config: config
         )
         let zonesData = construireZonesData(
             z1: z1, z2: z2, z3: z3, z4: z4,
@@ -339,6 +353,7 @@ nonisolated enum CalculAnalyseBasale {
         enPause: Bool,
         rapides: [(heure: Date, dose: Double, correction: Bool)],
         repas: [(heure: Date, glucides: Int)],
+        resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)],
         episodes: [EpisodeHypo],
         config: ConfigBasale
     ) -> EvalZone3 {
@@ -358,7 +373,7 @@ nonisolated enum CalculAnalyseBasale {
         // Resucrage dans la zone → rebond glucidique qui fausse la pente,
         // quelle que soit sa taille (contrairement au repas copieux ci-dessous,
         // qui vise un repas ordinaire tardif).
-        if resucrageDans(plage, episodes: episodes, repas: repas, config: config) {
+        if resucrageDans(plage, episodes: episodes, resucrages: resucrages, config: config) {
             return exclue(.resucrage)
         }
         // Repas copieux dans la zone → glucides confondent le signal basal.
@@ -630,7 +645,7 @@ extension CalculAnalyseBasale {
 
         let entrees = EntreesBasale(
             lectures: lectures, lentes: lentes, rapides: [],
-            repas: [], sports: [], pauses: []
+            repas: [], resucrages: [], sports: [], pauses: []
         )
         return analyser(entrees: entrees, maintenant: maintenant)
     }
@@ -731,13 +746,14 @@ private nonisolated extension CalculAnalyseBasale {
     }
 
     /// Construit la liste plate des événements de la nuit : lente, rapides,
-    /// repas (ou resucrages s'ils suivent une hypo), hypos.
+    /// hypos, resucrages, repas.
     static func construireEvents(
         lente: (heure: Date, dose: Double)?,
         cgm: [(date: Date, valeur: Int)],
         plage: ClosedRange<Date>,
         rapides: [(heure: Date, dose: Double, correction: Bool)],
         repas: [(heure: Date, glucides: Int)],
+        resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)] = [],
         config: ConfigBasale
     ) -> [NightEvent] {
         var events: [NightEvent] = []
@@ -758,8 +774,15 @@ private nonisolated extension CalculAnalyseBasale {
                                      detail: "\(h.valeur) mg/dL à \(heureFr(h.date))"))
         }
 
-        // Repas nocturnes (contexte). Le « resucrage avec rechute » est détecté
-        // séparément sur la courbe CGM (double hypo), pas via un repas loggé.
+        // Resucrages — pill dédiée, distincte du repas nocturne : ce sont
+        // les glucides pris pour traiter ou prévenir une hypo.
+        for r in resucrages where plage.contains(r.heure) {
+            events.append(NightEvent(type: .resucrage, time: r.heure,
+                                     value: valeurProche(cgm, a: r.heure),
+                                     detail: "\(r.glucides)g à \(heureFr(r.heure))"))
+        }
+
+        // Repas nocturnes (contexte).
         for m in repas where plage.contains(m.heure) {
             events.append(NightEvent(type: .repas, time: m.heure, value: valeurProche(cgm, a: m.heure),
                                      detail: "\(m.glucides)g à \(heureFr(m.heure))"))
@@ -838,23 +861,41 @@ private nonisolated extension CalculAnalyseBasale {
     static func resucrageDans(
         _ plage: ClosedRange<Date>,
         episodes: [EpisodeHypo],
-        repas: [(heure: Date, glucides: Int)],
+        resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)],
         config: ConfigBasale
     ) -> Bool {
+        // Toutes intentions confondues : des glucides faussent la pente, quelle
+        // que soit la raison de la prise (correctif comme préventif).
         episodes.contains { episode in
             guard plage.overlaps(episode.debut...episode.fin) else { return false }
-            let borne = max(episode.fin, episode.debut.addingTimeInterval(config.fenetreResucrageMin * 60))
-            return repas.contains { $0.heure >= episode.debut && $0.heure <= borne }
+            return resucrages.contains { estDans($0.heure, episode: episode, config: config) }
         }
     }
 
+    /// Une prise de glucides traite-t-elle cet épisode ? Fenêtre = durée de
+    /// l'épisode, élargie à `fenetreResucrageMin` après son début pour les
+    /// hypos très courtes, corrigées avant que le CGM ne remonte.
+    private static func estDans(
+        _ heure: Date, episode: EpisodeHypo, config: ConfigBasale
+    ) -> Bool {
+        let borne = max(episode.fin, episode.debut.addingTimeInterval(config.fenetreResucrageMin * 60))
+        return heure >= episode.debut && heure <= borne
+    }
+
     /// Taxonomie des épisodes hypo d'une nuit (cf. doc `BilanHyposNuit`).
-    /// La distinction resucrage / remontée spontanée repose sur le log repas :
-    /// pas de repas loggé pendant l'épisode → remontée spontanée par principe
-    /// (contre-régulation, fin d'action — ou compression capteur, V2).
+    /// La distinction resucrage / remontée spontanée repose sur le log des
+    /// resucrages : aucune prise enregistrée pendant l'épisode → remontée
+    /// spontanée par principe (contre-régulation, fin d'action — ou
+    /// compression capteur, V2).
+    ///
+    /// L'intention est pondérée (option 2, doc Eraser B1) : **toutes**
+    /// comptent pour « resucré vs spontané » (des glucides ont bien été
+    /// pris), mais seul `correctifHypo` peut produire une **rechute** — une
+    /// rechute dit « ma correction a échoué », et on ne peut échouer qu'une
+    /// correction. Une hypo qui suit un préventif reste une hypo en série.
     static func bilanHypos(
         episodes: [EpisodeHypo],
-        repas: [(heure: Date, glucides: Int)],
+        resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)],
         finEndormissement: Date,
         config: ConfigBasale
     ) -> BilanHyposNuit {
@@ -862,12 +903,13 @@ private nonisolated extension CalculAnalyseBasale {
         bilan.episodes = episodes.count
         guard !episodes.isEmpty else { return bilan }
 
-        // Resucrage = repas loggé pendant l'épisode (fenêtre élargie à
-        // `fenetreResucrageMin` après le début pour les hypos très courtes,
-        // corrigées avant que le CGM ne remonte).
         func estResucre(_ e: EpisodeHypo) -> Bool {
-            let borne = max(e.fin, e.debut.addingTimeInterval(config.fenetreResucrageMin * 60))
-            return repas.contains { $0.heure >= e.debut && $0.heure <= borne }
+            resucrages.contains { estDans($0.heure, episode: e, config: config) }
+        }
+        func estCorrige(_ e: EpisodeHypo) -> Bool {
+            resucrages.contains {
+                $0.intention == .correctifHypo && estDans($0.heure, episode: e, config: config)
+            }
         }
 
         var indicesEnSerie = Set<Int>()
@@ -881,11 +923,12 @@ private nonisolated extension CalculAnalyseBasale {
             guard i > 0 else { continue }
             let gapMin = e.debut.timeIntervalSince(episodes[i - 1].fin) / 60
             guard gapMin >= 0 && gapMin < config.fenetreRechuteMin else { continue }
-            if estResucre(episodes[i - 1]) {
-                // Resucrage → remontée → nouvelle hypo : rechute.
+            if estCorrige(episodes[i - 1]) {
+                // Correction → remontée → nouvelle hypo : rechute.
                 bilan.rechutes += 1
             } else {
-                // Pas de repas entre : la glycémie rase le seuil — série.
+                // Aucune correction entre les deux : la glycémie rase le
+                // seuil — série (y compris après un simple préventif).
                 indicesEnSerie.insert(i - 1)
                 indicesEnSerie.insert(i)
             }

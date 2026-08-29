@@ -72,6 +72,45 @@ enum ChargeurFaitsCoucher {
         return ((try? contexte.fetch(d)) ?? []).map { (heure: $0.heure, glucides: $0.totalGlucides) }
     }
 
+    /// Repas **hors resucrages** — un repas dont tous les aliments portent le
+    /// badge `resucrage` est un resucrage déguisé (chemin de saisie secondaire,
+    /// même règle que `CalculRepasARevoir`). Il sort d'ici pour ne pas être
+    /// compté deux fois par les analyses qui consomment aussi `resucrages`.
+    static func repasHorsResucrage(
+        _ contexte: ModelContext, depuis: Date
+    ) -> [(heure: Date, glucides: Int)] {
+        let d = FetchDescriptor<Repas>(predicate: #Predicate { $0.heure >= depuis })
+        return ((try? contexte.fetch(d)) ?? [])
+            .filter { !estRepasResucrage($0) }
+            .map { (heure: $0.heure, glucides: $0.totalGlucides) }
+    }
+
+    /// Resucrages de la fenêtre, réunis depuis leurs **deux** sources : le
+    /// modèle `Resucrage` (section Journal dédiée, chemin principal) et les
+    /// repas entièrement badgés `resucrage` (chemin secondaire, sans intention
+    /// déclarée → traités en `correctifHypo`, l'usage du badge).
+    static func resucrages(
+        _ contexte: ModelContext, depuis: Date
+    ) -> [(heure: Date, glucides: Int, intention: IntentionResucrage)] {
+        let dR = FetchDescriptor<Resucrage>(predicate: #Predicate { $0.date >= depuis })
+        let saisis = ((try? contexte.fetch(dR)) ?? []).map {
+            (heure: $0.date, glucides: $0.glucidesTotal, intention: $0.intention)
+        }
+        let dM = FetchDescriptor<Repas>(predicate: #Predicate { $0.heure >= depuis })
+        let badges = ((try? contexte.fetch(dM)) ?? [])
+            .filter(estRepasResucrage)
+            .map {
+                (heure: $0.heure, glucides: $0.totalGlucides,
+                 intention: IntentionResucrage.correctifHypo)
+            }
+        return (saisis + badges).sorted { $0.heure < $1.heure }
+    }
+
+    /// Un repas non vide dont **tous** les aliments sont badgés resucrage.
+    private static func estRepasResucrage(_ repas: Repas) -> Bool {
+        !repas.aliments.isEmpty && repas.aliments.allSatisfy(\.resucrage)
+    }
+
     static func sports(
         _ contexte: ModelContext, depuis: Date
     ) -> [(debut: Date, resume: SportResume)] {

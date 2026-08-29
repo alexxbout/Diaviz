@@ -244,13 +244,16 @@ final class AnalyseBasaleService {
 
         let cgm = fetchCGM(contexte, depuis: borneCourte)
         let (lentes, rapides) = fetchInjections(contexte, depuis: borneDose)
-        let repas = fetchRepas(contexte, depuis: borneCourte)
+        // Repas et resucrages sont deux faits distincts : les repas badgés
+        // resucrage basculent côté `resucrages`, jamais comptés deux fois.
+        let repas = ChargeurFaitsCoucher.repasHorsResucrage(contexte, depuis: borneCourte)
+        let resucrages = ChargeurFaitsCoucher.resucrages(contexte, depuis: borneCourte)
         let sports = fetchSports(contexte, depuis: borneCourte)
         let pauses = fetchPauses(contexte, depuis: borneCourte)
 
         return EntreesBasale(
             lectures: cgm, lentes: lentes, rapides: rapides,
-            repas: repas, sports: sports, pauses: pauses
+            repas: repas, resucrages: resucrages, sports: sports, pauses: pauses
         )
     }
 
@@ -280,11 +283,6 @@ final class AnalyseBasaleService {
         return (lentes, rapides)
     }
 
-    private func fetchRepas(_ contexte: ModelContext, depuis: Date) -> [(heure: Date, glucides: Int)] {
-        let d = FetchDescriptor<Repas>(predicate: #Predicate { $0.heure >= depuis })
-        return ((try? contexte.fetch(d)) ?? []).map { (heure: $0.heure, glucides: $0.totalGlucides) }
-    }
-
     private func fetchSports(_ contexte: ModelContext, depuis: Date) -> [(debut: Date, dureeMin: Int)] {
         let d = FetchDescriptor<ActiviteSportive>(predicate: #Predicate { $0.dateDebut >= depuis })
         return ((try? contexte.fetch(d)) ?? []).map { (debut: $0.dateDebut, dureeMin: $0.dureeMinutes) }
@@ -306,6 +304,7 @@ extension EntreesBasale {
     /// Entrée sans aucun fait — produit une analyse « données insuffisantes »
     /// cohérente (14 nuits sans données). Sert d'état initial du service.
     static var vide: EntreesBasale {
-        EntreesBasale(lectures: [], lentes: [], rapides: [], repas: [], sports: [], pauses: [])
+        EntreesBasale(lectures: [], lentes: [], rapides: [], repas: [],
+                      resucrages: [], sports: [], pauses: [])
     }
 }
