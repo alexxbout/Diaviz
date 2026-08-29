@@ -22,6 +22,14 @@ enum TypeSport: String, CaseIterable, Codable, Sendable, Hashable {
     case musculation     = "Musculation"
     case yoga            = "Yoga"
     case sportCollectif  = "Sport collectif"
+    case tennis          = "Tennis"
+    case badminton       = "Badminton"
+    case randonnee       = "Randonnée"
+    case escalade        = "Escalade"
+    case ski             = "Ski"
+    case aviron          = "Aviron"
+    case danse           = "Danse"
+    case hiit            = "HIIT"
     case autre           = "Autre"
 
     // MARK: - Présentation
@@ -39,6 +47,14 @@ enum TypeSport: String, CaseIterable, Codable, Sendable, Hashable {
         case .musculation:     "figure.strengthtraining.traditional"
         case .yoga:            "figure.yoga"
         case .sportCollectif:  "figure.soccer"
+        case .tennis:          "figure.tennis"
+        case .badminton:       "figure.badminton"
+        case .randonnee:       "figure.hiking"
+        case .escalade:        "figure.climbing"
+        case .ski:             "figure.skiing.downhill"
+        case .aviron:          "figure.rower"
+        case .danse:           "figure.dance"
+        case .hiit:            "figure.highintensity.intervaltraining"
         case .autre:           "medal.fill"
         }
     }
@@ -48,11 +64,12 @@ enum TypeSport: String, CaseIterable, Codable, Sendable, Hashable {
     /// compact « 1 cardio · 1 autre ».
     var categorie: CategorieSport {
         switch self {
-        case .course, .velo, .natation, .marche, .sportCollectif:
+        case .course, .velo, .natation, .marche, .sportCollectif,
+             .tennis, .badminton, .randonnee, .ski, .aviron, .hiit:
             return .cardio
         case .musculation:
             return .musculation
-        case .yoga, .autre:
+        case .yoga, .escalade, .danse, .autre:
             return .autre
         }
     }
