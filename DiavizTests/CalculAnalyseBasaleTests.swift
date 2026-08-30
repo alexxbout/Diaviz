@@ -77,6 +77,7 @@ struct CalculAnalyseBasaleTests {
         _ specs: [SpecNuit],
         rapides: [(heure: Date, dose: Double, correction: Bool)] = [],
         repas: [(heure: Date, glucides: Int)] = [],
+        resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)] = [],
         pauses: [(debut: Date, fin: Date?)] = []
     ) -> EntreesBasale {
         EntreesBasale(
@@ -84,10 +85,15 @@ struct CalculAnalyseBasaleTests {
             lentes: specs.filter(\.avecLente).map { (heure: lente($0.decalage), dose: $0.dose) },
             rapides: rapides,
             repas: repas,
-            resucrages: [],
+            resucrages: resucrages,
             sports: [],
             pauses: pauses
         )
+    }
+
+    /// Resucrage correctif — le cas courant des fixtures.
+    private func resucrage(_ heure: Date, _ glucides: Int) -> (heure: Date, glucides: Int, intention: IntentionResucrage) {
+        (heure: heure, glucides: glucides, intention: .correctifHypo)
     }
 
     private func config(nuits: Int) -> ConfigBasale {
@@ -99,9 +105,11 @@ struct CalculAnalyseBasaleTests {
     private func analyser(_ specs: [SpecNuit], fenetre: Int = 3,
                           rapides: [(heure: Date, dose: Double, correction: Bool)] = [],
                           repas: [(heure: Date, glucides: Int)] = [],
+                          resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)] = [],
                           pauses: [(debut: Date, fin: Date?)] = []) -> AnalyseBasaleDetail {
         CalculAnalyseBasale.analyser(
-            entrees: entrees(specs, rapides: rapides, repas: repas, pauses: pauses),
+            entrees: entrees(specs, rapides: rapides, repas: repas,
+                             resucrages: resucrages, pauses: pauses),
             config: config(nuits: fenetre),
             maintenant: maintenant
         )
@@ -111,8 +119,10 @@ struct CalculAnalyseBasaleTests {
     private func nuitUnique(_ spec: SpecNuit,
                             rapides: [(heure: Date, dose: Double, correction: Bool)] = [],
                             repas: [(heure: Date, glucides: Int)] = [],
+                            resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)] = [],
                             pauses: [(debut: Date, fin: Date?)] = []) -> NightChartData? {
-        analyser([spec], fenetre: 2, rapides: rapides, repas: repas, pauses: pauses)
+        analyser([spec], fenetre: 2, rapides: rapides, repas: repas,
+                 resucrages: resucrages, pauses: pauses)
             .nightChartData.first { $0.basaleDose > 0 || $0.motifExclusion != nil }
     }
 
@@ -221,7 +231,9 @@ struct CalculAnalyseBasaleTests {
     @Test("Hypo en zone 2 (endormissement) : comptée, mais ne bascule pas la nuit")
     func hypoZone2NeBasculePas() {
         var spec = SpecNuit(decalage: 1)
-        spec.creux = [Creux(debutMinutes: 30, dureeMinutes: 15)]   // 30 min après la lente
+        // Tôt dans la zone 2, et assez loin du début de zone 3 (L+2h) pour ne
+        // pas tomber dans la fenêtre de rebond post-hypo de 90 min.
+        spec.creux = [Creux(debutMinutes: 5, dureeMinutes: 15)]
         let analyse = analyser([spec], fenetre: 2)
 
         #expect(analyse.hyposNocturnes == 1)
@@ -272,15 +284,33 @@ struct CalculAnalyseBasaleTests {
         #expect(analyse.nuitsAnalysees == 1)
     }
 
-    @Test("Repas copieux dans la nuit profonde → zone exclue ; 50 g exactement → conservée")
+    @Test("Repas copieux dans la nuit profonde → zone exclue ; au seuil exactement → conservée")
     func repasCopieuxEnZone3() {
         let heure = lente(1).addingTimeInterval(3 * 3600)
+        let seuil = ConfigBasale().seuilRepasCopieux
 
-        let copieux = analyser([SpecNuit(decalage: 1)], fenetre: 2, repas: [(heure: heure, glucides: 51)])
+        let copieux = analyser([SpecNuit(decalage: 1)], fenetre: 2, repas: [(heure: heure, glucides: seuil + 1)])
         #expect(copieux.nightChartData.first?.motifExclusion == RaisonExclusion.repasCopieux.rawValue)
 
-        let limite = analyser([SpecNuit(decalage: 1)], fenetre: 2, repas: [(heure: heure, glucides: 50)])
+        let limite = analyser([SpecNuit(decalage: 1)], fenetre: 2, repas: [(heure: heure, glucides: seuil)])
         #expect(limite.nuitsAnalysees == 1)
+    }
+
+    @Test("Dîner copieux avant la zone → exclue aussi : la digestion la traverse")
+    func repasCopieuxAvantZone3() {
+        let seuil = ConfigBasale().seuilRepasCopieux
+        // Zone 3 démarre à L+2h ; un dîner 2 h avant la lente tombe donc 4 h
+        // avant la zone, dans la fenêtre de digestion de 5 h.
+        let diner = lente(1).addingTimeInterval(-2 * 3600)
+        let analyse = analyser([SpecNuit(decalage: 1)], fenetre: 2,
+                               repas: [(heure: diner, glucides: seuil + 1)])
+        #expect(analyse.nightChartData.first?.motifExclusion == RaisonExclusion.repasCopieux.rawValue)
+
+        // Au-delà de la fenêtre, le repas ne disqualifie plus rien.
+        let tresTot = lente(1).addingTimeInterval(-4 * 3600)
+        let conservee = analyser([SpecNuit(decalage: 1)], fenetre: 2,
+                                 repas: [(heure: tresTot, glucides: seuil + 1)])
+        #expect(conservee.nuitsAnalysees == 1)
     }
 
     @Test("Mode pause sur la nuit → zone exclue")
@@ -296,8 +326,8 @@ struct CalculAnalyseBasaleTests {
     func resucrageEnZone3() {
         var spec = SpecNuit(decalage: 1)
         spec.creux = [Creux(debutMinutes: 180, dureeMinutes: 10)]   // en zone 3
-        let resucrage = [(heure: lente(1).addingTimeInterval(185 * 60), glucides: 15)]   // 15 g < seuil copieux
-        let analyse = analyser([spec], fenetre: 2, repas: resucrage)
+        let prise = [resucrage(lente(1).addingTimeInterval(185 * 60), 15)]   // 15 g < seuil copieux
+        let analyse = analyser([spec], fenetre: 2, resucrages: prise)
 
         #expect(analyse.nightChartData.first?.motifExclusion == RaisonExclusion.resucrage.rawValue)
         #expect(analyse.nuitsAnalysees == 0)
@@ -307,7 +337,10 @@ struct CalculAnalyseBasaleTests {
 
     @Test("Nuit chaotique (variabilité forte) → zone exclue")
     func nuitChaotique() {
-        let analyse = analyser([SpecNuit(decalage: 1, depart: 120, bruit: 80)], fenetre: 2)
+        // Départ haut et bruit large : CV ≈ 0,40 (> 0,36) sans jamais passer
+        // sous le seuil hypo — sinon c'est le rebond post-hypo qui exclut, et
+        // le test ne dirait plus rien de la détection de variabilité.
+        let analyse = analyser([SpecNuit(decalage: 1, depart: 230, bruit: 130)], fenetre: 2)
         #expect(analyse.nightChartData.first?.motifExclusion == RaisonExclusion.chaotique.rawValue)
     }
 
@@ -366,15 +399,17 @@ struct CalculAnalyseBasaleTests {
         #expect(bilan?.rechutes == 0)
     }
 
-    @Test("Repas loggé pendant l'hypo puis nouvelle hypo < 60 min → rechute")
+    @Test("Resucrage correctif pendant l'hypo puis nouvelle hypo < 60 min → rechute")
     func resucrageAvecRechute() {
         var spec = SpecNuit(decalage: 1)
         spec.creux = [
             Creux(debutMinutes: 150, dureeMinutes: 10),
             Creux(debutMinutes: 190, dureeMinutes: 10)
         ]
-        let resucrage = [(heure: lente(1).addingTimeInterval(155 * 60), glucides: 15)]
-        let bilan = nuitUnique(spec, repas: resucrage)?.bilanHypos
+        // Un repas ordinaire ne suffit plus : la rechute exige un resucrage
+        // d'intention correctifHypo, saisi comme fait de hub distinct.
+        let prise = [resucrage(lente(1).addingTimeInterval(155 * 60), 15)]
+        let bilan = nuitUnique(spec, resucrages: prise)?.bilanHypos
 
         #expect(bilan?.resucrees == 1)
         #expect(bilan?.rechutes == 1)
@@ -386,11 +421,11 @@ struct CalculAnalyseBasaleTests {
         var spec = SpecNuit(decalage: 1)
         spec.creux = [Creux(debutMinutes: 180, dureeMinutes: 5)]
 
-        let dansLaFenetre = [(heure: lente(1).addingTimeInterval(195 * 60), glucides: 15)]
-        #expect(nuitUnique(spec, repas: dansLaFenetre)?.bilanHypos.resucrees == 1)
+        let dansLaFenetre = [resucrage(lente(1).addingTimeInterval(195 * 60), 15)]
+        #expect(nuitUnique(spec, resucrages: dansLaFenetre)?.bilanHypos.resucrees == 1)
 
-        let horsFenetre = [(heure: lente(1).addingTimeInterval(215 * 60), glucides: 15)]
-        #expect(nuitUnique(spec, repas: horsFenetre)?.bilanHypos.spontanees == 1)
+        let horsFenetre = [resucrage(lente(1).addingTimeInterval(215 * 60), 15)]
+        #expect(nuitUnique(spec, resucrages: horsFenetre)?.bilanHypos.spontanees == 1)
     }
 
     @Test("Les hypos de la zone d'aube restent comptées")

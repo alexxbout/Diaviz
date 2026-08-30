@@ -100,11 +100,12 @@ struct CalculDetailSoireeTests {
         nuitB1 nuit: NightChartData?,
         rapides: [(heure: Date, dose: Double, correction: Bool)] = [],
         repas: [(heure: Date, glucides: Int)] = [],
+        resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)] = [],
         changementDoseRecent: Date? = nil
     ) -> DetailSoiree {
         CalculDetailSoiree.analyser(
             soir: soir(), nuitB1: nuit, rapides: rapides, repas: repas,
-            changementDoseRecent: changementDoseRecent
+            resucrages: resucrages, changementDoseRecent: changementDoseRecent
         )
     }
 
@@ -138,23 +139,27 @@ struct CalculDetailSoireeTests {
         #expect(detail.evenements.map(\.heure) == detail.evenements.map(\.heure).sorted())
     }
 
-    @Test("Repas pris juste après une hypo → affiché comme resucrage")
-    func repasApresHypoEstUnResucrage() {
+    @Test("Resucrage loggé et repas ordinaire sont deux événements distincts")
+    func resucrageEtRepasSontDistincts() {
         let hypo = evenementHypo(minutesApresLente: 150)
 
-        let colle = analyser(
+        // Le resucrage est un fait de hub à part entière : plus aucune
+        // requalification d'un repas selon sa proximité avec une hypo.
+        let avecResucrage = analyser(
+            nuitB1: nuitB1(events: [hypo]),
+            resucrages: [(heure: lente.addingTimeInterval(170 * 60),
+                          glucides: 15, intention: .correctifHypo)]
+        )
+        #expect(genres(avecResucrage).contains("resucrage"))
+        #expect(genres(avecResucrage).contains("repas") == false)
+
+        // Un repas reste un repas, même collé à une hypo.
+        let repasColle = analyser(
             nuitB1: nuitB1(events: [hypo]),
             repas: [(heure: lente.addingTimeInterval(170 * 60), glucides: 15)]
         )
-        #expect(genres(colle).contains("resucrage"))
-
-        // Au-delà de 45 min après l'hypo, c'est un repas ordinaire.
-        let plusTard = analyser(
-            nuitB1: nuitB1(events: [hypo]),
-            repas: [(heure: lente.addingTimeInterval(200 * 60), glucides: 15)]
-        )
-        #expect(genres(plusTard).contains("repas"))
-        #expect(genres(plusTard).contains("resucrage") == false)
+        #expect(genres(repasColle).contains("repas"))
+        #expect(genres(repasColle).contains("resucrage") == false)
     }
 
     @Test("Seules les corrections de la fenêtre de coucher sont reprises")
