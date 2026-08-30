@@ -41,7 +41,7 @@ struct LigneSoirCoucher: View {
     /// carte **avant** que `FlowLayout` ait fini de replier ses chips sur
     /// plusieurs lignes — la carte se fige trop courte et coupe la dernière
     /// ligne. En overlay, la hauteur suit uniquement le `VStack` de contenu.
-    private var afficheContexte: Bool { !soir.chipsContexte.isEmpty || soir.chargeVisible }
+    private var afficheContexte: Bool { !soir.chipsContexte().isEmpty || soir.chargeVisible }
 
     private var carte: some View {
         VStack(alignment: .leading, spacing: afficheContexte ? 9 : 0) {
@@ -51,7 +51,7 @@ struct LigneSoirCoucher: View {
                     if soir.chargeVisible {
                         ChipCharge(charge: soir.charge)
                     }
-                    ForEach(soir.chipsContexte) { chip in
+                    ForEach(soir.chipsContexte()) { chip in
                         ChipContexte(chip: chip)
                     }
                 }
@@ -147,7 +147,7 @@ struct LigneSoirCoucher: View {
                      issue.constat]
         if let p = issue.precision { parts.append(p) }
         if soir.chargeVisible { parts.append("activité de la semaine : \(soir.charge.libelle.lowercased())") }
-        parts += soir.chipsContexte.map { "\($0.texte)" }
+        parts += soir.chipsContexte().map { "\($0.texte)" }
         return parts.joined(separator: ", ")
     }
 }
@@ -248,20 +248,20 @@ struct FlowLayout: Layout {
 #Preview("Lignes soir — états") {
     let base = Date()
     let soirs: [SoirCoucher] = [
-        SoirCoucher(id: UUID(), date: base, glycemie: 132, tendance: .baisse,
+        SoirCoucher(id: UUID(), date: base, dateNuit: base, glycemie: 132, tendance: .baisse,
                     correction: nil, glucides: 15,
                     sport: SportResume(type: "Course", intensite: "modéré", dureeMinutes: 45),
                     iob: nil, charge: .intense, categorieB1: .tendanceBasse,
                     enHypo: true, delaiHypoMinutes: 42, issueCorrection: nil),
-        SoirCoucher(id: UUID(), date: base, glycemie: 205, tendance: .hausse,
+        SoirCoucher(id: UUID(), date: base, dateNuit: base, glycemie: 205, tendance: .hausse,
                     correction: 4, glucides: nil, sport: nil, iob: 1.5,
                     charge: .intense, categorieB1: nil,
                     enHypo: true, delaiHypoMinutes: nil, issueCorrection: .surCorrection),
-        SoirCoucher(id: UUID(), date: base, glycemie: 240, tendance: .hausse,
+        SoirCoucher(id: UUID(), date: base, dateNuit: base, glycemie: 240, tendance: .hausse,
                     correction: 3, glucides: nil, sport: nil, iob: nil,
                     charge: .calme, categorieB1: nil,
                     enHypo: false, delaiHypoMinutes: nil, issueCorrection: .insuffisant),
-        SoirCoucher(id: UUID(), date: base, glycemie: 109, tendance: .stable,
+        SoirCoucher(id: UUID(), date: base, dateNuit: base, glycemie: 109, tendance: .stable,
                     correction: nil, glucides: 15, sport: nil, iob: nil,
                     charge: .aucune, categorieB1: .stable,
                     enHypo: false, delaiHypoMinutes: nil, issueCorrection: nil),

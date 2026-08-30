@@ -96,18 +96,22 @@ extension SoirCoucher {
 
     /// Chips de contexte du soir — construction **unique** partagée entre
     /// `LigneSoirCoucher` et la sheet détail (mêmes symboles, même ordre).
-    var chipsContexte: [ChipContexte.Modele] {
+    ///
+    /// `avecGlucides` est à `false` dans la sheet détail : la timeline y
+    /// détaille déjà chaque prise (repas, resucrage) avec son heure et son
+    /// intention — un total agrégé n'y apprend rien.
+    func chipsContexte(avecGlucides: Bool = true) -> [ChipContexte.Modele] {
         var chips: [ChipContexte.Modele] = []
         if let dose = correction {
             chips.append(.init(symbole: "syringe.fill", texte: "correction +\(dose.formatted())u", accent: true))
         }
         if let iob {
-            chips.append(.init(symbole: "drop.fill", texte: "IOB \(String(format: "%.1f", iob))U", accent: false))
+            chips.append(.init(symbole: "drop.fill", texte: "IOB coucher \(String(format: "%.1f", iob))U", accent: false))
         }
         if let sport {
             chips.append(.init(symbole: "figure.run", texte: "\(sport.type) · \(sport.dureeTexte)", accent: false))
         }
-        if let g = glucides {
+        if avecGlucides, let g = glucides {
             chips.append(.init(symbole: "fork.knife", texte: "\(g.formatted())g", accent: false))
         }
         return chips

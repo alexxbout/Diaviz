@@ -144,8 +144,20 @@ struct SheetDetailSoiree: View {
         }
     }
 
+    /// « Nuit du 30 au 31 août » — une nuit enjambe deux jours, le titre le
+    /// dit. Le mois n'est répété que s'il change (« 31 août au 1ᵉʳ septembre »).
     private var titreNuit: String {
-        "Nuit du \(soir.date.formatted(.dateTime.day().month(.wide).locale(Locale(identifier: "fr_FR"))))"
+        let cal = Calendar.current
+        let fr = Locale(identifier: "fr_FR")
+        let debut = soir.dateNuit
+        let lendemain = cal.date(byAdding: .day, value: 1, to: debut) ?? debut
+
+        let memeMois = cal.isDate(debut, equalTo: lendemain, toGranularity: .month)
+        let debutFmt = memeMois
+            ? debut.formatted(.dateTime.day().locale(fr))
+            : debut.formatted(.dateTime.day().month(.wide).locale(fr))
+        let finFmt = lendemain.formatted(.dateTime.day().month(.wide).locale(fr))
+        return "Nuit du \(debutFmt) au \(finFmt)"
     }
 
     // MARK: - Contenu
@@ -748,7 +760,9 @@ struct SheetDetailSoiree: View {
                 if soir.chargeVisible {
                     ChipCharge(charge: soir.charge, taille: .large)
                 }
-                ForEach(soir.chipsContexte) { chip in
+                // Sans le total de glucides : la timeline au-dessus détaille
+                // déjà chaque prise avec son heure et son intention.
+                ForEach(soir.chipsContexte(avecGlucides: false)) { chip in
                     ChipContexte(chip: chip, taille: .large)
                 }
             }
@@ -983,7 +997,8 @@ private struct LigneTimelineSoiree: View {
     let nuit = analyse.nightChartData.first!
     let correction = (heure: nuit.basaleTime.addingTimeInterval(-20 * 60), dose: 4.0, correction: true)
     let soir = SoirCoucher(
-        id: UUID(), date: nuit.date, glycemie: Int(nuit.startGlucose), tendance: .baisse,
+        id: UUID(), date: nuit.date, dateNuit: Calendar.current.startOfDay(for: nuit.date),
+        glycemie: Int(nuit.startGlucose), tendance: .baisse,
         correction: 4, glucides: nil,
         sport: SportResume(type: "Course", intensite: "modéré", dureeMinutes: 45),
         iob: 1.2, charge: .intense, categorieB1: .tendanceBasse,

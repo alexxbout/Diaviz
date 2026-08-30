@@ -139,9 +139,7 @@ nonisolated enum CalculAnalyseEndormissement {
         )
 
         let tendance = tendanceProche(entrees.lectures, a: L) ?? .stable
-        let glucides = glucidesAutourDuCoucher(
-            entrees.repas, resucrages: entrees.resucrages, z1: z1, z2: z2
-        )
+        let glucides = glucidesAutourDuCoucher(entrees.repas, z1: z1, z2: z2)
         let sport = sportDuJour(entrees.sports, jour: nuit.dateNuit, cal: cal)
         let charge = CalculChargeActivite.charge(
             jusqua: nuit.dateNuit,
@@ -200,17 +198,18 @@ nonisolated enum CalculAnalyseEndormissement {
         lectures.min(by: { abs($0.date.timeIntervalSince(instant)) < abs($1.date.timeIntervalSince(instant)) })?.tendance
     }
 
-    /// Glucides ingérés dans la fenêtre de coucher — collations **et**
-    /// resucrages (les deux comptent : c'est du sucre au coucher). Somme si
-    /// plusieurs, `nil` si aucun.
+    /// Glucides des **repas** de la fenêtre de coucher (dîner tardif,
+    /// collation) — somme si plusieurs, `nil` si aucun. Les resucrages en
+    /// sont volontairement exclus : ils portent leur propre événement dans la
+    /// timeline, avec leur heure et leur intention ; les agréger ici ferait
+    /// perdre cette distinction dans un total muet.
     private static func glucidesAutourDuCoucher(
         _ repas: [(heure: Date, glucides: Int)],
-        resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)],
         z1: ClosedRange<Date>, z2: ClosedRange<Date>
     ) -> Double? {
-        func dansFenetre(_ heure: Date) -> Bool { z1.contains(heure) || z2.contains(heure) }
-        let total = repas.filter { dansFenetre($0.heure) }.reduce(0) { $0 + $1.glucides }
-            + resucrages.filter { dansFenetre($0.heure) }.reduce(0) { $0 + $1.glucides }
+        let total = repas
+            .filter { z1.contains($0.heure) || z2.contains($0.heure) }
+            .reduce(0) { $0 + $1.glucides }
         return total > 0 ? Double(total) : nil
     }
 

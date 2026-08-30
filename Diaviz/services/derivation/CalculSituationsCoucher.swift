@@ -13,7 +13,15 @@ import Foundation
 /// sans correction restent hors analyse (zone de confort, cadrage B2).
 nonisolated struct SoirCoucher: Identifiable, Sendable, Equatable {
     let id: UUID
+    /// Instant de l'événement — **sémantique différente selon la branche** :
+    /// jour calendaire à minuit côté B2, heure exacte de la correction côté
+    /// B3. Ne jamais s'en servir pour retrouver la nuit : utiliser `dateNuit`.
     let date: Date
+    /// Jour métabolique (06h→06h) de la nuit à laquelle ce soir appartient,
+    /// normalisé à minuit — même clé que `NightChartData.date`. Champ dédié
+    /// parce que `date` mélangeait deux conventions : le rapprochement avec
+    /// B1 renvoyait la nuit de la veille pour tout soir B2.
+    let dateNuit: Date
     /// Glycémie (mg/dL) au moment de l'événement (lente pour B2, correction pour B3).
     let glycemie: Int
     let tendance: TendanceGlycemie
@@ -258,9 +266,16 @@ nonisolated enum CalculSituationsCoucher {
             return nil
         }
 
+        /// Jour métabolique (06h→06h) d'un instant, normalisé à minuit — même
+        /// clé que `NightChartData.date`. Une correction à 00h30 appartient
+        /// ainsi à la nuit de la veille, pas à celle qui commence.
+        func jourNuit(_ instant: Date) -> Date {
+            cal.startOfDay(for: ScoreService.debutJourMetabolique(pour: instant))
+        }
+
         let soirsB2 = endormissement.nuits.map { nuit in
             SoirCoucher(
-                id: nuit.id, date: nuit.date,
+                id: nuit.id, date: nuit.date, dateNuit: cal.startOfDay(for: nuit.date),
                 glycemie: nuit.glycemieCoucher, tendance: nuit.tendance,
                 correction: nil, glucides: nuit.glucides, sport: nuit.sport,
                 iob: nuit.iob, charge: nuit.charge,
@@ -274,7 +289,7 @@ nonisolated enum CalculSituationsCoucher {
 
         let soirsB3 = corrections.corrections.map { corr in
             SoirCoucher(
-                id: corr.id, date: corr.date,
+                id: corr.id, date: corr.date, dateNuit: jourNuit(corr.date),
                 glycemie: corr.glycemie, tendance: corr.tendance,
                 correction: corr.dose, glucides: corr.glucides, sport: corr.sport,
                 iob: corr.iob, charge: corr.charge,

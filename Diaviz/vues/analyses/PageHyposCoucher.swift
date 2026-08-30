@@ -64,18 +64,16 @@ struct PageHyposCoucher: View {
         }
     }
 
-    /// Nuit B1 correspondant à un soir : d'abord par contenance dans la
-    /// fenêtre de coucher (robuste aux corrections après minuit), sinon par
-    /// jour calendaire.
+    /// Nuit B1 correspondant à un soir, par **jour métabolique** (`dateNuit`,
+    /// même clé que `NightChartData.date`).
+    ///
+    /// L'ancien rapprochement testait si la fenêtre de coucher d'une nuit
+    /// contenait `soir.date` — faux pour tout soir B2, dont la `date` est
+    /// minuit : la fenêtre de la veille (lente ~23h → +2h) contient minuit,
+    /// donc chaque soir affichait la nuit précédente.
     private func nuitB1(pour soir: SoirCoucher) -> NightChartData? {
         let cal = Calendar.current
-        if let parFenetre = nuitsB1.first(where: { nuit in
-            let fenetre = nuit.basaleTime.addingTimeInterval(-3 * 3600)...nuit.basaleTime.addingTimeInterval(2 * 3600)
-            return fenetre.contains(soir.date)
-        }) {
-            return parFenetre
-        }
-        return nuitsB1.first { cal.isDate($0.date, inSameDayAs: soir.date) }
+        return nuitsB1.first { cal.isDate($0.date, inSameDayAs: soir.dateNuit) }
     }
 
     // MARK: - 1. Chiffre honnête

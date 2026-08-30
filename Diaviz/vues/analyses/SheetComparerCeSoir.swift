@@ -252,7 +252,8 @@ struct SheetComparerCeSoir: View {
     private func situationEpinglee(glycemie g: Int) -> SituationCoucher? {
         guard let contexte = contexteCeSoir else { return nil }
         let pseudoSoir = SoirCoucher(
-            id: UUID(), date: Date(), glycemie: g, tendance: .stable,
+            id: UUID(), date: Date(), dateNuit: Calendar.current.startOfDay(for: Date()),
+            glycemie: g, tendance: .stable,
             correction: nil, glucides: nil, sport: contexte.sport,
             iob: contexte.iob, charge: contexte.charge, categorieB1: nil,
             enHypo: false, delaiHypoMinutes: nil, issueCorrection: nil
