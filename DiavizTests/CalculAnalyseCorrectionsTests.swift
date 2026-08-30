@@ -50,7 +50,7 @@ struct CalculAnalyseCorrectionsTests {
             nuits: nuits ?? [ancrage()],
             lectures: lectures,
             rapides: rapides ?? [(heure: heureCorrection, dose: 3, correction: true)],
-            repas: repas, sports: sports, pauses: pauses
+            repas: repas, resucrages: [], sports: sports, pauses: pauses
         )
     }
 

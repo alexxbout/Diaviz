@@ -40,12 +40,14 @@ struct CalculAnalyseEndormissementTests {
         lectures: [(date: Date, valeur: Int, tendance: TendanceGlycemie?)] = [],
         rapides: [(heure: Date, dose: Double, correction: Bool)] = [],
         repas: [(heure: Date, glucides: Int)] = [],
+        resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)] = [],
         sports: [(debut: Date, resume: SportResume)] = [],
         pauses: [(debut: Date, fin: Date?)] = []
     ) -> EntreesEndormissement {
         EntreesEndormissement(
             nuits: nuits ?? [ancrage()], lectures: lectures,
-            rapides: rapides, repas: repas, sports: sports, pauses: pauses
+            rapides: rapides, repas: repas, resucrages: resucrages,
+            sports: sports, pauses: pauses
         )
     }
 

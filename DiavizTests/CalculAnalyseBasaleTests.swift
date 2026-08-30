@@ -84,6 +84,7 @@ struct CalculAnalyseBasaleTests {
             lentes: specs.filter(\.avecLente).map { (heure: lente($0.decalage), dose: $0.dose) },
             rapides: rapides,
             repas: repas,
+            resucrages: [],
             sports: [],
             pauses: pauses
         )
@@ -141,7 +142,7 @@ struct CalculAnalyseBasaleTests {
     @Test("Aucune donnée → données insuffisantes")
     func aucuneDonnee() {
         let analyse = CalculAnalyseBasale.analyser(
-            entrees: EntreesBasale(lectures: [], lentes: [], rapides: [], repas: [], sports: [], pauses: []),
+            entrees: EntreesBasale(lectures: [], lentes: [], rapides: [], repas: [], resucrages: [], sports: [], pauses: []),
             config: config(nuits: 3), maintenant: maintenant
         )
         #expect(analyse.verdict == .donneesInsuffisantes)

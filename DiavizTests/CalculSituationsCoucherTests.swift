@@ -26,9 +26,11 @@ struct CalculSituationsCoucherTests {
         categorieB1: CategorieNuit? = nil,
         correction: Double? = nil
     ) -> SoirCoucher {
-        SoirCoucher(
+        let date = Fixtures.instant(plusHeures: Double(jour) * 24)
+        return SoirCoucher(
             id: UUID(),
-            date: Fixtures.instant(plusHeures: Double(jour) * 24),
+            date: date,
+            dateNuit: Calendar.current.startOfDay(for: date),
             glycemie: glycemie,
             tendance: .stable,
             correction: correction,

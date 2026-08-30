@@ -21,7 +21,8 @@ struct CalculDetailSoireeTests {
 
     private func soir(enHypo: Bool = true) -> SoirCoucher {
         SoirCoucher(
-            id: UUID(), date: jour, glycemie: 105, tendance: .baisse,
+            id: UUID(), date: jour, dateNuit: Calendar.current.startOfDay(for: jour),
+            glycemie: 105, tendance: .baisse,
             correction: nil, glucides: nil, sport: nil, iob: nil, charge: .aucune,
             categorieB1: nil, enHypo: enHypo, delaiHypoMinutes: enHypo ? 120 : nil,
             issueCorrection: nil
@@ -85,7 +86,8 @@ struct CalculDetailSoireeTests {
     private func genres(_ detail: DetailSoiree) -> [String] {
         detail.evenements.map { evenement in
             switch evenement.genre {
-            case .repas(_, let resucrage): resucrage ? "resucrage" : "repas"
+            case .repas:                   "repas"
+            case .resucrage:               "resucrage"
             case .correction:              "correction"
             case .lente:                   "lente"
             case .hypo:                    "hypo"
