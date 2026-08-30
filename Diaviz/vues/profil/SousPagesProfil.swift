@@ -58,6 +58,20 @@ struct SousPageRepas: View {
     }
 }
 
+// MARK: - Analyse du coucher
+
+/// Sous-page « Analyse du coucher » — réglages de l'analyse basale (B1).
+struct SousPageAnalyseCoucher: View {
+    var body: some View {
+        Form {
+            SectionAnalyseCoucherReglages()
+        }
+        .formStyle(.grouped)
+        .navigationTitle("Analyse du coucher")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
 // MARK: - Seuils glycémiques
 
 /// Sous-page « Seuils glycémiques » — bornes hypo / hyper personnelles.

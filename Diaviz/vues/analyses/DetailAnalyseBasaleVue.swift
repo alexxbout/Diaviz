@@ -53,6 +53,9 @@ struct DetailAnalyseBasaleVue: View {
     @State private var mode: ModeAffichageGraphiqueBasale = .toutes
     @State private var indexSelectionne: Int = 0
 
+    /// Guide de lecture B1, ouvert depuis le bouton en pied de page.
+    @State private var afficherGuide = false
+
     private let sections = SousAnalyseCoucher.allCases
 
     /// Sous-analyse actuellement affichée.
@@ -127,12 +130,13 @@ struct DetailAnalyseBasaleVue: View {
         .transition(.opacity)
     }
 
-    /// Contenu B1 — verdict, fondements, courbes, timeline, répartition,
-    /// historique de dose et résumé IA.
+    /// Contenu B1 — verdict, courbes, timeline, répartition, historique de
+    /// dose et résumé IA. La carte « Sur quoi se base ce verdict » a été
+    /// fondue dans la carte verdict : elle répétait nuits analysées, dérive
+    /// moyenne et nuits exclues ; seuls ses motifs étaient uniques.
     private var contenuBasale: some View {
         VStack(spacing: 12) {
             CarteVerdictBasale(analyse: analyse)
-            CarteFondementsVerdict(analyse: analyse)
             CourbesNocturnesChart(
                 nights: analyse.nightChartData,
                 mode: $mode,
@@ -149,6 +153,31 @@ struct DetailAnalyseBasaleVue: View {
                let resume = analyse.resumeIA {
                 CarteResumeIA(texte: resume)
             }
+
+            boutonGuide
+        }
+    }
+
+    /// Pied de page B1 — ouvre le guide de lecture. Placé ici plutôt qu'en
+    /// barre de navigation : la page porte deux analyses, un bouton de barre
+    /// serait ambigu, et on le découvre naturellement en finissant de lire.
+    private var boutonGuide: some View {
+        Button {
+            afficherGuide = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "questionmark.circle")
+                Text("Comment lire cette analyse")
+            }
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $afficherGuide) {
+            SheetGuideTendanceBasale()
         }
     }
 
@@ -202,119 +231,6 @@ private struct CarteResumeIA: View {
     }
 }
 
-// MARK: - Fondements du verdict (« Sur quoi se base ce verdict »)
-
-/// Bloc factuel sous la carte verdict : explicite les données qui ont produit
-/// le verdict B1 — nuits analysées (et depuis quand), pente moyenne nuit
-/// profonde, nuits exclues avec motifs, nuits sans CGM. Permet de comprendre
-/// d'un coup d'œil le « pourquoi » d'une alerte de basale.
-private struct CarteFondementsVerdict: View {
-
-    let analyse: AnalyseBasaleDetail
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Sur quoi se base ce verdict")
-                .font(.subheadline.bold())
-                .foregroundStyle(.secondary)
-                .accessibilityAddTraits(.isHeader)
-
-            ligne(icone: "checkmark.seal.fill", couleur: .green,
-                  texte: nuitsAnalyseesTexte, sous: depuisChangement)
-
-            if analyse.nuitsAnalysees > 0 {
-                ligne(icone: "chart.xyaxis.line", couleur: .indigo,
-                      texte: "Dérive moyenne nuit profonde : \(deriveFmt(analyse.deriveMoyenne)) mg/dL par nuit",
-                      sous: nil)
-            }
-
-            if analyse.nuitsExclues > 0 {
-                ligne(icone: "xmark.circle.fill", couleur: .orange,
-                      texte: "\(analyse.nuitsExclues) \(motNuit(analyse.nuitsExclues)) exclue\(analyse.nuitsExclues > 1 ? "s" : "")",
-                      sous: nil)
-                ForEach(raisonsExclusion, id: \.libelle) { r in
-                    sousLigne("\(r.libelle) : \(r.count)")
-                }
-            }
-
-            if nbSansDonnees > 0 {
-                ligne(icone: "wifi.slash", couleur: .secondary,
-                      texte: "\(nbSansDonnees) \(motNuit(nbSansDonnees)) sans CGM", sous: nil)
-            }
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(NiveauCarte.carte.forme)
-        .accessibilityElement(children: .combine)
-    }
-
-    // MARK: Lignes
-
-    @ViewBuilder
-    private func ligne(icone: String, couleur: Color, texte: String, sous: String?) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: icone)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(couleur)
-                .frame(width: 22)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(texte)
-                    .font(.system(size: 14))
-                    .foregroundStyle(.primary)
-                if let sous {
-                    Text(sous)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-    }
-
-    private func sousLigne(_ texte: String) -> some View {
-        Text(texte)
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .padding(.leading, 32)
-            .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    // MARK: Dérivés
-
-    private var nuitsAnalyseesTexte: String {
-        "\(analyse.nuitsAnalysees) \(motNuit(analyse.nuitsAnalysees)) analysée\(analyse.nuitsAnalysees > 1 ? "s" : "")"
-    }
-
-    private var depuisChangement: String? {
-        guard let date = analyse.changementDoseRecent else { return nil }
-        let lib = date.formatted(.dateTime.day().month(.wide).locale(Locale(identifier: "fr_FR")))
-        return "depuis le changement de dose du \(lib)"
-    }
-
-    /// Répartition des motifs d'exclusion sur la fenêtre comparable
-    /// (post-changement de dose, hors nuit en cours) — somme cohérente avec
-    /// `nuitsExclues`.
-    private var raisonsExclusion: [(libelle: String, count: Int)] {
-        var dict: [String: Int] = [:]
-        for n in analyse.timeline where !n.avantChangementDose {
-            if case .exclue(let r) = n.etat { dict[r.rawValue, default: 0] += 1 }
-        }
-        return dict.map { (libelle: $0.key, count: $0.value) }
-            .sorted { $0.count > $1.count }
-    }
-
-    private var nbSansDonnees: Int {
-        analyse.timeline.filter { !$0.avantChangementDose && $0.etat == .sansDonnees }.count
-    }
-
-    private func motNuit(_ n: Int) -> String { n > 1 ? "nuits" : "nuit" }
-
-    private func deriveFmt(_ d: Double) -> String {
-        String(format: "%+d", Int(d.rounded()))
-    }
-}
 
 // MARK: - Aperçus
 

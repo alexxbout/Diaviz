@@ -62,10 +62,12 @@ final class AnalyseBasaleService {
         guard let contexte else { return }
         enCalcul = true
         let profil = ProfilService.shared.profil
-        let config = ConfigBasale(
+        var config = ConfigBasale(
             diaHeures: profil.dureeActionInsulineHeures,
             picMinutes: profil.insulineRapide.picActionMinutes
         )
+        config.seuilRepasCopieux = profil.preferencesAvancees.seuilRepasCopieuxNuit
+            ?? ConfigBasale.seuilRepasCopieuxParDefaut
         let entrees = chargerEntrees(contexte: contexte)
         analyse = await Task.detached(priority: .userInitiated) {
             CalculAnalyseBasale.analyser(entrees: entrees, config: config)

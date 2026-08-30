@@ -29,7 +29,18 @@ struct PreferencesAvancees: Codable, Equatable, Sendable {
     /// configurés). `Optional` reste décodable même absent du JSON existant.
     var occurrencesMinimalesRepasARevoir: Int?
 
-    init(occurrencesMinimalesRepasARevoir: Int? = nil) {
+    /// Glucides (g) au-delà desquels un dîner est jugé **copieux** et
+    /// disqualifie la nuit profonde de l'analyse basale (B1) : un repas très
+    /// glucidique s'assimile tard, la glycémie reste belle au coucher puis
+    /// monte en pleine nuit — la régression y lirait une basale trop faible.
+    ///
+    /// `nil` → `ConfigBasale.seuilRepasCopieuxParDefaut`. Optionnel pour la
+    /// même raison que ci-dessus (compatibilité des profils déjà persistés).
+    var seuilRepasCopieuxNuit: Int?
+
+    init(occurrencesMinimalesRepasARevoir: Int? = nil,
+         seuilRepasCopieuxNuit: Int? = nil) {
         self.occurrencesMinimalesRepasARevoir = occurrencesMinimalesRepasARevoir
+        self.seuilRepasCopieuxNuit = seuilRepasCopieuxNuit
     }
 }

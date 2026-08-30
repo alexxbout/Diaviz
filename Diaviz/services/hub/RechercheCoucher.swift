@@ -66,6 +66,8 @@ enum RechercheCoucher {
             picMinutes: profil.insulineRapide.picActionMinutes
         )
         configB1.fenetreNuits = fenetreNuits
+        configB1.seuilRepasCopieux = profil.preferencesAvancees.seuilRepasCopieuxNuit
+            ?? ConfigBasale.seuilRepasCopieuxParDefaut
         let analyseB1 = CalculAnalyseBasale.analyser(
             entrees: EntreesBasale(
                 lectures: cgm.map { (date: $0.date, valeur: $0.valeur) },

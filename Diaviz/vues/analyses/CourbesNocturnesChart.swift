@@ -937,29 +937,33 @@ private struct CarteVerdictNuit: View {
         jauge(derive: derive, couleur: couleur(categorie))
             .padding(.bottom, 14)
 
-        VStack(alignment: .leading, spacing: 2) {
-            Text("Nuit profonde \(plage(z.timeRange)) · \(deriveFmt(derive)) mg/dL en \(dureeFmt(z))")
+        // Le fait de mesure en texte lisible (la dérive chiffrée est déjà en
+        // héros au-dessus, inutile de la répéter ici).
+        VStack(alignment: .leading, spacing: 3) {
+            Text("Mesuré de \(hhmm(z.timeRange.lowerBound)) à \(hhmm(z.timeRange.upperBound)), soit \(dureeFmt(z)).")
+                .foregroundStyle(.primary)
             Text(phraseSignal(derive: derive, categorieDerive: categorie))
                 .foregroundStyle(aSignalHypo ? Color.red : Color.secondary)
         }
-        .font(.caption)
-        .foregroundStyle(.secondary)
-        .padding(.bottom, 10)
+        .font(.system(size: 14))
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.bottom, 14)
 
         if !aSignalHypo, hyposEndormissement > 0 {
-            HStack(spacing: 6) {
+            HStack(alignment: .top, spacing: 6) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                Text("Hypo à l'endormissement — plutôt dîner/bolus que basale, hors verdict")
+                Text("Hypo à l'endormissement — plutôt dîner ou bolus que basale, hors verdict")
             }
             .font(.caption)
             .foregroundStyle(.orange)
-            .padding(.bottom, 10)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.bottom, 14)
         }
 
         if aSignalHypo {
-            piedVerdict(libelle: "tendance basse", couleur: .red)
+            blocRetenues(libelle: "tendance basse", couleur: .red)
         } else {
-            piedVerdict(libelle: libelle(categorie).lowercased(), couleur: couleur(categorie))
+            blocRetenues(libelle: libelle(categorie).lowercased(), couleur: couleur(categorie))
         }
     }
 
@@ -988,7 +992,7 @@ private struct CarteVerdictNuit: View {
                 .padding(.bottom, 10)
         }
 
-        piedVerdict(libelle: "exclue", couleur: .orange)
+        blocRetenues(libelle: "exclue", couleur: .orange)
     }
 
     /// Jauge horizontale : bande verte = zone stable ±seuil, trait central
@@ -1088,53 +1092,115 @@ private struct CarteVerdictNuit: View {
     /// la nuit affichée est entourée d'un anneau. D'un coup d'œil : la
     /// composition du verdict (ex. 4 vertes + 1 rouge) et où se situe cette
     /// nuit. Une nuit hors fenêtre l'affiche explicitement (aucun anneau).
-    private func piedVerdict(libelle: String, couleur: Color) -> some View {
-        HStack {
-            if nuit.retenueDansVerdict {
-                Text("Dans le verdict : \(Text(libelle).foregroundStyle(couleur).fontWeight(.medium))")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
-            } else {
-                Text("Hors de la fenêtre du verdict")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
-            }
-            Spacer(minLength: 12)
-            pointsRetenues
-        }
-    }
-
-    /// Les nuits retenues (ancienne → récente), un point coloré chacune ;
-    /// les slots manquants (moins de K nuits valides) restent vides.
-    private var pointsRetenues: some View {
+    /// Encart détaché : le poids de la nuit dans le verdict est une
+    /// information d'une autre nature que la mesure elle-même. Empilé en
+    /// petit sous le reste, il se noyait ; dans son propre bloc, il se lit.
+    private func blocRetenues(libelle: String, couleur: Color) -> some View {
         let retenues = nights.filter(\.retenueDansVerdict).sorted { $0.date < $1.date }
-        return HStack(spacing: 4) {
-            ForEach(retenues) { n in
-                pointNuit(n)
+        return VStack(alignment: .leading, spacing: 12) {
+            // Le compte vit dans la phrase plutôt qu'à l'opposé de la ligne :
+            // en grande taille de texte, les deux bouts finissaient collés
+            // aux bords de l'encart.
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Dans le verdict")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Text(phraseRang(libelle: libelle, couleur: couleur, retenues: retenues))
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            ForEach(0..<max(0, nuitsRecence - retenues.count), id: \.self) { _ in
-                Circle()
-                    .strokeBorder(Color(.systemFill), lineWidth: 1.2)
-                    .frame(width: 8, height: 8)
-                    .frame(width: 12, height: 12)
+
+            segmentsRetenues(retenues)
+
+            if let legende = legendeRetenues {
+                Text(legende)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// « Nuit stable, 2ᵉ des 5 retenues » — le rang situe la nuit dans la
+    /// fenêtre sans qu'on ait à compter les marques soi-même.
+    private func phraseRang(libelle: String, couleur: Color, retenues: [NightChartData]) -> AttributedString {
+        let colore = { (texte: String) -> AttributedString in
+            var s = AttributedString(texte)
+            s.foregroundColor = couleur
+            s.font = .body.weight(.medium)
+            return s
+        }
+        guard nuit.retenueDansVerdict,
+              let rang = retenues.firstIndex(where: { $0.id == nuit.id }).map({ $0 + 1 }) else {
+            return AttributedString("Hors de la fenêtre — \(retenues.count) nuits retenues sur \(nuitsRecence)")
+        }
+        var phrase = AttributedString("Nuit ")
+        phrase += colore(libelle)
+        phrase += AttributedString(", \(rang)\(rang == 1 ? "ʳᵉ" : "ᵉ") des \(nuitsRecence) retenues")
+        return phrase
+    }
+
+    /// Cinq segments de largeur égale — ils occupent toute la largeur quelle
+    /// que soit la taille du texte, là où des points serrés à gauche laissaient
+    /// l'encart à moitié vide. Seuls les segments remplis portent une date :
+    /// les slots libres n'ont rien à dire, le compte de la phrase suffit.
+    private func segmentsRetenues(_ retenues: [NightChartData]) -> some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 5) {
+                ForEach(0..<nuitsRecence, id: \.self) { i in
+                    segment(retenues.indices.contains(i) ? retenues[i] : nil)
+                }
+            }
+            HStack(spacing: 5) {
+                ForEach(0..<nuitsRecence, id: \.self) { i in
+                    let n = retenues.indices.contains(i) ? retenues[i] : nil
+                    Text(n.map { jourCourt($0.date) } ?? " ")
+                        .font(.caption)
+                        .monospacedDigit()
+                        .foregroundStyle(n?.id == nuit.id ? Color.primary : Color.secondary)
+                        .frame(maxWidth: .infinity)
+                }
             }
         }
     }
 
-    /// Point d'une nuit retenue — couleur de sa catégorie effective, anneau
-    /// autour de la nuit actuellement affichée.
-    private func pointNuit(_ n: NightChartData) -> some View {
-        ZStack {
-            if n.id == nuit.id {
-                Circle()
-                    .stroke(Color.primary.opacity(0.55), lineWidth: 1.2)
-                    .frame(width: 12, height: 12)
+    private func segment(_ n: NightChartData?) -> some View {
+        let estCourante = n?.id == nuit.id
+        return Capsule()
+            .fill(n?.categorieVerdict.map(couleur) ?? Color(.systemFill))
+            .frame(height: 9)
+            .frame(maxWidth: .infinity)
+            .overlay {
+                Capsule()
+                    .stroke(Color.primary.opacity(estCourante ? 0.55 : 0), lineWidth: 1.5)
+                    .padding(-3)
             }
-            Circle()
-                .fill(n.categorieVerdict.map(couleur) ?? Color(.systemFill))
-                .frame(width: 8, height: 8)
+    }
+
+
+    private func jourCourt(_ date: Date) -> String {
+        Calendar.current.component(.day, from: date).formatted()
+    }
+
+    /// Ligne sous les points : combien de nuits ont été écartées entre la
+    /// première et la dernière retenue. Compté plutôt qu'énuméré — lister les
+    /// jours (« les 18, 19, 20, 21, 22, 23, 24, 25, 26 exclus ») débordait sur
+    /// deux lignes dès que la fenêtre était trouée.
+    private var legendeRetenues: String? {
+        let cal = Calendar.current
+        let retenues = nights.filter(\.retenueDansVerdict).sorted { $0.date < $1.date }
+        guard let premiere = retenues.first?.date, let derniere = retenues.last?.date else {
+            return nil
         }
-        .frame(width: 12, height: 12)
+        let ecartees = nights.filter {
+            !$0.retenueDansVerdict && $0.date > premiere && $0.date < derniere
+        }.count
+        guard ecartees > 0 else { return nil }
+        let j1 = cal.component(.day, from: premiere)
+        let j2 = derniere.formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: "fr_FR")))
+        return "\(ecartees) nuit\(ecartees > 1 ? "s" : "") écartée\(ecartees > 1 ? "s" : "") entre le \(j1) et le \(j2)"
     }
 
     // MARK: Logique d'affichage

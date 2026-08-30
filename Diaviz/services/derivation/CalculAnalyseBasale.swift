@@ -48,6 +48,13 @@ struct EntreesBasale: Sendable {
 /// sans ça, l'initialiseur mémorisé (`ConfigBasale()`) serait MainActor et
 /// inutilisable depuis le calculateur pur (`nonisolated`).
 nonisolated struct ConfigBasale: Sendable {
+
+    /// Défaut du seuil « repas copieux » (g) — exposé pour que l'écran de
+    /// réglages affiche la même valeur de repli que le calculateur.
+    nonisolated static let seuilRepasCopieuxParDefaut = 100
+    /// Bornes proposées par le réglage.
+    nonisolated static let plageSeuilRepasCopieux = 40...200
+
     var seuilHypo: Int = 70
     var seuilSevere: Int = 54
     /// Heure d'horloge (locale) marquant le début du dawn phenomenon — fin de
@@ -77,9 +84,20 @@ nonisolated struct ConfigBasale: Sendable {
     /// Temps de pic d'action insuline rapide (minutes).
     var picMinutes: Double = 75
     /// IOB résiduel (u) au-delà duquel la zone est polluée par une rapide.
+    /// Évalué **au début de la zone 3**, pas seulement sur les injections qui
+    /// y tombent : une correction prise à 23h agit encore à 02h.
     var seuilIOBResiduel: Double = 0.5
     /// Glucides (g) au-delà desquels un repas tardif est jugé copieux.
-    var seuilRepasCopieux: Int = 50
+    /// Réglable dans Profil → Analyse du coucher.
+    var seuilRepasCopieux: Int = seuilRepasCopieuxParDefaut
+    /// Fenêtre (h) **avant** le début de la zone 3 pendant laquelle un repas
+    /// copieux la disqualifie. Un dîner très glucidique s'assimile tard : la
+    /// glycémie est belle au coucher puis monte en pleine nuit profonde, ce
+    /// que la régression lit à tort comme une basale trop faible.
+    var fenetreDigestionH: Double = 5
+    /// Durée (min) après la fin d'un épisode hypo pendant laquelle la courbe
+    /// est en train de redescendre d'un rebond — pente non basale.
+    var fenetreRebondMin: Double = 90
     /// Heure d'horloge à partir de laquelle un repas / sport compte comme « du soir ».
     var heureSoir: Int = 17
 }
@@ -370,15 +388,43 @@ nonisolated enum CalculAnalyseBasale {
         if rapides.contains(where: { $0.correction && plage.contains($0.heure) }) {
             return exclue(.bolusCorrection)
         }
+        // IOB résiduel au **début** de la zone : une rapide antérieure dont la
+        // queue d'action traverse la fenêtre fait descendre la glycémie sans
+        // que la basale y soit pour quelque chose. Le test « injection dans la
+        // zone » ci-dessus ne l'attrapait pas.
+        let iobDebut = IOBCalculateur.iob(
+            a: plage.lowerBound,
+            injections: rapides.filter { $0.heure <= plage.lowerBound }
+                .map { InjectionPourIOB(heure: $0.heure, dose: $0.dose) },
+            diaHeures: config.diaHeures,
+            picMinutes: config.picMinutes
+        )
+        if iobDebut > config.seuilIOBResiduel { return exclue(.iobResiduel) }
         // Resucrage dans la zone → rebond glucidique qui fausse la pente,
         // quelle que soit sa taille (contrairement au repas copieux ci-dessous,
         // qui vise un repas ordinaire tardif).
         if resucrageDans(plage, episodes: episodes, resucrages: resucrages, config: config) {
             return exclue(.resucrage)
         }
-        // Repas copieux dans la zone → glucides confondent le signal basal.
-        if repas.contains(where: { plage.contains($0.heure) && $0.glucides > config.seuilRepasCopieux }) {
+        // Repas copieux dans la zone **ou dans les heures qui la précèdent** :
+        // un dîner très glucidique s'assimile tard, la glycémie reste belle au
+        // coucher puis monte en pleine nuit profonde. La régression y lisait
+        // une basale trop faible ; c'est de la digestion.
+        let debutDigestion = plage.lowerBound.addingTimeInterval(-config.fenetreDigestionH * 3600)
+        if repas.contains(where: {
+            $0.heure >= debutDigestion && $0.heure <= plage.upperBound
+                && $0.glucides > config.seuilRepasCopieux
+        }) {
             return exclue(.repasCopieux)
+        }
+        // Retombée d'un rebond post-hypo : après une remontée (resucrage ou
+        // contre-régulation), la glycémie redescend de son dépassement. Pente
+        // réelle, mais qui ne dit rien de la basale.
+        if episodes.contains(where: {
+            let finRebond = $0.fin.addingTimeInterval(config.fenetreRebondMin * 60)
+            return $0.fin <= plage.lowerBound && finRebond > plage.lowerBound
+        }) {
+            return exclue(.rebondPostHypo)
         }
         if coefficientVariation(points.map(\.valeur)) > 0.36 { return exclue(.chaotique) }
 
@@ -501,6 +547,10 @@ nonisolated enum CalculAnalyseBasale {
         detail.doseHistoriqueReel = historique
         detail.enAmelioration = enAmelioration
         detail.deriveMoyenne = deriveMoyenne
+        // Hypos sur les seules nuits retenues : même fenêtre que la dérive et
+        // que « en amélioration », pour que la carte verdict ne juxtapose plus
+        // deux échelles de temps sans le dire.
+        detail.hyposNuitsRetenues = recentes.reduce(0) { $0 + $1.bilan.episodes }
         return detail
     }
 

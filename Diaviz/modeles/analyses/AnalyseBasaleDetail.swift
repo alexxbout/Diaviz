@@ -98,6 +98,13 @@ nonisolated struct AnalyseBasaleDetail: Identifiable, Sendable {
     /// `penteMoyenne` reste horaire. Renseignée par `CalculAnalyseBasale` ;
     /// approximée par les mocks.
     var deriveMoyenne: Double = 0
+
+    /// Nb d'hypos sur les seules **nuits retenues** pour le verdict — même
+    /// fenêtre que `deriveMoyenne` et `enAmelioration`. La carte verdict
+    /// affichait auparavant `hyposNocturnes` (14 jours) juste sous « en
+    /// amélioration » (5 nuits) : deux échelles de temps dans un même bloc,
+    /// que rien ne distinguait à la lecture.
+    var hyposNuitsRetenues: Int = 0
 }
 
 // MARK: - Modèles dérivés V3 (constat, distribution, historique de dose)
@@ -137,8 +144,21 @@ struct BasalVerdict: Sendable {
     let nightsNeeded: Int        // = max(0, 3 - validNights)
     /// La situation était « à revoir » mais s'améliore sur les nuits récentes.
     var enAmelioration: Bool = false
-    /// Nb d'hypos nocturnes sur la fenêtre — mis en avant si > 0.
+    /// Nb d'hypos sur les **nuits retenues** — même fenêtre que `derive`.
     var hypoCount: Int = 0
+    /// Motifs d'exclusion agrégés, du plus fréquent au moins fréquent. Portés
+    /// ici pour que la carte verdict se suffise à elle-même : le bloc « sur
+    /// quoi se base ce verdict » répétait nuits analysées, dérive et exclues.
+    var motifsExclusion: [MotifExclusion] = []
+    /// Nb de nuits sans CGM sur la fenêtre comparable.
+    var nuitsSansDonnees: Int = 0
+}
+
+/// Un motif d'exclusion et son effectif sur la fenêtre comparable.
+nonisolated struct MotifExclusion: Sendable, Equatable, Identifiable {
+    var id: String { libelle }
+    let libelle: String
+    let compte: Int
 }
 
 /// Répartition de la qualité des zones analysées (zones 2 + 3 — seules
@@ -166,6 +186,26 @@ nonisolated struct DoseChange: Identifiable, Sendable {
 // MARK: - Helpers dérivés (sur AnalyseBasaleDetail)
 
 extension AnalyseBasaleDetail {
+
+    /// Motifs d'exclusion de la fenêtre comparable, comptés depuis la timeline
+    /// et triés du plus fréquent au moins fréquent.
+    var motifsExclusionAgreges: [MotifExclusion] {
+        var comptes: [String: Int] = [:]
+        for nuit in timeline where !nuit.avantChangementDose {
+            if case let .exclue(raison) = nuit.etat {
+                comptes[raison.rawValue, default: 0] += 1
+            }
+        }
+        return comptes
+            .map { MotifExclusion(libelle: $0.key, compte: $0.value) }
+            .sorted { ($0.compte, $1.libelle) > ($1.compte, $0.libelle) }
+    }
+
+    /// Nuits sans CGM sur la fenêtre comparable — dérivé de la timeline, pas
+    /// un champ stocké de plus.
+    var nbNuitsSansDonnees: Int {
+        timeline.filter { !$0.avantChangementDose && $0.etat == .sansDonnees }.count
+    }
 
     /// Construit le constat à partir des métriques agrégées :
     ///   - 0 nuit valide → `.noData`
@@ -207,7 +247,9 @@ extension AnalyseBasaleDetail {
             doseChangedDate: changementDoseRecent,
             nightsNeeded: nightsNeeded,
             enAmelioration: state == .sufficient ? enAmelioration : false,
-            hypoCount: hyposNocturnes
+            hypoCount: hyposNuitsRetenues,
+            motifsExclusion: motifsExclusionAgreges,
+            nuitsSansDonnees: nbNuitsSansDonnees
         )
     }
 

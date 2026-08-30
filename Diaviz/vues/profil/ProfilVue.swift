@@ -68,6 +68,13 @@ struct ProfilVue: View {
                 ) { SousPageRepas() }
 
                 lien(
+                    "Analyse du coucher",
+                    icone: "moon.stars.fill",
+                    couleur: .purple,
+                    resume: resumeAnalyseCoucher
+                ) { SousPageAnalyseCoucher() }
+
+                lien(
                     "Seuils glycémiques",
                     icone: "chart.line.uptrend.xyaxis",
                     couleur: .red,
@@ -184,6 +191,12 @@ struct ProfilVue: View {
             morceaux.append("sport")
         }
         return morceaux.joined(separator: " · ")
+    }
+
+    private var resumeAnalyseCoucher: String {
+        let seuil = service.profil.preferencesAvancees.seuilRepasCopieuxNuit
+            ?? ConfigBasale.seuilRepasCopieuxParDefaut
+        return "Dîner copieux ≥ \(seuil) g"
     }
 
     private var resumeRepas: String {

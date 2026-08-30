@@ -25,6 +25,10 @@ struct CarteVerdictBasale: View {
 
     let verdict: BasalVerdict
 
+    /// Motifs d'exclusion repliés par défaut — la carte doit rester lisible
+    /// d'un coup d'œil, le détail est à un tap.
+    @State private var motifsDeplies = false
+
     /// Wrapper d'initialisation depuis `AnalyseBasaleDetail` — pratique
     /// pour le câblage depuis `DetailAnalyseBasaleVue`.
     init(analyse: AnalyseBasaleDetail) {
@@ -51,55 +55,118 @@ struct CarteVerdictBasale: View {
 
     // MARK: - État 1 : verdict possible
 
+    /// Carte unique : pill de verdict, dérive en héros, contexte en pastilles,
+    /// puis les compteurs avec leurs motifs dépliables. Le bloc « sur quoi se
+    /// base ce verdict » vivait à part et répétait nuits analysées, dérive
+    /// moyenne et nuits exclues — il est fondu ici, seuls les motifs étaient
+    /// propres à lui.
     private var contenuSufficient: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: iconeConstat)
-                    .font(.title3)
-                    .foregroundStyle(couleurConstat)
-                    .accessibilityHidden(true)
-                Text(libelleConstat)
-                    .font(.title3.weight(.medium))
-                    .foregroundStyle(couleurConstat)
-                    .fixedSize(horizontal: false, vertical: true)
+            pillVerdict
+
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(libelleDeriveChiffre)
+                    .font(.system(size: 32, weight: .medium, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.primary)
+                Text("mg/dL de dérive par nuit")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .combine)
-            .accessibilityAddTraits(.isHeader)
+            .accessibilityLabel("Dérive moyenne \(libelleDerive) par nuit")
 
-            // Hypos nocturnes : signal prioritaire, mis en avant si présent.
-            if verdict.hypoCount > 0 {
-                HStack(spacing: 6) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .accessibilityHidden(true)
-                    Text("\(verdict.hypoCount) hypo\(verdict.hypoCount > 1 ? "s" : "") nocturne\(verdict.hypoCount > 1 ? "s" : "")")
+            pastillesContexte
+
+            Divider()
+
+            boutonCompteurs
+
+            if motifsDeplies, !verdict.motifsExclusion.isEmpty {
+                VStack(alignment: .leading, spacing: 3) {
+                    ForEach(verdict.motifsExclusion) { motif in
+                        Text("\(motif.libelle) : \(motif.compte)")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    if verdict.nuitsSansDonnees > 0 {
+                        Text("Sans CGM : \(verdict.nuitsSansDonnees)")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
                 }
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.red)
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("\(verdict.hypoCount) hypoglycémies nocturnes")
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
-                    Text("Dérive moy. : \(libelleDerive)")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                    Image(systemName: iconeFlechePente)
-                        .font(.system(size: 14))
-                        .foregroundStyle(couleurFlechePente)
-                        .accessibilityHidden(true)
-                }
-
-                Text("\(verdict.validNights) nuits analysées · \(verdict.excludedNights) exclues sur \(verdict.totalNights) jours")
-                    .font(.system(size: 14))
-                    .foregroundStyle(.secondary)
-
-                Text("Dose actuelle : \(libelleDose(verdict.currentDose))u")
-                    .font(.system(size: 14))
-                    .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private var pillVerdict: some View {
+        HStack(spacing: 6) {
+            Image(systemName: iconeConstat)
+                .font(.footnote.weight(.semibold))
+            Text(libelleConstat)
+                .font(.subheadline.weight(.medium))
+        }
+        .foregroundStyle(couleurConstat)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 5)
+        .background(couleurConstat.opacity(0.13), in: Capsule())
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
+    }
+
+    /// Fenêtre, hypos et dose en pastilles — même langage visuel que les chips
+    /// de contexte des soirs (page « Hypos au coucher »). La fenêtre est
+    /// écrite noir sur blanc : tout ce qui est dans cette carte s'y rapporte.
+    private var pastillesContexte: some View {
+        HStack(spacing: 6) {
+            pastille(systemImage: "moon.fill",
+                     texte: "\(verdict.validNights > 5 ? 5 : verdict.validNights) nuits retenues",
+                     couleur: .secondary)
+            if verdict.hypoCount > 0 {
+                pastille(systemImage: "exclamationmark.triangle.fill",
+                         texte: verdict.hypoCount > 1 ? "\(verdict.hypoCount) hypos" : "1 hypo",
+                         couleur: .red)
+            }
+            pastille(systemImage: "syringe.fill",
+                     texte: "lente \(libelleDose(verdict.currentDose))u",
+                     couleur: .secondary)
+        }
+    }
+
+    private func pastille(systemImage: String, texte: String, couleur: Color) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: systemImage)
+                .font(.caption2)
+            Text(texte)
+                .font(.caption)
+        }
+        .foregroundStyle(couleur)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(
+            couleur == .red ? Color.red.opacity(0.12) : Color(.tertiarySystemFill),
+            in: Capsule()
+        )
+    }
+
+    private var boutonCompteurs: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) { motifsDeplies.toggle() }
+        } label: {
+            HStack {
+                Text("\(verdict.validNights) nuits analysées · \(verdict.excludedNights) exclues sur \(verdict.totalNights) j")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.down")
+                    .font(.footnote)
+                    .foregroundStyle(.tertiary)
+                    .rotationEffect(.degrees(motifsDeplies ? 180 : 0))
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(verdict.motifsExclusion.isEmpty && verdict.nuitsSansDonnees == 0)
     }
 
     // MARK: - État 2 : nouvelle dose en observation
@@ -110,7 +177,7 @@ struct CarteVerdictBasale: View {
                 Image(systemName: "hourglass")
                     .font(.title3)
                     .accessibilityHidden(true)
-                Text("Nouvelle dose en observation")
+                Text(titreRecentChange)
                     .font(.title3.weight(.medium))
                     .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -169,6 +236,17 @@ struct CarteVerdictBasale: View {
     /// penchait « à revoir » mais les nuits récentes sont redevenues stables.
     private var iconeConstat: String { verdict.enAmelioration ? "checkmark.circle.fill" : iconeTendance }
     private var libelleConstat: String { verdict.enAmelioration ? "En amélioration" : libelleTendance }
+
+    /// `.recentChange` couvre deux situations très différentes : une dose
+    /// changée il y a peu, ou simplement trop peu de nuits exploitables. Le
+    /// titre annonçait toujours la première — trompeur quand la dose est
+    /// stable depuis des semaines et que ce sont les exclusions qui vident la
+    /// fenêtre.
+    private var titreRecentChange: String {
+        verdict.doseChangedDate == nil
+            ? "Pas assez de nuits exploitables"
+            : "Nouvelle dose en observation"
+    }
     private var couleurConstat: Color { verdict.enAmelioration ? .green : couleurTendance }
 
     // MARK: - Dérivés tendance
@@ -228,6 +306,12 @@ struct CarteVerdictBasale: View {
     private var libelleDerive: String {
         guard let d = verdict.derive else { return "—" }
         return String(format: "%+d", Int(d.rounded())) + " mg/dL / nuit"
+    }
+
+    /// Le chiffre seul, pour le héros de la carte (l'unité est à côté).
+    private var libelleDeriveChiffre: String {
+        guard let d = verdict.derive else { return "—" }
+        return String(format: "%+d", Int(d.rounded()))
     }
 
     private func libelleDose(_ d: Double) -> String {
