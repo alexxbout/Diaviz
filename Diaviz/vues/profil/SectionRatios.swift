@@ -38,19 +38,19 @@ struct SectionRatios: View {
             case .parMoment:
                 ligneRatioMoment(
                     libelle: "Petit-déjeuner",
-                    binding: bindingRatioMoment(\.petitDejeuner, dateKeyPath: \.petitDejeuner)
+                    binding: bindingRatioMoment(\.petitDejeuner, dateKeyPath: \.petitDejeuner, libelleMoment: "Petit-déjeuner")
                 )
                 ligneRatioMoment(
                     libelle: "Déjeuner",
-                    binding: bindingRatioMoment(\.dejeuner, dateKeyPath: \.dejeuner)
+                    binding: bindingRatioMoment(\.dejeuner, dateKeyPath: \.dejeuner, libelleMoment: "Déjeuner")
                 )
                 ligneRatioMoment(
                     libelle: "Goûter",
-                    binding: bindingRatioMoment(\.gouter, dateKeyPath: \.gouter)
+                    binding: bindingRatioMoment(\.gouter, dateKeyPath: \.gouter, libelleMoment: "Goûter")
                 )
                 ligneRatioMoment(
                     libelle: "Dîner",
-                    binding: bindingRatioMoment(\.diner, dateKeyPath: \.diner)
+                    binding: bindingRatioMoment(\.diner, dateKeyPath: \.diner, libelleMoment: "Dîner")
                 )
             }
         } header: {
@@ -194,9 +194,26 @@ struct SectionRatios: View {
                         var dates = profil.datesChangementRatioEffectives
                         dates.unique = Date()
                         profil.datesChangementRatio = dates
+                        signalerChangement(libelle: "Ratio", nouveau: nouveau)
                     }
                 }
             }
+        )
+    }
+
+    /// Confirme le changement **et son effet de bord** : l'analyse du ratio
+    /// repart de zéro sur ce moment, les repas antérieurs n'étant plus
+    /// comparables. Sans ça, l'utilisateur voyait plus tard un compteur
+    /// retombé à zéro sans jamais avoir été prévenu.
+    private func signalerChangement(libelle: String, nouveau: Double?) {
+        guard let nouveau, nouveau > 0 else { return }
+        let formatte = nouveau == floor(nouveau)
+            ? String(format: "1u/%.0fg", nouveau)
+            : String(format: "1u/%.1fg", nouveau)
+        ToastsService.shared.afficher(
+            .reglage,
+            titre: "\(libelle) : \(formatte)",
+            detail: "L'analyse de ce moment repart de zéro"
         )
     }
 
@@ -206,7 +223,8 @@ struct SectionRatios: View {
     /// stampé à la date du jour sur un vrai changement de valeur.
     private func bindingRatioMoment(
         _ keyPath: WritableKeyPath<RatiosParMoment, Double?>,
-        dateKeyPath: WritableKeyPath<DatesChangementRatio, Date?>
+        dateKeyPath: WritableKeyPath<DatesChangementRatio, Date?>,
+        libelleMoment: String
     ) -> Binding<Double?> {
         Binding(
             get: { service.profil.ratiosParMoment[keyPath: keyPath] },
@@ -218,6 +236,7 @@ struct SectionRatios: View {
                         var dates = profil.datesChangementRatioEffectives
                         dates[keyPath: dateKeyPath] = Date()
                         profil.datesChangementRatio = dates
+                        signalerChangement(libelle: libelleMoment, nouveau: nouveau)
                     }
                 }
             }

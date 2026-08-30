@@ -165,8 +165,22 @@ final class AlimentsRecentsService {
     /// de saisie.
     func corrigerGlucides(_ aliment: ResultatRechercheAliment, pour100g: Double) {
         guard pour100g >= 0 else { return }
+        let ancienne = glucidesCorriges[aliment.id]
         glucidesCorriges[aliment.id] = pour100g
         sauvegarder()
+        ToastsService.shared.afficher(
+            .reglage,
+            titre: "Glucides corrigés",
+            detail: String(format: "%.0f g pour 100 g", pour100g),
+            action: ActionToast(libelle: "Annuler") { [weak self] in
+                guard let self else { return }
+                if let ancienne {
+                    self.corrigerGlucides(aliment, pour100g: ancienne)
+                } else {
+                    self.restaurerGlucides(aliment)
+                }
+            }
+        )
     }
 
     /// Restaure la valeur d'origine de la base.

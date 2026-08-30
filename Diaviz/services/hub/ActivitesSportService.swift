@@ -229,8 +229,18 @@ final class ActivitesSportService {
     /// si une activité de même `id` existe déjà (cas édition — la sheet
     /// réémet un objet détaché avec l'`id` d'origine), elle est remplacée
     /// plutôt que doublonnée.
-    func enregistrer(_ activite: ActiviteSportive) {
+    /// - Parameter notifier: `false` quand l'appelant confirme lui-même
+    ///   (import Santé, qui annonce un total plutôt qu'une pilule par séance)
+    ///   ou quand l'écriture n'est pas une saisie (restauration).
+    func enregistrer(_ activite: ActiviteSportive, notifier: Bool = true) {
         guard let contexte else { return }
+        if notifier {
+            ToastsService.shared.afficher(
+                .sport,
+                titre: "Séance enregistrée",
+                detail: "\(activite.type.rawValue) · \(activite.dureeMinutes) min"
+            )
+        }
         // IOB actif juste avant le début de la séance — figé à la saisie si non
         // renseigné (dérivé du hub). On ne recalcule pas en édition.
         if activite.iobAuDebut == nil {
@@ -267,9 +277,51 @@ final class ActivitesSportService {
     /// Supprime une activité du hub.
     func supprimer(_ activite: ActiviteSportive) {
         guard let contexte else { return }
+        let copie = Self.copie(de: activite)
+        let detail = "\(activite.type.rawValue) · \(activite.dureeMinutes) min"
         contexte.delete(activite)
         try? contexte.save()
         recharger()
+        ToastsService.shared.afficherSuppression(titre: "Séance supprimée", detail: detail) { [weak self] in
+            self?.enregistrer(copie, notifier: false)
+        }
+    }
+
+    /// Duplique une activité champ par champ, aliments pré-sport compris.
+    /// **À tenir à jour** avec `ActiviteSportive.init` : un champ oublié ici
+    /// serait silencieusement perdu à la restauration.
+    private static func copie(de activite: ActiviteSportive) -> ActiviteSportive {
+        ActiviteSportive(
+            id: activite.id,
+            type: activite.type,
+            dateDebut: activite.dateDebut,
+            dureeMinutes: activite.dureeMinutes,
+            intensite: activite.intensite,
+            alimentsPreSport: activite.alimentsPreSport.map(Self.copie(de:)),
+            structureEffort: activite.structureEffort,
+            pauses: activite.pauses,
+            note: activite.note,
+            source: activite.source,
+            healthKitData: activite.healthKitData,
+            iobAuDebut: activite.iobAuDebut
+        )
+    }
+
+    /// Un `Aliment` ne peut appartenir qu'à un parent à la fois (règle
+    /// `inverse:` du schéma) : la restauration doit repartir de copies, pas
+    /// des instances de l'objet supprimé.
+    private static func copie(de aliment: Aliment) -> Aliment {
+        Aliment(
+            id: aliment.id,
+            emoji: aliment.emoji,
+            nom: aliment.nom,
+            quantite: aliment.quantite,
+            glucides: aliment.glucides,
+            insuline: aliment.insuline,
+            imageURL: aliment.imageURL,
+            resucrage: aliment.resucrage,
+            idCiqualSource: aliment.idCiqualSource
+        )
     }
 
     // MARK: - Privé

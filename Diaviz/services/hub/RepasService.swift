@@ -116,8 +116,19 @@ final class RepasService {
     /// Enregistre un repas (création ou édition). **Upsert par `id`** : si un
     /// repas de même `id` existe déjà, il est supprimé puis remplacé (la
     /// relation cascade nettoie ses anciens `Aliment`).
-    func enregistrer(_ unRepas: Repas) {
+    /// - Parameter notifier: `false` pour une restauration après annulation —
+    ///   la pilule ferait doublon avec celle qui vient d'être utilisée.
+    func enregistrer(_ unRepas: Repas, notifier: Bool = true) {
         guard let contexte else { return }
+        // Confirmation éphémère : la sheet se ferme sans rien dire de ce qui a
+        // été écrit. Émise ici et non aux points d'appel — tous y passent.
+        if notifier {
+            ToastsService.shared.afficher(
+                .repas,
+                titre: "Repas enregistré",
+                detail: detailToast(unRepas)
+            )
+        }
         let cible = unRepas.id
         let descripteur = FetchDescriptor<Repas>(predicate: #Predicate { $0.id == cible })
         if let existant = try? contexte.fetch(descripteur).first, existant !== unRepas {
@@ -235,14 +246,84 @@ final class RepasService {
         return nouveau
     }
 
+    /// « 62 g · 6u » — les deux chiffres qui comptent pour un repas. La dose
+    /// est celle réellement injectée (ajustements et correction compris), pas
+    /// la seule dose de base : c'est ce que l'utilisateur vient de faire.
+    private func detailToast(_ unRepas: Repas) -> String {
+        let glucides = "\(unRepas.totalGlucides) g"
+        guard unRepas.totalInjecte > 0 else { return glucides }
+        return "\(glucides) · \(unRepas.totalInjecte.doseInsulineFormatee)"
+    }
+
     /// Supprime un repas du hub (ses aliments suivent via la cascade), ainsi que
     /// son bolus `Injection` lié — sinon l'IOB compterait une dose fantôme.
     func supprimer(_ unRepas: Repas) {
         guard let contexte else { return }
+        // Snapshots pris avant la suppression : une fois l'objet retiré du
+        // contexte, ses propriétés ne sont plus lisibles. Le bolus lié part
+        // avec le repas, il doit donc revenir avec lui.
+        let copieRepas = Self.copie(de: unRepas)
+        let copiesBolus = bolusLies(repasId: unRepas.id, contexte: contexte).map(Self.copieInjection(de:))
+        let detail = detailToast(unRepas)
+
         supprimerBolusLie(repasId: unRepas.id, contexte: contexte)
         contexte.delete(unRepas)
         try? contexte.save()
         recharger()
+
+        ToastsService.shared.afficherSuppression(titre: "Repas supprimé", detail: detail) { [weak self] in
+            guard let self, let contexte = self.contexte else { return }
+            for bolus in copiesBolus { contexte.insert(bolus) }
+            self.enregistrer(copieRepas, notifier: false)
+        }
+    }
+
+    /// Duplique un repas et ses aliments. **À tenir à jour** avec
+    /// `Repas.init` : un champ oublié ici serait silencieusement perdu à la
+    /// restauration. `etatAnalyse` n'en fait pas partie — dérivation
+    /// `@Transient`, recalculée au rechargement.
+    private static func copie(de unRepas: Repas) -> Repas {
+        Repas(
+            id: unRepas.id,
+            heure: unRepas.heure,
+            aliments: unRepas.aliments.map { aliment in
+                Aliment(
+                    id: aliment.id, emoji: aliment.emoji, nom: aliment.nom,
+                    quantite: aliment.quantite, glucides: aliment.glucides,
+                    insuline: aliment.insuline, imageURL: aliment.imageURL,
+                    resucrage: aliment.resucrage, idCiqualSource: aliment.idCiqualSource
+                )
+            },
+            iobAuDebut: unRepas.iobAuDebut,
+            doseGlobale: unRepas.doseGlobale,
+            doseCorrection: unRepas.doseCorrection,
+            verdictPersiste: unRepas.verdictPersiste,
+            raisonMauvaisPersistee: unRepas.raisonMauvaisPersistee,
+            ratioEffectifPersiste: unRepas.ratioEffectifPersiste,
+            ajustements: unRepas.ajustements,
+            evenements: unRepas.evenements,
+            contexteLibre: unRepas.contexteLibre,
+            contexteNormalise: unRepas.contexteNormalise,
+            exclureDesAnalyses: unRepas.exclureDesAnalyses
+        )
+    }
+
+    private static func copieInjection(de injection: Injection) -> Injection {
+        Injection(
+            id: injection.id, type: injection.type, dose: injection.dose, heure: injection.heure,
+            zoneInjection: injection.zoneInjection, coteInjection: injection.coteInjection,
+            note: injection.note, glycemieAuMoment: injection.glycemieAuMoment,
+            repasAssocieId: injection.repasAssocieId, nomMedicament: injection.nomMedicament,
+            labelRepas: injection.labelRepas, emojiRepas: injection.emojiRepas,
+            motif: injection.motif, source: injection.source
+        )
+    }
+
+    private func bolusLies(repasId: UUID, contexte: ModelContext) -> [Injection] {
+        let descripteur = FetchDescriptor<Injection>(
+            predicate: #Predicate { $0.repasAssocieId == repasId }
+        )
+        return (try? contexte.fetch(descripteur)) ?? []
     }
 
     /// Supprime un aliment isolé d'un repas. Si c'était le dernier, le repas

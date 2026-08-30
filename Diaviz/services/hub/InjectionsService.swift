@@ -79,8 +79,19 @@ final class InjectionsService {
     /// une injection de même `id` existe déjà (cas édition — la sheet réémet un
     /// objet détaché avec l'`id` d'origine), elle est remplacée plutôt que
     /// doublonnée.
-    func enregistrer(_ injection: Injection) {
+    /// - Parameter notifier: `false` pour une écriture qui n'est pas une
+    ///   saisie utilisateur directe (restauration après annulation) — la
+    ///   pilule de confirmation ferait alors doublon avec celle qui vient
+    ///   d'être utilisée.
+    func enregistrer(_ injection: Injection, notifier: Bool = true) {
         guard let contexte else { return }
+        if notifier {
+            ToastsService.shared.afficher(
+                .insuline,
+                titre: "\(injection.type.libelle) enregistrée",
+                detail: injection.dose.doseInsulineFormatee
+            )
+        }
         let cible = injection.id
         let descripteur = FetchDescriptor<Injection>(predicate: #Predicate { $0.id == cible })
         if let existant = try? contexte.fetch(descripteur).first, existant !== injection {
@@ -91,12 +102,45 @@ final class InjectionsService {
         recharger()
     }
 
-    /// Supprime une injection du hub.
+    /// Supprime une injection du hub, en laissant une porte de sortie.
+    ///
+    /// Le snapshot est pris **avant** la suppression : une fois l'objet retiré
+    /// du contexte, ses propriétés ne sont plus lisibles. La restauration
+    /// recrée une injection identique, `id` compris — un repas qui référence
+    /// ce bolus (`repasAssocieId`) reste donc correctement relié.
     func supprimer(_ injection: Injection) {
         guard let contexte else { return }
+        let copie = Self.copie(de: injection)
+        let libelle = "\(injection.type.libelle) supprimée"
+        let dose = injection.dose.doseInsulineFormatee
         contexte.delete(injection)
         try? contexte.save()
         recharger()
+        ToastsService.shared.afficherSuppression(titre: libelle, detail: dose) { [weak self] in
+            self?.enregistrer(copie, notifier: false)
+        }
+    }
+
+    /// Duplique une injection champ par champ. **À tenir à jour** avec
+    /// `Injection.init` : un champ oublié ici serait silencieusement perdu à
+    /// la restauration.
+    private static func copie(de injection: Injection) -> Injection {
+        Injection(
+            id: injection.id,
+            type: injection.type,
+            dose: injection.dose,
+            heure: injection.heure,
+            zoneInjection: injection.zoneInjection,
+            coteInjection: injection.coteInjection,
+            note: injection.note,
+            glycemieAuMoment: injection.glycemieAuMoment,
+            repasAssocieId: injection.repasAssocieId,
+            nomMedicament: injection.nomMedicament,
+            labelRepas: injection.labelRepas,
+            emojiRepas: injection.emojiRepas,
+            motif: injection.motif,
+            source: injection.source
+        )
     }
 
     // MARK: - Privé

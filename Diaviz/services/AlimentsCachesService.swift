@@ -46,6 +46,12 @@ final class AlimentsCachesService {
     func cacher(_ id: Int) {
         idsCaches.insert(id)
         PreferencesAlimentsStockage.modifier(id, contexte: contexte) { $0.masque = true }
+        ToastsService.shared.afficher(
+            .reglage,
+            titre: "Aliment masqué",
+            detail: "Il ne remontera plus dans la recherche",
+            action: ActionToast(libelle: "Annuler") { [weak self] in self?.demasquer(id) }
+        )
     }
 
     func demasquer(_ id: Int) {

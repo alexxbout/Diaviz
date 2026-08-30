@@ -253,6 +253,7 @@ struct SheetImportAppleHealth: View {
     /// la sheet. Les cartes non sélectionnées restent en attente — leurs
     /// badges resteront visibles à la prochaine ouverture.
     private func importerToutes() {
+        var importees = 0
         for workout in workouts {
             guard let etat = etats[workout.id], etat.selectionnee else { continue }
             let activite = service.importer(
@@ -261,6 +262,16 @@ struct SheetImportAppleHealth: View {
                 intensite: etat.intensite
             )
             onImporter?(activite)
+            importees += 1
+        }
+        // Une pilule pour le lot, pas une par séance : importer dix workouts
+        // en empilait dix, dont seules les trois dernières restaient visibles.
+        if importees > 0 {
+            ToastsService.shared.afficher(
+                .sport,
+                titre: importees == 1 ? "1 séance importée" : "\(importees) séances importées",
+                detail: "Depuis Apple Santé"
+            )
         }
         dismiss()
     }

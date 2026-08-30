@@ -67,8 +67,15 @@ final class NomsPersonnalisesService {
     func renommer(_ id: Int, en nom: String) {
         let nom = nom.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !nom.isEmpty else { return }
+        let ancien = noms[id]
         noms[id] = nom
         PreferencesAlimentsStockage.modifier(id, contexte: contexte) { $0.nomPersonnalise = nom }
+        // Préférence persistante posée sans aucun accusé de réception : la
+        // sheet se ferme et seul le prochain résultat de recherche la révèle.
+        ToastsService.shared.afficher(.reglage, titre: "Aliment renommé", detail: nom, action: ActionToast(libelle: "Annuler") { [weak self] in
+            guard let self else { return }
+            if let ancien { self.renommer(id, en: ancien) } else { self.restaurerNom(id) }
+        })
     }
 
     func restaurerNom(_ id: Int) {
@@ -91,8 +98,13 @@ final class NomsPersonnalisesService {
     func changerEmoji(_ id: Int, en emoji: String) {
         let emoji = emoji.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !emoji.isEmpty else { return }
+        let ancien = emojis[id]
         emojis[id] = emoji
         PreferencesAlimentsStockage.modifier(id, contexte: contexte) { $0.emojiPersonnalise = emoji }
+        ToastsService.shared.afficher(.reglage, titre: "Emoji modifié", detail: emoji, action: ActionToast(libelle: "Annuler") { [weak self] in
+            guard let self else { return }
+            if let ancien { self.changerEmoji(id, en: ancien) } else { self.restaurerEmoji(id) }
+        })
     }
 
     func restaurerEmoji(_ id: Int) {

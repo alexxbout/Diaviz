@@ -49,6 +49,25 @@ final class RepasARevoirMasquesService {
         guard let contexte else { return }
         contexte.insert(RepasARevoirMasque(idRepas: id))
         try? contexte.save()
+        ToastsService.shared.afficher(
+            .reglage,
+            titre: "Repas masqué de l'accueil",
+            detail: "Il réapparaîtra si le plat rate à nouveau",
+            action: ActionToast(libelle: "Annuler") { [weak self] in self?.demasquer(id) }
+        )
+    }
+
+    /// Retire un masquage précis — utilisé par l'annulation depuis la pilule
+    /// de confirmation. `toutDemasquer` reste le reset global des réglages.
+    func demasquer(_ id: UUID) {
+        guard idsMasques.remove(id) != nil, let contexte else { return }
+        let descripteur = FetchDescriptor<RepasARevoirMasque>(
+            predicate: #Predicate { $0.idRepas == id }
+        )
+        for masque in (try? contexte.fetch(descripteur)) ?? [] {
+            contexte.delete(masque)
+        }
+        try? contexte.save()
     }
 
     /// Réglages → « Supprimer les repas masqués ». Volontairement pas de

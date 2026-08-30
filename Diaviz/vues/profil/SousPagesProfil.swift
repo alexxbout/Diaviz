@@ -322,6 +322,7 @@ struct SousPageDonnees: View {
             try data.write(to: url)
             archiveAPartager = FichierArchive(url: url)
             messageArchive = "Archive de \(mesure(data.count)) prête."
+            ToastsService.shared.afficher(.donnees, titre: "Archive prête", detail: mesure(data.count))
         } catch {
             messageArchive = "Export impossible : \(error.localizedDescription)"
         }
@@ -337,6 +338,7 @@ struct SousPageDonnees: View {
             let data = try Data(contentsOf: url)
             try ArchiveDonneesService.importer(data, contexte: modelContext)
             messageArchive = "Archive importée. Les données se resynchronisent avec iCloud."
+            ToastsService.shared.afficher(.donnees, titre: "Archive importée", detail: mesure(data.count))
         } catch {
             messageArchive = "Import impossible : \(error.localizedDescription)"
         }

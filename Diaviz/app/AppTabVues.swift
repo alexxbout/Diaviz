@@ -70,6 +70,10 @@ struct AppTabVues: View {
     /// `analyseRatioService` (cache mémoire, recalculé sur mutation du hub).
     @State private var glucidesHebdoService = GlucidesHebdoService()
 
+    /// File des confirmations éphémères (repas, insuline, sport, resucrage) —
+    /// singleton, les services du hub y écrivent sans passer par une vue.
+    @State private var toastsService = ToastsService.shared
+
     /// Contexte SwiftData du hub (pour récupérer le `ModelContainer`).
     @Environment(\.modelContext) private var modelContext
 
@@ -124,6 +128,14 @@ struct AppTabVues: View {
                 RecercheVue()
             }
         }
+        // Confirmations d'enregistrement — couche de chrome au-dessus des
+        // onglets, donc en overlay de la `TabView` et non dans une page :
+        // une pilule doit survivre au changement d'onglet et à la fermeture
+        // de la sheet qui l'a déclenchée.
+        .overlay(alignment: .top) {
+            PileToasts()
+        }
+        .environment(toastsService)
         .tabBarMinimizeBehavior(.onScrollDown)
         // Léger retour haptique au changement d'onglet — cohérent avec les
         // autres `.sensoryFeedback` déjà présents (site d'injection, timeline

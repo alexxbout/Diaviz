@@ -43,8 +43,17 @@ final class ResucragesService {
         resucragesDuJour(Date()).count
     }
 
-    func enregistrer(_ resucrage: Resucrage) {
+    /// - Parameter notifier: `false` pour une restauration après annulation —
+    ///   la pilule ferait doublon avec celle qui vient d'être utilisée.
+    func enregistrer(_ resucrage: Resucrage, notifier: Bool = true) {
         guard let contexte else { return }
+        if notifier {
+            ToastsService.shared.afficher(
+                .resucrage,
+                titre: "Resucrage enregistré",
+                detail: "\(resucrage.glucidesTotal) g"
+            )
+        }
         contexte.insert(resucrage)
         try? contexte.save()
         recharger()
@@ -59,8 +68,33 @@ final class ResucragesService {
         resucrages.removeAll { $0.id == id }
         let descripteur = FetchDescriptor<Resucrage>(predicate: #Predicate { $0.id == id })
         guard let objet = try? contexte.fetch(descripteur).first else { return }
+        let copie = Self.copie(de: objet)
+        let detail = "\(objet.glucidesTotal) g"
         contexte.delete(objet)
         try? contexte.save()
+        ToastsService.shared.afficherSuppression(titre: "Resucrage supprimé", detail: detail) { [weak self] in
+            self?.enregistrer(copie, notifier: false)
+        }
+    }
+
+    /// Duplique un resucrage, ses aliments compris — un `Aliment` ne peut
+    /// appartenir qu'à un parent à la fois, la restauration repart donc de
+    /// copies. **À tenir à jour** avec `Resucrage.init`.
+    private static func copie(de resucrage: Resucrage) -> Resucrage {
+        Resucrage(
+            id: resucrage.id,
+            date: resucrage.date,
+            intention: resucrage.intention,
+            aliments: resucrage.aliments.map { aliment in
+                Aliment(
+                    id: aliment.id, emoji: aliment.emoji, nom: aliment.nom,
+                    quantite: aliment.quantite, glucides: aliment.glucides,
+                    insuline: aliment.insuline, imageURL: aliment.imageURL,
+                    resucrage: aliment.resucrage, idCiqualSource: aliment.idCiqualSource
+                )
+            },
+            glycemieCible: resucrage.glycemieCible
+        )
     }
 
     private func recharger() {

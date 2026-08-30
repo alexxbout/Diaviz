@@ -291,7 +291,9 @@ struct SportVue: View {
         case .importHealthKit:
             SheetImportAppleHealth(
                 service: importService,
-                onImporter: { service.enregistrer($0) }
+                // `notifier: false` : la sheet annonce le total du lot en une
+                // seule pilule, une par séance serait illisible.
+                onImporter: { service.enregistrer($0, notifier: false) }
             )
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
