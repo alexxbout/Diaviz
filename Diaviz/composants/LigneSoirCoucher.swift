@@ -130,6 +130,12 @@ struct LigneSoirCoucher: View {
         if soir.issueCorrection == .insuffisant {
             return Issue(constat: "resté haut", precision: "au-dessus de la cible", couleur: .orange)
         }
+        // Ni hypo ni soir calme : un resucrage préventif a été pris et la
+        // glycémie n'est jamais descendue. Distinguer les deux est tout
+        // l'intérêt — c'est le soir le plus instructif de la liste.
+        if soir.hypoEvitee {
+            return Issue(constat: "hypo évitée", precision: "resucrage préventif", couleur: .orange)
+        }
         return Issue(constat: "stable", precision: nil, couleur: .green)
     }
 

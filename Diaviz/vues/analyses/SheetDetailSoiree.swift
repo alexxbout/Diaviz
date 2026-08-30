@@ -118,14 +118,20 @@ struct SheetDetailSoiree: View {
         let borne = cal.date(byAdding: .day, value: -1, to: soir.date) ?? soir.date
         let faits = faitsApercu ?? (
             rapides: ChargeurFaitsCoucher.rapides(modelContext, depuis: borne),
-            repas: ChargeurFaitsCoucher.repas(modelContext, depuis: borne)
+            repas: ChargeurFaitsCoucher.repasHorsResucrage(modelContext, depuis: borne)
         )
+        // Les resucrages sont un fait de hub distinct — jamais devinés depuis
+        // les repas (voir doc Eraser B2/B3).
+        let resucrages = faitsApercu == nil
+            ? ChargeurFaitsCoucher.resucrages(modelContext, depuis: borne)
+            : []
         let profil = ProfilService.shared.profil
         detail = CalculDetailSoiree.analyser(
             soir: soir,
             nuitB1: nuitB1,
             rapides: faits.rapides,
             repas: faits.repas,
+            resucrages: resucrages,
             changementDoseRecent: changementDoseRecent,
             config: ConfigEndormissement(
                 seuilHypo: Int(profil.seuilsGlycemiques.hypoglycemie),
@@ -505,7 +511,8 @@ struct SheetDetailSoiree: View {
     /// timeline en dessous porte déjà le détail complet.
     private func libelleCourt(_ evenement: EvenementSoiree) -> String {
         switch evenement.genre {
-        case .repas(_, let resucrage):  return resucrage ? "Resucrage" : "Repas"
+        case .repas:                    return "Repas"
+        case .resucrage(_, let i):      return i.libelleCourtCoucher
         case .correction(let dose, _):  return "Correction · \(dose.doseInsulineFormatee)"
         case .lente(let dose, _):       return "Lente · \(dose.doseInsulineFormatee)"
         case .hypo:                     return "Hypoglycémie"
@@ -643,6 +650,11 @@ struct SheetDetailSoiree: View {
             return Marqueur(heure: evenement.heure, valeur: v, couleur: .secondary, taille: 42)
         case .hypo(let valeur, _):
             return Marqueur(heure: evenement.heure, valeur: Double(valeur), couleur: .red, taille: 55)
+        case .resucrage:
+            // Le resucrage est un acte de soin, pas un simple apport : il
+            // mérite son marqueur sur la courbe, contrairement au repas.
+            guard let v = valeurA(evenement.heure) else { return nil }
+            return Marqueur(heure: evenement.heure, valeur: v, couleur: .green, taille: 42)
         case .repas, .reveil:
             return nil
         }
@@ -820,7 +832,8 @@ extension EvenementSoiree {
 
     var icone: String {
         switch genre {
-        case .repas(_, let resucrage): return resucrage ? "cross.case.fill" : "fork.knife"
+        case .repas:       return "fork.knife"
+        case .resucrage(_, let i): return i.icone
         case .correction:  return "syringe"
         case .lente:       return "syringe.fill"
         case .hypo:        return "exclamationmark.triangle.fill"
@@ -830,7 +843,8 @@ extension EvenementSoiree {
 
     var couleur: Color {
         switch genre {
-        case .repas(_, let resucrage): return resucrage ? .red : .green
+        case .repas:       return .green
+        case .resucrage(_, let i): return i.couleur
         case .correction:  return .blue
         case .lente:       return .indigo
         case .hypo:        return .red
@@ -840,7 +854,8 @@ extension EvenementSoiree {
 
     var titre: String {
         switch genre {
-        case .repas(_, let resucrage): return resucrage ? "Resucrage" : "Repas"
+        case .repas:       return "Repas"
+        case .resucrage:   return "Resucrage"
         case .correction:  return "Correction rapide"
         case .lente:       return "Lente"
         case .hypo:        return "Hypo"
@@ -912,7 +927,8 @@ private struct LigneTimelineSoiree: View {
     /// Valeur mise à droite — la donnée chiffrée principale de l'événement.
     private var detail: String {
         switch evenement.genre {
-        case let .repas(glucides, _):   return "\(glucides)g"
+        case let .repas(glucides):      return "\(glucides)g"
+        case let .resucrage(glucides, _): return "\(glucides)g"
         case let .correction(dose, _):  return dose.doseInsulineFormatee
         case let .lente(dose, _):       return dose.doseInsulineFormatee
         case let .hypo(valeur, _):      return "\(valeur)"
@@ -926,6 +942,10 @@ private struct LigneTimelineSoiree: View {
         switch evenement.genre {
         case .repas:
             return heure
+        case let .resucrage(_, intention):
+            // L'intention est déclarée à la saisie — on l'affiche telle quelle,
+            // sans la deviner ni la réinterpréter.
+            return "\(heure) · \(intention.rawValue.lowercased())"
         case let .correction(_, glycemie):
             return glycemie.map { "\(heure) · glycémie \($0) mg/dL" } ?? heure
         case let .lente(_, depuis):

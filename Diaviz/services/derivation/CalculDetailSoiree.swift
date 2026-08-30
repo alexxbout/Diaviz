@@ -12,8 +12,10 @@ import Foundation
 nonisolated struct EvenementSoiree: Identifiable, Sendable {
 
     nonisolated enum Genre: Sendable {
-        /// Repas du soir — `resucrage` si pris juste après une hypo.
-        case repas(glucides: Int, resucrage: Bool)
+        /// Repas du soir (collation, dîner tardif) — jamais un resucrage.
+        case repas(glucides: Int)
+        /// Resucrage loggé, avec l'intention **déclarée** par l'utilisateur.
+        case resucrage(glucides: Int, intention: IntentionResucrage)
         /// Correction rapide au coucher (trigger B3).
         case correction(dose: Double, glycemie: Int?)
         /// Injection de lente — ancre de la nuit. `depuis` = début du palier
@@ -71,15 +73,12 @@ nonisolated struct DetailSoiree: Sendable {
 /// et des faits bruts. Pur, jamais persisté, formulations factuelles.
 nonisolated enum CalculDetailSoiree {
 
-    /// Repas pris dans les `fenetreResucrageMin` minutes suivant une hypo →
-    /// affiché « Resucrage » plutôt que « Repas ».
-    private static let fenetreResucrageMin: Double = 45
-
     static func analyser(
         soir: SoirCoucher,
         nuitB1: NightChartData?,
         rapides: [(heure: Date, dose: Double, correction: Bool)],
         repas: [(heure: Date, glucides: Int)],
+        resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)] = [],
         changementDoseRecent: Date?,
         config: ConfigEndormissement = ConfigEndormissement()
     ) -> DetailSoiree {
@@ -104,16 +103,19 @@ nonisolated enum CalculDetailSoiree {
 
         var evenements: [EvenementSoiree] = []
 
-        // Repas de la soirée (lente −5h → fin de courbe) ; resucrage si
-        // collé à une hypo.
+        // Repas et resucrages de la soirée (lente −5h → fin de courbe). Le
+        // resucrage n'est plus deviné (« repas < 45 min après une hypo ») :
+        // c'est un fait de hub à part entière, avec son intention déclarée.
         let finNuit = courbe.last?.time ?? L.addingTimeInterval(9 * 3600)
-        for r in repas where r.heure >= L.addingTimeInterval(-5 * 3600) && r.heure <= finNuit {
-            let apresHypo = hypos.contains {
-                let ecartMin = r.heure.timeIntervalSince($0.time) / 60
-                return ecartMin >= 0 && ecartMin <= fenetreResucrageMin
-            }
+        let debutSoiree = L.addingTimeInterval(-5 * 3600)
+        for r in repas where r.heure >= debutSoiree && r.heure <= finNuit {
             evenements.append(EvenementSoiree(
-                genre: .repas(glucides: r.glucides, resucrage: apresHypo), heure: r.heure
+                genre: .repas(glucides: r.glucides), heure: r.heure
+            ))
+        }
+        for r in resucrages where r.heure >= debutSoiree && r.heure <= finNuit {
+            evenements.append(EvenementSoiree(
+                genre: .resucrage(glucides: r.glucides, intention: r.intention), heure: r.heure
             ))
         }
 

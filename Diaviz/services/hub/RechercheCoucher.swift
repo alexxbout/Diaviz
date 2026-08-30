@@ -89,7 +89,8 @@ enum RechercheCoucher {
         let endormissement = CalculAnalyseEndormissement.analyser(
             entrees: EntreesEndormissement(
                 nuits: ancrages, lectures: cgm, rapides: rapides,
-                repas: repas, sports: sports, pauses: pauses
+                repas: repasHorsResucrage, resucrages: resucrages,
+                sports: sports, pauses: pauses
             ),
             doseActuelle: analyseB1.doseActuelle,
             changementDoseRecent: nil,
@@ -98,7 +99,8 @@ enum RechercheCoucher {
         let corrections = CalculAnalyseCorrections.analyser(
             entrees: EntreesCorrections(
                 nuits: ancrages, lectures: cgm, rapides: rapides,
-                repas: repas, sports: sports, pauses: pauses
+                repas: repasHorsResucrage, resucrages: resucrages,
+                sports: sports, pauses: pauses
             ),
             changementDoseRecent: nil,
             config: ConfigCorrections(

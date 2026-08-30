@@ -90,6 +90,17 @@ struct PageHyposCoucher: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("hypo\(analyse.totalHypos > 1 ? "s" : "") sur \(analyse.totalSoirs) soir\(analyse.totalSoirs > 1 ? "s" : "") analysé\(analyse.totalSoirs > 1 ? "s" : "")")
                     .font(.subheadline.weight(.medium))
+                // Ligne propre : ces soirs ne sont pas des hypos (la glycémie
+                // n'est jamais descendue) mais pas non plus des soirs calmes —
+                // un resucrage préventif a été pris.
+                if analyse.totalHyposEvitees > 0 {
+                    Label(
+                        "dont \(analyse.totalHyposEvitees) hypo\(analyse.totalHyposEvitees > 1 ? "s" : "") évitée\(analyse.totalHyposEvitees > 1 ? "s" : "") par resucrage",
+                        systemImage: "shield.lefthalf.filled"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                }
                 if let date = analyse.changementDoseRecent {
                     Text("depuis le changement de dose du \(date.formatted(.dateTime.day().month(.wide).locale(Locale(identifier: "fr_FR"))))")
                         .font(.caption)

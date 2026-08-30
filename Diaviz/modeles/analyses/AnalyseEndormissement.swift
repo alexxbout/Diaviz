@@ -14,13 +14,27 @@ import Foundation
 enum IssueEndormissement: Sendable, Equatable {
 
     /// Hypo survenue `delaiMinutes` minutes après la prise de lente.
+    /// Couvre aussi le cas d'un resucrage **correctif** loggé sans creux CGM
+    /// visible : l'utilisateur a confirmé l'hypo, le capteur l'a manquée.
     case hypo(delaiMinutes: Int)
 
-    /// Pas d'hypo dans la fenêtre d'endormissement.
+    /// Resucrage **préventif** pris dans la fenêtre de coucher, sans passage
+    /// sous le seuil. Ni hypo (la glycémie n'est jamais descendue), ni stable
+    /// (l'utilisateur a dû intervenir) — sans cet état, les soirs « rien fait,
+    /// rien passé » et « resucré donc rien passé » se confondaient, et le plus
+    /// instructif des deux disparaissait. Hors du compteur d'hypos.
+    case hypoEvitee(glucides: Int)
+
+    /// Pas d'hypo dans la fenêtre d'endormissement, aucune intervention.
     case stable
 
     var estHypo: Bool {
         if case .hypo = self { return true }
+        return false
+    }
+
+    var estHypoEvitee: Bool {
+        if case .hypoEvitee = self { return true }
         return false
     }
 }

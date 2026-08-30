@@ -29,6 +29,10 @@ nonisolated struct SoirCoucher: Identifiable, Sendable, Equatable {
     let categorieB1: CategorieNuit?
     /// `true` si le soir a fini en hypo (issue B2, ou sur-correction B3).
     let enHypo: Bool
+    /// `true` si un resucrage **préventif** a été pris au coucher sans que la
+    /// glycémie ne descende sous le seuil — hypo évitée. Ni hypo ni stable :
+    /// hors du compteur d'hypos, mais compté et affiché à part.
+    var hypoEvitee: Bool = false
     /// Minutes entre l'événement et l'hypo — `nil` si stable ou inconnu.
     let delaiHypoMinutes: Int?
     /// Issue B3 détaillée (`nil` pour un soir sans correction). L'insuffisant
@@ -191,6 +195,11 @@ nonisolated struct AnalyseHyposCoucher: Sendable, Equatable {
     var totalSoirs: Int { soirs.count }
     var soirsEnHypo: [SoirCoucher] { soirs.filter(\.enHypo) }
     var totalHypos: Int { soirsEnHypo.count }
+    /// Soirs où un resucrage préventif a précédé une hypo qui n'a pas eu lieu.
+    /// **Hors** du compteur d'hypos (ce n'en est pas une), mais affichés à part :
+    /// sans ça, ils se confondaient avec les soirs où rien ne s'est passé.
+    var soirsHypoEvitee: [SoirCoucher] { soirs.filter(\.hypoEvitee) }
+    var totalHyposEvitees: Int { soirsHypoEvitee.count }
 }
 
 // MARK: - Calculateur
@@ -257,6 +266,7 @@ nonisolated enum CalculSituationsCoucher {
                 iob: nuit.iob, charge: nuit.charge,
                 categorieB1: categorieB1(nuit.date),
                 enHypo: nuit.issue.estHypo,
+                hypoEvitee: nuit.issue.estHypoEvitee,
                 delaiHypoMinutes: { if case let .hypo(d) = nuit.issue { return d }; return nil }(),
                 issueCorrection: nil
             )

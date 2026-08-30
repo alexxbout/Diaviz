@@ -14,7 +14,11 @@ nonisolated struct EntreesCorrections: Sendable {
     let nuits: [AncrageNuit]
     let lectures: [(date: Date, valeur: Int, tendance: TendanceGlycemie?)]
     let rapides: [(heure: Date, dose: Double, correction: Bool)]
+    /// Repas **hors resucrages** (les repas badgés basculent ci-dessous).
     let repas: [(heure: Date, glucides: Int)]
+    /// Resucrages `(heure, glucides, intention)` — comptent dans les glucides
+    /// autour de la correction au même titre qu'une collation.
+    let resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)]
     let sports: [(debut: Date, resume: SportResume)]
     let pauses: [(debut: Date, fin: Date?)]
 }
@@ -112,7 +116,7 @@ nonisolated enum CalculAnalyseCorrections {
 
         let glycemie = valeurProche(entrees.lectures, a: heure) ?? 0
         let tendance = tendanceProche(entrees.lectures, a: heure) ?? .stable
-        let glucides = glucidesAutour(entrees.repas, a: heure)
+        let glucides = glucidesAutour(entrees.repas, resucrages: entrees.resucrages, a: heure)
         let sport = sportDuJour(entrees.sports, jour: jour, cal: cal)
         let charge = CalculChargeActivite.charge(
             jusqua: jour,
@@ -168,11 +172,15 @@ nonisolated enum CalculAnalyseCorrections {
         lectures.min(by: { abs($0.date.timeIntervalSince(instant)) < abs($1.date.timeIntervalSince(instant)) })?.tendance
     }
 
+    /// Glucides autour de la correction — collations **et** resucrages.
     private static func glucidesAutour(
-        _ repas: [(heure: Date, glucides: Int)], a instant: Date
+        _ repas: [(heure: Date, glucides: Int)],
+        resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)],
+        a instant: Date
     ) -> Double? {
         let fenetre = instant.addingTimeInterval(-1800)...instant.addingTimeInterval(3600)
         let total = repas.filter { fenetre.contains($0.heure) }.reduce(0) { $0 + $1.glucides }
+            + resucrages.filter { fenetre.contains($0.heure) }.reduce(0) { $0 + $1.glucides }
         return total > 0 ? Double(total) : nil
     }
 

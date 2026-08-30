@@ -45,4 +45,18 @@ enum IntentionResucrage: String, CaseIterable, Codable, Sendable, Hashable {
         case .preventifAntiChute:  .orange
         }
     }
+
+    /// Libellé très court pour les barres de contexte denses (sheet détail
+    /// de soirée) — `rawValue` y déborderait.
+    var libelleCourtCoucher: String {
+        switch self {
+        case .correctifHypo:       "Resucrage"
+        case .preventifMaintien:   "Resucrage préventif"
+        case .preventifAntiChute:  "Resucrage préventif"
+        }
+    }
+
+    /// `true` pour les intentions préventives — une hypo qui les suit n'est
+    /// pas une correction ratée (voir doc Eraser B1, pondération de l'intention).
+    var estPreventif: Bool { self != .correctifHypo }
 }

@@ -31,7 +31,12 @@ nonisolated struct EntreesEndormissement: Sendable {
     /// étroite si la lente est prise tôt).
     let lectures: [(date: Date, valeur: Int, tendance: TendanceGlycemie?)]
     let rapides: [(heure: Date, dose: Double, correction: Bool)]
+    /// Repas **hors resucrages** (les repas badgés basculent ci-dessous).
     let repas: [(heure: Date, glucides: Int)]
+    /// Resucrages `(heure, glucides, intention)` — modèle `Resucrage` du hub
+    /// + repas entièrement badgés. L'intention distingue une hypo traitée
+    /// (`correctifHypo`) d'une hypo **évitée** (préventifs).
+    let resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)]
     /// Séances de sport `(début, résumé)` — résumé déjà mappé (type/intensité
     /// en libellés français) par le service hub.
     let sports: [(debut: Date, resume: SportResume)]
@@ -123,11 +128,20 @@ nonisolated enum CalculAnalyseEndormissement {
         // Population B2 : couchers sous le seuil configuré uniquement.
         guard nuit.glycemieCoucher < config.seuilCoucher else { return nil }
 
+        // Resucrages de la fenêtre de coucher — pèsent sur l'issue.
+        let resucragesCoucher = entrees.resucrages.filter {
+            z1.contains($0.heure) || z2.contains($0.heure)
+        }
         let pointsZ2 = entrees.lectures.filter { z2.contains($0.date) }
-        let issue = issueEndormissement(pointsZ2, basaleTime: L, seuilHypo: config.seuilHypo)
+        let issue = issueEndormissement(
+            pointsZ2, basaleTime: L, seuilHypo: config.seuilHypo,
+            resucrages: resucragesCoucher
+        )
 
         let tendance = tendanceProche(entrees.lectures, a: L) ?? .stable
-        let glucides = glucidesAutourDuCoucher(entrees.repas, z1: z1, z2: z2)
+        let glucides = glucidesAutourDuCoucher(
+            entrees.repas, resucrages: entrees.resucrages, z1: z1, z2: z2
+        )
         let sport = sportDuJour(entrees.sports, jour: nuit.dateNuit, cal: cal)
         let charge = CalculChargeActivite.charge(
             jusqua: nuit.dateNuit,
@@ -150,18 +164,31 @@ nonisolated enum CalculAnalyseEndormissement {
 
     // MARK: - Issue (hypo zone 2 vs stable)
 
-    /// Hypo dans la zone d'endormissement (~2h post-lente) : premier point
-    /// sous `seuilHypo`, délai exprimé en minutes depuis la lente.
+    /// Issue de la zone d'endormissement (~2h post-lente), par ordre de
+    /// priorité : creux CGM → hypo ; resucrage **correctif** loggé sans creux
+    /// visible → hypo quand même (l'utilisateur a confirmé l'hypo, le capteur
+    /// l'a manquée — retard CGM ou correction très rapide) ; resucrage
+    /// **préventif** sans creux → hypo évitée ; sinon stable.
+    ///
+    /// Sans le cas « évitée », un préventif qui fonctionne rendait le soir
+    /// indistinguable d'un soir où rien ne s'est passé — le plus instructif
+    /// des deux disparaissait dans « stable ».
     private static func issueEndormissement(
         _ points: [(date: Date, valeur: Int, tendance: TendanceGlycemie?)],
         basaleTime: Date,
-        seuilHypo: Int
+        seuilHypo: Int,
+        resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)]
     ) -> IssueEndormissement {
-        guard let premierBas = points.first(where: { $0.valeur < seuilHypo }) else {
-            return .stable
+        if let premierBas = points.first(where: { $0.valeur < seuilHypo }) {
+            let delai = Int(premierBas.date.timeIntervalSince(basaleTime) / 60)
+            return .hypo(delaiMinutes: max(0, delai))
         }
-        let delai = Int(premierBas.date.timeIntervalSince(basaleTime) / 60)
-        return .hypo(delaiMinutes: max(0, delai))
+        if let correctif = resucrages.first(where: { $0.intention == .correctifHypo }) {
+            let delai = Int(correctif.heure.timeIntervalSince(basaleTime) / 60)
+            return .hypo(delaiMinutes: max(0, delai))
+        }
+        guard !resucrages.isEmpty else { return .stable }
+        return .hypoEvitee(glucides: resucrages.reduce(0) { $0 + $1.glucides })
     }
 
     // MARK: - Contexte
@@ -173,15 +200,17 @@ nonisolated enum CalculAnalyseEndormissement {
         lectures.min(by: { abs($0.date.timeIntervalSince(instant)) < abs($1.date.timeIntervalSince(instant)) })?.tendance
     }
 
-    /// Glucides ingérés dans la fenêtre de coucher (resucrage ou collation) —
-    /// somme si plusieurs, `nil` si aucun.
+    /// Glucides ingérés dans la fenêtre de coucher — collations **et**
+    /// resucrages (les deux comptent : c'est du sucre au coucher). Somme si
+    /// plusieurs, `nil` si aucun.
     private static func glucidesAutourDuCoucher(
         _ repas: [(heure: Date, glucides: Int)],
+        resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)],
         z1: ClosedRange<Date>, z2: ClosedRange<Date>
     ) -> Double? {
-        let total = repas
-            .filter { z1.contains($0.heure) || z2.contains($0.heure) }
-            .reduce(0) { $0 + $1.glucides }
+        func dansFenetre(_ heure: Date) -> Bool { z1.contains(heure) || z2.contains(heure) }
+        let total = repas.filter { dansFenetre($0.heure) }.reduce(0) { $0 + $1.glucides }
+            + resucrages.filter { dansFenetre($0.heure) }.reduce(0) { $0 + $1.glucides }
         return total > 0 ? Double(total) : nil
     }
 
