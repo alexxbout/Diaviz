@@ -403,20 +403,24 @@ private struct VueGraphiqueToutes: View {
 
     // MARK: Marks
 
+    /// Bande de cible + lignes de seuil, dans le style commun aux graphiques
+    /// de l'app (`StyleGrapheGlycemie`). Les seuils viennent du profil : ils
+    /// étaient figés à 70/180 ici et ne suivaient pas les réglages. Les
+    /// annotations « 70 » et « 180 » disparaissent — l'axe Y les porte déjà,
+    /// comme sur les graphiques repas et sport.
     @ChartContentBuilder
     private var seuils: some ChartContent {
-        RuleMark(y: .value("Cible basse", 70))
-            .foregroundStyle(Color.red.opacity(0.3))
-            .lineStyle(StrokeStyle(lineWidth: 0.8, dash: [3, 3]))
-            .annotation(position: .topLeading, alignment: .leading, spacing: 1) {
-                Text("70").font(.system(size: 10)).foregroundStyle(.secondary)
-            }
-        RuleMark(y: .value("Cible haute", 180))
-            .foregroundStyle(Color.basaleTendance.opacity(0.3))
-            .lineStyle(StrokeStyle(lineWidth: 0.8, dash: [3, 3]))
-            .annotation(position: .topLeading, alignment: .leading, spacing: 1) {
-                Text("180").font(.system(size: 10)).foregroundStyle(.secondary)
-            }
+        if let bornes = bornesX {
+            StyleGrapheGlycemie.zoneCible(
+                de: bornes.debut, a: bornes.fin,
+                seuils: seuilsProfil
+            )
+        }
+        StyleGrapheGlycemie.lignesSeuils(seuilsProfil)
+    }
+
+    private var seuilsProfil: SeuilsGlycemiques {
+        ProfilService.shared.profil.seuilsGlycemiques
     }
 
     /// Tendance moyenne — découpée en segments hypo/normal/hyper pour
@@ -434,7 +438,7 @@ private struct VueGraphiqueToutes: View {
                     series: .value("Nuit", "tendance-\(seg.id.uuidString)")
                 )
                 .foregroundStyle(couleurSegment(seg.categorie, defaut: .basaleTendanceMoy))
-                .lineStyle(StrokeStyle(lineWidth: 2.5))
+                .lineStyle(StrokeStyle(lineWidth: StyleGrapheGlycemie.epaisseurCourbe))
                 .interpolationMethod(.catmullRom)
             }
         }
@@ -450,7 +454,7 @@ private struct VueGraphiqueToutes: View {
     @AxisContentBuilder
     private var axeX: some AxisContent {
         AxisMarks(values: .stride(by: .hour, count: 1)) { value in
-            AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4, 4]))
+            AxisGridLine(stroke: StyleGrapheGlycemie.traitGrille)
                 .foregroundStyle(.secondary.opacity(0.3))
             AxisValueLabel {
                 if let date = value.as(Date.self) {
@@ -821,7 +825,7 @@ private struct VueGraphiqueParNuit: View {
     @AxisContentBuilder
     private var axeXFullNight: some AxisContent {
         AxisMarks(values: .stride(by: .hour, count: 1)) { value in
-            AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4, 4]))
+            AxisGridLine(stroke: StyleGrapheGlycemie.traitGrille)
                 .foregroundStyle(.secondary.opacity(0.3))
             AxisValueLabel {
                 if let date = value.as(Date.self) {
@@ -843,14 +847,18 @@ private struct VueGraphiqueParNuit: View {
 
     // MARK: Marks partagés
 
+    /// Même peau que les graphiques repas et sport — voir `StyleGrapheGlycemie`.
     @ChartContentBuilder
     private var seuils: some ChartContent {
-        RuleMark(y: .value("Cible basse", 70))
-            .foregroundStyle(Color.red.opacity(0.3))
-            .lineStyle(StrokeStyle(lineWidth: 0.8, dash: [3, 3]))
-        RuleMark(y: .value("Cible haute", 180))
-            .foregroundStyle(Color.basaleTendance.opacity(0.3))
-            .lineStyle(StrokeStyle(lineWidth: 0.8, dash: [3, 3]))
+        StyleGrapheGlycemie.zoneCible(
+            de: totalNightRange.lowerBound, a: totalNightRange.upperBound,
+            seuils: seuilsProfil
+        )
+        StyleGrapheGlycemie.lignesSeuils(seuilsProfil)
+    }
+
+    private var seuilsProfil: SeuilsGlycemiques {
+        ProfilService.shared.profil.seuilsGlycemiques
     }
 
     private var couleurCourbe: Color {

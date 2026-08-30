@@ -75,7 +75,7 @@ struct CourbeGlycemiqueDetaillee: View {
             yStart: .value("Cible bas", seuils.hypoglycemie),
             yEnd: .value("Cible haut", seuils.hyperglycemie)
         )
-        .foregroundStyle(.green.opacity(0.08))
+        .foregroundStyle(StyleGrapheGlycemie.couleurZoneCible.opacity(StyleGrapheGlycemie.opaciteZoneCible))
     }
 
     /// Bandeau bleu sur la fenêtre d'effort — sport uniquement.
@@ -88,7 +88,7 @@ struct CourbeGlycemiqueDetaillee: View {
                 yStart: .value("Y bas", config.domaineY.lowerBound),
                 yEnd: .value("Y haut", config.domaineY.upperBound)
             )
-            .foregroundStyle(.blue.opacity(0.06))
+            .foregroundStyle(.blue.opacity(StyleGrapheGlycemie.opaciteZoneContexte))
         }
     }
 
@@ -97,15 +97,15 @@ struct CourbeGlycemiqueDetaillee: View {
     @ChartContentBuilder
     private var ligneHypo: some ChartContent {
         RuleMark(y: .value("Hypo", seuils.hypoglycemie))
-            .foregroundStyle(.red.opacity(0.5))
-            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+            .foregroundStyle(StyleGrapheGlycemie.couleurSeuilBas.opacity(StyleGrapheGlycemie.opaciteSeuil))
+            .lineStyle(StyleGrapheGlycemie.traitSeuil)
     }
 
     @ChartContentBuilder
     private var ligneHyper: some ChartContent {
         RuleMark(y: .value("Hyper", seuils.hyperglycemie))
-            .foregroundStyle(.orange.opacity(0.5))
-            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+            .foregroundStyle(StyleGrapheGlycemie.couleurSeuilHaut.opacity(StyleGrapheGlycemie.opaciteSeuil))
+            .lineStyle(StyleGrapheGlycemie.traitSeuil)
     }
 
     // MARK: - Courbe principale
@@ -118,7 +118,7 @@ struct CourbeGlycemiqueDetaillee: View {
                 y: .value("Glycémie", point.valeur)
             )
             .foregroundStyle(config.couleurCourbe)
-            .lineStyle(StrokeStyle(lineWidth: 2))
+            .lineStyle(StrokeStyle(lineWidth: StyleGrapheGlycemie.epaisseurCourbe))
             .interpolationMethod(.catmullRom)
         }
     }
