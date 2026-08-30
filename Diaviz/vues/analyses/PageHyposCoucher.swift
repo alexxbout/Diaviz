@@ -11,13 +11,17 @@ import SwiftUI
 /// reste visible au détail mais ne pilote pas la page).
 ///
 /// Structure purement rétrospective :
-///   1. Chiffre honnête (hypos / soirs, fenêtre de dose)
-///   2. Situations observées (combinaisons minées, avec contraste + dénominateurs)
-///   3. Soirs en hypo (liste), stables en compteur, « Voir tout »
-///   4. Bouton « Comparer à ce soir » → sheet de recherche (saisie glycémie)
+///   1. Carte de métriques (hypos, dont avec rechute, hypos évitées + glucides)
+///   2. Bouton « Comparer à ce soir » → sheet de recherche (saisie glycémie)
+///   3. Soirs analysés (filtre hypos/tous, tri date/glycémie, liste)
 ///
 /// Le « ce soir » vit entièrement dans la sheet : la glycémie CGM arrive avec
-/// ~3h de retard, aucune détection automatique de situation n'est possible ici.
+/// ~3h de retard, aucune détection automatique n'est possible ici.
+///
+/// La section « Situations observées » (croisements de facteurs minés par
+/// énumération) a été **retirée** en août 2026 : un facteur pris isolément,
+/// sans mise en regard des autres analyses, ne disait rien d'actionnable et
+/// alourdissait la page. Les métriques comptées l'ont remplacée.
 struct PageHyposCoucher: View {
 
     let analyse: AnalyseHyposCoucher
@@ -32,11 +36,29 @@ struct PageHyposCoucher: View {
 
     /// Tri de la liste — date (plus récent d'abord, défaut) ou glycémie
     /// (croissante).
-    enum TriSoirs { case date, glycemie }
+    enum TriSoirs: CaseIterable {
+        case date, glycemie
+
+        var libelle: String {
+            switch self {
+            case .date:     return "Date"
+            case .glycemie: return "Glycémie"
+            }
+        }
+
+        var symbole: String {
+            switch self {
+            case .date:     return "calendar"
+            case .glycemie: return "drop"
+            }
+        }
+    }
     @State private var tri: TriSoirs = .date
 
     @State private var afficherComparer = false
     @State private var soirSelectionne: SoirCoucher?
+
+    @Environment(\.dynamicTypeSize) private var tailleTexte
 
     /// Filtre effectif : bascule sur « tous » s'il n'y a aucune hypo à montrer.
     private var filtreEffectif: FiltreSoirs {
@@ -45,15 +67,16 @@ struct PageHyposCoucher: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            enTeteChiffre
-            if !analyse.situations.isEmpty {
-                sectionSituations
+            carteMetriques
+            // Hub encore vide : la carte porte déjà le message, inutile
+            // d'empiler un bouton de recherche sans corpus ni une liste vide.
+            if analyse.totalSoirs > 0 {
+                boutonComparer
+                sectionSoirs
             }
-            sectionSoirs
-            boutonComparer
         }
         .sheet(isPresented: $afficherComparer) {
-            SheetComparerCeSoir(situations: analyse.situations, doseActuelle: analyse.doseActuelle)
+            SheetComparerCeSoir(doseActuelle: analyse.doseActuelle)
         }
         .sheet(item: $soirSelectionne) { soir in
             SheetDetailSoiree(
@@ -76,74 +99,164 @@ struct PageHyposCoucher: View {
         return nuitsB1.first { cal.isDate($0.date, inSameDayAs: soir.dateNuit) }
     }
 
-    // MARK: - 1. Chiffre honnête
+    // MARK: - 1. Carte de métriques
 
-    private var enTeteChiffre: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text("\(analyse.totalHypos)")
-                .font(.system(size: 40, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(analyse.totalHypos > 0 ? .red : .green)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("hypo\(analyse.totalHypos > 1 ? "s" : "") sur \(analyse.totalSoirs) soir\(analyse.totalSoirs > 1 ? "s" : "") analysé\(analyse.totalSoirs > 1 ? "s" : "")")
-                    .font(.subheadline.weight(.medium))
-                // Ligne propre : ces soirs ne sont pas des hypos (la glycémie
-                // n'est jamais descendue) mais pas non plus des soirs calmes —
-                // un resucrage préventif a été pris.
-                if analyse.totalHyposEvitees > 0 {
-                    Label(
-                        "dont \(analyse.totalHyposEvitees) hypo\(analyse.totalHyposEvitees > 1 ? "s" : "") évitée\(analyse.totalHyposEvitees > 1 ? "s" : "") par resucrage",
-                        systemImage: "shield.lefthalf.filled"
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-                }
-                if let date = analyse.changementDoseRecent {
-                    Text("depuis le changement de dose du \(date.formatted(.dateTime.day().month(.wide).locale(Locale(identifier: "fr_FR"))))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text("lente actuelle : \(analyse.doseActuelle.formatted()) u")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+    /// Faits comptés sur la fenêtre analysée. Trois métriques, chacune
+    /// recomptable à la main depuis la liste des soirs plus bas — pas une
+    /// inférence, pas un score. « Avec rechute » et « évitées » sont des
+    /// **dont** et des **à côté**, jamais des chiffres à additionner : le
+    /// dénominateur commun est rappelé en en-tête.
+    @ViewBuilder
+    private var carteMetriques: some View {
+        if analyse.totalSoirs == 0 {
+            Text("Aucun soir analysable pour l'instant — il faut des nuits avec lente et couverture CGM.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(20)
+                .surfaceCarte()
+        } else {
+            VStack(alignment: .leading, spacing: 14) {
+                enTeteMetriques
+                Divider()
+                tuiles
             }
-            Spacer(minLength: 0)
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .surfaceCarte()
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(NiveauCarte.carte.forme)
+    }
+
+    private var enTeteMetriques: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("\(analyse.totalSoirs) soir\(analyse.totalSoirs > 1 ? "s" : "") analysé\(analyse.totalSoirs > 1 ? "s" : "")")
+                .font(.headline)
+                .monospacedDigit()
+            Text(libelleFenetre)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
         .accessibilityElement(children: .combine)
     }
 
-    // MARK: - 2. Situations observées
+    private var libelleFenetre: String {
+        if let date = analyse.changementDoseRecent {
+            let jour = date.formatted(.dateTime.day().month(.wide).locale(Locale(identifier: "fr_FR")))
+            return "depuis le changement de dose du \(jour) · lente \(analyse.doseActuelle.formatted()) u"
+        }
+        return "lente actuelle : \(analyse.doseActuelle.formatted()) u"
+    }
 
-    private var sectionSituations: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Situations observées")
-                    .font(.subheadline.bold())
-                    .foregroundStyle(.secondary)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer()
-                Text("triées par écart")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+    /// Les trois tuiles. Empilées verticalement aux tailles d'accessibilité :
+    /// à trois colonnes, les libellés y deviennent illisibles.
+    @ViewBuilder
+    private var tuiles: some View {
+        if tailleTexte.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 14) {
+                ForEach(metriques, id: \.libelle) { m in
+                    tuile(m, alignement: .leading)
+                }
             }
-
-            ForEach(analyse.situations) { situation in
-                CarteSituationCoucher(situation: situation)
+        } else {
+            HStack(alignment: .top, spacing: 10) {
+                ForEach(metriques, id: \.libelle) { m in
+                    tuile(m, alignement: .leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
-
-            Text("Co-occurrences observées, pas des causes confirmées. Seules les situations avec assez de soirs et un écart net apparaissent ici.")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
         }
     }
 
-    // MARK: - 3. Soirs (filtre segmenté hypos / tous)
+    private struct Metrique {
+        let valeur: Int
+        let libelle: String
+        let detail: String?
+        let symbole: String
+        let couleur: Color
+    }
+
+    private var metriques: [Metrique] {
+        [
+            Metrique(
+                valeur: analyse.totalHypos,
+                libelle: analyse.totalHypos > 1 ? "hypos" : "hypo",
+                detail: nil,
+                symbole: "arrow.down.right.circle.fill",
+                couleur: .red
+            ),
+            Metrique(
+                valeur: analyse.totalRechutes,
+                libelle: "avec rechute",
+                detail: "resucrage puis nouvelle hypo",
+                symbole: "arrow.uturn.down.circle.fill",
+                couleur: .red
+            ),
+            Metrique(
+                valeur: analyse.totalHyposEvitees,
+                libelle: analyse.totalHyposEvitees > 1 ? "hypos évitées" : "hypo évitée",
+                detail: detailHyposEvitees,
+                symbole: "shield.lefthalf.filled",
+                couleur: .orange
+            ),
+        ]
+    }
+
+    /// Glucides **médians** des préventifs qui ont tenu — « à peu près
+    /// combien », pas une dose à reproduire.
+    private var detailHyposEvitees: String? {
+        guard analyse.totalHyposEvitees > 0 else { return nil }
+        guard let g = analyse.glucidesTypiquesHypoEvitee else { return "resucrage préventif" }
+        return "préventif · ~\(g) g"
+    }
+
+    private func tuile(_ m: Metrique, alignement: HorizontalAlignment) -> some View {
+        // Zéro en gris : une métrique à 0 est une bonne nouvelle, pas une
+        // alerte — la teinte ne s'allume que s'il y a matière.
+        let teinte: Color = m.valeur > 0 ? m.couleur : .secondary
+        return VStack(alignment: alignement, spacing: 2) {
+            HStack(spacing: 5) {
+                Image(systemName: m.symbole)
+                    .font(.footnote)
+                    .foregroundStyle(teinte)
+                    .accessibilityHidden(true)
+                Text("\(m.valeur)")
+                    .font(.title2.weight(.bold))
+                    .monospacedDigit()
+                    .foregroundStyle(teinte)
+            }
+            Text(m.libelle)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+            if let detail = m.detail {
+                Text(detail)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(m.valeur) \(m.libelle)\(m.detail.map { ", \($0)" } ?? "")")
+    }
+
+    // MARK: - 2. Comparer à ce soir
+
+    private var boutonComparer: some View {
+        Button {
+            afficherComparer = true
+        } label: {
+            Label("Comparer ma glycémie de ce soir", systemImage: "magnifyingglass")
+                .fontWeight(.semibold)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.large)
+    }
+
+    // MARK: - 3. Soirs (filtre segmenté hypos / tous + tri)
 
     private var soirsVisibles: [SoirCoucher] {
         let base: [SoirCoucher]
@@ -160,6 +273,9 @@ struct PageHyposCoucher: View {
     private var sectionSoirs: some View {
         VStack(alignment: .leading, spacing: 10) {
             enTeteSoirs
+            if analyse.totalHypos > 0 {
+                filtreSegmente
+            }
 
             let visibles = soirsVisibles
             if visibles.isEmpty {
@@ -168,8 +284,7 @@ struct PageHyposCoucher: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(16)
-                    .background(Color(.secondarySystemGroupedBackground))
-                    .clipShape(NiveauCarte.carte.forme)
+                    .surfaceCarte()
             } else {
                 VStack(spacing: 8) {
                     ForEach(visibles) { soir in
@@ -180,201 +295,53 @@ struct PageHyposCoucher: View {
         }
     }
 
-    /// Titre + filtre segmenté « Hypos · N / Tous · M » + tri (glycémie /
-    /// date), tout à droite sur la même ligne.
+    /// Titre + bouton de tri. Le tri est un **bouton bordé lisible** (icône +
+    /// critère courant) et non plus une pastille d'icône de 26 pt : la cible
+    /// était sous le minimum tapable iOS, et rien n'indiquait le tri actif.
     private var enTeteSoirs: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
+        HStack(alignment: .firstTextBaseline) {
             Text("Soirs analysés")
                 .font(.subheadline.bold())
                 .foregroundStyle(.secondary)
                 .accessibilityAddTraits(.isHeader)
-            Spacer()
-            if analyse.totalHypos > 0 {
-                segmentFiltre
-            }
+            Spacer(minLength: 8)
             menuTri
         }
     }
 
-    /// Menu de tri compact (icône seule) — « Glycémie » (croissante) ou
-    /// « Date » (plus récent d'abord, défaut).
     private var menuTri: some View {
         Menu {
             Picker("Trier par", selection: $tri) {
-                Label("Date", systemImage: "calendar").tag(TriSoirs.date)
-                Label("Glycémie", systemImage: "drop").tag(TriSoirs.glycemie)
+                ForEach(TriSoirs.allCases, id: \.self) { valeur in
+                    Label(valeur.libelle, systemImage: valeur.symbole).tag(valeur)
+                }
             }
         } label: {
-            Image(systemName: "arrow.up.arrow.down")
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .padding(6)
-                .background(Color(.tertiarySystemFill), in: Circle())
+            Label(tri.libelle, systemImage: "arrow.up.arrow.down")
+                .font(.subheadline)
+                .labelStyle(.titleAndIcon)
         }
+        .buttonStyle(.bordered)
+        .controlSize(.regular)
         .accessibilityLabel("Trier les soirs")
         .accessibilityValue(tri == .date ? "Par date" : "Par glycémie")
     }
 
-    private var segmentFiltre: some View {
-        HStack(spacing: 2) {
-            segment(.hypos, libelle: "Hypos", compte: analyse.totalHypos, teinte: .red)
-            segment(.tous, libelle: "Tous", compte: analyse.totalSoirs, teinte: .secondary)
+    /// Segmented natif plutôt qu'une capsule maison : hauteur, typographie et
+    /// cible de tap sont celles du système, et il suit Dynamic Type tout seul.
+    private var filtreSegmente: some View {
+        Picker("Soirs affichés", selection: $filtre) {
+            Text("Hypos · \(analyse.totalHypos)").tag(FiltreSoirs.hypos)
+            Text("Tous · \(analyse.totalSoirs)").tag(FiltreSoirs.tous)
         }
-        .padding(2)
-        .background(Color(.tertiarySystemFill), in: Capsule())
+        .pickerStyle(.segmented)
+        .labelsHidden()
     }
 
-    private func segment(_ valeur: FiltreSoirs, libelle: String, compte: Int, teinte: Color) -> some View {
-        let actif = filtreEffectif == valeur
-        return Button {
-            withAnimation(.easeInOut(duration: 0.15)) { filtre = valeur }
-        } label: {
-            Text("\(libelle) · \(compte)")
-                .font(.caption.weight(.medium))
-                .monospacedDigit()
-                .foregroundStyle(actif ? teinte : .secondary)
-                .padding(.horizontal, 11)
-                .padding(.vertical, 5)
-                .background {
-                    if actif {
-                        Capsule().fill(Color(.secondarySystemGroupedBackground))
-                    }
-                }
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(actif ? [.isSelected] : [])
-    }
-
+    /// Cas restant : des soirs analysés, mais aucun ne passe le filtre courant
+    /// (le hub vide est traité en amont par `carteMetriques`).
     private var messageVide: String {
-        analyse.totalSoirs == 0
-            ? "Aucun soir analysable pour l'instant — il faut des nuits avec lente et couverture CGM."
-            : "Aucune hypo sur \(analyse.totalSoirs) soir\(analyse.totalSoirs > 1 ? "s" : "") analysé\(analyse.totalSoirs > 1 ? "s" : "")."
-    }
-
-    // MARK: - 4. Comparer à ce soir
-
-    private var boutonComparer: some View {
-        Button {
-            afficherComparer = true
-        } label: {
-            Label("Comparer ma glycémie de ce soir", systemImage: "magnifyingglass")
-                .fontWeight(.semibold)
-                .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(.bordered)
-        .controlSize(.large)
-    }
-}
-
-// MARK: - Carte d'une situation
-
-/// Une situation minée : titre (facteurs), barre « cette situation » vs barre
-/// de contraste, dénominateurs bruts. Le pourcentage n'est jamais affiché
-/// seul — la longueur de barre le porte, les chiffres restent des effectifs.
-struct CarteSituationCoucher: View {
-
-    let situation: SituationCoucher
-    /// `true` → carte épinglée « ce soir » (bordure accent + badge) : le
-    /// contexte du moment correspond à cette situation (sheet Comparer).
-    var epinglee: Bool = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                titreSituation
-                    .font(.footnote.weight(.semibold))
-                if situation.estFacteurSeul && !epinglee {
-                    Text("facteur seul")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
-                Spacer(minLength: 0)
-                if epinglee {
-                    Text("ce soir")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.indigo)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color.indigo.opacity(0.14), in: Capsule())
-                }
-            }
-
-            barre(libelle: "cette situation",
-                  hypos: situation.hypos, total: situation.total,
-                  couleur: .red, accent: true)
-            barre(libelle: situation.libelleComplement,
-                  hypos: situation.complementHypos, total: situation.complementTotal,
-                  couleur: .green, accent: false)
-
-            if situation.fragile {
-                Label("\(situation.total) soirs seulement — encore fragile", systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption2)
-                    .foregroundStyle(.orange)
-            }
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(NiveauCarte.carte.forme)
-        .overlay {
-            if epinglee {
-                NiveauCarte.carte.forme
-                    .strokeBorder(Color.indigo.opacity(0.55), lineWidth: 1.5)
-            }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(libelleAccessible)
-    }
-
-    /// Titre composé des facteurs, chacun préfixé de son SF Symbol, joints
-    /// par « · » — remplace l'ancien libellé à base d'emoji tout en gardant
-    /// un rendu inline dans un seul `Text`.
-    private var titreSituation: Text {
-        let morceaux = situation.facteurs.map { facteur in
-            Text(Image(systemName: facteur.icone)) + Text(" \(facteur.libelle)")
-        }
-        guard var texte = morceaux.first else { return Text("") }
-        for morceau in morceaux.dropFirst() {
-            texte = texte + Text(" · ") + morceau
-        }
-        return texte
-    }
-
-    private func barre(libelle: String, hypos: Int, total: Int, couleur: Color, accent: Bool) -> some View {
-        HStack(spacing: 8) {
-            Text(libelle)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(width: 108, alignment: .leading)
-                .lineLimit(2)
-
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Color(.tertiarySystemFill))
-                    Capsule()
-                        .fill(couleur.opacity(accent ? 0.85 : 0.5))
-                        .frame(width: max(3, geo.size.width * fraction(hypos, total)))
-                }
-            }
-            .frame(height: 7)
-
-            Text("\(hypos) / \(total)")
-                .font(.caption.weight(accent ? .semibold : .regular))
-                .monospacedDigit()
-                .foregroundStyle(accent ? couleur : .secondary)
-                .frame(width: 44, alignment: .trailing)
-        }
-    }
-
-    private func fraction(_ hypos: Int, _ total: Int) -> CGFloat {
-        guard total > 0 else { return 0 }
-        return CGFloat(hypos) / CGFloat(total)
-    }
-
-    private var libelleAccessible: String {
-        "\(situation.titre) : \(situation.hypos) hypos sur \(situation.total) soirs. "
-            + "\(situation.libelleComplement) : \(situation.complementHypos) sur \(situation.complementTotal)."
-            + (situation.fragile ? " Effectif faible, à lire avec prudence." : "")
+        "Aucune hypo sur \(analyse.totalSoirs) soir\(analyse.totalSoirs > 1 ? "s" : "") analysé\(analyse.totalSoirs > 1 ? "s" : "")."
     }
 }
 
@@ -392,7 +359,7 @@ struct CarteSituationCoucher: View {
 #Preview("Hypos au coucher — sans hypo") {
     ScrollView {
         PageHyposCoucher(
-            analyse: CalculSituationsCoucher.analyser(
+            analyse: CalculHyposCoucher.analyser(
                 endormissement: .mockSansHypo, corrections: AnalyseCorrections(corrections: []), timeline: []
             )
         )
@@ -401,7 +368,7 @@ struct CarteSituationCoucher: View {
     .background(Color(.systemGroupedBackground))
 }
 
-#Preview("Hypos au coucher — situations riches (avec B1)") {
+#Preview("Hypos au coucher — avec changement de dose") {
     ScrollView {
         PageHyposCoucher(analyse: .mockRiche)
             .padding(16)
@@ -412,7 +379,7 @@ struct CarteSituationCoucher: View {
 #Preview("Hypos au coucher — seulement corrections (pas de B2)") {
     ScrollView {
         PageHyposCoucher(
-            analyse: CalculSituationsCoucher.analyser(
+            analyse: CalculHyposCoucher.analyser(
                 endormissement: AnalyseEndormissement(seuilCoucher: 160, doseActuelle: 18, nuits: []),
                 corrections: .mock, timeline: []
             )

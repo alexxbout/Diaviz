@@ -106,7 +106,7 @@ nonisolated struct AnalyseRatioObserve: Sendable, Equatable {
 /// par l'écart entre dose appliquée et dose suggérée par le ratio configuré,
 /// lit le taux de bons verdicts par bucket, détecte un écart significatif.
 ///
-/// Même famille que `CalculSituationsCoucher` : énumération exhaustive,
+/// Même famille que `CalculRepasARevoir` : énumération exhaustive,
 /// dénominateurs bruts, seuils stricts. Pas de modèle entraîné — chaque
 /// chiffre est recomptable à la main depuis les repas listés.
 nonisolated enum CalculRatioObserve {

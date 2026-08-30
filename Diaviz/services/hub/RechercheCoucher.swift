@@ -112,7 +112,7 @@ enum RechercheCoucher {
                 picMinutes: profil.insulineRapide.picActionMinutes
             )
         )
-        let fusion = CalculSituationsCoucher.analyser(
+        let fusion = CalculHyposCoucher.analyser(
             endormissement: endormissement,
             corrections: corrections,
             timeline: analyseB1.timeline

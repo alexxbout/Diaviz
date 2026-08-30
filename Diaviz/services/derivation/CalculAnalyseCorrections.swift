@@ -124,10 +124,17 @@ nonisolated enum CalculAnalyseCorrections {
         )
         let iob = iobAvantCorrection(entrees.rapides, a: heure, config: config)
 
+        let rechute = DetectionRechute.rechute(
+            lectures: entrees.lectures,
+            resucrages: entrees.resucrages,
+            de: heure,
+            seuilHypo: config.seuilHypo
+        )
+
         return CorrectionSoir(
             id: UUID(), date: heure, glycemie: glycemie, tendance: tendance,
             glucides: glucides, dose: correction.dose, iob: iob,
-            sport: sport, charge: charge, issue: issue
+            sport: sport, charge: charge, issue: issue, rechute: rechute
         )
     }
 

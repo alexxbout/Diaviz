@@ -74,6 +74,12 @@ struct NuitEndormissement: Identifiable, Sendable, Equatable {
     let charge: ChargeActivite
 
     let issue: IssueEndormissement
+
+    /// `true` si un resucrage **correctif** de cette soirée a été suivi d'une
+    /// **nouvelle** hypo dans l'heure : la correction n'a pas tenu. Même
+    /// définition que B1 (`BilanHyposNuit.rechutes`), calculée par
+    /// `DetectionRechute` pour que l'app n'ait qu'un seul sens du mot.
+    var rechute: Bool = false
 }
 
 // MARK: - Snapshot B2

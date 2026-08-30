@@ -147,6 +147,16 @@ nonisolated enum CalculAnalyseEndormissement {
         )
         let iob = iobAuCoucher(entrees.rapides, a: L, config: config)
 
+        // Rechute cherchée à partir de la lente, pas seulement sur la zone 2 :
+        // la nouvelle hypo qui suit un resucrage raté tombe souvent après la
+        // fenêtre d'endormissement (cf. `DetectionRechute.reculHeures`).
+        let rechute = DetectionRechute.rechute(
+            lectures: entrees.lectures,
+            resucrages: entrees.resucrages,
+            de: L,
+            seuilHypo: config.seuilHypo
+        )
+
         return NuitEndormissement(
             id: UUID(),
             date: nuit.dateNuit,
@@ -156,7 +166,8 @@ nonisolated enum CalculAnalyseEndormissement {
             sport: sport,
             iob: iob,
             charge: charge,
-            issue: issue
+            issue: issue,
+            rechute: rechute
         )
     }
 

@@ -152,7 +152,7 @@ nonisolated struct ResultatPrise: Identifiable, Sendable, Hashable {
 /// que l'intention déclarée visait ?
 ///
 /// **Statistique descriptive pure**, dans la famille de `CalculRatioObserve`
-/// et `CalculSituationsCoucher` : entrées et sorties en value types, aucun
+/// et `CalculRepasARevoir` : entrées et sorties en value types, aucun
 /// accès SwiftData, aucun modèle entraîné. Chaque verdict est recomptable à
 /// la main depuis les points CGM et les seuils du profil.
 ///

@@ -57,6 +57,11 @@ struct CorrectionSoir: Identifiable, Sendable, Equatable {
     let charge: ChargeActivite
 
     let issue: IssueCorrection
+
+    /// `true` si un resucrage **correctif** pris après cette correction a été
+    /// suivi d'une **nouvelle** hypo dans l'heure. Même définition que B1 et
+    /// B2 (`DetectionRechute`).
+    var rechute: Bool = false
 }
 
 // MARK: - Snapshot B3

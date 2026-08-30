@@ -882,6 +882,77 @@ private nonisolated extension CalculAnalyseBasale {
 
     // MARK: Petits outils
 
+    /// Un épisode hypo de la zone (bas dans la plage, ou chevauchant) suivi
+    /// d'un repas loggé — même fenêtre que le resucrage de `bilanHypos`.
+    /// Détecté indépendamment du bilan complet (fenêtre de sommeil entière)
+    /// car requis avant lui dans le pipeline, sur la seule plage de la zone.
+    static func resucrageDans(
+        _ plage: ClosedRange<Date>,
+        episodes: [EpisodeHypo],
+        resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)],
+        config: ConfigBasale
+    ) -> Bool {
+        // Toutes intentions confondues : des glucides faussent la pente, quelle
+        // que soit la raison de la prise (correctif comme préventif).
+        episodes.contains { episode in
+            guard plage.overlaps(episode.debut...episode.fin) else { return false }
+            return resucrages.contains { estDans($0.heure, episode: episode, config: config) }
+        }
+    }
+
+    /// Points bas des épisodes hypo — pour les pills du graphique.
+    static func episodesHypo(_ cgm: [(date: Date, valeur: Int)], seuil: Int) -> [(date: Date, valeur: Int)] {
+        episodesHypoDetail(cgm, seuil: seuil).map { (date: $0.bas, valeur: $0.valeur) }
+    }
+
+    /// Glycémie au réveil = **médiane** des mesures de la dernière demi-heure
+    /// avant `fin` (sinon les 3 derniers points). Plus robuste qu'un point
+    /// unique, qui peut être un pic isolé en plein dawn.
+    static func glycemieReveil(_ cgm: [(date: Date, valeur: Int)], avant fin: Date) -> Int? {
+        let fenetre = cgm.filter { $0.date >= fin.addingTimeInterval(-1800) && $0.date <= fin }
+        let echantillon = fenetre.isEmpty ? Array(cgm.suffix(3)) : fenetre
+        guard !echantillon.isEmpty else { return nil }
+        let triees = echantillon.map(\.valeur).sorted()
+        return triees[triees.count / 2]
+    }
+
+    static func valeurProche(_ cgm: [(date: Date, valeur: Int)], a t: Date) -> Double {
+        guard let p = cgm.min(by: { abs($0.date.timeIntervalSince(t)) < abs($1.date.timeIntervalSince(t)) })
+        else { return 0 }
+        return Double(p.valeur)
+    }
+
+    static func caracteristique(_ points: [(date: Date, valeur: Int)], slope: Double?, hypo: Bool = false) -> CurveCharacteristic {
+        guard let slope, points.count >= 2 else { return .stable }
+        if coefficientVariation(points.map(\.valeur)) > 0.36 { return .chaotic }
+        if hypo { return .hypoEvent }
+        switch slope {
+        case ..<(-3):  return .steepDrop
+        case ..<(-1):  return .gradualDrop
+        case ...1:     return .stable
+        case ...3:     return .gradualRise
+        default:       return .steepRise
+        }
+    }
+
+    static func doseFmt(_ d: Double) -> String {
+        d == d.rounded() ? String(format: "%.0f", d) : String(format: "%.1f", d)
+    }
+
+    static func heureFr(_ date: Date) -> String {
+        let c = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return String(format: "%dh%02d", c.hour ?? 0, c.minute ?? 0)
+    }
+}
+
+// MARK: - Taxonomie des hypos (partagée)
+
+/// Découpage en épisodes et taxonomie des hypos — **internes** (et non
+/// `private` comme le reste des helpers de ce fichier) parce que B2/B3 les
+/// réutilisent via `DetectionRechute` : l'app doit avoir une seule définition
+/// de « rechute », pas une par écran.
+nonisolated extension CalculAnalyseBasale {
+
     /// Un épisode hypo contigu : bornes temporelles + point le plus bas.
     typealias EpisodeHypo = (debut: Date, fin: Date, bas: Date, valeur: Int)
 
@@ -904,28 +975,10 @@ private nonisolated extension CalculAnalyseBasale {
         return resultat
     }
 
-    /// Un épisode hypo de la zone (bas dans la plage, ou chevauchant) suivi
-    /// d'un repas loggé — même fenêtre que le resucrage de `bilanHypos`.
-    /// Détecté indépendamment du bilan complet (fenêtre de sommeil entière)
-    /// car requis avant lui dans le pipeline, sur la seule plage de la zone.
-    static func resucrageDans(
-        _ plage: ClosedRange<Date>,
-        episodes: [EpisodeHypo],
-        resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)],
-        config: ConfigBasale
-    ) -> Bool {
-        // Toutes intentions confondues : des glucides faussent la pente, quelle
-        // que soit la raison de la prise (correctif comme préventif).
-        episodes.contains { episode in
-            guard plage.overlaps(episode.debut...episode.fin) else { return false }
-            return resucrages.contains { estDans($0.heure, episode: episode, config: config) }
-        }
-    }
-
     /// Une prise de glucides traite-t-elle cet épisode ? Fenêtre = durée de
     /// l'épisode, élargie à `fenetreResucrageMin` après son début pour les
     /// hypos très courtes, corrigées avant que le CGM ne remonte.
-    private static func estDans(
+    static func estDans(
         _ heure: Date, episode: EpisodeHypo, config: ConfigBasale
     ) -> Bool {
         let borne = max(episode.fin, episode.debut.addingTimeInterval(config.fenetreResucrageMin * 60))
@@ -985,49 +1038,5 @@ private nonisolated extension CalculAnalyseBasale {
         }
         bilan.enSerie = indicesEnSerie.count
         return bilan
-    }
-
-    /// Points bas des épisodes hypo — pour les pills du graphique.
-    static func episodesHypo(_ cgm: [(date: Date, valeur: Int)], seuil: Int) -> [(date: Date, valeur: Int)] {
-        episodesHypoDetail(cgm, seuil: seuil).map { (date: $0.bas, valeur: $0.valeur) }
-    }
-
-    /// Glycémie au réveil = **médiane** des mesures de la dernière demi-heure
-    /// avant `fin` (sinon les 3 derniers points). Plus robuste qu'un point
-    /// unique, qui peut être un pic isolé en plein dawn.
-    static func glycemieReveil(_ cgm: [(date: Date, valeur: Int)], avant fin: Date) -> Int? {
-        let fenetre = cgm.filter { $0.date >= fin.addingTimeInterval(-1800) && $0.date <= fin }
-        let echantillon = fenetre.isEmpty ? Array(cgm.suffix(3)) : fenetre
-        guard !echantillon.isEmpty else { return nil }
-        let triees = echantillon.map(\.valeur).sorted()
-        return triees[triees.count / 2]
-    }
-
-    static func valeurProche(_ cgm: [(date: Date, valeur: Int)], a t: Date) -> Double {
-        guard let p = cgm.min(by: { abs($0.date.timeIntervalSince(t)) < abs($1.date.timeIntervalSince(t)) })
-        else { return 0 }
-        return Double(p.valeur)
-    }
-
-    static func caracteristique(_ points: [(date: Date, valeur: Int)], slope: Double?, hypo: Bool = false) -> CurveCharacteristic {
-        guard let slope, points.count >= 2 else { return .stable }
-        if coefficientVariation(points.map(\.valeur)) > 0.36 { return .chaotic }
-        if hypo { return .hypoEvent }
-        switch slope {
-        case ..<(-3):  return .steepDrop
-        case ..<(-1):  return .gradualDrop
-        case ...1:     return .stable
-        case ...3:     return .gradualRise
-        default:       return .steepRise
-        }
-    }
-
-    static func doseFmt(_ d: Double) -> String {
-        d == d.rounded() ? String(format: "%.0f", d) : String(format: "%.1f", d)
-    }
-
-    static func heureFr(_ date: Date) -> String {
-        let c = Calendar.current.dateComponents([.hour, .minute], from: date)
-        return String(format: "%dh%02d", c.hour ?? 0, c.minute ?? 0)
     }
 }

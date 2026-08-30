@@ -20,18 +20,14 @@ import SwiftUI
 /// (corpus `RechercheCoucher`, distinct de la fenêtre de dose du tableau).
 ///
 /// Le contexte n'est **pas** un filtre : il est affiché sur chaque ligne pour
-/// comparaison humaine (transparence, pas de score). Le matching de contexte
-/// est porté par la **situation épinglée** : si la glycémie saisie + le
-/// contexte connu correspondent à une situation minée de la page, sa carte
-/// remonte avec le badge « ce soir ».
+/// comparaison humaine (transparence, pas de score). Filtrer sur le contexte
+/// complet viderait les résultats avec ~60 nuits d'historique, et un score de
+/// similarité pondéré serait opaque.
 ///
 /// Chaque soir est tappable → `SheetDetailSoiree` (sheet empilée).
 /// Des faits, jamais un conseil de glucides ou de dose.
 struct SheetComparerCeSoir: View {
 
-    /// Situations minées de la page (fenêtre de dose courante) — pour
-    /// l'épinglage après saisie.
-    var situations: [SituationCoucher] = []
     /// Dose de lente courante (affichée dans le contexte de ce soir).
     var doseActuelle: Double = 0
     /// Corpus injecté — pour les previews (court-circuite le hub).
@@ -205,10 +201,6 @@ struct SheetComparerCeSoir: View {
         if let g = glycemie {
             let proches = soirsProches(de: g)
 
-            if let situation = situationEpinglee(glycemie: g) {
-                CarteSituationCoucher(situation: situation, epinglee: true)
-            }
-
             if proches.isEmpty {
                 messageInfo("Aucun soir comparable à ±\(Int(bande)) mg/dL sur les \(RechercheCoucher.fenetreNuits) dernières nuits. Pas de quoi conclure.")
             } else {
@@ -242,25 +234,6 @@ struct SheetComparerCeSoir: View {
         (corpus?.soirs ?? [])
             .filter { abs($0.glycemie - g) <= Int(bande) }
             .sorted { abs($0.glycemie - g) < abs($1.glycemie - g) }
-    }
-
-    /// Situation minée correspondant au contexte de ce soir : tous ses
-    /// facteurs sont présents sur un **pseudo-soir** construit avec la
-    /// glycémie saisie + le contexte connu. Les facteurs inconnaissables ce
-    /// soir (catégorie B1, correction pas encore prise) ne matchent pas —
-    /// honnête par construction.
-    private func situationEpinglee(glycemie g: Int) -> SituationCoucher? {
-        guard let contexte = contexteCeSoir else { return nil }
-        let pseudoSoir = SoirCoucher(
-            id: UUID(), date: Date(), dateNuit: Calendar.current.startOfDay(for: Date()),
-            glycemie: g, tendance: .stable,
-            correction: nil, glucides: nil, sport: contexte.sport,
-            iob: contexte.iob, charge: contexte.charge, categorieB1: nil,
-            enHypo: false, delaiHypoMinutes: nil, issueCorrection: nil
-        )
-        return situations.first { situation in
-            situation.facteurs.allSatisfy { $0.present(dans: pseudoSoir) }
-        }
     }
 
     // MARK: Groupes de résultats
@@ -338,7 +311,6 @@ struct SheetComparerCeSoir: View {
 #Preview("Comparer à ce soir") {
     let fusion = AnalyseHyposCoucher.mock
     return SheetComparerCeSoir(
-        situations: fusion.situations,
         doseActuelle: 18,
         corpusApercu: RechercheCoucher.Corpus(
             soirs: fusion.soirs, nuits: [], changementDoseRecent: nil

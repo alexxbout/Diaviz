@@ -28,9 +28,9 @@ struct DetailAnalyseBasaleVue: View {
     let corrections: AnalyseCorrections
 
     /// Fusion B2+B3 dérivée à la volée (calcul pur, instantané) — la timeline
-    /// B1 alimente le facteur « nuit descendante » des situations.
+    /// B1 fournit la catégorie de nuit affichée dans la sheet détail de soirée.
     private var hyposCoucher: AnalyseHyposCoucher {
-        CalculSituationsCoucher.analyser(
+        CalculHyposCoucher.analyser(
             endormissement: endormissement,
             corrections: corrections,
             timeline: analyse.timeline,
