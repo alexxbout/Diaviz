@@ -90,6 +90,78 @@ struct ChipCharge: View {
     }
 }
 
+// MARK: - Chip de critère (filtre de recherche)
+
+/// Chip **tappable** de la recherche « Comparer à ce soir » : un critère de
+/// contexte qu'on active pour rétrécir le corpus.
+///
+/// Elle porte son **compteur** — le nombre de soirs qui resteraient si le
+/// critère était ajouté aux critères déjà actifs. Avec ~60 nuits d'historique,
+/// c'est ce qui rend le filtrage utilisable : on voit le coût d'un critère
+/// avant de le poser. Un critère qui viderait la liste est désactivé plutôt
+/// que de mener à un écran vide sans coupable identifiable.
+///
+/// Teinte d'accent (et non l'indigo des corrections) : ici la couleur dit
+/// « sélectionné », pas « c'est une correction ».
+struct ChipCritereCoucher: View {
+
+    let critere: CritereCoucher
+    let actif: Bool
+    /// Soirs restants si le critère était activé. `nil` tant qu'aucune
+    /// glycémie n'est saisie — il n'y a alors pas de base à compter.
+    let compte: Int?
+    let action: () -> Void
+
+    /// Inutilisable : l'activer ne laisserait aucun soir.
+    private var indisponible: Bool { !actif && compte == 0 }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: critere.symbole)
+                Text(critere.libelle)
+                if let compte {
+                    Text("· \(compte)")
+                        .monospacedDigit()
+                        .foregroundStyle(actif ? Color.accentColor.opacity(0.7) : Color.secondary.opacity(0.6))
+                }
+            }
+            .font(.system(size: 13, weight: actif ? .medium : .regular))
+            .foregroundStyle(couleurTexte)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(fond, in: RoundedRectangle(cornerRadius: Radius.small, style: .continuous))
+            .overlay {
+                if actif {
+                    RoundedRectangle(cornerRadius: Radius.small, style: .continuous)
+                        .strokeBorder(Color.accentColor.opacity(0.45), lineWidth: 1)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(indisponible)
+        .accessibilityLabel(critere.libelle)
+        .accessibilityValue(libelleAccessible)
+        .accessibilityAddTraits(actif ? [.isSelected] : [])
+        .accessibilityHint(indisponible ? "Aucun soir avec ce critère" : "Restreint la recherche")
+    }
+
+    private var couleurTexte: Color {
+        if indisponible { return .secondary.opacity(0.5) }
+        return actif ? .accentColor : .secondary
+    }
+
+    private var fond: Color {
+        actif ? Color.accentColor.opacity(0.14) : Color(.tertiarySystemFill)
+    }
+
+    private var libelleAccessible: String {
+        guard let compte else { return actif ? "actif" : "inactif" }
+        let etat = actif ? "actif" : "inactif"
+        return "\(etat), \(compte) soir\(compte > 1 ? "s" : "")"
+    }
+}
+
 // MARK: - Chips d'un soir (construction partagée)
 
 extension SoirCoucher {

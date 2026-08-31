@@ -19,10 +19,16 @@ import SwiftUI
 /// hypo / resté stable », sur **60 nuits glissantes toutes doses confondues**
 /// (corpus `RechercheCoucher`, distinct de la fenêtre de dose du tableau).
 ///
-/// Le contexte n'est **pas** un filtre : il est affiché sur chaque ligne pour
-/// comparaison humaine (transparence, pas de score). Filtrer sur le contexte
-/// complet viderait les résultats avec ~60 nuits d'historique, et un score de
-/// similarité pondéré serait opaque.
+/// Le contexte de ce soir est proposé en **critères activables** (chips) :
+/// même sport, même type de séance, même charge de la semaine, insuline encore
+/// active. Ils se combinent en ET et rétrécissent le corpus.
+///
+/// Chaque chip porte le **nombre de soirs qui resteraient** si on l'activait :
+/// avec ~60 nuits, c'est ce qui rend le filtrage utilisable — on voit le coût
+/// d'un critère avant de le poser, et un critère qui viderait la liste est
+/// désactivé plutôt que de mener à un écran vide sans coupable identifiable.
+/// Pas de score de similarité pondéré : opaque, et il inventerait de la
+/// précision sur un historique de cette taille.
 ///
 /// Chaque soir est tappable → `SheetDetailSoiree` (sheet empilée).
 /// Des faits, jamais un conseil de glucides ou de dose.
@@ -43,6 +49,8 @@ struct SheetComparerCeSoir: View {
     @State private var corpus: RechercheCoucher.Corpus?
     @State private var contexteCeSoir: RechercheCoucher.ContexteCeSoir?
     @State private var soirDetail: SoirCoucher?
+    /// Critères de contexte activés — combinés en ET avec la bande de glycémie.
+    @State private var criteresActifs: Set<CritereCoucher> = []
     @FocusState private var champFocus: Bool
 
     private var glycemie: Int? { Int(glycemieTexte) }
@@ -52,7 +60,7 @@ struct SheetComparerCeSoir: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     saisie
-                    recapContexte
+                    criteresContexte
                     reglageBande
                     boutonRecherche
                     if rechercheLancee { resultats }
@@ -126,33 +134,68 @@ struct SheetComparerCeSoir: View {
         .clipShape(NiveauCarte.carte.forme)
     }
 
-    // MARK: - Récap contexte de ce soir (pré-rempli depuis le hub)
+    // MARK: - Critères de contexte (pré-remplis depuis le hub, activables)
 
-    private var recapContexte: some View {
+    /// Critères proposables d'après le contexte réel de ce soir.
+    private var criteresDisponibles: [CritereCoucher] {
+        guard let contexte = contexteCeSoir else { return [] }
+        return FiltreCoucher.criteres(
+            charge: contexte.charge, sport: contexte.sport, iob: contexte.iob
+        )
+    }
+
+    private var criteresContexte: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Ce soir (connu de l'app)")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline) {
+                Text("Ce soir (connu de l'app)")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                // La dose de lente n'est pas un critère : sur 60 nuits toutes
+                // doses confondues, filtrer dessus reviendrait à revenir à la
+                // fenêtre du tableau. Affichée pour mémoire, pas activable.
+                if let dose = contexteCeSoir?.doseLente, dose > 0 {
+                    Text("lente \(dose.formatted()) u")
+                        .font(.caption)
+                        .monospacedDigit()
+                        .foregroundStyle(.tertiary)
+                }
+            }
 
             FlowLayout(spacing: 6) {
-                if let contexte = contexteCeSoir {
-                    if contexte.doseLente > 0 {
-                        ChipContexte(chip: .init(symbole: "syringe.fill",
-                                                 texte: "lente \(contexte.doseLente.formatted())u",
-                                                 accent: false))
-                    }
-                    ChipCharge(charge: contexte.charge)
-                    if let sport = contexte.sport {
-                        ChipContexte(chip: .init(symbole: "figure.run",
-                                                 texte: "\(sport.type) · \(sport.dureeTexte)",
-                                                 accent: false))
-                    }
-                    if let iob = contexte.iob {
-                        ChipContexte(chip: .init(symbole: "drop.fill",
-                                                 texte: "IOB \(String(format: "%.1f", iob))U",
-                                                 accent: false))
-                    }
+                ForEach(criteresDisponibles) { critere in
+                    ChipCritereCoucher(
+                        critere: critere,
+                        actif: criteresActifs.contains(critere),
+                        compte: compte(critere),
+                        action: { basculer(critere) }
+                    )
                 }
+            }
+
+            Text(criteresActifs.isEmpty
+                 ? "Tape un critère pour ne garder que les soirs qui ressemblent à ce soir. Le nombre = soirs restants."
+                 : "\(criteresActifs.count) critère\(criteresActifs.count > 1 ? "s" : "") actif\(criteresActifs.count > 1 ? "s" : "") — moins de soirs, donc moins de recul.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+    }
+
+    /// Soirs restants si `critere` s'ajoutait aux critères actifs. `nil` tant
+    /// qu'aucune glycémie n'est saisie : sans bande, il n'y a pas de base.
+    private func compte(_ critere: CritereCoucher) -> Int? {
+        guard let g = glycemie else { return nil }
+        return FiltreCoucher.compteSiAjoute(
+            critere, dans: soirsDansLaBande(de: g), criteres: criteresActifs
+        )
+    }
+
+    private func basculer(_ critere: CritereCoucher) {
+        withAnimation(.easeInOut(duration: 0.15)) {
+            if criteresActifs.contains(critere) {
+                criteresActifs.remove(critere)
+            } else {
+                criteresActifs.insert(critere)
             }
         }
     }
@@ -202,7 +245,8 @@ struct SheetComparerCeSoir: View {
             let proches = soirsProches(de: g)
 
             if proches.isEmpty {
-                messageInfo("Aucun soir comparable à ±\(Int(bande)) mg/dL sur les \(RechercheCoucher.fenetreNuits) dernières nuits. Pas de quoi conclure.")
+                let avecCriteres = criteresActifs.isEmpty ? "" : " avec ces critères"
+                messageInfo("Aucun soir comparable à ±\(Int(bande)) mg/dL\(avecCriteres) sur les \(RechercheCoucher.fenetreNuits) dernières nuits. Pas de quoi conclure.")
             } else {
                 let hypos = proches.filter(\.enHypo)
                 let stables = proches.filter { !$0.enHypo }
@@ -220,7 +264,7 @@ struct SheetComparerCeSoir: View {
                         groupeStables(stables)
                     }
 
-                    Text("Recherche sur les \(RechercheCoucher.fenetreNuits) dernières nuits, toutes doses de lente confondues. Le contexte affiché n'est pas un filtre — à toi de comparer.")
+                    Text(noteBasDePage)
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
@@ -228,12 +272,28 @@ struct SheetComparerCeSoir: View {
         }
     }
 
-    /// Soirs du corpus dont la glycémie est dans la bande, du plus proche au
-    /// plus éloigné de la saisie.
+    /// Base de comparaison : soirs du corpus dans la bande de glycémie, **sans**
+    /// les critères de contexte. C'est sur elle que se comptent les chips —
+    /// chacune montre alors ce qu'elle retirerait à la sélection courante.
+    private func soirsDansLaBande(de g: Int) -> [SoirCoucher] {
+        (corpus?.soirs ?? []).filter { abs($0.glycemie - g) <= Int(bande) }
+    }
+
+    /// Résultats affichés : bande de glycémie **et** critères actifs, du plus
+    /// proche au plus éloigné de la saisie.
     private func soirsProches(de g: Int) -> [SoirCoucher] {
-        (corpus?.soirs ?? [])
-            .filter { abs($0.glycemie - g) <= Int(bande) }
+        FiltreCoucher.filtrer(soirsDansLaBande(de: g), par: criteresActifs)
             .sorted { abs($0.glycemie - g) < abs($1.glycemie - g) }
+    }
+
+    /// Rappel de portée, adapté à la présence de critères : sans filtre le
+    /// contexte affiché sur les lignes reste à comparer à l'œil ; avec filtre
+    /// c'est l'effectif réduit qu'il faut garder en tête.
+    private var noteBasDePage: String {
+        let base = "Recherche sur les \(RechercheCoucher.fenetreNuits) dernières nuits, toutes doses de lente confondues."
+        return criteresActifs.isEmpty
+            ? base + " Le contexte affiché sur chaque ligne n'est pas filtré — à toi de comparer."
+            : base + " Filtrée sur \(criteresActifs.count) critère\(criteresActifs.count > 1 ? "s" : "") : lis les dénominateurs, l'effectif est plus petit."
     }
 
     // MARK: Groupes de résultats
