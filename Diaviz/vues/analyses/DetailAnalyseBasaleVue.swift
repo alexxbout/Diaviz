@@ -13,8 +13,7 @@ import SwiftUI
 ///   1. **Tendance basale** (B1)     — verdict, courbes, timeline, répartition,
 ///      historique de dose, résumé IA
 ///   2. **Hypos au coucher** (B2+B3) — fusion endormissement + corrections,
-///      focus hypo : chiffre honnête, situations minées, soirs listés,
-///      « Comparer à ce soir »
+///      focus hypo : métriques comptées, soirs listés, « Comparer à ce soir »
 ///
 /// En-tête : rangée de **pills draguables** (`PillsCoucher`) posée **fixe** au
 /// dessus du contenu scrollable.
@@ -136,6 +135,12 @@ struct DetailAnalyseBasaleVue: View {
     /// moyenne et nuits exclues ; seuls ses motifs étaient uniques.
     private var contenuBasale: some View {
         VStack(spacing: 12) {
+            EnTeteAnalyse(
+                surtitre: "Analyse du coucher",
+                titre: "Tendance basale",
+                accroche: "La pente de tes nuits profondes, mesurée depuis ta prise de lente.",
+                ambiance: .nuit
+            )
             CarteVerdictBasale(analyse: analyse)
             CourbesNocturnesChart(
                 nights: analyse.nightChartData,

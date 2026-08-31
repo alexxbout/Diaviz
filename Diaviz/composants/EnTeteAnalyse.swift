@@ -1,0 +1,315 @@
+//
+//  EnTeteAnalyse.swift
+//  diaviz
+//
+
+import SwiftUI
+
+/// Carte de présentation posée en tête d'une page d'analyse : un dégradé
+/// génératif grainé, le nom de l'analyse et une phrase qui dit ce qu'elle
+/// observe.
+///
+/// **Aucun asset.** Une image aurait dû être déclinée en @2x/@3x, refaite pour
+/// le mode clair et retouchée à chaque évolution de palette ; le dégradé, lui,
+/// suit le thème et s'adapte à toutes les tailles. C'est aussi la grammaire
+/// que l'app parle déjà avec le mesh de la carte de score.
+///
+/// **Pas de Liquid Glass** : le verre est la couche de chrome qui flotte
+/// au-dessus du contenu (pilules, barres). Cette carte *est* du contenu — du
+/// verre ici n'aurait rien à échantillonner et se lirait terne.
+///
+/// L'accroche reste **descriptive**, jamais un verdict : elle dit ce que la
+/// page regarde, la conclusion appartient aux cartes qui suivent.
+struct EnTeteAnalyse: View {
+
+    /// Ambiance chromatique — une par analyse, pour que la page se reconnaisse
+    /// à sa couleur avant même d'être lue.
+    enum Ambiance {
+        /// Tendance basale — indigo de nuit.
+        case nuit
+        /// Hypos au coucher — violet grenat.
+        case coucher
+        /// Détail du score — vert-jaune profond. Teinte **fixe** : elle ne
+        /// suit pas la valeur du score, sinon la carte annoncerait le verdict
+        /// avant qu'on l'ait lu.
+        case score
+        /// Écart de ratio (R1) — sarcelle profond.
+        case ratio
+        /// Glucides de la semaine — cuivre, la teinte que porte déjà la carte
+        /// d'accueil correspondante.
+        case glucides
+        /// Bibliothèque — sépia d'encre, registre éditorial.
+        case bibliotheque
+
+        /// Décale le motif de bruit d'une analyse à l'autre : deux cartes
+        /// affichées l'une sous l'autre partageraient sinon exactement le même
+        /// grain, ce que l'œil repère.
+        var graineGrain: Float {
+            switch self {
+            case .nuit:         0
+            case .coucher:      137
+            case .score:        271
+            case .ratio:        419
+            case .glucides:     563
+            case .bibliotheque: 701
+            }
+        }
+
+        /// Emoji du badge, quand aucun SF Symbol ne convient — cas des
+        /// glucides, faute de fruit côté symboles système.
+        var emoji: String? {
+            switch self {
+            case .glucides: IconeGlucides.emoji
+            default:        nil
+            }
+        }
+
+        /// SF Symbol du badge — le sujet de la page, pas sa conclusion.
+        var icone: String {
+            switch self {
+            case .nuit:         "moon.stars.fill"
+            case .coucher:      "moon.zzz.fill"
+            case .score:        "target"
+            case .ratio:        "chart.dots.scatter"
+            case .glucides:     "fork.knife"
+            case .bibliotheque: "books.vertical.fill"
+            }
+        }
+
+        /// Cinq teintes, du fond le plus profond au halo le plus vif. Un
+        /// dégradé linéaire à deux couleurs se lit comme un aplat ; ces cinq
+        /// nuances réparties sur une grille donnent des courants de couleur
+        /// qui ne se répètent pas, comme le mesh de la carte de score.
+        ///
+        /// Chaque teinte porte sa variante claire : en mode clair le dégradé
+        /// ne s'éclaircit pas — il resterait sous le texte blanc — il change
+        /// de valeur en gardant sa densité.
+        var palette: (profond: Color, fond: Color, milieu: Color, halo: Color, second: Color) {
+            switch self {
+            case .nuit:
+                (
+                    Color(sombre: (0x0C, 0x12, 0x28), clair: (0x39, 0x40, 0x94)),
+                    Color(sombre: (0x13, 0x1E, 0x3F), clair: (0x5B, 0x66, 0xC2)),
+                    Color(sombre: (0x1D, 0x30, 0x65), clair: (0x7A, 0x84, 0xD4)),
+                    Color(sombre: (0x68, 0x59, 0xCD), clair: (0x99, 0x91, 0xE8)),
+                    Color(sombre: (0x35, 0x77, 0xC2), clair: (0x5F, 0x97, 0xDB))
+                )
+            case .coucher:
+                (
+                    Color(sombre: (0x21, 0x0C, 0x2A), clair: (0x51, 0x23, 0x64)),
+                    Color(sombre: (0x3A, 0x15, 0x42), clair: (0x6C, 0x2A, 0x77)),
+                    Color(sombre: (0x62, 0x21, 0x57), clair: (0x90, 0x38, 0x78)),
+                    Color(sombre: (0xAE, 0x45, 0xCF), clair: (0xB2, 0x51, 0xC5)),
+                    Color(sombre: (0xC1, 0x3A, 0x5D), clair: (0xBA, 0x41, 0x5F))
+                )
+            case .score:
+                // Vert en bas, jaune en haut. Le jaune est monté dans le halo,
+                // la teinte secondaire et le milieu, mais les deux tons les
+                // plus profonds restent verts : c'est le rouge dans les
+                // ombres qui produit l'olive, pas le jaune dans les lumières.
+                (
+                    Color(sombre: (0x0D, 0x2A, 0x18), clair: (0x18, 0x45, 0x2A)),
+                    Color(sombre: (0x14, 0x40, 0x20), clair: (0x22, 0x5E, 0x33)),
+                    Color(sombre: (0x33, 0x76, 0x2C), clair: (0x44, 0x88, 0x3A)),
+                    Color(sombre: (0x8C, 0xD4, 0x40), clair: (0x88, 0xBC, 0x46)),
+                    Color(sombre: (0xD2, 0xDE, 0x3E), clair: (0xC2, 0xCC, 0x4A))
+                )
+            case .ratio:
+                (
+                    Color(sombre: (0x09, 0x21, 0x26), clair: (0x1B, 0x52, 0x60)),
+                    Color(sombre: (0x12, 0x3A, 0x42), clair: (0x23, 0x68, 0x77)),
+                    Color(sombre: (0x1A, 0x57, 0x63), clair: (0x2E, 0x8A, 0x9B)),
+                    Color(sombre: (0x31, 0x99, 0xB0), clair: (0x3D, 0x9E, 0xB0)),
+                    Color(sombre: (0x41, 0x68, 0xAD), clair: (0x4F, 0x7E, 0xBD))
+                )
+            case .glucides:
+                (
+                    Color(sombre: (0x26, 0x17, 0x0C), clair: (0x69, 0x3E, 0x22)),
+                    Color(sombre: (0x41, 0x25, 0x13), clair: (0x84, 0x51, 0x2B)),
+                    Color(sombre: (0x63, 0x39, 0x1D), clair: (0xAA, 0x6D, 0x3C)),
+                    Color(sombre: (0xB0, 0x6F, 0x37), clair: (0xC0, 0x84, 0x4A)),
+                    Color(sombre: (0x87, 0x46, 0x46), clair: (0xAB, 0x61, 0x52))
+                )
+            case .bibliotheque:
+                (
+                    Color(sombre: (0x1C, 0x17, 0x13), clair: (0x4D, 0x40, 0x34)),
+                    Color(sombre: (0x31, 0x28, 0x20), clair: (0x65, 0x54, 0x44)),
+                    Color(sombre: (0x4C, 0x3E, 0x30), clair: (0x86, 0x73, 0x5E)),
+                    Color(sombre: (0x8C, 0x73, 0x54), clair: (0xA0, 0x8A, 0x6F)),
+                    Color(sombre: (0x5F, 0x52, 0x73), clair: (0x7C, 0x70, 0x95))
+                )
+            }
+        }
+    }
+
+    /// Le grain est plus discret en mode clair : sur un fond lumineux, la
+    /// même amplitude se lit comme de la saleté plutôt que comme une matière.
+    @Environment(\.colorScheme) private var colorScheme
+
+    var surtitre: String? = nil
+    let titre: String
+    let accroche: String
+    let ambiance: Ambiance
+
+    /// Hauteur minimale — le contenu peut la dépasser en gros corps de texte,
+    /// jamais l'inverse : une carte qui rétrécit casserait le rythme des pages
+    /// entre elles.
+    private static let hauteurMinimale: CGFloat = 148
+
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            fond
+            texte
+        }
+        .frame(maxWidth: .infinity, minHeight: Self.hauteurMinimale, alignment: .bottomLeading)
+        .clipShape(NiveauCarte.carte.forme)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel([surtitre, titre, accroche].compactMap { $0 }.joined(separator: ". "))
+    }
+
+    private var fond: some View {
+        let p = ambiance.palette
+        return MeshGradient(
+            width: 3,
+            height: 3,
+            points: [
+                // Grille volontairement irrégulière : une grille droite
+                // produit des bandes horizontales, un point décalé suffit à
+                // faire couler la couleur en diagonale.
+                .init(0.00, 0.00), .init(0.55, 0.00), .init(1.00, 0.00),
+                .init(0.00, 0.45), .init(0.38, 0.58), .init(1.00, 0.38),
+                .init(0.00, 1.00), .init(0.62, 1.00), .init(1.00, 1.00),
+            ],
+            colors: [
+                p.halo,    p.milieu, p.second,
+                p.milieu,  p.fond,   p.milieu,
+                p.fond,    p.profond, p.fond,
+            ],
+            colorSpace: .perceptual
+        )
+        // Grain appliqué **au dégradé**, pas en calque au-dessus : le shader
+        // reçoit la couleur déjà rendue et la fait varier pixel par pixel.
+        // Un calque d'image tuilée trahissait sa trame sur les grandes
+        // largeurs et changeait de densité selon l'échelle de l'écran.
+        .colorEffect(
+            ShaderLibrary.grainDiaviz(
+                // Amplitude assumée : le grain doit se voir comme une
+                // matière, pas se deviner. Le bruit reste centré sur zéro,
+                // donc il ne change pas la luminosité moyenne du dégradé et
+                // le texte blanc garde son contraste.
+                .float(colorScheme == .dark ? 0.22 : 0.15),
+                .float(ambiance.graineGrain)
+            )
+        )
+    }
+
+    private var texte: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let surtitre {
+                badge(surtitre)
+                    .padding(.bottom, 4)
+            }
+            Text(titre)
+                .font(.title.weight(.semibold))
+                .foregroundStyle(.white)
+            Text(accroche)
+                .font(.footnote)
+                .foregroundStyle(.white.opacity(0.72))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+    }
+
+    /// Capsule en **Liquid Glass**, seul élément de la carte qui s'y prête :
+    /// elle flotte au-dessus du dégradé — donc au-dessus de contenu, l'usage
+    /// exact du matériau — et va y échantillonner ses couleurs, ce qu'un voile
+    /// blanc à opacité fixe ne sait pas faire. Le reste de la carte reste du
+    /// contenu, et le contenu ne se pose pas sur du verre.
+    private func badge(_ libelle: String) -> some View {
+        HStack(spacing: 5) {
+            if let emoji = ambiance.emoji {
+                Text(emoji).font(.caption2)
+            } else {
+                Image(systemName: ambiance.icone)
+                    .font(.caption2.weight(.semibold))
+            }
+            Text(libelle)
+                .font(.caption.weight(.medium))
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .glassEffect(.regular, in: .capsule)
+    }
+}
+
+// MARK: - Couleur adaptative
+
+private extension Color {
+
+    /// Couleur définie par ses composantes sombres **et** claires — le texte
+    /// posé dessus reste blanc dans les deux thèmes, le dégradé doit donc
+    /// garder sa densité en mode clair plutôt que de s'éclaircir.
+    init(sombre: (Int, Int, Int), clair: (Int, Int, Int)) {
+        self.init(uiColor: UIColor { traits in
+            let c = traits.userInterfaceStyle == .dark ? sombre : clair
+            return UIColor(
+                red: CGFloat(c.0) / 255,
+                green: CGFloat(c.1) / 255,
+                blue: CGFloat(c.2) / 255,
+                alpha: 1
+            )
+        })
+    }
+}
+
+// MARK: - Aperçus
+
+#if DEBUG
+#Preview("Les deux analyses") {
+    ScrollView {
+        VStack(spacing: 12) {
+            EnTeteAnalyse(
+                surtitre: "Analyse du coucher",
+                titre: "Tendance basale",
+                accroche: "La pente de tes nuits profondes, mesurée depuis ta prise de lente.",
+                ambiance: .nuit
+            )
+            EnTeteAnalyse(
+                surtitre: "Analyse du coucher",
+                titre: "Hypos au coucher",
+                accroche: "Ce qui suit tes soirées, selon la façon dont elles commencent.",
+                ambiance: .coucher
+            )
+        }
+        .padding(16)
+    }
+    .background(Color(.systemGroupedBackground))
+}
+
+#Preview("Mode clair") {
+    ScrollView {
+        VStack(spacing: 12) {
+            EnTeteAnalyse(titre: "Tendance basale", accroche: "14 nuits analysées, zone 3 ancrée sur ta lente.", ambiance: .nuit)
+            EnTeteAnalyse(titre: "Hypos au coucher", accroche: "Ce qui suit tes soirées, selon la façon dont elles commencent.", ambiance: .coucher)
+        }
+        .padding(16)
+    }
+    .background(Color(.systemGroupedBackground))
+    .preferredColorScheme(.light)
+}
+
+#Preview("Texte agrandi") {
+    ScrollView {
+        EnTeteAnalyse(
+            surtitre: "Analyse du coucher",
+            titre: "Tendance basale",
+            accroche: "La pente de tes nuits profondes, mesurée depuis ta prise de lente.",
+            ambiance: .nuit
+        )
+        .padding(16)
+    }
+    .background(Color(.systemGroupedBackground))
+    .environment(\.dynamicTypeSize, .accessibility2)
+}
+#endif

@@ -34,6 +34,17 @@ struct SheetEcartRatio: View {
                     )
                 } else {
                     Form {
+                        Section {
+                            EnTeteAnalyse(
+                                surtitre: "Analyse des repas",
+                                titre: "Écart de ratio",
+                                accroche: "Ce que donnent tes repas selon la dose posée, moment par moment.",
+                                ambiance: .ratio
+                            )
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                        }
+
                         ForEach(sections, id: \.groupe) { section in
                             Section {
                                 if let apercu = apercusChangementRatio[section.groupe] {

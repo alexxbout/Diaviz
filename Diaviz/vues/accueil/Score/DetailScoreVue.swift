@@ -60,6 +60,12 @@ struct DetailScoreVue: View {
     var body: some View {
         ScrollView(.vertical) {
             VStack(spacing: 12) {
+                EnTeteAnalyse(
+                    surtitre: "Aujourd'hui",
+                    titre: "Score du jour",
+                    accroche: "100 moins ton indice de risque glycémique, pondéré par la gravité des écarts.",
+                    ambiance: .score
+                )
                 carteResume
                 carteAnalyse
                 carteAPropos

@@ -17,6 +17,18 @@ struct EncyclopedieVue: View {
     var body: some View {
         List {
             Section {
+                EnTeteAnalyse(
+                    surtitre: "Documentation",
+                    titre: "Bibliothèque",
+                    accroche: "Ce que la littérature établit sur le diabète de type 1, sourcé.",
+                    ambiance: .bibliotheque
+                )
+                .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 12, trailing: 0))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
+
+            Section {
                 Text("Ce que la littérature scientifique établit sur le diabète de type 1, résumé et sourcé. Ces fiches ne tiennent pas compte de vos données et ne constituent pas un avis médical.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)

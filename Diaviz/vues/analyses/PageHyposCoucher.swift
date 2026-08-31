@@ -67,6 +67,12 @@ struct PageHyposCoucher: View {
 
     var body: some View {
         VStack(spacing: 12) {
+            EnTeteAnalyse(
+                surtitre: "Analyse du coucher",
+                titre: "Hypos au coucher",
+                accroche: "Ce qui suit tes soirées, selon la façon dont elles commencent.",
+                ambiance: .coucher
+            )
             carteMetriques
             // Hub encore vide : la carte porte déjà le message, inutile
             // d'empiler un bouton de recherche sans corpus ni une liste vide.

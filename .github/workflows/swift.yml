@@ -18,6 +18,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Xcode 26 ne livre plus le compilateur Metal par défaut : sans ce
+      # composant, la compilation de Grain.metal échoue (« cannot execute tool
+      # 'metal' »). Le cache du runner le contient parfois déjà, d'où le test
+      # préalable plutôt qu'un téléchargement systématique de ~700 Mo.
+      - name: Metal toolchain
+        run: |
+          if ! xcrun -f metal >/dev/null 2>&1; then
+            xcodebuild -downloadComponent MetalToolchain
+          else
+            echo "Metal toolchain déjà présente."
+          fi
+
       - name: Select an available iPhone simulator
         id: sim
         run: |
