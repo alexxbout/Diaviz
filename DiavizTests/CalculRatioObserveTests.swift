@@ -216,14 +216,21 @@ struct CalculRatioObserveTests {
         #expect(CalculRatioObserve.libelleGroupe(.diner) == "Dîner")
     }
 
-    @Test("Sections triées par libellé de groupe")
+    @Test("Sections triées dans l'ordre de la journée, pas par libellé")
     func sectionsTriees() {
-        let entrees = repas(tranche: .doseProche, nombre: 5, bons: 1, groupe: .petitDejeuner)
+        // Entrées volontairement mélangées : le dîner d'abord, le petit
+        // déjeuner en dernier.
+        let entrees = repas(tranche: .doseProche, nombre: 5, bons: 1, groupe: .diner)
+            + repas(tranche: .doseProche, nombre: 5, bons: 1, groupe: .enCas)
             + repas(tranche: .doseProche, nombre: 5, bons: 1, groupe: .dejeuner)
-            + repas(tranche: .doseProche, nombre: 5, bons: 1, groupe: .diner)
-        let libelles = CalculRatioObserve.analyser(entrees: entrees)
-            .sections.map { CalculRatioObserve.libelleGroupe($0.groupe) }
+            + repas(tranche: .doseProche, nombre: 5, bons: 1, groupe: .petitDejeuner)
+        let groupes = CalculRatioObserve.analyser(entrees: entrees).sections.map(\.groupe)
 
-        #expect(libelles == libelles.sorted())
+        #expect(groupes == [.petitDejeuner, .dejeuner, .enCas, .diner])
+
+        // Garde-fou : l'ordre alphabétique donnerait « Déjeuner » avant
+        // « Petit déjeuner », c'est exactement ce qu'on ne veut plus.
+        let libelles = groupes.map { CalculRatioObserve.libelleGroupe($0) }
+        #expect(libelles != libelles.sorted())
     }
 }

@@ -6,6 +6,7 @@
 import CryptoKit
 import Foundation
 import Observation
+import SwiftData
 
 /// Service **réel** du mining du ratio observé (cœur ML de R1) — cache en
 /// mémoire, recalculé sur mutation du hub plutôt qu'à chaque frappe de
@@ -53,6 +54,10 @@ nonisolated struct RepartitionRepasMoment: Sendable, Equatable {
     var ajustes = 0
     /// Événement en texte libre, jamais interprété par une analyse.
     var contexteLibre = 0
+    /// Un ratio post-sport était en vigueur au moment du repas : la dose a été
+    /// jugée sur **ce** ratio à la saisie, la comparer au ratio du moment
+    /// mesurerait un écart qui n'existe pas.
+    var ratioSportEnVigueur = 0
     /// Toggle « Exclure des analyses » posé à la main sur le repas.
     var exclusManuellement = 0
     /// Antérieurs au dernier changement de ratio de ce moment : plus
@@ -72,6 +77,7 @@ nonisolated struct RepartitionRepasMoment: Sendable, Equatable {
     var total: Int {
         analyses + enAttente + donneesManquantes + sansInjection
             + ajustes + contexteLibre + exclusManuellement + avantChangementRatio
+            + ratioSportEnVigueur
     }
 
     /// Repas mis de côté sur décision de l'utilisateur (ajustement, contexte
@@ -113,10 +119,25 @@ final class AnalyseRatioService {
     /// aucun fetch CGM ni régression ici, juste un mapping en value types et
     /// un comptage : volume trivial (quelques milliers de repas au grand
     /// maximum), pas besoin de `Task.detached`.
-    func recalculer(depuis repas: [Repas]) {
+    /// - Parameter activites: séances sportives du hub, nécessaires pour
+    ///   écarter les repas où un **ratio post-sport** faisait foi. Injectées
+    ///   plutôt que fetchées ici : le service reste sans `ModelContext`, et
+    ///   le mapping garde des entrées entièrement contrôlables en test.
+    /// Variante appelée par les vues : récupère les séances du hub avant de
+    /// déléguer. Le volume est trivial (quelques centaines de séances au
+    /// grand maximum), pas de bornage nécessaire — et en borner une fenêtre
+    /// risquerait de rater une séance couvrant un repas ancien.
+    func recalculer(depuis repas: [Repas], contexte: ModelContext?) {
+        let activites = contexte.flatMap {
+            try? $0.fetch(FetchDescriptor<ActiviteSportive>())
+        } ?? []
+        recalculer(depuis: repas, activites: activites)
+    }
+
+    func recalculer(depuis repas: [Repas], activites: [ActiviteSportive] = []) {
         let profil = ProfilService.shared.profil
         var ventilation: [SectionRepas?: RepartitionRepasMoment] = [:]
-        let entrees = mapperEntrees(repas, profil: profil, repartitions: &ventilation)
+        let entrees = mapperEntrees(repas, activites: activites, profil: profil, repartitions: &ventilation)
         analyse = CalculRatioObserve.analyser(entrees: entrees)
         apercusChangementRatio = construireApercusChangementRatio(repas, profil: profil)
         repartitions = ventilation
@@ -131,7 +152,7 @@ final class AnalyseRatioService {
     /// l'oubliait simplement. C'est ce qui permet à la carte de saisie de dire
     /// « 4 dîners en attente des glycémies » plutôt que « aucun repas analysé ».
     private func mapperEntrees(
-        _ repas: [Repas], profil: ProfilUtilisateur,
+        _ repas: [Repas], activites: [ActiviteSportive], profil: ProfilUtilisateur,
         repartitions: inout [SectionRepas?: RepartitionRepasMoment]
     ) -> [EntreeRatioRepas] {
         var entrees: [EntreeRatioRepas] = []
@@ -153,6 +174,14 @@ final class AnalyseRatioService {
             guard !r.exclureDesAnalyses else { repartition.exclusManuellement += 1; continue }
             guard !r.aUnEvenement else { repartition.contexteLibre += 1; continue }
             guard r.ajustements.isEmpty else { repartition.ajustes += 1; continue }
+            // Un ratio post-sport en vigueur écarte le repas au même titre
+            // qu'un ajustement manuel : `InsightsService` a jugé la dose sur
+            // ce ratio-là à la saisie, la comparer ici au ratio du moment
+            // classerait un repas correctement dosé comme un écart.
+            guard !ratioSportEnVigueur(a: r.heure, activites: activites, profil: profil) else {
+                repartition.ratioSportEnVigueur += 1
+                continue
+            }
 
             guard let verdict = r.verdictPersiste, verdict != .indetermine,
                   r.totalGlucides > 0 else {
@@ -259,6 +288,28 @@ final class AnalyseRatioService {
     private func dateChangementEffective(groupe: SectionRepas?, profil: ProfilUtilisateur) -> Date? {
         guard let groupe else { return profil.datesChangementRatioEffectives.unique }
         return dateChangement(section: groupe, profil: profil)
+    }
+
+    /// `true` si une séance s'est terminée dans la fenêtre d'effet configurée
+    /// **et** que son type de sport a un ratio post-sport renseigné.
+    ///
+    /// Les deux conditions comptent : sans ratio configuré pour ce sport,
+    /// `InsightsService` laisse la main au ratio du moment à la saisie, donc
+    /// le repas reste légitimement comparable et ne doit pas être écarté.
+    /// Mêmes bornes que `InsightsService.sportRecent` — séance encore en cours
+    /// incluse, `dateFin` comme référence (elle réintègre les pauses).
+    private func ratioSportEnVigueur(
+        a heure: Date, activites: [ActiviteSportive], profil: ProfilUtilisateur
+    ) -> Bool {
+        let ratios = profil.ratiosSportEffectifs
+        let fenetre = ratios.fenetreEffetHeures * 3600
+        return activites.contains { activite in
+            guard activite.dateDebut <= heure else { return false }
+            let depuisFin = heure.timeIntervalSince(activite.dateFin)
+            guard depuisFin <= fenetre else { return false }
+            guard let grammes = ratios.ratio(pour: activite.type), grammes > 0 else { return false }
+            return true
+        }
     }
 
     /// Date du dernier changement du ratio applicable à cette section — même

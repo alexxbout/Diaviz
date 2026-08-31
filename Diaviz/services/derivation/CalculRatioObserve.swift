@@ -142,7 +142,7 @@ nonisolated enum CalculRatioObserve {
         let groupes = Dictionary(grouping: entrees, by: \.groupe)
         let sections = groupes.map { groupe, repas in
             construireSection(groupe: groupe, repas: repas)
-        }.sorted { libelleGroupe($0.groupe) < libelleGroupe($1.groupe) }
+        }.sorted { ordreJournee($0.groupe) < ordreJournee($1.groupe) }
 
         return AnalyseRatioObserve(sections: sections)
     }
@@ -151,6 +151,19 @@ nonisolated enum CalculRatioObserve {
     /// mode ratio unique (`groupe == nil`).
     static func libelleGroupe(_ groupe: SectionRepas?) -> String {
         groupe?.titre ?? "Tous les repas"
+    }
+
+    /// Rang chronologique d'un groupe, pour présenter les moments dans
+    /// l'ordre où ils arrivent dans la journée.
+    ///
+    /// Le tri se faisait auparavant sur le libellé, donc par ordre
+    /// alphabétique : « Déjeuner » passait avant « Petit déjeuner ». La
+    /// déclaration de `SectionRepas` est déjà chronologique, il suffit de la
+    /// suivre. Le mode ratio unique (`nil`) n'a qu'un seul groupe, son rang
+    /// n'a pas d'incidence.
+    private static func ordreJournee(_ groupe: SectionRepas?) -> Int {
+        guard let groupe else { return -1 }
+        return SectionRepas.allCases.firstIndex(of: groupe) ?? .max
     }
 
     // MARK: Classification en tranche

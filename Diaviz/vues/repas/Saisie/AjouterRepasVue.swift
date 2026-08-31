@@ -44,6 +44,10 @@ struct AjouterRepasVue: View {
     @Environment(AnalyseRatioService.self) private var analyseRatioService
     @Environment(GlucidesHebdoService.self) private var glucidesHebdoService
 
+    /// Contexte du hub — sert au mining R1, qui a besoin des séances
+    /// sportives pour écarter les repas où un ratio post-sport faisait foi.
+    @Environment(\.modelContext) private var modelContext
+
     @State private var recherche: String = ""
     @State private var resultats: [AlimentCiqual] = []
     @State private var filtre: FiltreAliment = .bruts
@@ -238,7 +242,7 @@ struct AjouterRepasVue: View {
         // Le verdict de ce repas n'est pas encore connu (CGM pas encore
         // rempli), mais un repas plus ancien a pu changer de statut entre
         // deux ouvertures — remine par précaution, coût négligeable.
-        analyseRatioService.recalculer(depuis: repasService.repas)
+        analyseRatioService.recalculer(depuis: repasService.repas, contexte: modelContext)
         // Un repas de plus (ou de moins) change la moyenne hebdomadaire de
         // glucides — même remine par précaution que la ligne au-dessus.
         glucidesHebdoService.recalculer(depuis: repasService.repas)

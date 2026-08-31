@@ -194,7 +194,7 @@ struct AppTabVues: View {
             await resoudreEtatDemarrage()
             demarrerServicesPreferences()
             repasService.demarrer(contexte: modelContext)
-            analyseRatioService.recalculer(depuis: repasService.repas)
+            analyseRatioService.recalculer(depuis: repasService.repas, contexte: modelContext)
             glucidesHebdoService.recalculer(depuis: repasService.repas)
             // B1 doit être démarré (et son `analyse` à jour) avant B2/B3, qui
             // lisent `analyseBasaleService.analyse` — d'où l'attente séquentielle.
@@ -225,7 +225,7 @@ struct AppTabVues: View {
             repasService.rafraichirAnalyses()
             // Les verdicts persistés viennent de changer (repas passés de
             // enAttente à disponible) : remine le ratio observé.
-            analyseRatioService.recalculer(depuis: repasService.repas)
+            analyseRatioService.recalculer(depuis: repasService.repas, contexte: modelContext)
             glucidesHebdoService.recalculer(depuis: repasService.repas)
         }
         // `.task` séparé : tourne pour toute la durée de vie de l'app (vue
