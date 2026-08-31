@@ -39,9 +39,11 @@ struct CarteGlucidesSemaine: View {
 
     private var ligneTitre: some View {
         HStack(spacing: 6) {
-            Image(systemName: "carrot.fill")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Self.teinte)
+            // Emoji et non SF Symbol : aucun symbole système ne représente un
+            // fruit (`apple.logo` est le logo de la marque). L'app affiche déjà
+            // ses aliments en emoji, la grammaire est donc cohérente.
+            Text(IconeGlucides.emoji)
+                .font(.system(size: 15))
             Text("Glucides")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Self.teinte)
