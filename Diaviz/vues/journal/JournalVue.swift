@@ -91,6 +91,19 @@ struct JournalVue: View {
                         )
                     }
                     .buttonStyle(.plain)
+
+                    // Même page que Profil → Données : l'inventaire appartient
+                    // au corpus, mais le réflexe « où sont mes données » mène
+                    // ici, où vivent déjà les quatre familles de faits.
+                    NavigationLink(destination: PageInventaireDonnees()) {
+                        CarteSection(
+                            icone: "externaldrive",
+                            titre: "Mes données",
+                            sousTitre: "Tout ce qui a été enregistré",
+                            couleur: .teal
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal)
                 .padding(.top, 20)

@@ -127,6 +127,14 @@ struct SousPageDonnees: View {
     var body: some View {
         Form {
             Section {
+                NavigationLink("Mes données") {
+                    PageInventaireDonnees()
+                }
+            } footer: {
+                Text("Combien de repas, d'injections, de séances et de resucrages l'app contient, et depuis quand.")
+            }
+
+            Section {
                 NavigationLink("Diagnostic HealthKit") {
                     VueDiagnosticHealthKit()
                 }
