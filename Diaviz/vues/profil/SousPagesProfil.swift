@@ -182,7 +182,7 @@ struct SousPageDonnees: View {
                 confirmés. Les compteurs indiquent ce qui est présent sur \
                 cet appareil à cet instant — après une réinstallation, ils \
                 montent au fur et à mesure de la réception. Pour une \
-                sauvegarde dont tu maîtrises le contenu, utilise l'archive \
+                sauvegarde dont vous maîtrisez le contenu, utilisez l'archive \
                 ci-dessous.
                 """)
             }
@@ -244,9 +244,9 @@ struct SousPageDonnees: View {
                 Text("Gestion des données")
             } footer: {
                 Text("""
-                **Effacer mon historique** supprime ce que tu as saisi \
+                **Effacer mon historique** supprime ce que vous avez saisi \
                 (repas, injections, sport, resucrages…) et le retire aussi \
-                d'iCloud. Ton profil, tes réglages d'aliments et tes \
+                d'iCloud. Votre profil, vos réglages d'aliments et vos \
                 glycémies restent en place.
 
                 **Tout réinitialiser** efface absolument tout, ici et sur \

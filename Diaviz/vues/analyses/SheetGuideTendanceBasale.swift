@@ -55,7 +55,7 @@ struct SheetGuideTendanceBasale: View {
             La basale ne se lit que sur la partie de la nuit où **rien d'autre \
             n'agit** : plus de repas en cours de digestion, plus d'insuline \
             rapide active, pas encore de montée d'aube. Cette fenêtre est \
-            appelée la **nuit profonde** — elle démarre 2 h après ta lente et \
+            appelée la **nuit profonde** — elle démarre 2 h après votre lente et \
             s'arrête à 4 h du matin.
             """)
             .font(.subheadline)
