@@ -66,19 +66,31 @@ struct PageHyposCoucher: View {
     }
 
     var body: some View {
-        VStack(spacing: 12) {
+        // Deux groupes nommés, même grammaire que la tendance basale : 8pt
+        // à l'intérieur d'un groupe, 24 entre deux. Le bouton de comparaison
+        // rejoint la liste des soirs — il ouvre la recherche du soir le plus
+        // proche, il appartient donc au même geste qu'explorer les soirées.
+        VStack(alignment: .leading, spacing: 24) {
             EnTeteAnalyse(
                 surtitre: "Analyse du coucher",
                 titre: "Hypos au coucher",
                 accroche: "Ce qui suit vos soirées, selon la façon dont elles commencent.",
                 ambiance: .coucher
             )
-            carteMetriques
+
+            VStack(alignment: .leading, spacing: 8) {
+                TitreSection(texte: "Vue d'ensemble")
+                carteMetriques
+            }
+
             // Hub encore vide : la carte porte déjà le message, inutile
             // d'empiler un bouton de recherche sans corpus ni une liste vide.
             if analyse.totalSoirs > 0 {
-                boutonComparer
-                sectionSoirs
+                VStack(alignment: .leading, spacing: 8) {
+                    TitreSection(texte: "Soirée par soirée")
+                    boutonComparer
+                    sectionSoirs
+                }
             }
         }
         .sheet(isPresented: $afficherComparer) {
@@ -304,13 +316,12 @@ struct PageHyposCoucher: View {
     /// Titre + bouton de tri. Le tri est un **bouton bordé lisible** (icône +
     /// critère courant) et non plus une pastille d'icône de 26 pt : la cible
     /// était sous le minimum tapable iOS, et rien n'indiquait le tri actif.
+    /// Barre de contrôles de la liste — plus de titre : « Soirs analysés »
+    /// répétait le titre de groupe posé juste au-dessus. Le tri reste, c'est
+    /// une commande, pas un intitulé.
     private var enTeteSoirs: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text("Soirs analysés")
-                .font(.subheadline.bold())
-                .foregroundStyle(.secondary)
-                .accessibilityAddTraits(.isHeader)
-            Spacer(minLength: 8)
+            Spacer(minLength: 0)
             menuTri
         }
     }

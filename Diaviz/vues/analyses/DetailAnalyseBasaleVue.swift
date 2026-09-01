@@ -134,32 +134,56 @@ struct DetailAnalyseBasaleVue: View {
     /// fondue dans la carte verdict : elle répétait nuits analysées, dérive
     /// moyenne et nuits exclues ; seuls ses motifs étaient uniques.
     private var contenuBasale: some View {
-        VStack(spacing: 12) {
+        // Trois groupes nommés plutôt que six cartes au même écart : sans
+        // titres, rien ne dit lesquelles répondent à la même question. Les
+        // cartes gardent leur en-tête interne — il précise le contenu
+        // (« Glycémie nocturne »), le titre de groupe dit l'intention
+        // (« Nuit par nuit ») — sauf la carte verdict, qui n'en a pas.
+        //
+        // 8pt à l'intérieur d'un groupe, 24 entre deux : c'est l'écart qui
+        // porte l'information, pas une ligne de séparation.
+        VStack(alignment: .leading, spacing: 24) {
             EnTeteAnalyse(
                 surtitre: "Analyse du coucher",
                 titre: "Tendance basale",
                 accroche: "La pente de vos nuits profondes, mesurée depuis votre prise de lente.",
                 ambiance: .nuit
             )
-            CarteVerdictBasale(analyse: analyse)
-            CourbesNocturnesChart(
-                nights: analyse.nightChartData,
-                mode: $mode,
-                indexSelectionne: $indexSelectionne
-            )
-            TimelineNuitsVue(
-                timeline: analyse.timeline,
-                onNightSelected: { date in basculerSurNuit(date: date) }
-            )
-            RepartitionNuitsVue(analyse: analyse)
-            DoseHistoryCard(changes: analyse.doseHistory)
 
-            if analyse.verdict != .donneesInsuffisantes,
-               let resume = analyse.resumeIA {
-                CarteResumeIA(texte: resume)
+            VStack(alignment: .leading, spacing: 8) {
+                TitreSection(texte: "Verdict")
+                CarteVerdictBasale(analyse: analyse)
             }
 
-            boutonGuide
+            VStack(alignment: .leading, spacing: 8) {
+                TitreSection(texte: "Nuit par nuit")
+                CourbesNocturnesChart(
+                    nights: analyse.nightChartData,
+                    mode: $mode,
+                    indexSelectionne: $indexSelectionne
+                )
+                TimelineNuitsVue(
+                    timeline: analyse.timeline,
+                    onNightSelected: { date in basculerSurNuit(date: date) }
+                )
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                TitreSection(texte: "Vue d'ensemble")
+                RepartitionNuitsVue(analyse: analyse)
+                DoseHistoryCard(changes: analyse.doseHistory)
+            }
+
+            // Résumé et guide restent sans titre : ce sont des compléments de
+            // lecture, pas une quatrième question posée aux données.
+            VStack(alignment: .leading, spacing: 12) {
+                if analyse.verdict != .donneesInsuffisantes,
+                   let resume = analyse.resumeIA {
+                    CarteResumeIA(texte: resume)
+                }
+
+                boutonGuide
+            }
         }
     }
 
