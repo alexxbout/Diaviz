@@ -492,7 +492,7 @@ struct AjouterRepasVue: View {
             ContentUnavailableView(
                 "Rechercher un produit",
                 systemImage: "magnifyingglass",
-                description: Text("Appuie sur « rechercher » sur le clavier pour interroger Open Food Facts")
+                description: Text("Appuyez sur « rechercher » sur le clavier pour interroger Open Food Facts")
             )
         } else if rechercheProduits.resultats.isEmpty {
             ContentUnavailableView.search(text: rechercheProduits.termeAffiche)

@@ -139,7 +139,7 @@ struct SousPageDonnees: View {
                     VueDiagnosticHealthKit()
                 }
             } footer: {
-                Text("Vérifie ce que l'app reçoit d'Apple Santé (autorisations, dernières glycémies importées).")
+                Text("Vérifiez ce que l'app reçoit d'Apple Santé (autorisations, dernières glycémies importées).")
             }
 
             Section {
@@ -381,7 +381,7 @@ struct SousPageDonnees: View {
 
     private var titreConfirmation: String {
         switch suppressionEnCours {
-        case .historique: "Effacer ton historique ?"
+        case .historique: "Effacer votre historique ?"
         case .toutYComprisICloud: "Tout réinitialiser ?"
         case nil: ""
         }
@@ -401,7 +401,7 @@ struct SousPageDonnees: View {
     private var messageConfirmation: String {
         switch suppressionEnCours {
         case .historique:
-            "Repas, injections, activités sportives, resucrages, états et médications seront définitivement supprimés, ici et sur iCloud. Ton profil, tes réglages d'aliments et tes glycémies sont conservés. Action irréversible."
+            "Repas, injections, activités sportives, resucrages, états et médications seront définitivement supprimés, ici et sur iCloud. Votre profil, vos réglages d'aliments et vos glycémies sont conservés. Action irréversible."
         case .toutYComprisICloud:
             "Toutes les données de l'app seront supprimées de cet appareil ET du stockage iCloud, glycémies, profil et réglages compris. Les glycémies se ré-importeront d'Apple Santé. Relance l'app juste après. Action irréversible."
         case nil:

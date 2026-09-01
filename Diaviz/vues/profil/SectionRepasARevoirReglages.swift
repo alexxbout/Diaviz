@@ -54,7 +54,7 @@ struct SectionRepasARevoirReglages: View {
                 masquesService.toutDemasquer()
             }
         } message: {
-            Text("Tous les repas que tu as masqués réapparaîtront dans « Repas à revoir » s'ils sont toujours hors cible.")
+            Text("Tous les repas que vous avez masqués réapparaîtront dans « Repas à revoir » s'ils sont toujours hors cible.")
         }
     }
 

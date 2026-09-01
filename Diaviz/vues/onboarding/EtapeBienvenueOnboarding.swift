@@ -34,7 +34,7 @@ struct EtapeBienvenueOnboarding: View {
                 Text("Diaviz")
                     .font(.largeTitle.weight(.bold))
 
-                Text("Comprends tes propres patterns glycémiques, jour après jour.")
+                Text("Comprenez vos propres patterns glycémiques, jour après jour.")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

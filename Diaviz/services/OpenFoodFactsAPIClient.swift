@@ -27,7 +27,7 @@ enum OFFError: Error {
         case .rateLimite:
             return "Trop de recherches d'affilée — réessaie dans une minute."
         case .reseau:
-            return "Impossible de joindre Open Food Facts. Vérifie ta connexion."
+            return "Impossible de joindre Open Food Facts. Vérifiez votre connexion."
         case .statutHTTP(let code) where code >= 500:
             return "Open Food Facts est momentanément indisponible. Réessaie dans un instant."
         case .urlInvalide, .statutHTTP, .decodage:

@@ -70,7 +70,7 @@ struct PageHyposCoucher: View {
             EnTeteAnalyse(
                 surtitre: "Analyse du coucher",
                 titre: "Hypos au coucher",
-                accroche: "Ce qui suit tes soirées, selon la façon dont elles commencent.",
+                accroche: "Ce qui suit vos soirées, selon la façon dont elles commencent.",
                 ambiance: .coucher
             )
             carteMetriques

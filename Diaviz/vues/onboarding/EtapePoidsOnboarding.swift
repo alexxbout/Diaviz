@@ -39,7 +39,7 @@ struct EtapePoidsOnboarding: View {
                 .buttonStyle(.bordered)
                 .clipShape(Circle())
 
-                Text("Passer si tu ne le connais pas")
+                Text("Passer si vous ne le connaissez pas")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
 

@@ -367,8 +367,8 @@ final class AnalyseRatioService {
             id: Self.idDeterministe(signature),
             categorie: .informatif,
             titre: libelleGroupe,
-            message: "Tes repas à \(ecart.trancheOptimale.libelle) ont \(optimal) % de bons résultats, "
-                + "contre \(configure) % à ton ratio actuel.",
+            message: "Vos repas à \(ecart.trancheOptimale.libelle) ont \(optimal) % de bons résultats, "
+                + "contre \(configure) % à votre ratio actuel.",
             microVisuel: .grandNombre(valeur: "\(optimal) %"),
             lienAnalyse: nil
         )

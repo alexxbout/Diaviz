@@ -240,7 +240,7 @@ struct DetailAlimentSheet: View {
             Button("OK") { appliquerCorrectionGlucides() }
             Button("Annuler", role: .cancel) { saisieGlucides100gTexte = "" }
         } message: {
-            Text("Valeur indiquée sur ton paquet, si elle diffère de celle de \(sourceAliment) (\(formateGlucides(aliment.glucidesOrigine)) g). Mémorisée pour ce produit ; les repas déjà enregistrés gardent leur valeur d'origine.")
+            Text("Valeur indiquée sur votre paquet, si elle diffère de celle de \(sourceAliment) (\(formateGlucides(aliment.glucidesOrigine)) g). Mémorisée pour ce produit ; les repas déjà enregistrés gardent leur valeur d'origine.")
         }
     }
 

@@ -38,7 +38,7 @@ struct SheetEcartRatio: View {
                             EnTeteAnalyse(
                                 surtitre: "Analyse des repas",
                                 titre: "Écart de ratio",
-                                accroche: "Ce que donnent tes repas selon la dose posée, moment par moment.",
+                                accroche: "Ce que donnent vos repas selon la dose posée, moment par moment.",
                                 ambiance: .ratio
                             )
                             .listRowInsets(EdgeInsets())
@@ -74,7 +74,7 @@ struct SheetEcartRatio: View {
                         // repoussait les données réelles sous la ligne de
                         // flottaison.
                         Section("Constat") {
-                            ligneConstat("Un point = un repas, placé selon la dose donnée vs celle de ton ratio (zone grisée).", icone: "chart.dots.scatter")
+                            ligneConstat("Un point = un repas, placé selon la dose donnée vs celle de votre ratio (zone grisée).", icone: "chart.dots.scatter")
                             ligneConstat("Un côté qui bat le milieu = ratio trop fort à gauche, trop faible à droite.", icone: "arrow.left.arrow.right")
                             ligneCouleur("Glycémie restée en cible", couleur: .green)
                             ligneCouleur("Pic modéré", couleur: .orange)
@@ -345,11 +345,11 @@ struct SheetEcartRatio: View {
 
         // Le centre est prêt, il manque un point de comparaison hors zone.
         if aCentre && !aLateral {
-            return "Il faut aussi \(minimum) repas hors de ton ratio pour comparer"
+            return "Il faut aussi \(minimum) repas hors de votre ratio pour comparer"
         }
         // À l'inverse : des repas hors zone, mais rien à quoi les comparer.
         if aLateral && !aCentre {
-            return "Il faut aussi \(minimum) repas faits à ton ratio pour comparer"
+            return "Il faut aussi \(minimum) repas faits à votre ratio pour comparer"
         }
 
         let plusGrandeZone = repartition(section).map(\.value).max() ?? 0

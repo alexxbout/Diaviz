@@ -60,10 +60,10 @@ struct PageInventaireDonnees: View {
 
     private var accrocheEnTete: String {
         guard let inventaire, let premiere = inventaire.premiereSaisie else {
-            return "Tout ce que tu as enregistré dans l'app."
+            return "Tout ce que vous avez enregistré dans l'app."
         }
         let jour = premiere.formatted(.dateTime.day().month(.wide).year())
-        return "Tout ce que tu as enregistré depuis le \(jour)."
+        return "Tout ce que vous avez enregistré depuis le \(jour)."
     }
 
     // MARK: - Tuiles
@@ -192,7 +192,7 @@ struct PageInventaireDonnees: View {
 
     private var mentionPortee: some View {
         Label(
-            "Ces compteurs décrivent ce que contient l'app, pas ton état de santé.",
+            "Ces compteurs décrivent ce que contient l'app, pas votre état de santé.",
             systemImage: "info.circle"
         )
         .font(.footnote)

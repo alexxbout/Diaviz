@@ -110,9 +110,9 @@ struct ChoixRestaurationICloudVue: View {
         case .choix:
             "Des données existent déjà sur iCloud pour ce compte — profil, repas, glycémies…"
         case .recuperationEnCours:
-            "Téléchargement de tes données depuis iCloud. Garde l'app ouverte, ça peut prendre un moment."
+            "Téléchargement de vos données depuis iCloud. Gardez l'app ouverte, ça peut prendre un moment."
         case .attenteEpuisee:
-            "Le téléchargement continue en arrière-plan. Tes données apparaîtront au fur et à mesure — tu peux entrer dans l'app dès maintenant."
+            "Le téléchargement continue en arrière-plan. Vos données apparaîtront au fur et à mesure — vous pouvez entrer dans l'app dès maintenant."
         }
     }
 

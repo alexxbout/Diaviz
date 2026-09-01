@@ -141,10 +141,10 @@ struct OnboardingVue: View {
     private var titreEtape: String {
         switch etape {
         case .bienvenue: ""
-        case .identite: "Comment tu t'appelles ?"
-        case .poids: "Quel est ton poids ?"
-        case .insuline: "Tes insulines"
-        case .ratios: "Tes ratios"
+        case .identite: "Comment vous appelez-vous ?"
+        case .poids: "Quel est votre poids ?"
+        case .insuline: "Vos insulines"
+        case .ratios: "Vos ratios"
         }
     }
 

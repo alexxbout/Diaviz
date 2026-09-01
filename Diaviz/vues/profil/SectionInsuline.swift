@@ -105,7 +105,7 @@ struct SectionInsuline: View {
         } header: {
             Text("Insuline")
         } footer: {
-            Text("La durée d'action concerne l'insuline rapide : elle détermine la durée de calcul de l'insuline active (IOB). L'intervalle minimum lente pilote l'heure de rappel adaptative, calculée depuis ta dernière dose.")
+            Text("La durée d'action concerne l'insuline rapide : elle détermine la durée de calcul de l'insuline active (IOB). L'intervalle minimum lente pilote l'heure de rappel adaptative, calculée depuis votre dernière dose.")
         }
     }
 

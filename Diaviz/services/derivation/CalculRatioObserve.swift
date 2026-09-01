@@ -47,9 +47,9 @@ nonisolated enum TrancheRatio: String, Sendable, CaseIterable {
 
     var libelle: String {
         switch self {
-        case .doseNettementFaible: return "dose nettement plus faible que ton ratio"
-        case .doseProche:          return "ton ratio actuel"
-        case .doseNettementForte:  return "dose nettement plus élevée que ton ratio"
+        case .doseNettementFaible: return "dose nettement plus faible que votre ratio"
+        case .doseProche:          return "votre ratio actuel"
+        case .doseNettementForte:  return "dose nettement plus élevée que votre ratio"
         }
     }
 }

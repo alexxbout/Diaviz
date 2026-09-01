@@ -47,7 +47,7 @@ struct SectionInsights: View {
                 titre
                 CartePlaceholderAccueil(
                     icone: "chart.line.uptrend.xyaxis",
-                    message: "Les tendances repérées dans tes nuits et tes repas s'afficheront ici.",
+                    message: "Les tendances repérées dans vos nuits et vos repas s'afficheront ici.",
                     progression: progressionCollecte
                 )
             }

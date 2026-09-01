@@ -25,7 +25,7 @@ struct PageGlucides: View {
                 EnTeteAnalyse(
                     surtitre: "Repas",
                     titre: "Glucides",
-                    accroche: "Ce que tu as consommé jour après jour, semaine contre semaine.",
+                    accroche: "Ce que vous avez consommé jour après jour, semaine contre semaine.",
                     ambiance: .glucides
                 )
                 enTeteStats

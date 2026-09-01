@@ -138,7 +138,7 @@ struct DetailAnalyseBasaleVue: View {
             EnTeteAnalyse(
                 surtitre: "Analyse du coucher",
                 titre: "Tendance basale",
-                accroche: "La pente de tes nuits profondes, mesurée depuis ta prise de lente.",
+                accroche: "La pente de vos nuits profondes, mesurée depuis votre prise de lente.",
                 ambiance: .nuit
             )
             CarteVerdictBasale(analyse: analyse)

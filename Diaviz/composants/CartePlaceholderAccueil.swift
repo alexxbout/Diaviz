@@ -109,11 +109,11 @@ private func _apercu<Contenu: View>(@ViewBuilder _ contenu: () -> Contenu) -> so
     _apercu {
         CartePlaceholderAccueil(
             icone: "chart.line.uptrend.xyaxis",
-            message: "Les tendances de tes nuits et de tes repas s'afficheront ici."
+            message: "Les tendances de vos nuits et de vos repas s'afficheront ici."
         )
         CartePlaceholderAccueil(
             icone: "chart.line.uptrend.xyaxis",
-            message: "Les tendances de tes nuits et de tes repas s'afficheront ici.",
+            message: "Les tendances de vos nuits et de vos repas s'afficheront ici.",
             progression: .init(actuel: 3, requis: 5, libelle: "3 nuits analysées sur 5")
         )
         CartePlaceholderAccueil(

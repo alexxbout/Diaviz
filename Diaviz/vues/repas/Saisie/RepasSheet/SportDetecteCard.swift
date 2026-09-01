@@ -88,7 +88,7 @@ struct SportDetecteCard: View {
     /// et le mining par type de sport n'existe pas encore (S1/R2).
     private var messageContextuel: String {
         sport.ratioAjuste != nil
-            ? "Ton ratio post-\(sport.typeSport.lowercased()) est appliqué à la dose de ce repas."
+            ? "Votre ratio post-\(sport.typeSport.lowercased()) est appliqué à la dose de ce repas."
             : "Aucun ratio post-\(sport.typeSport.lowercased()) configuré : le ratio du moment reste appliqué."
     }
 }
@@ -153,7 +153,7 @@ private struct FeuilleDetailSport: View {
                                 value: restant > 0 ? FormatDureeSport.libelle(minutes: restant) : "expire maintenant"
                             )
                         }
-                        Text("Ratio saisi dans ton profil, section Ratios sport. Il remplace celui du moment de la journée tant que la fenêtre d'effet court.")
+                        Text("Ratio saisi dans votre profil, section Ratios sport. Il remplace celui du moment de la journée tant que la fenêtre d'effet court.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -166,7 +166,7 @@ private struct FeuilleDetailSport: View {
                 }
 
                 Section {
-                    Text("Le sport peut modifier la sensibilité à l'insuline pendant plusieurs heures. Le ratio appliqué ici est celui que tu as renseigné pour ce type d'activité — Diaviz ne le déduit pas de ton historique de séances.")
+                    Text("Le sport peut modifier la sensibilité à l'insuline pendant plusieurs heures. Le ratio appliqué ici est celui que vous avez renseigné pour ce type d'activité — Diaviz ne le déduit pas de votre historique de séances.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }

@@ -216,7 +216,7 @@ struct SheetNouvelleActivite: View {
                 (peutValider ? Color.accentColor : Color.gray).opacity(0.15)
             )
         } footer: {
-            Text("L'heure de début et la durée sont capturées automatiquement. Tu enregistreras les détails à la fin.")
+            Text("L'heure de début et la durée sont capturées automatiquement. Vous enregistrerez les détails à la fin.")
         }
     }
 

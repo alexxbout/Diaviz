@@ -243,7 +243,7 @@ struct SheetEvenementsRepas: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(entree.libelle)
                         .font(.body)
-                    Text(estDejaConnue(entree) ? "déjà dans tes événements" : "proposition")
+                    Text(estDejaConnue(entree) ? "déjà dans vos événements" : "proposition")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

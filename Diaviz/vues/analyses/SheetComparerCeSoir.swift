@@ -114,7 +114,7 @@ struct SheetComparerCeSoir: View {
 
     private var saisie: some View {
         VStack(spacing: 6) {
-            Text("Ta glycémie maintenant")
+            Text("Votre glycémie maintenant")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             TextField("—", text: $glycemieTexte)
@@ -292,7 +292,7 @@ struct SheetComparerCeSoir: View {
     private var noteBasDePage: String {
         let base = "Recherche sur les \(RechercheCoucher.fenetreNuits) dernières nuits, toutes doses de lente confondues."
         return criteresActifs.isEmpty
-            ? base + " Le contexte affiché sur chaque ligne n'est pas filtré — à toi de comparer."
+            ? base + " Le contexte affiché sur chaque ligne n'est pas filtré — à vous de comparer."
             : base + " Filtrée sur \(criteresActifs.count) critère\(criteresActifs.count > 1 ? "s" : "") : lis les dénominateurs, l'effectif est plus petit."
     }
 

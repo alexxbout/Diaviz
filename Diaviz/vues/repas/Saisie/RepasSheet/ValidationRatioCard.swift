@@ -161,9 +161,9 @@ struct ValidationRatioCard: View {
     private func ligneEcartObserve(_ ecart: EcartRatioObserve) -> String {
         let optimal = Int((ecart.tauxOptimal * 100).rounded())
         let configure = Int((ecart.tauxConfigure * 100).rounded())
-        return "Tes repas à \(ecart.trancheOptimale.libelle) ont \(optimal) % de bons résultats "
+        return "Vos repas à \(ecart.trancheOptimale.libelle) ont \(optimal) % de bons résultats "
             + "(\(ecart.bonsOptimal)/\(ecart.effectifOptimal)), contre \(configure) % "
-            + "(\(ecart.bonsConfigure)/\(ecart.effectifConfigure)) à ton ratio actuel."
+            + "(\(ecart.bonsConfigure)/\(ecart.effectifConfigure)) à votre ratio actuel."
     }
 
     /// Où en est l'analyse de ce moment, faute d'écart à signaler — une
@@ -277,7 +277,7 @@ private struct FeuilleExplicationValidation: View {
                 Section("Ratio en vigueur") {
                     Text(validation.profil.description)
                     if validation.ratioSportApplique {
-                        Text("Ratio post-sport de ton profil — il remplace celui du moment de la journée tant que la séance est dans la fenêtre d'effet réglée.")
+                        Text("Ratio post-sport de votre profil — il remplace celui du moment de la journée tant que la séance est dans la fenêtre d'effet réglée.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

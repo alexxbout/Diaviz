@@ -106,7 +106,7 @@ struct CarteAnalyseRatio: View {
             if lignes.isEmpty {
                 CartePlaceholderAccueil(
                     icone: "slider.horizontal.3",
-                    message: "Aucun ratio configuré. Le résultat de tes ratios, moment par moment, s'affichera ici.",
+                    message: "Aucun ratio configuré. Le résultat de vos ratios, moment par moment, s'affichera ici.",
                     action: onOuvrirProfil.map { (libelle: "Ouvrir le profil", executer: $0) }
                 )
             } else if let onTap {
@@ -212,7 +212,7 @@ private enum EtatVerdictRatio {
     var detail: String {
         switch self {
         case .ecartDetecte(let taux, let effectif):
-            return "\(taux) % de bons résultats hors de ton ratio, sur \(effectif) repas"
+            return "\(taux) % de bons résultats hors de votre ratio, sur \(effectif) repas"
         case .ratioConfirme(let bons, let effectif):
             return "\(bons) bons sur \(effectif)"
         case .peuDeRecul(let bons, let effectif):

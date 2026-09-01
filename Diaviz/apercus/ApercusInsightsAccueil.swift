@@ -19,7 +19,7 @@ extension Insight {
         id: UUID(),
         categorie: .informatif,
         titre: "Impact sport",
-        message: "Impact sur tes ratios après musculation",
+        message: "Impact sur vos ratios après musculation",
         microVisuel: .grandNombre(valeur: "-25%"),
         lienAnalyse: "impact-sport"
     )

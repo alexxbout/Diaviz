@@ -39,7 +39,7 @@ struct AlimentsCorrigesSheet: View {
             ContentUnavailableView(
                 "Aucun aliment corrigé",
                 systemImage: "pencil",
-                description: Text("Les aliments dont tu as rectifié les glucides pour 100 g, depuis leur fiche de détail, apparaîtront ici.")
+                description: Text("Les aliments dont vous avez rectifié les glucides pour 100 g, depuis leur fiche de détail, apparaîtront ici.")
             )
         } else {
             List(aliments) { aliment in

@@ -158,7 +158,7 @@ struct SheetGuideTendanceBasale: View {
                 .font(.headline)
 
             VStack(alignment: .leading, spacing: 8) {
-                ligneLimite("Elle ne propose jamais de dose. Elle décrit ce qui s'est passé — la décision t'appartient, avec ton médecin.")
+                ligneLimite("Elle ne propose jamais de dose. Elle décrit ce qui s'est passé — la décision vous appartient, avec votre médecin.")
                 ligneLimite("Elle ne juge pas une nuit isolée. Le verdict porte sur les 5 dernières nuits exploitables, jamais sur une seule.")
                 ligneLimite("Elle ne dit rien de l'endormissement ni des corrections du soir : c'est le sujet de « Hypos au coucher ».")
                 ligneLimite("Elle n'explique pas pourquoi une nuit dérive. Elle constate la dérive et exclut les causes qu'elle sait identifier.")

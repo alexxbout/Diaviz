@@ -111,7 +111,7 @@ private struct FeuilleExplicationIOB: View {
                     }
                 }
                 Section {
-                    Text("L'IOB est calculé sur la base d'une courbe d'absorption standard de l'insuline rapide (~4h). Cette courbe sera personnalisée plus tard à partir de ton CGM.")
+                    Text("L'IOB est calculé sur la base d'une courbe d'absorption standard de l'insuline rapide (~4h). Cette courbe sera personnalisée plus tard à partir de votre CGM.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }

@@ -287,13 +287,13 @@ private extension Color {
             EnTeteAnalyse(
                 surtitre: "Analyse du coucher",
                 titre: "Tendance basale",
-                accroche: "La pente de tes nuits profondes, mesurée depuis ta prise de lente.",
+                accroche: "La pente de vos nuits profondes, mesurée depuis votre prise de lente.",
                 ambiance: .nuit
             )
             EnTeteAnalyse(
                 surtitre: "Analyse du coucher",
                 titre: "Hypos au coucher",
-                accroche: "Ce qui suit tes soirées, selon la façon dont elles commencent.",
+                accroche: "Ce qui suit vos soirées, selon la façon dont elles commencent.",
                 ambiance: .coucher
             )
         }
@@ -305,8 +305,8 @@ private extension Color {
 #Preview("Mode clair") {
     ScrollView {
         VStack(spacing: 12) {
-            EnTeteAnalyse(titre: "Tendance basale", accroche: "14 nuits analysées, zone 3 ancrée sur ta lente.", ambiance: .nuit)
-            EnTeteAnalyse(titre: "Hypos au coucher", accroche: "Ce qui suit tes soirées, selon la façon dont elles commencent.", ambiance: .coucher)
+            EnTeteAnalyse(titre: "Tendance basale", accroche: "14 nuits analysées, zone 3 ancrée sur votre lente.", ambiance: .nuit)
+            EnTeteAnalyse(titre: "Hypos au coucher", accroche: "Ce qui suit vos soirées, selon la façon dont elles commencent.", ambiance: .coucher)
         }
         .padding(16)
     }
@@ -319,7 +319,7 @@ private extension Color {
         EnTeteAnalyse(
             surtitre: "Analyse du coucher",
             titre: "Tendance basale",
-            accroche: "La pente de tes nuits profondes, mesurée depuis ta prise de lente.",
+            accroche: "La pente de vos nuits profondes, mesurée depuis votre prise de lente.",
             ambiance: .nuit
         )
         .padding(16)
