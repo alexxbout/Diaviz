@@ -29,7 +29,7 @@ struct ListeResucrages: View {
                 .listRowBackground(Color.clear)
             } else {
                 ForEach(joursTries, id: \.self) { jour in
-                    Section(libelleJour(jour)) {
+                    Section {
                         ForEach(service.resucragesDuJour(jour)) { resucrage in
                             LigneResucrage(resucrage: resucrage)
                                 .swipeActions(edge: .trailing) {
@@ -40,11 +40,15 @@ struct ListeResucrages: View {
                                     }
                                 }
                         }
+                    } header: {
+                        TitreSectionListe(texte: libelleJour(jour))
                     }
                 }
             }
         }
         .listStyle(.insetGrouped)
+        // Même rythme que les trois autres pages du Journal.
+        .listSectionSpacing(24)
         .navigationTitle("Resucrage")
         .navigationBarTitleDisplayMode(.large)
         .toolbar {

@@ -127,6 +127,10 @@ struct MedicationsVue: View {
             }
         }
         .listStyle(.insetGrouped)
+        // Titres de section en clair et non en petites capitales, et 24pt
+        // entre les groupes : même rythme que les pages d'analyse, sans
+        // renoncer à la `List` (séparateurs, swipe, cellules natives).
+        .listSectionSpacing(24)
         .navigationTitle("Médications")
         .navigationBarTitleDisplayMode(.large)
         .toolbar { menuAjouter }
@@ -174,6 +178,8 @@ struct MedicationsVue: View {
             .listRowInsets(EdgeInsets())
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
+        } header: {
+            TitreSectionListe(texte: "La journée")
         }
     }
 
@@ -198,11 +204,13 @@ struct MedicationsVue: View {
             .listRowInsets(EdgeInsets())
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
+        } header: {
+            TitreSectionListe(texte: "Insuline lente")
         }
     }
 
     private var sectionCorrections: some View {
-        Section("Corrections") {
+        Section {
             if corrections.isEmpty {
                 Text("Aucune correction aujourd'hui")
                     .font(.subheadline)
@@ -217,8 +225,12 @@ struct MedicationsVue: View {
                     onSupprimer: { service.supprimer($0) }
                 )
             }
+        } header: {
+            TitreSectionListe(texte: "Corrections")
         }
     }
+
+
 
     /// Section bolus repas — uniquement rendue si non vide. Header
     /// custom avec sous-titre « Saisis via la page Repas ». Le
@@ -229,7 +241,7 @@ struct MedicationsVue: View {
             ListeBolusRepas(bolus: bolusRepas)
         } header: {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Bolus repas")
+                TitreSectionListe(texte: "Bolus repas")
                 Text("Saisis via la page Repas")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)

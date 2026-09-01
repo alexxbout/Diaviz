@@ -45,21 +45,27 @@ struct ListeRepasParSection: View {
 
     var body: some View {
         List {
-            // Graph en première section, sans en-tête.
             Section {
                 GrapheJourneeRepas(repas: repasGraph, selectedDate: $selectedDate)
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
+            } header: {
+                TitreSectionListe(texte: "La journée")
             }
 
             ForEach(sections, id: \.titre) { section in
-                Section(section.titre) {
+                Section {
                     contenuSection(section)
+                } header: {
+                    TitreSectionListe(texte: section.titre)
                 }
             }
         }
         .listStyle(.insetGrouped)
+        // Titres en clair et 24pt entre les groupes : même rythme que les
+        // pages d'analyse, sans renoncer aux cellules natives de la `List`.
+        .listSectionSpacing(24)
         .navigationTitle("Repas")
         .navigationBarTitleDisplayMode(.large)
         .sensoryFeedback(.warning, trigger: triggerSuppression)

@@ -103,6 +103,8 @@ struct SportVue: View {
                 sectionListe
             }
             .listStyle(.insetGrouped)
+            // Même rythme que les trois autres pages du Journal.
+            .listSectionSpacing(24)
             .navigationTitle("Activités sportives")
             .navigationBarTitleDisplayMode(.large)
             .toolbar { boutonAjouter }
@@ -177,6 +179,8 @@ struct SportVue: View {
             .listRowInsets(EdgeInsets())
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
+        } header: {
+            TitreSectionListe(texte: "La journée")
         }
     }
 
@@ -252,9 +256,7 @@ struct SportVue: View {
         return "\(n) activités à importer"
     }
 
-    /// Section liste — pas de header (le libellé du jour est déjà
-    /// porté par l'en-tête du graphe juste au-dessus). Les rows sont
-    /// déléguées à `ListeActivitesSport`.
+    /// Section liste — les rows sont déléguées à `ListeActivitesSport`.
     ///
     /// Le tap sur une row pousse `DetailActiviteVue` via le `NavigationLink`
     /// interne à `LigneActiviteSport` — l'édition se fait depuis ce détail
@@ -272,6 +274,8 @@ struct SportVue: View {
                 },
                 evenementsParActivite: evenementsParActivite
             )
+        } header: {
+            TitreSectionListe(texte: "Séances")
         }
     }
 
