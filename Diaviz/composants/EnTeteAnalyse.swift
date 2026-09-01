@@ -178,7 +178,7 @@ struct EnTeteAnalyse: View {
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             fond
-            texte
+            contenu
         }
         .frame(maxWidth: .infinity, minHeight: Self.hauteurMinimale, alignment: .bottomLeading)
         .clipShape(NiveauCarte.carte.forme)
@@ -222,20 +222,29 @@ struct EnTeteAnalyse: View {
         )
     }
 
-    private var texte: some View {
-        VStack(alignment: .leading, spacing: 4) {
+    /// Badge en haut, titre et accroche en bas — le `Spacer` les repousse
+    /// chacun vers son bord. Les trois étaient auparavant collés au bas de la
+    /// carte, ce qui laissait la moitié haute du dégradé vide et resserrait
+    /// tout le texte sur quelques points de hauteur.
+    private var contenu: some View {
+        VStack(alignment: .leading, spacing: 0) {
             if let surtitre {
                 badge(surtitre)
-                    .padding(.bottom, 4)
             }
-            Text(titre)
-                .font(.title.weight(.semibold))
-                .foregroundStyle(.white)
-            Text(accroche)
-                .font(.footnote)
-                .foregroundStyle(.white.opacity(0.72))
-                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 12)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(titre)
+                    .font(.title.weight(.semibold))
+                    .foregroundStyle(.white)
+                Text(accroche)
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.72))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(16)
     }
 
