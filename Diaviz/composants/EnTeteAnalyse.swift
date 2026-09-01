@@ -40,6 +40,14 @@ struct EnTeteAnalyse: View {
         case glucides
         /// Bibliothèque — sépia d'encre, registre éditorial.
         case bibliotheque
+        /// Inventaire du hub — vert d'eau. Ni un domaine de santé ni une
+        /// analyse : la page décrit le contenu de l'app.
+        case donnees
+        /// Repas à revoir — vermillon. Même famille chaude que le cuivre des
+        /// glucides, mais franchement plus saturé et plus clair : c'est
+        /// l'écart de vivacité, pas la teinte, qui distingue les deux pages du
+        /// domaine repas.
+        case repasARevoir
 
         /// Décale le motif de bruit d'une analyse à l'autre : deux cartes
         /// affichées l'une sous l'autre partageraient sinon exactement le même
@@ -52,15 +60,8 @@ struct EnTeteAnalyse: View {
             case .ratio:        419
             case .glucides:     563
             case .bibliotheque: 701
-            }
-        }
-
-        /// Emoji du badge, quand aucun SF Symbol ne convient — cas des
-        /// glucides, faute de fruit côté symboles système.
-        var emoji: String? {
-            switch self {
-            case .glucides: IconeGlucides.emoji
-            default:        nil
+            case .repasARevoir: 853
+            case .donnees:      991
             }
         }
 
@@ -71,8 +72,10 @@ struct EnTeteAnalyse: View {
             case .coucher:      "moon.zzz.fill"
             case .score:        "target"
             case .ratio:        "chart.dots.scatter"
-            case .glucides:     "fork.knife"
+            case .glucides:     "chart.bar.xaxis"
             case .bibliotheque: "books.vertical.fill"
+            case .repasARevoir: "fork.knife"
+            case .donnees:      "externaldrive.fill"
             }
         }
 
@@ -137,6 +140,22 @@ struct EnTeteAnalyse: View {
                     Color(sombre: (0x4C, 0x3E, 0x30), clair: (0x86, 0x73, 0x5E)),
                     Color(sombre: (0x8C, 0x73, 0x54), clair: (0xA0, 0x8A, 0x6F)),
                     Color(sombre: (0x5F, 0x52, 0x73), clair: (0x7C, 0x70, 0x95))
+                )
+            case .repasARevoir:
+                (
+                    Color(sombre: (0x28, 0x08, 0x0C), clair: (0x6B, 0x1C, 0x1A)),
+                    Color(sombre: (0x45, 0x0E, 0x12), clair: (0x8E, 0x2C, 0x22)),
+                    Color(sombre: (0x78, 0x1C, 0x16), clair: (0xB6, 0x44, 0x2A)),
+                    Color(sombre: (0xE8, 0x5A, 0x2E), clair: (0xDD, 0x6E, 0x3E)),
+                    Color(sombre: (0xCE, 0x2E, 0x3E), clair: (0xC8, 0x44, 0x4A))
+                )
+            case .donnees:
+                (
+                    Color(sombre: (0x08, 0x1E, 0x1A), clair: (0x17, 0x44, 0x3B)),
+                    Color(sombre: (0x0E, 0x30, 0x2A), clair: (0x1E, 0x5C, 0x4F)),
+                    Color(sombre: (0x18, 0x4C, 0x42), clair: (0x2C, 0x7C, 0x6A)),
+                    Color(sombre: (0x3D, 0x8E, 0x7C), clair: (0x4E, 0x9E, 0x8A)),
+                    Color(sombre: (0x2A, 0x6E, 0x82), clair: (0x3C, 0x82, 0x96))
                 )
             }
         }
@@ -227,12 +246,8 @@ struct EnTeteAnalyse: View {
     /// contenu, et le contenu ne se pose pas sur du verre.
     private func badge(_ libelle: String) -> some View {
         HStack(spacing: 5) {
-            if let emoji = ambiance.emoji {
-                Text(emoji).font(.caption2)
-            } else {
-                Image(systemName: ambiance.icone)
-                    .font(.caption2.weight(.semibold))
-            }
+            Image(systemName: ambiance.icone)
+                .font(.caption2.weight(.semibold))
             Text(libelle)
                 .font(.caption.weight(.medium))
         }

@@ -19,6 +19,12 @@ struct PageTousRepasARevoir: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
+                EnTeteAnalyse(
+                    surtitre: "Analyse des repas",
+                    titre: "Repas à revoir",
+                    accroche: "Les plats dont la dernière glycémie est sortie de cible, et ceux pris dans un contexte particulier.",
+                    ambiance: .repasARevoir
+                )
                 ForEach(repas) { item in
                     CarteRepasARevoir(repas: item)
                 }
