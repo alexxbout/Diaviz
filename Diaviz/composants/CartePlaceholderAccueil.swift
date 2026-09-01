@@ -43,9 +43,6 @@ struct CartePlaceholderAccueil: View {
     }
 
     let icone: String
-    /// Emoji affiché **à la place** du SF Symbol quand le domaine n'en a pas
-    /// (les glucides : aucun fruit n'existe côté symboles système).
-    var emoji: String? = nil
     let message: String
     var progression: Progression? = nil
     /// Bouton optionnel — libellé + action, typiquement l'ouverture d'un
@@ -55,17 +52,11 @@ struct CartePlaceholderAccueil: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
-                Group {
-                    if let emoji {
-                        Text(emoji).font(.system(size: 18))
-                    } else {
-                        Image(systemName: icone)
-                            .font(.system(size: 19, weight: .regular))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .frame(width: 24)
-                .accessibilityHidden(true)
+                Image(systemName: icone)
+                    .font(.system(size: 19, weight: .regular))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 24)
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(message)
@@ -140,8 +131,7 @@ private func _apercu<Contenu: View>(@ViewBuilder _ contenu: () -> Contenu) -> so
             message: "Les repas dont la glycémie est sortie de cible s'afficheront ici."
         )
         CartePlaceholderAccueil(
-            icone: "fork.knife",
-            emoji: IconeGlucides.emoji,
+            icone: "chart.bar.xaxis",
             message: "La moyenne de glucides par jour s'affichera ici.",
             progression: .init(actuel: 2, requis: 3, libelle: "2 jours avec repas cette semaine sur 3")
         )
@@ -152,8 +142,7 @@ private func _apercu<Contenu: View>(@ViewBuilder _ contenu: () -> Contenu) -> so
 #Preview("Texte agrandi") {
     _apercu {
         CartePlaceholderAccueil(
-            icone: "fork.knife",
-            emoji: IconeGlucides.emoji,
+            icone: "chart.bar.xaxis",
             message: "La moyenne de glucides par jour s'affichera ici.",
             progression: .init(actuel: 2, requis: 3, libelle: "2 jours avec repas cette semaine sur 3"),
             action: (libelle: "Ouvrir le profil", executer: {})

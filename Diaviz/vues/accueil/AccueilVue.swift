@@ -308,8 +308,7 @@ struct AccueilVue: View {
                                     )
                                 } else {
                                     CartePlaceholderAccueil(
-                                        icone: "fork.knife",
-                                        emoji: IconeGlucides.emoji,
+                                        icone: "chart.bar.xaxis",
                                         message: "La moyenne de glucides par jour, comparée à la semaine dernière, s'affichera ici.",
                                         progression: progressionGlucides
                                     )

@@ -39,11 +39,13 @@ struct CarteGlucidesSemaine: View {
 
     private var ligneTitre: some View {
         HStack(spacing: 6) {
-            // Emoji et non SF Symbol : aucun symbole système ne représente un
-            // fruit (`apple.logo` est le logo de la marque). L'app affiche déjà
-            // ses aliments en emoji, la grammaire est donc cohérente.
-            Text(IconeGlucides.emoji)
-                .font(.system(size: 15))
+            // Un symbole et non un emoji : seul un SF Symbol prend la teinte
+            // de la carte. Le glyphe reprend l'histogramme de la page de
+            // détail plutôt que de désigner un aliment — représenter « les
+            // glucides » par un fruit serait de toute façon arbitraire.
+            Image(systemName: "chart.bar.xaxis")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Self.teinte)
             Text("Glucides")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Self.teinte)
