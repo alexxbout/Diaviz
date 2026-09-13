@@ -68,6 +68,13 @@ struct ProfilVue: View {
                 ) { SousPageRepas() }
 
                 lien(
+                    "Resucrage",
+                    icone: "cross.case.fill",
+                    couleur: .orange,
+                    resume: "Carte accueil"
+                ) { SousPageResucrage() }
+
+                lien(
                     "Analyse du coucher",
                     icone: "moon.stars.fill",
                     couleur: .purple,

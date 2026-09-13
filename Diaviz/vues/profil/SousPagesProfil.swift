@@ -58,6 +58,20 @@ struct SousPageRepas: View {
     }
 }
 
+// MARK: - Resucrage
+
+/// Sous-page « Resucrage » — fenêtre d'affichage de la carte accueil.
+struct SousPageResucrage: View {
+    var body: some View {
+        Form {
+            SectionResucrageReglages()
+        }
+        .formStyle(.grouped)
+        .navigationTitle("Resucrage")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
 // MARK: - Analyse du coucher
 
 /// Sous-page « Analyse du coucher » — réglages de l'analyse basale (B1).

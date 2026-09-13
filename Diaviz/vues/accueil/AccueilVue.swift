@@ -39,6 +39,16 @@ struct AccueilVue: View {
     /// `historiqueSept`. API identique à l'ancien mock.
     @State private var scoreService = ScoreService()
 
+    /// Service réel des resucrages — alimente `CarteResucrageRecent`,
+    /// affichée sur l'accueil uniquement dans la fenêtre réglée au profil
+    /// (`fenetreAffichageResucrageAccueilHeures`). Instance propre à cette
+    /// vue, comme les autres services d'accueil ci-dessus — pas de partage
+    /// via environnement.
+    @State private var resucragesService = ResucragesService()
+
+    /// Redirection vers la page Resucrage au tap sur `CarteResucrageRecent`.
+    @State private var afficherResucrages = false
+
     /// Contexte du hub — injecté dans les services (IOB, Score) au boot.
     @Environment(\.modelContext) private var modelContext
 
@@ -294,6 +304,27 @@ struct AccueilVue: View {
                                     ))
                                 }
 
+                                // Carte « Dernier resucrage » — visible
+                                // uniquement dans la fenêtre réglée au profil
+                                // après la prise, comme la carte lente
+                                // ci-dessus. Passé le délai, elle disparaît
+                                // de l'accueil (elle reste toujours visible
+                                // sur la page Resucrage dédiée).
+                                if CarteResucrageRecent.estDansLaFenetre(
+                                    dernier: resucragesService.dernierResucrage,
+                                    fenetreHeures: ProfilService.shared.profil.preferencesAvancees.fenetreAffichageResucrageAccueilHeures
+                                        ?? CarteResucrageRecent.fenetreAccueilParDefautHeures
+                                ) {
+                                    CarteResucrageRecent(
+                                        dernier: resucragesService.dernierResucrage,
+                                        onTap: { afficherResucrages = true }
+                                    )
+                                        .transition(.asymmetric(
+                                            insertion: .move(edge: .top).combined(with: .opacity),
+                                            removal: .move(edge: .top).combined(with: .opacity)
+                                        ))
+                                }
+
                                 // Tant que l'historique ne couvre pas assez de
                                 // jours (voir
                                 // `CalculGlucidesHebdo.joursMinimumParSemaine`),
@@ -398,6 +429,9 @@ struct AccueilVue: View {
             .navigationDestination(item: $syntheseGlucidesPourPage) { synthese in
                 PageGlucides(synthese: synthese)
             }
+            .navigationDestination(isPresented: $afficherResucrages) {
+                ListeResucrages()
+            }
             .sheet(isPresented: $afficherProfil) {
                 // Même présentation que la sheet de l'avatar
                 // (`EnTetePage`) — l'utilisateur doit retrouver le même
@@ -453,6 +487,7 @@ struct AccueilVue: View {
             .task {
                 iobService.demarrer(contexte: modelContext)
                 metriquesService.demarrer(contexte: modelContext)
+                resucragesService.demarrer(contexte: modelContext)
                 contexteLente = construireContexteLente()
                 chargerFaitsPourCourbes()
             }

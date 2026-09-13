@@ -43,6 +43,12 @@ final class ResucragesService {
         resucragesDuJour(Date()).count
     }
 
+    /// Le plus récent, tous jours confondus — `resucrages` est déjà trié
+    /// décroissant. Alimente `CarteResucrageRecent` (page dédiée + accueil).
+    var dernierResucrage: ResucrageAffiche? {
+        resucrages.first
+    }
+
     /// - Parameter notifier: `false` pour une restauration après annulation —
     ///   la pilule ferait doublon avec celle qui vient d'être utilisée.
     func enregistrer(_ resucrage: Resucrage, notifier: Bool = true) {

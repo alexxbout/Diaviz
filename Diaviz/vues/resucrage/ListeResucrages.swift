@@ -28,6 +28,14 @@ struct ListeResucrages: View {
                 )
                 .listRowBackground(Color.clear)
             } else {
+                // Toujours affichée sur cette page (pas de fenêtre, à
+                // l'inverse de l'accueil) — voir `CarteResucrageRecent`.
+                Section {
+                    CarteResucrageRecent(dernier: service.dernierResucrage)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                }
+
                 ForEach(joursTries, id: \.self) { jour in
                     Section {
                         ForEach(service.resucragesDuJour(jour)) { resucrage in

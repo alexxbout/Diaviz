@@ -38,9 +38,21 @@ struct PreferencesAvancees: Codable, Equatable, Sendable {
     /// même raison que ci-dessus (compatibilité des profils déjà persistés).
     var seuilRepasCopieuxNuit: Int?
 
+    /// Durée (h) pendant laquelle la carte « Dernier resucrage » reste
+    /// visible sur l'accueil après la prise — passé ce délai, la carte
+    /// disparaît (elle reste en revanche **toujours** affichée sur la page
+    /// Resucrage elle-même, qui n'a pas cette notion de fenêtre).
+    ///
+    /// `nil` → `CarteResucrageRecent.fenetreAccueilParDefautHeures`. Optionnel
+    /// pour la même raison que ci-dessus (compatibilité des profils déjà
+    /// persistés).
+    var fenetreAffichageResucrageAccueilHeures: Int?
+
     init(occurrencesMinimalesRepasARevoir: Int? = nil,
-         seuilRepasCopieuxNuit: Int? = nil) {
+         seuilRepasCopieuxNuit: Int? = nil,
+         fenetreAffichageResucrageAccueilHeures: Int? = nil) {
         self.occurrencesMinimalesRepasARevoir = occurrencesMinimalesRepasARevoir
         self.seuilRepasCopieuxNuit = seuilRepasCopieuxNuit
+        self.fenetreAffichageResucrageAccueilHeures = fenetreAffichageResucrageAccueilHeures
     }
 }
