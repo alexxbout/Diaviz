@@ -98,6 +98,9 @@ struct AjouterRepasVue: View {
     /// "Ajouter un aliment" depuis la `RepasSheet`.
     @FocusState private var rechercheActive: Bool
 
+    /// Bascule liste/grille, persistée par appareil — voir `ModeAffichageRecherche`.
+    @AppStorage("modeAffichageRecherche") private var modeAffichage: ModeAffichageRecherche = .liste
+
     var body: some View {
         VStack(spacing: 0) {
             barreRecherche
@@ -439,6 +442,14 @@ struct AjouterRepasVue: View {
                 systemImage: "clock",
                 description: Text("Vos aliments récents apparaîtront ici")
             )
+        } else if modeAffichage == .grille {
+            VueGrilleAliments(aliments: Array(recents)) { aliment in
+                alimentSelectionne = aliment
+            } onMasquer: { alimentCiqual in
+                AlimentsCachesService.shared.cacher(alimentCiqual.id)
+                triggerMasquage += 1
+            }
+            .safeAreaPadding(.bottom, alimentsRepas.isEmpty ? 0 : 100)
         } else {
             List(Array(recents)) { aliment in
                 ligneAvecMasquage(aliment) { alimentSelectionne = aliment }
@@ -457,21 +468,36 @@ struct AjouterRepasVue: View {
 
     /// Liste des résultats de recherche CIQUAL, filtrés en temps réel
     /// (recherche locale — pas de contrainte de quota).
+    @ViewBuilder
     private var vueResultatsRecherche: some View {
-        List(resultats) { aliment in
-            ligneAvecMasquage(.ciqual(aliment)) {
-                alimentSelectionne = .ciqual(aliment)
-            } onMasque: {
-                resultats.removeAll { $0.id == aliment.id }
+        if modeAffichage == .grille {
+            VueGrilleAliments(aliments: resultats.map { .ciqual($0) }) { aliment in
+                alimentSelectionne = aliment
+            } onMasquer: { alimentCiqual in
+                AlimentsCachesService.shared.cacher(alimentCiqual.id)
+                triggerMasquage += 1
+                resultats.removeAll { $0.id == alimentCiqual.id }
             }
-        }
-        .scrollDismissesKeyboard(.immediately)
-        .safeAreaPadding(.bottom, alimentsRepas.isEmpty ? 0 : 100)
-        .transaction(value: alimentsRepas.isEmpty) { transaction in
-            transaction.animation = nil
-        }
-        .onChange(of: recherche) { _, nouveau in
-            resultats = CiqualService.shared.rechercher(nouveau)
+            .safeAreaPadding(.bottom, alimentsRepas.isEmpty ? 0 : 100)
+            .onChange(of: recherche) { _, nouveau in
+                resultats = CiqualService.shared.rechercher(nouveau)
+            }
+        } else {
+            List(resultats) { aliment in
+                ligneAvecMasquage(.ciqual(aliment)) {
+                    alimentSelectionne = .ciqual(aliment)
+                } onMasque: {
+                    resultats.removeAll { $0.id == aliment.id }
+                }
+            }
+            .scrollDismissesKeyboard(.immediately)
+            .safeAreaPadding(.bottom, alimentsRepas.isEmpty ? 0 : 100)
+            .transaction(value: alimentsRepas.isEmpty) { transaction in
+                transaction.animation = nil
+            }
+            .onChange(of: recherche) { _, nouveau in
+                resultats = CiqualService.shared.rechercher(nouveau)
+            }
         }
     }
 
@@ -496,6 +522,31 @@ struct AjouterRepasVue: View {
             )
         } else if rechercheProduits.resultats.isEmpty {
             ContentUnavailableView.search(text: rechercheProduits.termeAffiche)
+        } else if modeAffichage == .grille {
+            VueGrilleAliments(aliments: rechercheProduits.resultats.map { .off($0) }) { aliment in
+                alimentSelectionne = aliment
+            }
+            // +84pt : place pour le bouton glass prominent (control large),
+            // en plus de la bulle repas en cours — sinon il cache les
+            // dernières cartes.
+            .safeAreaPadding(.bottom, (alimentsRepas.isEmpty ? 0 : 100) + (rechercheProduits.peutChargerPlus ? 84 : 0))
+            .overlay(alignment: .bottom) {
+                if rechercheProduits.peutChargerPlus {
+                    Button {
+                        rechercheProduits.chargerPlus()
+                    } label: {
+                        if rechercheProduits.chargementPagePlus {
+                            ProgressView()
+                        } else {
+                            Text("Afficher plus de produits")
+                        }
+                    }
+                    .buttonStyle(.glassProminent)
+                    .controlSize(.large)
+                    .disabled(rechercheProduits.chargementPagePlus)
+                    .padding(.bottom, 16)
+                }
+            }
         } else {
             List {
                 ForEach(rechercheProduits.resultats) { produit in
@@ -567,6 +618,15 @@ struct AjouterRepasVue: View {
     private var menuToolbar: some ToolbarContent {
         let aUnRepas = !alimentsRepas.isEmpty
         let peutEffacerRecents = recherche.isEmpty && !AlimentsRecentsService.shared.clesRecentes.isEmpty
+
+        ToolbarItem(placement: .topBarTrailing) {
+            Button {
+                modeAffichage = modeAffichage == .liste ? .grille : .liste
+            } label: {
+                Image(systemName: modeAffichage == .liste ? "square.grid.2x2" : "list.bullet")
+            }
+            .accessibilityLabel(modeAffichage == .liste ? "Afficher en grille" : "Afficher en liste")
+        }
 
         ToolbarItem(placement: .topBarTrailing) {
             Menu {

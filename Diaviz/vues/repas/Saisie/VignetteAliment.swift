@@ -80,12 +80,15 @@ struct VignetteAliment: View {
     let aliment: ResultatRechercheAliment
     var taille: CGFloat = 36
     var coinArrondi: CGFloat = 8
+    /// Proportion de `taille` occupée par l'emoji — réduite dans la grille
+    /// (vignettes larges) où l'emoji plein cadre paraissait disproportionné.
+    var echelleEmoji: CGFloat = 0.75
 
     var body: some View {
         Group {
             if let emoji = aliment.emoji {
                 Text(emoji)
-                    .font(.system(size: taille * 0.75))
+                    .font(.system(size: taille * echelleEmoji))
                     .frame(width: taille, height: taille)
             } else if let url = aliment.imagePetiteURL {
                 ImageProduit(url: url, coinArrondi: coinArrondi)
