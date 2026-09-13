@@ -38,6 +38,8 @@ struct SheetNouveauResucrage: View {
                     aliments: $aliments,
                     onAjouter: { afficherRechercheAliment = true }
                 )
+
+                sectionAjoutRapide
             }
             .formStyle(.grouped)
             .scrollDismissesKeyboard(.immediately)
@@ -89,6 +91,35 @@ struct SheetNouveauResucrage: View {
         }
     }
 
+    // MARK: - Section ajout rapide
+    //
+    // Enregistre directement un aliment générique « Glucides rapides » — sans
+    // passer par la recherche, pour le cas fréquent d'un resucrage standard
+    // (jus de fruits, tablettes de glucose…) où le détail de l'aliment
+    // n'apporte rien. Quantité réglable au profil (Réglages → Resucrage).
+    private var sectionAjoutRapide: some View {
+        Section {
+            Button {
+                aliments.append(Aliment(
+                    emoji: "🍬",
+                    nom: "Glucides rapides",
+                    quantite: 1,
+                    glucides: glucidesRapidesParDefaut,
+                    insuline: 0
+                ))
+            } label: {
+                Label("Ajouter \(glucidesRapidesParDefaut) g rapidement", systemImage: "bolt.fill")
+            }
+        } footer: {
+            Text("Ajoute directement \(glucidesRapidesParDefaut) g sans détailler l'aliment. Réglable dans Profil → Resucrage.")
+        }
+    }
+
+    private var glucidesRapidesParDefaut: Int {
+        ProfilService.shared.profil.preferencesAvancees.glucidesResucrageRapideParDefaut
+            ?? Self.glucidesRapidesParDefaut
+    }
+
     // MARK: - Section glycémie cible
     private var sectionCible: some View {
         Section {
@@ -123,6 +154,12 @@ struct SheetNouveauResucrage: View {
         onValider(resucrage)
         dismiss()
     }
+}
+
+extension SheetNouveauResucrage {
+    /// Valeur de repli si le profil n'a rien réglé — 15g, dose standard
+    /// d'un resucrage correctif (3 morceaux de sucre / un petit jus de fruits).
+    static let glucidesRapidesParDefaut = 15
 }
 
 // MARK: - Aperçu

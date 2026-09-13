@@ -29,6 +29,23 @@ struct SectionResucrageReglages: View {
             page Resucrage elle-même.
             """)
         }
+
+        Section {
+            Stepper(
+                "\(glucidesRapides) g par défaut",
+                value: bindingGlucidesRapides,
+                in: 5...60,
+                step: 5
+            )
+        } header: {
+            Text("Ajout rapide")
+        } footer: {
+            Text("""
+            Quantité pré-remplie par le bouton d'ajout rapide dans la sheet \
+            resucrage — enregistre directement un aliment générique « \
+            Glucides rapides » sans passer par la recherche.
+            """)
+        }
     }
 
     private var fenetreHeures: Int {
@@ -42,6 +59,22 @@ struct SectionResucrageReglages: View {
             set: { nouvelle in
                 service.mettreAJour {
                     $0.preferencesAvancees.fenetreAffichageResucrageAccueilHeures = nouvelle
+                }
+            }
+        )
+    }
+
+    private var glucidesRapides: Int {
+        service.profil.preferencesAvancees.glucidesResucrageRapideParDefaut
+            ?? SheetNouveauResucrage.glucidesRapidesParDefaut
+    }
+
+    private var bindingGlucidesRapides: Binding<Int> {
+        Binding(
+            get: { glucidesRapides },
+            set: { nouvelle in
+                service.mettreAJour {
+                    $0.preferencesAvancees.glucidesResucrageRapideParDefaut = nouvelle
                 }
             }
         )

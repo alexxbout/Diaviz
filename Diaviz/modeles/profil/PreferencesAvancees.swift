@@ -48,11 +48,20 @@ struct PreferencesAvancees: Codable, Equatable, Sendable {
     /// persistés).
     var fenetreAffichageResucrageAccueilHeures: Int?
 
+    /// Quantité (g) pré-remplie par le bouton d'ajout rapide de la sheet
+    /// resucrage — enregistre directement un aliment générique « Glucides
+    /// rapides » sans passer par la recherche. `nil` →
+    /// `SheetNouveauResucrage.glucidesRapidesParDefaut` (15g, dose standard
+    /// de resucrage). Optionnel pour la même raison que ci-dessus.
+    var glucidesResucrageRapideParDefaut: Int?
+
     init(occurrencesMinimalesRepasARevoir: Int? = nil,
          seuilRepasCopieuxNuit: Int? = nil,
-         fenetreAffichageResucrageAccueilHeures: Int? = nil) {
+         fenetreAffichageResucrageAccueilHeures: Int? = nil,
+         glucidesResucrageRapideParDefaut: Int? = nil) {
         self.occurrencesMinimalesRepasARevoir = occurrencesMinimalesRepasARevoir
         self.seuilRepasCopieuxNuit = seuilRepasCopieuxNuit
         self.fenetreAffichageResucrageAccueilHeures = fenetreAffichageResucrageAccueilHeures
+        self.glucidesResucrageRapideParDefaut = glucidesResucrageRapideParDefaut
     }
 }

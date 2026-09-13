@@ -71,7 +71,7 @@ struct ProfilVue: View {
                     "Resucrage",
                     icone: "cross.case.fill",
                     couleur: .orange,
-                    resume: "Carte accueil"
+                    resume: "Carte accueil, ajout rapide"
                 ) { SousPageResucrage() }
 
                 lien(
