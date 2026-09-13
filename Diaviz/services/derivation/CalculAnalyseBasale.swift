@@ -56,6 +56,7 @@ nonisolated struct ConfigBasale: Sendable {
     nonisolated static let plageSeuilRepasCopieux = 40...200
 
     var seuilHypo: Int = 70
+    var seuilHyper: Int = 180
     var seuilSevere: Int = 54
     /// Heure d'horloge (locale) marquant le début du dawn phenomenon — fin de
     /// la zone 3. Fixée à **04:00** pour ne pas capter la montée d'aube (qui
@@ -123,16 +124,39 @@ nonisolated enum CalculAnalyseBasale {
     /// Seuil de dérive par défaut (mg/dL) — partagé avec `basalDistribution`.
     nonisolated static let seuilDeriveStableParDefaut: Double = 30
 
+    /// Marge (mg/dL) sous laquelle une valeur est jugée « proche » d'un seuil
+    /// hypo/hyper — évite qu'une nuit qui frôle sans jamais l'atteindre soit
+    /// traitée comme si elle l'avait franchi.
+    nonisolated static let margeProcheSeuilParDefaut: Double = 5
+
     /// Classe une nuit à partir de la **dérive** (Δ mg/dL) de sa zone 3, sur la
     /// règle clinique ±30 mg/dL : `|Δ| ≤ seuil` → stable ; `Δ < −seuil` →
     /// descendante (basale trop forte) ; `Δ > +seuil` → ascendante (basale trop
     /// faible).
+    ///
+    /// `minValeur`/`maxValeur` (mg/dL atteints dans la zone) affinent le
+    /// verdict : une dérive marquée qui reste loin des seuils hypo/hyper (ex.
+    /// -32 mg/dL entre 160 et 90, jamais sous 70) ne dit rien d'alarmant sur
+    /// la basale — la nuit reste **stable** en pratique. `nil` (défaut) garde
+    /// l'ancien comportement pur-dérive, pour les appelants qui n'ont pas la
+    /// courbe sous la main (segments de graphique, tests).
     nonisolated static func categorie(
         deriveMgDl derive: Double,
-        seuil: Double = seuilDeriveStableParDefaut
+        seuil: Double = seuilDeriveStableParDefaut,
+        minValeur: Int? = nil,
+        maxValeur: Int? = nil,
+        seuilHypo: Int = 70,
+        seuilHyper: Int = 180,
+        marge: Double = margeProcheSeuilParDefaut
     ) -> CategorieNuit {
-        if derive < -seuil { return .tendanceBasse }
-        if derive > seuil { return .tendanceHaute }
+        if derive < -seuil {
+            guard let minValeur else { return .tendanceBasse }
+            return Double(minValeur) <= Double(seuilHypo) + marge ? .tendanceBasse : .stable
+        }
+        if derive > seuil {
+            guard let maxValeur else { return .tendanceHaute }
+            return Double(maxValeur) >= Double(seuilHyper) - marge ? .tendanceHaute : .stable
+        }
         return .stable
     }
 
@@ -433,7 +457,11 @@ nonisolated enum CalculAnalyseBasale {
         }
         // Classification sur la **dérive totale** (pente × durée), pas sur la pente.
         let derive = slope * dureeH
-        let categorie = categorie(deriveMgDl: derive, seuil: config.seuilDeriveStable)
+        let categorie = categorie(
+            deriveMgDl: derive, seuil: config.seuilDeriveStable,
+            minValeur: points.map(\.valeur).min(), maxValeur: points.map(\.valeur).max(),
+            seuilHypo: config.seuilHypo, seuilHyper: config.seuilHyper
+        )
         return EvalZone3(analysee: true, categorie: categorie, slope: slope, derive: derive, raison: nil)
     }
 

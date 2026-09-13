@@ -180,9 +180,11 @@ nonisolated enum CalculDetailSoiree {
         }
         let dureeH = z3.timeRange.upperBound.timeIntervalSince(z3.timeRange.lowerBound) / 3600
         let derive = slope * dureeH
+        // Catégorie = celle du vrai verdict (`categorieVerdict`), pas un
+        // recalcul sur la seule dérive — voir `CarteVerdictNuit` (même bug).
         return .analysee(
             derive: Int(derive.rounded()),
-            categorie: CalculAnalyseBasale.categorie(deriveMgDl: derive)
+            categorie: nuit.categorieVerdict ?? CalculAnalyseBasale.categorie(deriveMgDl: derive)
         )
     }
 

@@ -68,6 +68,8 @@ final class AnalyseBasaleService {
         )
         config.seuilRepasCopieux = profil.preferencesAvancees.seuilRepasCopieuxNuit
             ?? ConfigBasale.seuilRepasCopieuxParDefaut
+        config.seuilHypo = Int(profil.seuilsGlycemiques.hypoglycemie)
+        config.seuilHyper = Int(profil.seuilsGlycemiques.hyperglycemie)
         let entrees = chargerEntrees(contexte: contexte)
         analyse = await Task.detached(priority: .userInitiated) {
             CalculAnalyseBasale.analyser(entrees: entrees, config: config)

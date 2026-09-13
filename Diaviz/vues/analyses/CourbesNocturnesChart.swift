@@ -925,7 +925,12 @@ private struct CarteVerdictNuit: View {
     @ViewBuilder
     private func verdictAnalyse(_ z: ZoneData, slope: Double) -> some View {
         let derive = slope * heures(z)
-        let categorie = CalculAnalyseBasale.categorie(deriveMgDl: derive, seuil: seuil)
+        // Catégorie affichée = celle du verdict réel (`nuit.categorieVerdict`,
+        // calculée par `evaluerZone3` avec la courbe complète), pas un recalcul
+        // local sur la seule dérive — sinon une nuit qui frôle sans jamais
+        // atteindre l'hypo/l'hyper se retrouve « Descendante » ici alors que
+        // le verdict global la compte « Stable ».
+        let categorie = nuit.categorieVerdict ?? CalculAnalyseBasale.categorie(deriveMgDl: derive, seuil: seuil)
 
         HStack(alignment: .center) {
             badgePrincipal(categorieDerive: categorie)
