@@ -2114,6 +2114,9 @@ private struct LegendeGraphique: View {
 
 // MARK: - Wrapper preview
 
+// Sous `#if DEBUG` : le wrapper utilise `.mockBaisse`, qui n'existe qu'en
+// Debug. Laissé hors du bloc, il cassait le build Release.
+#if DEBUG
 /// Holder léger qui possède `mode` + `indexSelectionne` en `@State`
 /// pour les previews standalone du chart — l'app réelle passe ces
 /// deux états depuis `DetailAnalyseBasaleVue`.
@@ -2143,7 +2146,6 @@ private struct _PreviewWrapperBasalChart: View {
 
 // MARK: - Aperçus
 
-#if DEBUG
 #Preview("Toutes - 8 nuits") {
     _PreviewWrapperBasalChart(nights: AnalyseBasaleDetail.mockTropHaute.nightChartData)
         .padding(16)

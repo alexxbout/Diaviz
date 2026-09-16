@@ -81,6 +81,9 @@ struct InsightsSection: View {
 
 // MARK: - Aperçu
 
+// Données d'aperçu sous `#if DEBUG` : elles utilisent `.mockBaisse`, qui
+// n'existe qu'en Debug. Laissées hors du bloc, elles cassaient le build Release.
+#if DEBUG
 private let _previewProfil = ProfilRatio(grammesParUnite: 10, libelle: "midi")
 
 private let _previewContexteComplet = ContexteInsights(
@@ -107,7 +110,6 @@ private let _previewContexteCoherent = ContexteInsights(
     chargeSynthese: nil
 )
 
-#if DEBUG
 #Preview("Trois alertes") {
     Form {
         InsightsSection(contexte: _previewContexteComplet)
