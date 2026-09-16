@@ -146,6 +146,13 @@ struct CarteAnalyseCoucher: View {
             contenu
         }
         .buttonStyle(.plain)
+        // `.shadow`/`.compositingGroup` doivent vivre **ici**, hors du
+        // `label:` du `NavigationLink` — appliqués dedans (sur `contenu`),
+        // le système de rendu du bouton rognait l'ombre aux bornes du
+        // label et elle ne s'affichait jamais, quels que soient rayon et
+        // opacité. Même correctif que `JournalVue` pour `CarteSection`.
+        .compositingGroup()
+        .shadow(color: Self.accent.opacity(0.45), radius: 16, x: 0, y: 8)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(libelleAccessible)
         .accessibilityHint("Ouvre l'analyse détaillée du coucher")
@@ -161,10 +168,10 @@ struct CarteAnalyseCoucher: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Verre translucide teinté violet — même traitement que les cartes
-        // de section du journal : profondeur Liquid Glass et identité
-        // couleur propre au thème « coucher » (nuit).
-        .surfaceCarteVerre(teinte: Self.accent.opacity(0.20))
+        // Fond opaque teinté violet — plus de Liquid Glass (carte de
+        // contenu, pas un élément flottant, voir skill `liquid-glass`).
+        // L'ombre vit hors du `NavigationLink` (voir `body`), pas ici.
+        .surfaceCarte(fond: Self.accent.opacity(0.10))
     }
 
     // MARK: En-tête — icône cerclée + titre + chevron

@@ -51,6 +51,11 @@ struct JournalVue: View {
                 // main ; sans lui, `.buttonStyle(.plain)` suffit, comme sur
                 // la carte « Analyse du coucher ».
                 VStack(alignment: .leading, spacing: 16) {
+                    // Ombre colorée posée sur le `NavigationLink` lui-même,
+                    // pas dans le `label:` (`CarteSection`) : appliquée
+                    // dedans, elle se faisait rogner par le système de rendu
+                    // du bouton et ne s'affichait jamais — voir
+                    // `CarteSection.swift`.
                     NavigationLink(destination: ListeRepasParSection()) {
                         CarteSection(
                             icone: "fork.knife",
@@ -60,6 +65,8 @@ struct JournalVue: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .compositingGroup()
+                    .shadow(color: Color.blue.opacity(0.45), radius: 16, x: 0, y: 8)
 
                     NavigationLink(destination: MedicationsVue()) {
                         CarteSection(
@@ -70,6 +77,8 @@ struct JournalVue: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .compositingGroup()
+                    .shadow(color: Color.green.opacity(0.45), radius: 16, x: 0, y: 8)
 
                     NavigationLink(destination: SportVue()) {
                         CarteSection(
@@ -81,6 +90,8 @@ struct JournalVue: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .compositingGroup()
+                    .shadow(color: Color.orange.opacity(0.45), radius: 16, x: 0, y: 8)
 
                     NavigationLink(destination: ListeResucrages()) {
                         CarteSection(
@@ -91,6 +102,8 @@ struct JournalVue: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .compositingGroup()
+                    .shadow(color: Color.red.opacity(0.45), radius: 16, x: 0, y: 8)
 
                     // Même page que Profil → Données : l'inventaire appartient
                     // au corpus, mais le réflexe « où sont mes données » mène
@@ -104,6 +117,8 @@ struct JournalVue: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .compositingGroup()
+                    .shadow(color: Color.teal.opacity(0.45), radius: 16, x: 0, y: 8)
                 }
                 .padding(.horizontal)
                 .padding(.top, 20)

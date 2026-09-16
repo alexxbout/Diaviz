@@ -7,11 +7,12 @@
 
 import SwiftUI
 
-/// Carte de section compacte, style **Liquid Glass teinté** (iOS 26) :
+/// Carte de section compacte, fond opaque teinté à l'accent de la section :
 ///
-/// - **Fond** : `.glassEffect(.regular.tint(couleur…))` → matière en verre
-///   translucide légèrement colorée à l'accent de la section, qui donne de
-///   la profondeur au lieu d'une surface plate opaque.
+/// - **Fond** : `surfaceCarte(fond:)`, teinte `couleur.opacity(0.10)` — le
+///   Liquid Glass d'origine a été retiré (carte de contenu, pas un élément
+///   de navigation flottant — voir skill `liquid-glass` : le verre est
+///   réservé aux barres/toolbars/sheets, pas aux cartes de données).
 /// - **Icône** : badge circulaire plein `couleur.gradient`, SF Symbol blanc.
 /// - **Texte** : titre en couleur d'accent, sous-titre en `.secondary`.
 /// - **Chevron** : `chevron.right` teinté à droite → affordance de nav.
@@ -32,7 +33,7 @@ struct CarteSection: View {
     /// le titre qui se chevauchaient.
     var badgeImport: Int? = nil
 
-    private var teinteVerre: Color { couleur.opacity(0.18) }
+    private var teinteFond: Color { couleur.opacity(0.10) }
 
     private var sousTitreEffectif: String {
         guard let badgeImport, badgeImport > 0 else { return sousTitre }
@@ -69,9 +70,13 @@ struct CarteSection: View {
         // enregistrées aujourd'hui ») — sans plancher commun les trois
         // cartes n'avaient pas la même hauteur.
         .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
-        // Verre translucide teinté à l'accent de la section : profondeur
-        // Liquid Glass tout en gardant l'identité couleur de chaque section.
-        .surfaceCarteVerre(teinte: teinteVerre)
+        // Fond opaque teinté à l'accent de la section (plus de Liquid Glass —
+        // voir commentaire en tête de fichier). L'ombre colorée vit hors de
+        // cette vue, posée par l'appelant sur le `NavigationLink` — voir
+        // `JournalVue` : appliquée ici, dans le `label:` du lien, elle se
+        // faisait rogner par le système de rendu du bouton et ne
+        // s'affichait jamais.
+        .surfaceCarte(fond: teinteFond)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(titre), \(sousTitreEffectif)")
         .accessibilityAddTraits(.isButton)

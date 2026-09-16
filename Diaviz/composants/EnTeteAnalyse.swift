@@ -198,6 +198,13 @@ struct EnTeteAnalyse: View {
         }
         .frame(maxWidth: .infinity, minHeight: Self.hauteurMinimale, alignment: .bottomLeading)
         .clipShape(NiveauCarte.carte.forme)
+        // `compositingGroup()` avant `.shadow` : sans lui, le `clipShape`
+        // ci-dessus masque aussi l'ombre (même groupe de rendu) — voir
+        // `CarteSection`/`CarteAnalyseCoucher` pour le même correctif.
+        .compositingGroup()
+        // Ombre teintée au halo de l'ambiance — la couleur la plus vive de
+        // la palette, celle qui identifie la carte au premier coup d'œil.
+        .shadow(color: ambiance.palette.halo.opacity(0.45), radius: 16, x: 0, y: 8)
         .accessibilityElement(children: .combine)
         .accessibilityLabel([surtitre, titre, accroche].compactMap { $0 }.joined(separator: ". "))
     }
@@ -264,11 +271,8 @@ struct EnTeteAnalyse: View {
         .padding(16)
     }
 
-    /// Capsule en **Liquid Glass**, seul élément de la carte qui s'y prête :
-    /// elle flotte au-dessus du dégradé — donc au-dessus de contenu, l'usage
-    /// exact du matériau — et va y échantillonner ses couleurs, ce qu'un voile
-    /// blanc à opacité fixe ne sait pas faire. Le reste de la carte reste du
-    /// contenu, et le contenu ne se pose pas sur du verre.
+    /// Capsule à voile blanc opaque (fixe, pas de Liquid Glass) — la carte
+    /// reste du contenu de bout en bout, sans matériau flottant au-dessus.
     private func badge(_ libelle: String) -> some View {
         HStack(spacing: 5) {
             Image(systemName: ambiance.icone)
@@ -279,7 +283,7 @@ struct EnTeteAnalyse: View {
         .foregroundStyle(.white)
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .glassEffect(.regular, in: .capsule)
+        .background(.white.opacity(0.24), in: .capsule)
     }
 }
 
