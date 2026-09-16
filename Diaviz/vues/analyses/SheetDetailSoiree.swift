@@ -4,6 +4,7 @@
 //
 
 import Charts
+import SwiftData
 import SwiftUI
 
 /// Sheet **« Détail d'une soirée »** — raconte la chaîne complète d'un soir
@@ -132,6 +133,7 @@ struct SheetDetailSoiree: View {
             rapides: faits.rapides,
             repas: faits.repas,
             resucrages: resucrages,
+            activitesPourCharge: activitesPourCharge(),
             changementDoseRecent: changementDoseRecent,
             config: ConfigEndormissement(
                 seuilHypo: Int(profil.seuilsGlycemiques.hypoglycemie),
@@ -142,6 +144,20 @@ struct SheetDetailSoiree: View {
         if let detail {
             rendu = RenduNuit(detail: detail, seuilHyper: seuilHyper, plafondIOB: Self.plafondIOB)
         }
+    }
+
+    /// Activités des 45 jours précédant cette nuit (jamais après — on ne
+    /// veut pas de charge « du futur » dans le contexte d'une nuit passée),
+    /// pour calculer la charge continue + sa normale personnelle.
+    private func activitesPourCharge() -> [(debut: Date, dureeMin: Int, intensite: IntensiteSport)] {
+        guard faitsApercu == nil else { return [] }
+        let fin = soir.date
+        let borneCharge = Calendar.current.date(byAdding: .day, value: -45, to: fin) ?? fin
+        let descripteur = FetchDescriptor<ActiviteSportive>(
+            predicate: #Predicate { $0.dateDebut >= borneCharge && $0.dateDebut <= fin }
+        )
+        let activites = (try? modelContext.fetch(descripteur)) ?? []
+        return activites.map { (debut: $0.dateDebut, dureeMin: $0.dureeMinutes, intensite: $0.intensite) }
     }
 
     /// « Nuit du 30 au 31 août » — une nuit enjambe deux jours, le titre le
@@ -717,10 +733,43 @@ struct SheetDetailSoiree: View {
                 }
             }
             .accessibilityElement(children: .combine)
+
+            if let synthese = detail?.chargeSynthese, let libelle = libelleCharge(synthese) {
+                HStack(spacing: 6) {
+                    Image(systemName: "flame.fill")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(couleurCharge(synthese))
+                    Text(libelle)
+                        .font(.caption)
+                        .foregroundStyle(couleurCharge(synthese))
+                }
+                .accessibilityElement(children: .combine)
+            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .surfaceCarte()
+    }
+
+    /// Charge d'activité de la semaine précédant cette nuit — contexte
+    /// corrélé au constat B1, jamais présenté comme cause (dette technique
+    /// B1, doc Eraser « B1 — Détection basale », V2 priorité haute). `nil`
+    /// si la tendance est stable (rien à signaler) ou pas assez de recul
+    /// pour une normale personnelle.
+    private func libelleCharge(_ synthese: SyntheseChargeContinue) -> String? {
+        switch synthese.tendance {
+        case .enBaisse(let jours): return "Charge d'activité en baisse depuis \(jours)j"
+        case .enHausse(let jours): return "Charge d'activité en hausse depuis \(jours)j"
+        case .stable: return nil
+        }
+    }
+
+    private func couleurCharge(_ synthese: SyntheseChargeContinue) -> Color {
+        switch synthese.tendance {
+        case .enBaisse: return .red
+        case .enHausse: return .blue
+        case .stable: return .secondary
+        }
     }
 
     private func symboleCategorie(_ categorie: CategorieNuit) -> String {

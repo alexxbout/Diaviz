@@ -163,6 +163,11 @@ struct ContexteInsights {
     let validation: ValidationRatio?
     let sport: SportDetecte?
     let iob: IOB?
+    /// Charge d'activité continue (7j vs normale perso), indépendante d'une
+    /// séance récente précise — contrairement à `sport`, qui ne s'affiche
+    /// que dans la fenêtre d'effet d'une séance. Affichée à côté du ratio
+    /// **quel qu'il soit**, pas seulement le ratio post-sport.
+    let chargeSynthese: SyntheseChargeContinue?
 }
 
 // MARK: - Service
@@ -228,8 +233,23 @@ enum InsightsService {
                 analyseRatioObserve: analyseRatioObserve, repartitions: repartitions
             ),
             sport: sport,
-            iob: iobActif(a: heure, contexte: contexte)
+            iob: iobActif(a: heure, contexte: contexte),
+            chargeSynthese: chargeContinue(avant: heure, contexte: contexte)
         )
+    }
+
+    /// Charge d'activité des 45 jours précédant `heure` — même signal que la
+    /// carte accueil et le détail de nuit (`CalculChargeContinue`), pour que
+    /// le ratio appliqué à ce repas se lise avec le même contexte.
+    private static func chargeContinue(avant heure: Date, contexte: ModelContext?) -> SyntheseChargeContinue? {
+        guard let contexte else { return nil }
+        let borne = heure.addingTimeInterval(-45 * 24 * 3600)
+        let descripteur = FetchDescriptor<ActiviteSportive>(
+            predicate: #Predicate { $0.dateDebut >= borne && $0.dateDebut <= heure }
+        )
+        let activites = (try? contexte.fetch(descripteur)) ?? []
+        let entrees = activites.map { (debut: $0.dateDebut, dureeMin: $0.dureeMinutes, intensite: $0.intensite) }
+        return CalculChargeContinue.analyser(activites: entrees, maintenant: heure)
     }
 
     // MARK: Validation ratio (profil configuré)

@@ -172,6 +172,10 @@ struct CourbesNocturnesChart: View {
     let nights: [NightChartData]
     @Binding var mode: ModeAffichageGraphiqueBasale
     @Binding var indexSelectionne: Int
+    /// Charge d'activité continue de la semaine précédant une nuit donnée —
+    /// contexte transverse affiché dans la carte verdict de la vue « Par
+    /// nuit ». Fourni par le parent, qui seul a accès au `ModelContext`.
+    let chargePour: (Date) -> SyntheseChargeContinue
 
     /// `mode` et `indexSelectionne` sont liftés à la page parente
     /// (`DetailAnalyseBasaleVue`) pour que la `TimelineNuitsVue` puisse
@@ -179,11 +183,13 @@ struct CourbesNocturnesChart: View {
     init(
         nights: [NightChartData],
         mode: Binding<ModeAffichageGraphiqueBasale>,
-        indexSelectionne: Binding<Int>
+        indexSelectionne: Binding<Int>,
+        chargePour: @escaping (Date) -> SyntheseChargeContinue
     ) {
         self.nights = nights
         self._mode = mode
         self._indexSelectionne = indexSelectionne
+        self.chargePour = chargePour
     }
 
     var body: some View {
@@ -222,7 +228,8 @@ struct CourbesNocturnesChart: View {
             case .parNuit:
                 VueGraphiqueParNuit(
                     nights: nights,
-                    indexSelectionne: $indexSelectionne
+                    indexSelectionne: $indexSelectionne,
+                    chargePour: chargePour
                 )
             }
         }
@@ -495,6 +502,7 @@ private struct VueGraphiqueParNuit: View {
 
     let nights: [NightChartData]
     @Binding var indexSelectionne: Int
+    let chargePour: (Date) -> SyntheseChargeContinue
 
     /// État courant du crosshair (long-press + drag sur la courbe) —
     /// `nil` quand le doigt est relâché.
@@ -531,7 +539,7 @@ private struct VueGraphiqueParNuit: View {
                 .gesture(swipeNavigation)
             Divider()
                 .padding(.top, 2)
-            CarteVerdictNuit(nuit: nuit, nights: nights)
+            CarteVerdictNuit(nuit: nuit, nights: nights, chargeSynthese: chargePour(nuit.date))
             Divider()
             DetailZonesNuit(nuit: nuit)
         }
@@ -889,6 +897,10 @@ private struct CarteVerdictNuit: View {
     /// Toutes les nuits du dataset — nécessaires au pied de carte pour
     /// afficher les vraies nuits retenues (chacune colorée par sa catégorie).
     var nights: [NightChartData] = []
+    /// Charge d'activité de la semaine précédant cette nuit — contexte
+    /// corrélé au verdict, jamais présenté comme cause (dette technique B1,
+    /// doc Eraser « B1 — Détection basale », V2 priorité haute).
+    var chargeSynthese: SyntheseChargeContinue? = nil
 
     /// Seuil de stabilité (± mg/dL) — même source que le calculateur.
     private let seuil = CalculAnalyseBasale.seuilDeriveStableParDefaut
@@ -911,7 +923,37 @@ private struct CarteVerdictNuit: View {
                 } else {
                     verdictExclu(z3)
                 }
+
+                if let chargeSynthese, let libelle = libelleCharge(chargeSynthese) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "flame.fill")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(couleurCharge(chargeSynthese))
+                        Text(libelle)
+                            .font(.caption)
+                            .foregroundStyle(couleurCharge(chargeSynthese))
+                    }
+                    .padding(.top, 10)
+                    .accessibilityElement(children: .combine)
+                }
             }
+        }
+    }
+
+    /// `nil` si tendance stable (rien à signaler) ou pas assez de recul.
+    private func libelleCharge(_ synthese: SyntheseChargeContinue) -> String? {
+        switch synthese.tendance {
+        case .enBaisse(let jours): return "Charge d'activité en baisse depuis \(jours)j"
+        case .enHausse(let jours): return "Charge d'activité en hausse depuis \(jours)j"
+        case .stable: return nil
+        }
+    }
+
+    private func couleurCharge(_ synthese: SyntheseChargeContinue) -> Color {
+        switch synthese.tendance {
+        case .enBaisse: return .red
+        case .enHausse: return .blue
+        case .stable: return .secondary
         }
     }
 
@@ -1342,22 +1384,30 @@ private struct DetailZonesNuit: View {
 
     let nuit: NightChartData
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Zones de la nuit")
-                .font(.subheadline.bold())
-                .foregroundStyle(.secondary)
+    /// Repliée par défaut — le détail zone par zone est secondaire face à
+    /// la carte verdict juste au-dessus, qui porte déjà l'essentiel.
+    @State private var deplie = false
 
+    var body: some View {
+        DisclosureGroup(isExpanded: $deplie) {
             if nuit.zones.isEmpty {
                 Text("Aucune zone calculée pour cette nuit — lente non enregistrée ou données insuffisantes.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 8)
             } else {
-                ForEach(nuit.zones) { zone in
-                    ligneZone(zone)
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(nuit.zones) { zone in
+                        ligneZone(zone)
+                    }
                 }
+                .padding(.top, 8)
             }
+        } label: {
+            Text("Zones de la nuit")
+                .font(.subheadline.bold())
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -2085,7 +2135,8 @@ private struct _PreviewWrapperBasalChart: View {
         CourbesNocturnesChart(
             nights: nights,
             mode: $mode,
-            indexSelectionne: $index
+            indexSelectionne: $index,
+            chargePour: { _ in .mockBaisse }
         )
     }
 }

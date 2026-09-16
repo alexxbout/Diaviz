@@ -19,7 +19,7 @@ enum CatalogueEncyclopedie {
     static var fiches: [FicheEncyclopedie] {
         [
             gri, tempsDansCible, ciblesConsensusTir, gmiVsHbA1c,
-            glucidesPendantEffort, seuilsDemarrage,
+            glucidesPendantEffort, seuilsDemarrage, chargeActiviteSensibilite,
             hypoRetardee, compressionLows, alcoolHypoRetardee,
             resucrageHypo, cetones
         ]
@@ -310,6 +310,36 @@ enum CatalogueEncyclopedie {
             ],
             sources: [riddell, ispad],
             analysesLiees: ["S1 — Réponse glycémique sport"]
+        )
+    }
+
+    private static var chargeActiviteSensibilite: FicheEncyclopedie {
+        .init(
+            id: "charge-activite-sensibilite",
+            titre: "Charge d'activité et sensibilité à l'insuline",
+            resume: "L'effet d'une séance dure bien plus longtemps que la séance elle-même",
+            icone: "chart.line.downtrend.xyaxis",
+            theme: .sport,
+            sections: [
+                .init(
+                    titre: "Un effet qui se cumule",
+                    texte: "La sensibilité à l'insuline augmentée par une séance ne retombe pas immédiatement à la fin de l'effort : les mesures montrent un effet résiduel qui s'étend sur 24 à 48 h. Plusieurs séances rapprochées dans la semaine cumulent cet effet, tandis qu'une semaine sans activité laisse la sensibilité revenir à son niveau de repos."
+                ),
+                .init(
+                    titre: "Ce que ça change sur plusieurs jours",
+                    texte: "Une charge d'entraînement qui varie sur la semaine (arrêt, reprise, période plus intense) déplace donc le besoin en insuline sur cette même échelle de temps, pas seulement au moment de la séance. C'est un facteur distinct de l'effet ponctuel d'une activité isolée, documenté séparément dans la littérature."
+                ),
+                .init(
+                    titre: "Ce que décrit le consensus sur les ajustements",
+                    texte: "Le consensus sur la gestion de l'exercice décrit des stratégies d'ajustement temporaire de l'insuline basale (réduction du débit ou de la dose de fond) autour d'une période d'activité structurée, en complément — pas en remplacement — des ajustements de glucides. Les ratios repas n'y sont pas mentionnés comme le levier visé par ce type de variation."
+                ),
+                .init(
+                    titre: "Portée de ces observations",
+                    texte: "Ces constats décrivent un mécanisme général, pas une règle chiffrée à appliquer : l'ampleur de l'effet varie selon l'intensité, la durée et le profil de chacun. Aucune de ces sources ne fournit de formule reliant une charge d'activité mesurée à un ajustement de dose précis."
+                )
+            ],
+            sources: [riddell, ispad],
+            analysesLiees: ["B1 — Détection basale", "S1 — Réponse glycémique sport"]
         )
     }
 

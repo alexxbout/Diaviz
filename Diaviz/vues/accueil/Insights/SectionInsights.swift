@@ -12,22 +12,14 @@ import SwiftUI
 /// est en bas (interactive, swipe vertical), les cartes suivantes
 /// pointent au-dessus.
 ///
-/// Quand le tableau est vide, la section affiche un `CartePlaceholderAccueil`
-/// plutôt que de se masquer : sur un compte neuf, l'accueil ne disait pas ce
-/// qui viendrait s'afficher ici un jour. Le titre reste en place dans les deux
-/// cas, la structure de la page ne bouge donc pas quand la première
-/// observation arrive.
+/// Masquée entièrement (ni titre, ni carte) quand le tableau est vide —
+/// pas de placeholder promettant un contenu qui n'existe pas encore.
 ///
 /// Position sur l'accueil : en tête de page, au-dessus de la section
 /// « Aujourd'hui » (carte score + rappel lente).
 struct SectionInsights: View {
 
     let insights: [Insight]
-
-    /// Progression vers le premier verdict analysable (nuits B1 collectées),
-    /// affichée sous le placeholder quand elle est connue. `nil` → placeholder
-    /// sans compteur.
-    var progressionCollecte: CartePlaceholderAccueil.Progression? = nil
 
     /// Appelé quand l'utilisateur demande la suppression d'un insight (swipe
     /// gauche ou appui long sur la carte active) — le parent affiche la
@@ -43,14 +35,7 @@ struct SectionInsights: View {
 
     var body: some View {
         if insights.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                titre
-                CartePlaceholderAccueil(
-                    icone: "chart.line.uptrend.xyaxis",
-                    message: "Les tendances repérées dans vos nuits et vos repas s'afficheront ici.",
-                    progression: progressionCollecte
-                )
-            }
+            EmptyView()
         } else {
             // Spacing 18 entre le titre et la pile pour aérer sous
             // l'en-tête. Le `.padding(.bottom, -14)` resserre ensuite la
@@ -116,21 +101,14 @@ struct SectionInsights: View {
     .background(Color(.systemGroupedBackground))
 }
 
-#Preview("Insights - Aucun (placeholder)") {
+#Preview("Insights - Aucun (masquée)") {
     ScrollView {
         SectionInsights(insights: [])
             .padding(16)
-    }
-    .background(Color(.systemGroupedBackground))
-}
-
-#Preview("Insights - Aucun, collecte en cours") {
-    ScrollView {
-        SectionInsights(
-            insights: [],
-            progressionCollecte: .init(actuel: 2, requis: 3, libelle: "2 nuits analysées sur 3")
-        )
-        .padding(16)
+        Text("La section au-dessus est vide (EmptyView) — rien ne s'affiche.")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(16)
     }
     .background(Color(.systemGroupedBackground))
 }

@@ -106,6 +106,11 @@ struct AccueilVue: View {
     @State private var injectionsRecentes: [Injection] = []
     @State private var activitesRecentes: [ActiviteSportive] = []
 
+    /// Charge d'activité continue (7j vs normale perso 4 semaines) —
+    /// recalculée depuis `activitesRecentes` (même fenêtre 45j, largement
+    /// suffisante pour la normale sur 4 semaines).
+    @State private var chargeContinueService = ChargeContinueService()
+
     /// Repas signalés « à revoir » : les groupes **récurrents** dont la
     /// dernière occurrence est sortie de cible (`CalculRepasARevoir`) et les
     /// repas **isolés** (contexte libre et/ou ajustement, verdict mauvais,
@@ -142,26 +147,6 @@ struct AccueilVue: View {
             .sorted(by: CalculRepasARevoir.plusSevereEnPremier)
     }
 
-    /// Progression affichée sous le placeholder « Nouvelles tendances » —
-    /// nuits déjà analysées par B1 vers le minimum exploitable, seul seuil
-    /// chiffré connu à ce stade (R1 n'a pas de seuil global équivalent, son
-    /// garde-fou est par tranche). `nil` avant la toute première nuit : un
-    /// « 0 sur 3 » n'apprend rien de plus que la phrase du placeholder.
-    private var progressionTendances: CartePlaceholderAccueil.Progression? {
-        let nuits = analyseBasaleService.analyse.nuitsAnalysees
-        guard nuits > 0, nuits < Self.nuitsRequisesPremiereTendance else { return nil }
-        return .init(
-            actuel: nuits,
-            requis: Self.nuitsRequisesPremiereTendance,
-            libelle: "\(nuits) nuit\(nuits > 1 ? "s" : "") analysée\(nuits > 1 ? "s" : "") sur \(Self.nuitsRequisesPremiereTendance)"
-        )
-    }
-
-    /// Même valeur que le seuil `.collecte` de la carte sommaire des analyses
-    /// (`AnalyseBasaleService.etatBasale`) — dupliquée ici plutôt qu'exposée,
-    /// pour ne pas transformer un détail d'affichage de B1 en API publique.
-    private static let nuitsRequisesPremiereTendance = 3
-
     /// Progression affichée sous le placeholder « Glucides » — jours avec
     /// repas cette semaine vers `joursMinimumParSemaine`. `nil` tant qu'aucun
     /// repas n'a été enregistré cette semaine.
@@ -190,6 +175,7 @@ struct AccueilVue: View {
         )
         injectionsRecentes = (try? modelContext.fetch(descripteurInjections)) ?? []
         activitesRecentes = (try? modelContext.fetch(descripteurActivites)) ?? []
+        chargeContinueService.recalculer(depuis: activitesRecentes)
     }
 
     /// Contexte de la carte « Insuline lente » — **réel**, construit depuis la
@@ -208,6 +194,13 @@ struct AccueilVue: View {
     /// simple booléen (même pattern que `jourDetailScore`), pour ne jamais
     /// pousser la page avec des données obsolètes ou absentes.
     @State private var syntheseGlucidesPourPage: SyntheseGlucidesHebdo?
+
+    /// Pilote le push de `PageChargeActivite`. Bool plutôt que
+    /// `navigationDestination(item:)` : `SyntheseChargeContinue` n'a pas
+    /// d'identité naturelle (pas d'`id`), contrairement à
+    /// `SyntheseGlucidesHebdo` — la page relit `chargeContinueService.synthese`
+    /// au moment du push.
+    @State private var afficherPageCharge = false
 
     /// Pilote la sheet Profil ouverte depuis le placeholder « aucun ratio
     /// configuré ». `EnTetePage` porte déjà sa propre sheet pour l'avatar :
@@ -247,11 +240,10 @@ struct AccueilVue: View {
                     VStack(spacing: 28) {
                         // Section « Nouvelles tendances » — pile des
                         // observations ML, désormais en tête de page.
-                        // Vide, elle affiche un placeholder disant ce qui
-                        // s'affichera ici et où en est la collecte de nuits.
+                        // Entièrement masquée tant qu'aucune observation
+                        // n'existe (pas de placeholder).
                         SectionInsights(
                             insights: insightsAffiches,
-                            progressionCollecte: progressionTendances,
                             onDemandeSuppression: { insightASupprimer = $0 },
                             onTap: { insight in
                                 // Seul l'insight R1 a une destination pour
@@ -344,6 +336,13 @@ struct AccueilVue: View {
                                         progression: progressionGlucides
                                     )
                                 }
+
+                                if let synthese = chargeContinueService.synthese {
+                                    CarteChargeActivite(
+                                        synthese: synthese,
+                                        onTap: { afficherPageCharge = true }
+                                    )
+                                }
                             }
                             // Anime UNIQUEMENT l'insertion/sortie de la carte
                             // lente. Portée restreinte à ce VStack (et non au
@@ -428,6 +427,18 @@ struct AccueilVue: View {
             }
             .navigationDestination(item: $syntheseGlucidesPourPage) { synthese in
                 PageGlucides(synthese: synthese)
+            }
+            .navigationDestination(isPresented: $afficherPageCharge) {
+                // Fallback vide inatteignable en pratique : la carte qui
+                // déclenche ce push n'existe que si `synthese` est déjà
+                // non-nil. `.mockBaisse` (préview) n'est pas dispo en
+                // Release, d'où cette synthèse neutre plutôt qu'un `!`.
+                PageChargeActivite(
+                    synthese: chargeContinueService.synthese ?? SyntheseChargeContinue(
+                        serieJournaliere: [], chargeSemaine: 0, normaleHebdo: 0,
+                        ecartRelatif: nil, tendance: .stable
+                    )
+                )
             }
             .navigationDestination(isPresented: $afficherResucrages) {
                 ListeResucrages()

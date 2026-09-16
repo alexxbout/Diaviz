@@ -48,6 +48,9 @@ struct EnTeteAnalyse: View {
         /// l'écart de vivacité, pas la teinte, qui distingue les deux pages du
         /// domaine repas.
         case repasARevoir
+        /// Charge d'activité — flamme ambrée, la teinte que porte déjà la
+        /// carte d'accueil correspondante.
+        case chargeActivite
 
         /// Décale le motif de bruit d'une analyse à l'autre : deux cartes
         /// affichées l'une sous l'autre partageraient sinon exactement le même
@@ -62,6 +65,7 @@ struct EnTeteAnalyse: View {
             case .bibliotheque: 701
             case .repasARevoir: 853
             case .donnees:      991
+            case .chargeActivite: 1129
             }
         }
 
@@ -76,6 +80,7 @@ struct EnTeteAnalyse: View {
             case .bibliotheque: "books.vertical.fill"
             case .repasARevoir: "fork.knife"
             case .donnees:      "externaldrive.fill"
+            case .chargeActivite: "flame.fill"
             }
         }
 
@@ -156,6 +161,17 @@ struct EnTeteAnalyse: View {
                     Color(sombre: (0x18, 0x4C, 0x42), clair: (0x2C, 0x7C, 0x6A)),
                     Color(sombre: (0x3D, 0x8E, 0x7C), clair: (0x4E, 0x9E, 0x8A)),
                     Color(sombre: (0x2A, 0x6E, 0x82), clair: (0x3C, 0x82, 0x96))
+                )
+            case .chargeActivite:
+                // Ambre/flamme — même famille chaude que les glucides et
+                // repas à revoir, mais orange franc plutôt que cuivre ou
+                // vermillon : la teinte que porte déjà `CarteChargeActivite`.
+                (
+                    Color(sombre: (0x28, 0x16, 0x04), clair: (0x6E, 0x3F, 0x0A)),
+                    Color(sombre: (0x45, 0x25, 0x06), clair: (0x8F, 0x54, 0x0C)),
+                    Color(sombre: (0x7A, 0x42, 0x0A), clair: (0xB8, 0x71, 0x18)),
+                    Color(sombre: (0xE8, 0x8A, 0x1E), clair: (0xE0, 0x91, 0x2E)),
+                    Color(sombre: (0xD9, 0x52, 0x1E), clair: (0xD1, 0x5C, 0x2A))
                 )
             }
         }
