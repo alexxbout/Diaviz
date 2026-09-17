@@ -1,11 +1,11 @@
 //
-//  SheetEcartRatio.swift
+//  PageEcartRatio.swift
 //  diaviz
 //
 
 import SwiftUI
 
-/// Sheet de détail du ratio observé par R1 — ouverte depuis la carte
+/// Page de détail du ratio observé par R1 — poussée depuis la carte
 /// d'insight « Nouvelles tendances » (tap sur l'insight R1 uniquement) et
 /// depuis `CarteAnalyseRatio` sur l'accueil. Un bloc par groupe ayant au moins
 /// un repas exploitable (filtré par l'appelant) — transparence complète : un
@@ -13,7 +13,11 @@ import SwiftUI
 /// groupe en écart. Chaque bloc porte son `GraphiqueZonesRatio` et la légende
 /// chiffrée des 3 tranches, les tranches sous `effectifMinimalBucket` étant
 /// marquées « insuffisant » plutôt que masquées.
-struct SheetEcartRatio: View {
+///
+/// Poussée dans le `NavigationStack` de l'appelant (`navigationDestination`),
+/// pas une sheet : cohérent avec les autres pages de détail de l'accueil
+/// (glucides, charge d'activité, repas à revoir).
+struct PageEcartRatio: View {
 
     let sections: [ObservationRatioSection]
     /// Comparaison dose/verdict avant-après le dernier changement de ratio,
@@ -21,12 +25,10 @@ struct SheetEcartRatio: View {
     /// masqués, section inchangée). Défaut vide pour ne pas casser les
     /// appelants existants.
     var apercusChangementRatio: [SectionRepas?: ApercuChangementRatio] = [:]
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if sections.isEmpty {
+        Group {
+            if sections.isEmpty {
                     ContentUnavailableView(
                         "Pas encore de résultat",
                         systemImage: "chart.dots.scatter",
@@ -101,18 +103,10 @@ struct SheetEcartRatio: View {
                     }
                 }
             }
-            .navigationTitle("Écart de ratio")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Fermer") { dismiss() }
-                }
-            }
-        }
-        .presentationDetents([.large])
-        .presentationDragIndicator(.visible)
-        .presentationBackground(Color(.systemGroupedBackground))
+        .navigationTitle("Écart de ratio")
+        .navigationBarTitleDisplayMode(.inline)
     }
+
 
     // MARK: - Depuis le changement de ratio
 
@@ -483,31 +477,33 @@ private func _mockApercusChangementRatio() -> [SectionRepas?: ApercuChangementRa
 
 #if DEBUG
 #Preview("Écart et ratio confirmé") {
-    SheetEcartRatio(sections: _mockSections())
+    NavigationStack { PageEcartRatio(sections: _mockSections()) }
 }
 
 #Preview("Depuis le changement de ratio") {
-    SheetEcartRatio(sections: _mockSections(), apercusChangementRatio: _mockApercusChangementRatio())
+    NavigationStack {
+        PageEcartRatio(sections: _mockSections(), apercusChangementRatio: _mockApercusChangementRatio())
+    }
 }
 
 #Preview("Trop peu de repas") {
-    SheetEcartRatio(sections: _mockSectionsSansComparaison())
+    NavigationStack { PageEcartRatio(sections: _mockSectionsSansComparaison()) }
 }
 
 #Preview("Centre seul, rien à comparer") {
-    SheetEcartRatio(sections: _mockSectionCentreSeul())
+    NavigationStack { PageEcartRatio(sections: _mockSectionCentreSeul()) }
 }
 
 #Preview("Mix comparable / non comparable") {
-    SheetEcartRatio(sections: _mockSections() + _mockSectionsSansComparaison())
+    NavigationStack { PageEcartRatio(sections: _mockSections() + _mockSectionsSansComparaison()) }
 }
 
 #Preview("Aucune donnée") {
-    SheetEcartRatio(sections: [])
+    NavigationStack { PageEcartRatio(sections: []) }
 }
 
 #Preview("Sombre") {
-    SheetEcartRatio(sections: _mockSections())
+    NavigationStack { PageEcartRatio(sections: _mockSections()) }
         .preferredColorScheme(.dark)
 }
 #endif

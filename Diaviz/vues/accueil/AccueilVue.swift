@@ -465,11 +465,11 @@ struct AccueilVue: View {
             } message: {
                 Text("« \(insightASupprimer?.titre ?? "") » disparaîtra de l'accueil.")
             }
-            .sheet(isPresented: $afficherDetailEcartRatio) {
+            .navigationDestination(isPresented: $afficherDetailEcartRatio) {
                 // Tout groupe ayant au moins un repas exploitable — c'est le
                 // seuil par tranche (`effectifMinimalBucket`) qui décide seul
-                // de ce qui est comparable, la sheet montre le reste tel quel.
-                SheetEcartRatio(
+                // de ce qui est comparable, la page montre le reste tel quel.
+                PageEcartRatio(
                     sections: analyseRatioService.analyse.sections.filter { !$0.entrees.isEmpty },
                     apercusChangementRatio: analyseRatioService.apercusChangementRatio
                 )

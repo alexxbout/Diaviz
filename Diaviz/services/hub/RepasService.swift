@@ -652,7 +652,7 @@ extension RepasService {
         /// la plage de la tranche (pas une valeur fixe) : sinon tous les
         /// repas d'une tranche tombent au même x et s'empilent en une seule
         /// colonne sur le graphique — même plages que les autres previews
-        /// de la sheet (`GraphiqueZonesRatio`/`SheetEcartRatio`).
+        /// de la page (`GraphiqueZonesRatio`/`PageEcartRatio`).
         func lot(
             departJours: Int, glucides: Int, doseSuggeree: Double, heure: (h: Int, m: Int),
             faible: (bon: Int, total: Int), proche: (bon: Int, total: Int), forte: (bon: Int, total: Int)

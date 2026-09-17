@@ -17,7 +17,7 @@ import SwiftUI
 /// Zone « proche du ratio » teintée en fond (coins arrondis), séparateurs
 /// aux bornes de tolérance, ligne pointillée au ratio configuré (x=1.0).
 /// Axes masqués — les libellés de zone (tranche + taux) vivent dans la
-/// légende sous le graphique, portée par l'appelant (`SheetEcartRatio`).
+/// légende sous le graphique, portée par l'appelant (`PageEcartRatio`).
 struct GraphiqueZonesRatio: View {
 
     let entrees: [EntreeRatioRepas]

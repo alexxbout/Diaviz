@@ -84,7 +84,7 @@ struct CarteAnalyseRatio: View {
     var body: some View {
         if lignes.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Analyse des ratios")
+                Text("Repas dans le ratio")
                     .font(.title2.bold())
                     .foregroundStyle(.primary)
                     .padding(.leading, 4)
@@ -125,7 +125,7 @@ struct CarteAnalyseRatio: View {
             Image(systemName: "chart.bar.fill")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Self.teinte)
-            Text("Analyse des ratios")
+            Text("Repas dans le ratio")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Self.teinte)
             Spacer(minLength: 8)
@@ -137,7 +137,7 @@ struct CarteAnalyseRatio: View {
 
     /// Hauteur maximale de la zone de barres — une barre à 100 % l'atteint
     /// exactement, le reste est proportionnel.
-    private static let hauteurGraphe: CGFloat = 221
+    private static let hauteurGraphe: CGFloat = 160
 
     /// Largeur d'une colonne (barre + légende dessous) — fixe, pour que les
     /// colonnes restent alignées quel que soit le nombre de moments.
@@ -221,7 +221,7 @@ struct CarteAnalyseRatio: View {
 
     private var labelAccessibilite: String {
         let details = lignes.map { "\($0.libelle), \($0.etat.detail)" }
-        return (["Analyse des ratios"] + details).joined(separator: ". ")
+        return (["Repas dans le ratio"] + details).joined(separator: ". ")
     }
 }
 
