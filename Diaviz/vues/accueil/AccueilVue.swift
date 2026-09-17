@@ -233,11 +233,16 @@ struct AccueilVue: View {
                 EnTetePage(titre: "Accueil")
 
                 ScrollView {
-                    // Spacing 28pt entre les sections (tendances,
-                    // « Aujourd'hui », repas, aperçu) pour clarifier la
-                    // hiérarchie : chaque bloc respire et se lit comme
-                    // une unité distincte.
-                    VStack(spacing: 28) {
+                    // Spacing 16pt uniforme entre TOUTES les cartes —
+                    // score, glucides, charge, repas à revoir, ratios.
+                    // Un spacing plus large entre certaines d'entre elles
+                    // (28pt) laissait croire à un regroupement que plus
+                    // aucun titre ne justifie (« Aujourd'hui » a été retiré,
+                    // le titre des cartes repas/ratios vit maintenant dans
+                    // la carte elle-même) : le rythme doit être le même
+                    // partout puisque les cartes se lisent maintenant comme
+                    // une liste plate.
+                    VStack(spacing: 16) {
                         // Section « Nouvelles tendances » — pile des
                         // observations ML, désormais en tête de page.
                         // Entièrement masquée tant qu'aucune observation
@@ -255,22 +260,14 @@ struct AccueilVue: View {
                             }
                         )
 
-                        // Section « Aujourd'hui » — carte score du jour
-                        // (recalculée en temps réel 06h-06h) et, si la
-                        // fenêtre de rappel est ouverte, la carte
-                        // contextuelle « Insuline lente ». Les deux
-                        // cartes sont groupées sous un même en-tête, comme
-                        // « Aperçu du jour » plus bas (spacing 8 titre →
-                        // contenu pour que le titre "appartienne" au bloc).
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Aujourd'hui")
-                                .font(.title2.bold())
-                                .foregroundStyle(.primary)
-                                .padding(.leading, 4)
-                                .accessibilityAddTraits(.isHeader)
-
-                            VStack(spacing: 12) {
-                                CarteScoreQuotidien(
+                        // Score du jour, rappel lente, resucrage, glucides,
+                        // charge d'activité — plus de titre externe « Aujourd'hui » :
+                        // ni « Repas à revoir » (carte résumé) ni « Analyse
+                        // des ratios » n'en portent un désormais (titre
+                        // déplacé dans la carte elle-même), un titre externe
+                        // ici cassait le rythme vertical entre sections.
+                        VStack(spacing: 16) {
+                            CarteScoreQuotidien(
                                     contenu: contenuScore,
                                     style: .gradient,
                                     onTap: { jourDetailScore = aujourdhui }
@@ -357,7 +354,6 @@ struct AccueilVue: View {
                                     ? .spring(response: 0.4, dampingFraction: 0.8) : nil,
                                 value: etatLente
                             )
-                        }
 
                         // Section « Repas à revoir » — repas récurrents ET
                         // contextualisés sortis de cible, fusionnés en une

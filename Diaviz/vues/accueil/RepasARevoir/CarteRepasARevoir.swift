@@ -49,7 +49,7 @@ struct CarteRepasARevoir: View {
             legendeEvenements
         }
         .padding(16)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .surfaceCarte()
         .contentShape(Rectangle())
         .onLongPressGesture(minimumDuration: 0.5) {
