@@ -64,7 +64,7 @@ struct CarteChargeActivite: View {
                 if let ecart = synthese.ecartRelatif {
                     HStack(alignment: .firstTextBaseline, spacing: 3) {
                         Text(ecartFormate(ecart))
-                            .font(.system(size: 22, weight: .heavy, design: .rounded))
+                            .font(.system(size: 30, weight: .semibold, design: .rounded))
                             .foregroundStyle(.primary)
                             .monospacedDigit()
                         Text("vs normale")

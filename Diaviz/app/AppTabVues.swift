@@ -10,7 +10,9 @@ import HealthKit
 import SwiftData
 import SwiftUI
 
-/// Vue racine — `TabView` portant les quatre onglets de l'app.
+/// Vue racine — `TabView` portant les onglets de l'app. L'onglet
+/// Recherche est retiré côté navigation le temps qu'il soit géré sur une
+/// autre branche — `RecercheVue` reste dans le repo, juste plus montée ici.
 ///
 /// Branchée sur `HealthKitImportService.shared` pour afficher un
 /// **badge** sur l'onglet Journal reflétant en temps réel le nombre de
@@ -18,8 +20,6 @@ import SwiftUI
 /// depuis la page Sport (sheet déclenchée par bouton dédié) — pas
 /// d'ouverture automatique au lancement.
 struct AppTabVues: View {
-
-    @State private var showingSearch = false
 
     /// Onglet actif — sert uniquement à déclencher le retour haptique au
     /// changement d'onglet (`.sensoryFeedback` a besoin d'une valeur
@@ -123,10 +123,6 @@ struct AppTabVues: View {
             // une pastille (vide) en permanence, quel que soit
             // `estNouvelleTendance`.
             .badge(analyseBasaleService.estNouvelleTendance ? Text("•") : nil)
-
-            Tab("Recherche", systemImage: "sparkle.magnifyingglass", value: "recherche", role: TabRole.search) {
-                RecercheVue()
-            }
         }
         // Confirmations d'enregistrement — couche de chrome au-dessus des
         // onglets, donc en overlay de la `TabView` et non dans une page :

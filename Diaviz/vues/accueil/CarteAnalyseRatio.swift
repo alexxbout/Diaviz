@@ -62,7 +62,7 @@ struct CarteAnalyseRatio: View {
                                       section: section(.dejeuner), dateChangementRatio: dateChangement(.dejeuner)))
             }
             if let ratio = m.gouter {
-                resultat.append(.init(libelle: "Goûter", icone: "cup.and.saucer.fill", teinte: .teal, ratio: ratio,
+                resultat.append(.init(libelle: "Goûter", icone: "cup.and.saucer.fill", teinte: .pink, ratio: ratio,
                                       section: section(.enCas), dateChangementRatio: dateChangement(.enCas)))
             }
             if let ratio = m.diner {
@@ -79,107 +79,171 @@ struct CarteAnalyseRatio: View {
         }
     }
 
+    fileprivate static let teinte = Color.indigo
+
     var body: some View {
-        // En-tête hors de la carte, au même niveau que « Aujourd'hui » /
-        // « Repas à revoir » (`SectionRepasARevoir.entete`) — la carte ne
-        // porte plus son propre titre interne.
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Analyse des ratios")
+        if lignes.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Repas dans le ratio")
                     .font(.title2.bold())
                     .foregroundStyle(.primary)
+                    .padding(.leading, 4)
                     .accessibilityAddTraits(.isHeader)
 
-                Spacer(minLength: 8)
-
-                // Affordance de tap — même bouton texte que « Tout voir »
-                // de `SectionRepasARevoir`, plus explicite qu'un chevron.
-                // Masquée sur le placeholder : il n'y a pas encore de détail
-                // à ouvrir.
-                if let onTap, !lignes.isEmpty {
-                    Button("Voir le détail", action: onTap)
-                        .font(.subheadline)
-                }
-            }
-            .padding(.leading, 4)
-
-            if lignes.isEmpty {
                 CartePlaceholderAccueil(
                     icone: "slider.horizontal.3",
                     message: "Aucun ratio configuré. Le résultat de vos ratios, moment par moment, s'affichera ici.",
                     action: onOuvrirProfil.map { (libelle: "Ouvrir le profil", executer: $0) }
                 )
-            } else if let onTap {
-                Button(action: onTap) { contenu }
-                    .buttonStyle(.plain)
-            } else {
-                contenu
             }
+        } else if let onTap {
+            Button(action: onTap) { carte }
+                .buttonStyle(.plain)
+        } else {
+            carte
         }
     }
 
-    private var contenu: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(lignes.enumerated()), id: \.element.id) { index, ligne in
-                if index > 0 {
-                    Divider().padding(.vertical, 10)
-                }
-                ligneVue(ligne)
-            }
+    /// Même patron que `CarteChargeActivite` / `CarteGlucidesSemaine` : titre
+    /// teinté + chevron **dans** la carte plutôt qu'un bouton texte externe —
+    /// toute la carte est tappable, cohérente avec les deux autres cartes
+    /// d'accueil qui poussent un détail.
+    private var carte: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            ligneTitre
+            graphe
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // `surfaceCarte()` et non un `RoundedRectangle` écrit à la main : le
-        // rayon était figé à 14pt, seul de son espèce sur l'accueil, où toutes
-        // les autres cartes posées sur le fond de page valent `Radius.large`.
         .surfaceCarte()
         .accessibilityElement(children: .combine)
         .accessibilityLabel(labelAccessibilite)
     }
 
-    @ViewBuilder
-    private func ligneVue(_ ligne: LigneVerdictRatio) -> some View {
-        let etat = ligne.etat
-        HStack(spacing: 12) {
-            // Tuile teintée à la couleur du moment — identité **constante**,
-            // jamais dépendante du verdict ni du volume de données : une
-            // ligne doit rester reconnaissable au même endroit quel que soit
-            // son état. Ce que l'analyse a trouvé vit dans le badge à droite.
-            Image(systemName: ligne.icone)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(ligne.teinte)
-                .frame(width: 34, height: 34)
-                .background(
-                    ligne.teinte.opacity(0.14),
-                    in: RoundedRectangle(cornerRadius: Radius.small, style: .continuous)
-                )
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(ligne.libelle)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.primary)
-                Text(etat.detail)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-
-            Spacer(minLength: 6)
-
-            if let badge = etat.badge {
-                Text(badge.texte)
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(badge.couleur)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 3)
-                    .background(badge.couleur.opacity(0.14), in: Capsule())
-            }
+    private var ligneTitre: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "chart.bar.fill")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Self.teinte)
+            Text("Repas dans le ratio")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Self.teinte)
+            Spacer(minLength: 8)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color(.tertiaryLabel))
         }
+    }
+
+    /// Hauteur maximale de la zone de barres — une barre à 100 % l'atteint
+    /// exactement, le reste est proportionnel.
+    private static let hauteurGraphe: CGFloat = 160
+
+    /// Largeur d'une colonne (barre + légende dessous) — fixe, pour que les
+    /// colonnes restent alignées quel que soit le nombre de moments.
+    /// Calibrée pour que 4 colonnes + espacements tiennent dans la largeur
+    /// disponible de la carte sur un iPhone standard : à 78pt, 4 colonnes
+    /// (408pt avec les espacements) dépassaient l'espace dispo une fois le
+    /// padding de carte et la marge de page déduits — un contenu à largeur
+    /// fixe non compressible forçait alors toute la page à s'élargir pour
+    /// lui faire de la place, exactement comme le ferait un `ScrollView`
+    /// horizontal non contraint.
+    private static let largeurColonne: CGFloat = 68
+
+    /// Un seul graphique en barres verticales unit les moments sur un même
+    /// axe (0-100 % de repas réussis avec le ratio configuré) plutôt qu'une
+    /// carte séparée par moment — la comparaison entre moments se lit d'un
+    /// coup d'œil. Centré dans la carte (`Spacer` de part et d'autre) plutôt
+    /// que collé à gauche. Chaque barre reprend la teinte du moment (même
+    /// identité que l'icône) : sans couleur, les colonnes redeviennent
+    /// indiscernables entre elles.
+    private var graphe: some View {
+        HStack(alignment: .bottom, spacing: 0) {
+            Spacer(minLength: 0)
+            HStack(alignment: .bottom, spacing: 10) {
+                ForEach(lignes) { ligne in
+                    colonne(ligne)
+                        .frame(width: Self.largeurColonne)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func colonne(_ ligne: LigneVerdictRatio) -> some View {
+        VStack(spacing: 6) {
+            Text(ligne.tauxReussite.map { "\(Int($0.rounded()))%" } ?? "—")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(ligne.teinte)
+                .monospacedDigit()
+
+            barre(ligne)
+
+            Image(systemName: ligne.icone)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(ligne.teinte)
+
+            Text(libelleAbrege(ligne.libelle))
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+        }
+    }
+
+    /// Barre pleine, teintée, hauteur proportionnelle au taux — sauf quand
+    /// aucune comparaison n'est possible (changement de ratio récent, ou
+    /// aucun repas exploitable) : la hauteur ne représenterait alors rien,
+    /// donc la barre reste pleine et se distingue par un **motif hachuré**
+    /// plutôt que par une hauteur trompeuse.
+    @ViewBuilder
+    private func barre(_ ligne: LigneVerdictRatio) -> some View {
+        if let taux = ligne.tauxReussite {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(ligne.teinte)
+                .opacity(ligne.etat.estAttenue ? 0.5 : 1)
+                .frame(width: 28, height: max(6, Self.hauteurGraphe * CGFloat(taux / 100)))
+        } else {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(ligne.teinte.opacity(0.12))
+                .overlay(
+                    MotifHachures(couleur: ligne.teinte)
+                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                )
+                .frame(width: 28, height: Self.hauteurGraphe)
+        }
+    }
+
+    /// Libellés de moment raccourcis pour tenir sur une colonne de largeur
+    /// fixe sans réduire la taille de police.
+    private func libelleAbrege(_ libelle: String) -> String {
+        libelle == "Petit-déjeuner" ? "Petit-déj" : libelle
     }
 
     private var labelAccessibilite: String {
         let details = lignes.map { "\($0.libelle), \($0.etat.detail)" }
-        return (["Analyse des ratios"] + details).joined(separator: ". ")
+        return (["Repas dans le ratio"] + details).joined(separator: ". ")
+    }
+}
+
+// MARK: - Motif hachuré
+
+/// Trame diagonale — dessine une barre « sans donnée exploitable » sans
+/// mentir sur une hauteur qu'aucun chiffre ne justifie.
+private struct MotifHachures: View {
+    let couleur: Color
+
+    var body: some View {
+        Canvas { context, size in
+            let pas: CGFloat = 6
+            var x = -size.height
+            while x < size.width {
+                var trait = Path()
+                trait.move(to: CGPoint(x: x, y: size.height))
+                trait.addLine(to: CGPoint(x: x + size.height, y: 0))
+                context.stroke(trait, with: .color(couleur.opacity(0.55)), lineWidth: 2)
+                x += pas
+            }
+        }
     }
 }
 
@@ -206,6 +270,17 @@ private enum EtatVerdictRatio {
         case .ecartDetecte:  return ("écart détecté", .blue)
         case .ratioConfirme: return ("ratio confirmé", .green)
         case .peuDeRecul, .ratioChange, .aucuneDonnee: return nil
+        }
+    }
+
+    /// Barre atténuée quand le pourcentage affiché n'est pas encore fiable —
+    /// trop peu de repas, ou historique remis à zéro par un changement de
+    /// ratio récent. La barre reste affichée (même métrique partout), juste
+    /// visuellement moins affirmée.
+    var estAttenue: Bool {
+        switch self {
+        case .peuDeRecul, .ratioChange: return true
+        case .ecartDetecte, .ratioConfirme, .aucuneDonnee: return false
         }
     }
 
@@ -248,6 +323,19 @@ private struct LigneVerdictRatio: Identifiable {
     var ratioAffiche: String { "1u/\(Int(ratio.rounded()))g" }
 
     private var effectif: Int { (section?.effectif ?? 0) + effectifAdditionnel }
+
+    /// Pourcentage de repas réussis **avec le ratio actuellement configuré**
+    /// — la même métrique quel que soit l'état, y compris quand un écart est
+    /// détecté (le taux affiché reste celui du ratio en place, pas celui de
+    /// la dose alternative qui a déclenché l'écart). `nil` sans repas
+    /// exploitable, pour ne pas afficher un 0 % trompeur.
+    var tauxReussite: Double? {
+        guard effectif > 0 else { return nil }
+        let bons = section?.entrees.filter { $0.verdict == .bon }.count ?? 0
+        return Double(bons) / Double(effectif) * 100
+    }
+
+    var estEcartDetecte: Bool { section?.ecart != nil }
 
     /// Un changement de ratio n'est signalé que tant qu'il explique encore
     /// quelque chose : passé ce volume de repas, l'analyse a repris et le

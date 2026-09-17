@@ -233,11 +233,16 @@ struct AccueilVue: View {
                 EnTetePage(titre: "Accueil")
 
                 ScrollView {
-                    // Spacing 28pt entre les sections (tendances,
-                    // « Aujourd'hui », repas, aperçu) pour clarifier la
-                    // hiérarchie : chaque bloc respire et se lit comme
-                    // une unité distincte.
-                    VStack(spacing: 28) {
+                    // Spacing 16pt uniforme entre TOUTES les cartes —
+                    // score, glucides, charge, repas à revoir, ratios.
+                    // Un spacing plus large entre certaines d'entre elles
+                    // (28pt) laissait croire à un regroupement que plus
+                    // aucun titre ne justifie (« Aujourd'hui » a été retiré,
+                    // le titre des cartes repas/ratios vit maintenant dans
+                    // la carte elle-même) : le rythme doit être le même
+                    // partout puisque les cartes se lisent maintenant comme
+                    // une liste plate.
+                    VStack(spacing: 16) {
                         // Section « Nouvelles tendances » — pile des
                         // observations ML, désormais en tête de page.
                         // Entièrement masquée tant qu'aucune observation
@@ -255,22 +260,14 @@ struct AccueilVue: View {
                             }
                         )
 
-                        // Section « Aujourd'hui » — carte score du jour
-                        // (recalculée en temps réel 06h-06h) et, si la
-                        // fenêtre de rappel est ouverte, la carte
-                        // contextuelle « Insuline lente ». Les deux
-                        // cartes sont groupées sous un même en-tête, comme
-                        // « Aperçu du jour » plus bas (spacing 8 titre →
-                        // contenu pour que le titre "appartienne" au bloc).
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Aujourd'hui")
-                                .font(.title2.bold())
-                                .foregroundStyle(.primary)
-                                .padding(.leading, 4)
-                                .accessibilityAddTraits(.isHeader)
-
-                            VStack(spacing: 12) {
-                                CarteScoreQuotidien(
+                        // Score du jour, rappel lente, resucrage, glucides,
+                        // charge d'activité — plus de titre externe « Aujourd'hui » :
+                        // ni « Repas à revoir » (carte résumé) ni « Analyse
+                        // des ratios » n'en portent un désormais (titre
+                        // déplacé dans la carte elle-même), un titre externe
+                        // ici cassait le rythme vertical entre sections.
+                        VStack(spacing: 16) {
+                            CarteScoreQuotidien(
                                     contenu: contenuScore,
                                     style: .gradient,
                                     onTap: { jourDetailScore = aujourdhui }
@@ -317,6 +314,31 @@ struct AccueilVue: View {
                                         ))
                                 }
 
+                                if let synthese = chargeContinueService.synthese {
+                                    CarteChargeActivite(
+                                        synthese: synthese,
+                                        onTap: { afficherPageCharge = true }
+                                    )
+                                }
+
+                                // « Repas à revoir » — carte résumé (compteur
+                                // + répartition par moment), le détail complet
+                                // vit sur `PageTousRepasARevoir`.
+                                SectionRepasARevoir(
+                                    repas: repasARevoir,
+                                    onToutVoir: { afficherTousRepasARevoir = true }
+                                )
+                                    // Anime uniquement l'apparition/disparition
+                                    // de cette carte — pas tout le VStack —
+                                    // pour que le peuplement post-fetch
+                                    // (RepasService charge en arrière-plan) se
+                                    // voie comme un fondu doux plutôt qu'un
+                                    // saut de layout brutal.
+                                    .animation(
+                                        reduceMotion ? nil : .easeOut(duration: 0.3),
+                                        value: repasARevoir.count
+                                    )
+
                                 // Tant que l'historique ne couvre pas assez de
                                 // jours (voir
                                 // `CalculGlucidesHebdo.joursMinimumParSemaine`),
@@ -336,13 +358,6 @@ struct AccueilVue: View {
                                         progression: progressionGlucides
                                     )
                                 }
-
-                                if let synthese = chargeContinueService.synthese {
-                                    CarteChargeActivite(
-                                        synthese: synthese,
-                                        onTap: { afficherPageCharge = true }
-                                    )
-                                }
                             }
                             // Anime UNIQUEMENT l'insertion/sortie de la carte
                             // lente. Portée restreinte à ce VStack (et non au
@@ -356,29 +371,6 @@ struct AccueilVue: View {
                                 animationsLente && !reduceMotion
                                     ? .spring(response: 0.4, dampingFraction: 0.8) : nil,
                                 value: etatLente
-                            )
-                        }
-
-                        // Section « Repas à revoir » — repas récurrents ET
-                        // contextualisés sortis de cible, fusionnés en une
-                        // seule section (le plus sévère en carte détaillée,
-                        // les suivants en lignes compactes). Vide, elle
-                        // affiche son placeholder. « Tout voir » pousse
-                        // `PageTousRepasARevoir` (toutes les cartes en grand,
-                        // sans version repliée).
-                        SectionRepasARevoir(
-                            repas: repasARevoir,
-                            onToutVoir: { afficherTousRepasARevoir = true }
-                        )
-                            // Anime uniquement l'apparition/disparition de
-                            // cette section — pas tout le VStack — pour que
-                            // le peuplement post-fetch (RepasService charge
-                            // en arrière-plan, ne bloque jamais l'affichage
-                            // initial de la page) se voie comme un fondu
-                            // doux plutôt qu'un saut de layout brutal.
-                            .animation(
-                                reduceMotion ? nil : .easeOut(duration: 0.3),
-                                value: repasARevoir.count
                             )
 
                         // Verdict du mining R1 (ratio observé) par groupe —
@@ -410,7 +402,11 @@ struct AccueilVue: View {
                             )
                         }
                     }
-                    .padding(16)
+                    // Marge horizontale système (`.padding(.horizontal)`,
+                    // sans valeur) et non 16 codé en dur — même convention
+                    // que `JournalVue` et `EnTetePage`.
+                    .padding(.horizontal)
+                    .padding(.vertical, 16)
                 }
             }
             .background(Color(.systemGroupedBackground))
@@ -465,11 +461,11 @@ struct AccueilVue: View {
             } message: {
                 Text("« \(insightASupprimer?.titre ?? "") » disparaîtra de l'accueil.")
             }
-            .sheet(isPresented: $afficherDetailEcartRatio) {
+            .navigationDestination(isPresented: $afficherDetailEcartRatio) {
                 // Tout groupe ayant au moins un repas exploitable — c'est le
                 // seuil par tranche (`effectifMinimalBucket`) qui décide seul
-                // de ce qui est comparable, la sheet montre le reste tel quel.
-                SheetEcartRatio(
+                // de ce qui est comparable, la page montre le reste tel quel.
+                PageEcartRatio(
                     sections: analyseRatioService.analyse.sections.filter { !$0.entrees.isEmpty },
                     apercusChangementRatio: analyseRatioService.apercusChangementRatio
                 )

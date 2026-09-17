@@ -108,7 +108,7 @@ final class AnalyseRatioService {
     /// Comparaison dose/verdict avant-après le dernier changement de ratio,
     /// par section — seulement les sections dont le ratio a déjà changé une
     /// fois (`nil` = jamais modifié, rien à comparer). Alimente le bloc
-    /// « depuis le changement de ratio » de `SheetEcartRatio`.
+    /// « depuis le changement de ratio » de `PageEcartRatio`.
     private(set) var apercusChangementRatio: [SectionRepas?: ApercuChangementRatio] = [:]
 
     /// Ventilation des repas par moment — dit à la carte de saisie *pourquoi*

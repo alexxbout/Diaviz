@@ -7,20 +7,18 @@
 
 import SwiftUI
 
-/// Section « Repas à revoir » de l'accueil — repas dont la dernière réponse
-/// glycémique est sortie de cible, qu'ils soient **récurrents**
-/// (`CalculRepasARevoir`) ou **contextualisés** (`CalculRepasContexte`).
+/// Carte accueil « Repas à revoir » — **résumé**, pas le détail : un
+/// compteur et une répartition par moment de la journée, même patron que
+/// `CarteChargeActivite` / `CarteGlucidesSemaine` (icône+titre teintés, gros
+/// chiffre+sous-titre, chevron). Le détail complet (graphe, badges,
+/// événements) vit désormais uniquement sur `PageTousRepasARevoir`, ouverte
+/// au tap — l'accueil n'a plus besoin d'y faire tenir un carrousel de cartes
+/// entières.
 ///
-/// Affiche jusqu'à 3 repas : un seul **étendu** en carte détaillée
-/// (`CarteRepasARevoir`), les autres en ligne compacte (`LigneRepasARevoir`).
-/// Un tap sur une ligne compacte l'échange avec la carte étendue.
-///
-/// Pas de morph partagé entre les deux formes (essayé via
-/// `matchedGeometryEffect`, abandonné : l'interpolation entre une ligne fine
-/// et une carte contenant un `Chart` était saccadée, le graphe n'étant pas
-/// lui-même une géométrie partagée). À la place, une simple transition
-/// d'apparition/disparition (fondu + léger scale) sur chaque forme, animée par
-/// le changement de `idEtendu`.
+/// La répartition par moment (« 3 petit-déj · 2 dîners ») dit **où** se
+/// concentre le problème plutôt que de mettre en avant un seul événement
+/// (potentiellement arbitraire) — et annonce le regroupement par moment de
+/// la page détail.
 ///
 /// Quand le tableau est vide, affiche un `CartePlaceholderAccueil` au lieu de
 /// se masquer — la structure de l'accueil reste la même avant et après le
@@ -29,32 +27,20 @@ struct SectionRepasARevoir: View {
 
     let repas: [RepasARevoir]
 
-    /// Ouverture de la liste complète. `nil` → bouton « Tout voir » masqué.
+    /// Ouverture de la liste complète (groupée par moment).
     var onToutVoir: (() -> Void)? = nil
 
-    /// Repas affichés au total sur l'accueil (1 étendu + le reste en lignes
-    /// compactes) — au-delà, « Tout voir » prend le relais.
-    private static let maxAffiches = 3
-
-    /// Transition partagée par la carte étendue et les lignes compactes : la
-    /// forme qui apparaît grandit légèrement depuis 96 %, celle qui disparaît
-    /// rétrécit légèrement — lisible comme une bascule, sans prétendre à un
-    /// morph continu entre deux mises en page très différentes.
-    private static let transitionBascule = AnyTransition.scale(scale: 0.96).combined(with: .opacity)
-
-    /// Id du repas actuellement étendu en carte détaillée. `nil` avant le
-    /// premier rendu — initialisé au premier repas de la liste dans `.task`,
-    /// pas directement dans l'init (la liste peut être vide au tout premier
-    /// rendu, avant que `RepasService` ait fini son fetch).
-    @State private var idEtendu: UUID?
-
-    private var affiches: [RepasARevoir] { Array(repas.prefix(Self.maxAffiches)) }
-    private var restants: Int { max(repas.count - Self.maxAffiches, 0) }
+    fileprivate static let teinte = Color.pink
 
     var body: some View {
         if repas.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                entete
+                Text("Repas à revoir")
+                    .font(.title2.bold())
+                    .foregroundStyle(.primary)
+                    .padding(.leading, 4)
+                    .accessibilityAddTraits(.isHeader)
+
                 // Pas de compteur de progression ici, contrairement aux
                 // tendances ou aux glucides : « repas à revoir » n'attend
                 // aucun seuil de volume (un seul repas sorti de cible suffit
@@ -65,87 +51,90 @@ struct SectionRepasARevoir: View {
                     message: "Les repas dont la glycémie est sortie de cible s'afficheront ici."
                 )
             }
+        } else if let onToutVoir {
+            Button(action: onToutVoir) { carte }
+                .buttonStyle(.plain)
+                .accessibilityHint("Ouvre le détail des repas à revoir, groupés par moment")
         } else {
-            VStack(alignment: .leading, spacing: 8) {
-                entete
-
-                VStack(spacing: 12) {
-                    ForEach(affiches) { item in
-                        if item.id == idEtendu {
-                            CarteRepasARevoir(repas: item)
-                                .transition(Self.transitionBascule)
-                        } else {
-                            LigneRepasARevoir(repas: item) {
-                                withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
-                                    idEtendu = item.id
-                                }
-                            }
-                            .surfaceCarte()
-                            .transition(Self.transitionBascule)
-                        }
-                    }
-                }
-            }
-            .transition(.opacity.combined(with: .move(edge: .top)))
-            // L'id étendu peut disparaître de la liste (repas résolu, ou
-            // reclassé hors du top 3 par un changement de sévérité) : on
-            // retombe alors sur le premier affiché plutôt que de laisser
-            // les 3 repas réduits sans aucune carte étendue.
-            .task(id: repas.map(\.id)) {
-                if idEtendu == nil || !affiches.contains(where: { $0.id == idEtendu }) {
-                    idEtendu = affiches.first?.id
-                }
-            }
+            carte
         }
     }
 
-    /// Titre + compteur, et « Tout voir » à droite dès qu'il reste des repas
-    /// non affichés (le compteur du titre porte le total, pas seulement les
-    /// 3 montrés).
-    private var entete: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(repas.isEmpty ? "Repas à revoir" : "Repas à revoir (\(repas.count))")
-                .font(.title2.bold())
-                .foregroundStyle(.primary)
-                .accessibilityAddTraits(.isHeader)
-
-            Spacer(minLength: 8)
-
-            if restants > 0, let onToutVoir {
-                Button("Tout voir", action: onToutVoir)
-                    .font(.subheadline)
-            }
+    private var carte: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ligneTitre
+            ligneContenu
         }
-        .padding(.leading, 4)
+        .padding(16)
+        .background(Color(.secondarySystemGroupedBackground), in: NiveauCarte.carte.forme)
+        .overlay(NiveauCarte.carte.forme.strokeBorder(Color(.separator).opacity(0.5), lineWidth: 0.5))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(labelAccessibilite)
+    }
+
+    private var ligneTitre: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "fork.knife")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Self.teinte)
+            Text("Repas à revoir")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Self.teinte)
+            Spacer(minLength: 8)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color(.tertiaryLabel))
+        }
+    }
+
+    private var ligneContenu: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("\(repas.count)")
+                .font(.system(size: 30, weight: .semibold, design: .rounded))
+                .foregroundStyle(.primary)
+                .monospacedDigit()
+            Text(repartitionParMoment)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+        }
+    }
+
+    /// « 3 petit-déj · 2 dîners » — un moment par tranche non vide, dans
+    /// l'ordre chronologique de la journée (`SectionRepas.allCases`), jamais
+    /// un moment vide affiché à zéro.
+    private var repartitionParMoment: String {
+        var comptes: [String: Int] = [:]
+        for item in repas { comptes[item.libelleSection, default: 0] += 1 }
+        let parties = SectionRepas.allCases.compactMap { section -> String? in
+            guard let n = comptes[section.titre], n > 0 else { return nil }
+            return "\(n) \(libelleCourt(section, pluriel: n > 1))"
+        }
+        return parties.joined(separator: " · ")
+    }
+
+    private func libelleCourt(_ section: SectionRepas, pluriel: Bool) -> String {
+        switch section {
+        case .petitDejeuner: return "petit-déj"
+        case .dejeuner:      return pluriel ? "déjeuners" : "déjeuner"
+        case .enCas:         return "en-cas"
+        case .diner:         return pluriel ? "dîners" : "dîner"
+        case .nuit:          return pluriel ? "nuits" : "nuit"
+        }
+    }
+
+    private var labelAccessibilite: String {
+        "Repas à revoir, \(repas.count). \(repartitionParMoment)"
     }
 }
 
 // MARK: - Aperçus
 
 #if DEBUG
-#Preview("Un seul repas") {
+#Preview("Résumé") {
     ScrollView {
-        SectionRepasARevoir(repas: [.mockPadThai])
+        SectionRepasARevoir(repas: [.mockPadThai, .mockPizza, .mockBigMac], onToutVoir: {})
             .padding(16)
-    }
-    .background(Color(.systemGroupedBackground))
-}
-
-#Preview("Carte + lignes compactes, morph") {
-    ScrollView {
-        SectionRepasARevoir(repas: [.mockPadThai, .mockPizza, .mockBigMac])
-            .padding(16)
-    }
-    .background(Color(.systemGroupedBackground))
-}
-
-#Preview("Avec « Tout voir »") {
-    ScrollView {
-        SectionRepasARevoir(
-            repas: [.mockPadThai, .mockPizza, .mockBigMac, .mockSushi],
-            onToutVoir: {}
-        )
-        .padding(16)
     }
     .background(Color(.systemGroupedBackground))
 }
@@ -160,7 +149,7 @@ struct SectionRepasARevoir: View {
 
 #Preview("Sombre") {
     ScrollView {
-        SectionRepasARevoir(repas: [.mockPadThai, .mockPizza])
+        SectionRepasARevoir(repas: [.mockPadThai, .mockPizza], onToutVoir: {})
             .padding(16)
     }
     .background(Color(.systemGroupedBackground))

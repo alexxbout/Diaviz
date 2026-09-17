@@ -6,27 +6,50 @@
 import SwiftUI
 
 /// Page « Tout voir » de la section accueil « Repas à revoir » — pushée
-/// depuis le bouton du même nom (`SectionRepasARevoir`), visible dès qu'il y
-/// a plus de repas que ce que l'accueil affiche.
+/// depuis la carte résumé du même nom (`SectionRepasARevoir`). Seul point
+/// d'accès au détail complet désormais : l'accueil n'affiche plus qu'un
+/// compteur et une répartition, cette page porte toutes les cartes.
 ///
-/// Tous les repas en carte détaillée (`CarteRepasARevoir`), **aucune version
-/// repliée** : contrairement à l'accueil (1 étendue + lignes compactes, place
-/// limitée), cette page a l'espace pour tout montrer en grand.
+/// Repas groupés **par moment de la journée** (`SectionRepas.allCases`,
+/// ordre chronologique) — cohérent avec le regroupement déjà utilisé par
+/// l'analyse des ratios. Un moment sans repas à revoir n'affiche aucune
+/// section, plutôt qu'un titre suivi de rien.
 struct PageTousRepasARevoir: View {
 
     let repas: [RepasARevoir]
 
+    /// Un groupe par moment non vide, dans l'ordre chronologique de la
+    /// journée. `libelleSection` est déjà dérivé de `SectionRepas(heure:horaires:).titre`
+    /// à la construction (`CalculRepasARevoir`/`CalculRepasIsoles`) — la
+    /// comparaison de chaînes suffit, pas besoin de reclasser une heure ici.
+    private var groupes: [(titre: String, items: [RepasARevoir])] {
+        SectionRepas.allCases.compactMap { section in
+            let items = repas.filter { $0.libelleSection == section.titre }
+            return items.isEmpty ? nil : (section.titre, items)
+        }
+    }
+
     var body: some View {
         ScrollView {
-            LazyVStack(spacing: 12) {
+            LazyVStack(alignment: .leading, spacing: 24) {
                 EnTeteAnalyse(
                     surtitre: "Analyse des repas",
                     titre: "Repas à revoir",
                     accroche: "Les plats dont la dernière glycémie est sortie de cible, et ceux pris dans un contexte particulier.",
                     ambiance: .repasARevoir
                 )
-                ForEach(repas) { item in
-                    CarteRepasARevoir(repas: item)
+                ForEach(groupes, id: \.titre) { groupe in
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(groupe.titre)
+                            .font(.title3.bold())
+                            .foregroundStyle(.primary)
+                            .padding(.leading, 4)
+                            .accessibilityAddTraits(.isHeader)
+
+                        ForEach(groupe.items) { item in
+                            CarteRepasARevoir(repas: item)
+                        }
+                    }
                 }
             }
             .padding(16)

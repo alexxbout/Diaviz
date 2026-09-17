@@ -3,6 +3,7 @@
 //  diaviz
 //
 
+import SwiftData
 import SwiftUI
 
 /// Écran plein écran d'une séance chronométrée en cours. Chrono central
