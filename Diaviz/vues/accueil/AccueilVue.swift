@@ -314,6 +314,31 @@ struct AccueilVue: View {
                                         ))
                                 }
 
+                                if let synthese = chargeContinueService.synthese {
+                                    CarteChargeActivite(
+                                        synthese: synthese,
+                                        onTap: { afficherPageCharge = true }
+                                    )
+                                }
+
+                                // « Repas à revoir » — carte résumé (compteur
+                                // + répartition par moment), le détail complet
+                                // vit sur `PageTousRepasARevoir`.
+                                SectionRepasARevoir(
+                                    repas: repasARevoir,
+                                    onToutVoir: { afficherTousRepasARevoir = true }
+                                )
+                                    // Anime uniquement l'apparition/disparition
+                                    // de cette carte — pas tout le VStack —
+                                    // pour que le peuplement post-fetch
+                                    // (RepasService charge en arrière-plan) se
+                                    // voie comme un fondu doux plutôt qu'un
+                                    // saut de layout brutal.
+                                    .animation(
+                                        reduceMotion ? nil : .easeOut(duration: 0.3),
+                                        value: repasARevoir.count
+                                    )
+
                                 // Tant que l'historique ne couvre pas assez de
                                 // jours (voir
                                 // `CalculGlucidesHebdo.joursMinimumParSemaine`),
@@ -333,13 +358,6 @@ struct AccueilVue: View {
                                         progression: progressionGlucides
                                     )
                                 }
-
-                                if let synthese = chargeContinueService.synthese {
-                                    CarteChargeActivite(
-                                        synthese: synthese,
-                                        onTap: { afficherPageCharge = true }
-                                    )
-                                }
                             }
                             // Anime UNIQUEMENT l'insertion/sortie de la carte
                             // lente. Portée restreinte à ce VStack (et non au
@@ -353,28 +371,6 @@ struct AccueilVue: View {
                                 animationsLente && !reduceMotion
                                     ? .spring(response: 0.4, dampingFraction: 0.8) : nil,
                                 value: etatLente
-                            )
-
-                        // Section « Repas à revoir » — repas récurrents ET
-                        // contextualisés sortis de cible, fusionnés en une
-                        // seule section (le plus sévère en carte détaillée,
-                        // les suivants en lignes compactes). Vide, elle
-                        // affiche son placeholder. « Tout voir » pousse
-                        // `PageTousRepasARevoir` (toutes les cartes en grand,
-                        // sans version repliée).
-                        SectionRepasARevoir(
-                            repas: repasARevoir,
-                            onToutVoir: { afficherTousRepasARevoir = true }
-                        )
-                            // Anime uniquement l'apparition/disparition de
-                            // cette section — pas tout le VStack — pour que
-                            // le peuplement post-fetch (RepasService charge
-                            // en arrière-plan, ne bloque jamais l'affichage
-                            // initial de la page) se voie comme un fondu
-                            // doux plutôt qu'un saut de layout brutal.
-                            .animation(
-                                reduceMotion ? nil : .easeOut(duration: 0.3),
-                                value: repasARevoir.count
                             )
 
                         // Verdict du mining R1 (ratio observé) par groupe —
