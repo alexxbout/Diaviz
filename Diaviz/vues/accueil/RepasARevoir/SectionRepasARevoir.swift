@@ -11,16 +11,11 @@ import SwiftUI
 /// glycémique est sortie de cible, qu'ils soient **récurrents**
 /// (`CalculRepasARevoir`) ou **contextualisés** (`CalculRepasContexte`).
 ///
-/// Affiche jusqu'à 3 repas : un seul **étendu** en carte détaillée
-/// (`CarteRepasARevoir`), les autres en ligne compacte (`LigneRepasARevoir`).
-/// Un tap sur une ligne compacte l'échange avec la carte étendue.
-///
-/// Pas de morph partagé entre les deux formes (essayé via
-/// `matchedGeometryEffect`, abandonné : l'interpolation entre une ligne fine
-/// et une carte contenant un `Chart` était saccadée, le graphe n'étant pas
-/// lui-même une géométrie partagée). À la place, une simple transition
-/// d'apparition/disparition (fondu + léger scale) sur chaque forme, animée par
-/// le changement de `idEtendu`.
+/// Affiche les repas en **carrousel horizontal** : chaque carte garde son
+/// détail complet (`CarteRepasARevoir`, graphe inclus) plutôt que d'en
+/// réduire certaines en ligne compacte — l'accueil n'empile plus les cartes
+/// verticalement, il laisse parcourir. `Tout voir` reste le seul accès à la
+/// liste complète au-delà de `maxAffiches`.
 ///
 /// Quand le tableau est vide, affiche un `CartePlaceholderAccueil` au lieu de
 /// se masquer — la structure de l'accueil reste la même avant et après le
@@ -32,29 +27,28 @@ struct SectionRepasARevoir: View {
     /// Ouverture de la liste complète. `nil` → bouton « Tout voir » masqué.
     var onToutVoir: (() -> Void)? = nil
 
-    /// Repas affichés au total sur l'accueil (1 étendu + le reste en lignes
-    /// compactes) — au-delà, « Tout voir » prend le relais.
-    private static let maxAffiches = 3
+    /// Repas affichés au total sur l'accueil — au-delà, « Tout voir » prend
+    /// le relais.
+    private static let maxAffiches = 6
 
-    /// Transition partagée par la carte étendue et les lignes compactes : la
-    /// forme qui apparaît grandit légèrement depuis 96 %, celle qui disparaît
-    /// rétrécit légèrement — lisible comme une bascule, sans prétendre à un
-    /// morph continu entre deux mises en page très différentes.
-    private static let transitionBascule = AnyTransition.scale(scale: 0.96).combined(with: .opacity)
+    /// Largeur fixe de chaque carte du carrousel — assez pour garder le
+    /// graphe lisible, assez étroit pour laisser deviner la carte suivante.
+    private static let largeurCarte: CGFloat = 300
 
-    /// Id du repas actuellement étendu en carte détaillée. `nil` avant le
-    /// premier rendu — initialisé au premier repas de la liste dans `.task`,
-    /// pas directement dans l'init (la liste peut être vide au tout premier
-    /// rendu, avant que `RepasService` ait fini son fetch).
-    @State private var idEtendu: UUID?
+    /// Hauteur fixe commune — toutes les cartes du carrousel doivent faire
+    /// la même taille, quel que soit le nombre de badges ou d'événements du
+    /// repas le plus chargé. Calibrée large (aliments, badges d'ajustement,
+    /// graphe, verdict, récurrence, jusqu'à 4 événements en légende).
+    private static let hauteurCarte: CGFloat = 420
 
     private var affiches: [RepasARevoir] { Array(repas.prefix(Self.maxAffiches)) }
     private var restants: Int { max(repas.count - Self.maxAffiches, 0) }
 
     var body: some View {
-        if repas.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                entete
+        VStack(alignment: .leading, spacing: 8) {
+            entete
+
+            if repas.isEmpty {
                 // Pas de compteur de progression ici, contrairement aux
                 // tendances ou aux glucides : « repas à revoir » n'attend
                 // aucun seuil de volume (un seul repas sorti de cible suffit
@@ -64,44 +58,33 @@ struct SectionRepasARevoir: View {
                     icone: "fork.knife",
                     message: "Les repas dont la glycémie est sortie de cible s'afficheront ici."
                 )
-            }
-        } else {
-            VStack(alignment: .leading, spacing: 8) {
-                entete
-
-                VStack(spacing: 12) {
-                    ForEach(affiches) { item in
-                        if item.id == idEtendu {
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(affiches) { item in
                             CarteRepasARevoir(repas: item)
-                                .transition(Self.transitionBascule)
-                        } else {
-                            LigneRepasARevoir(repas: item) {
-                                withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
-                                    idEtendu = item.id
-                                }
-                            }
-                            .surfaceCarte()
-                            .transition(Self.transitionBascule)
+                                .frame(width: Self.largeurCarte, height: Self.hauteurCarte)
                         }
                     }
+                    .scrollTargetLayout()
                 }
-            }
-            .transition(.opacity.combined(with: .move(edge: .top)))
-            // L'id étendu peut disparaître de la liste (repas résolu, ou
-            // reclassé hors du top 3 par un changement de sévérité) : on
-            // retombe alors sur le premier affiché plutôt que de laisser
-            // les 3 repas réduits sans aucune carte étendue.
-            .task(id: repas.map(\.id)) {
-                if idEtendu == nil || !affiches.contains(where: { $0.id == idEtendu }) {
-                    idEtendu = affiches.first?.id
-                }
+                // Contrainte explicite : un `ScrollView` horizontal sans
+                // largeur imposée peut remonter la largeur idéale de son
+                // contenu (toutes les cartes bout à bout) à ses ancêtres et
+                // élargir toute la page — même symptôme, même fix, que le
+                // graphique de la carte ratios (colonnes fixes trop
+                // larges) : un contenu à largeur non compressible force son
+                // conteneur à s'élargir s'il n'est pas explicitement borné.
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .scrollTargetBehavior(.viewAligned)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
     }
 
     /// Titre + compteur, et « Tout voir » à droite dès qu'il reste des repas
-    /// non affichés (le compteur du titre porte le total, pas seulement les
-    /// 3 montrés).
+    /// non affichés (le compteur du titre porte le total, pas seulement ceux
+    /// montrés dans le carrousel).
     private var entete: some View {
         HStack(alignment: .firstTextBaseline) {
             Text(repas.isEmpty ? "Repas à revoir" : "Repas à revoir (\(repas.count))")
@@ -131,7 +114,7 @@ struct SectionRepasARevoir: View {
     .background(Color(.systemGroupedBackground))
 }
 
-#Preview("Carte + lignes compactes, morph") {
+#Preview("Carrousel") {
     ScrollView {
         SectionRepasARevoir(repas: [.mockPadThai, .mockPizza, .mockBigMac])
             .padding(16)
