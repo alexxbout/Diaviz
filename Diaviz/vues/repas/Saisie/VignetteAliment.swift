@@ -54,6 +54,28 @@ struct ImageProduit: View {
             image = await CacheImagesProduits.shared.image(pour: url)
             echec = image == nil
         }
+        // Même mécanisme natif que le long press « Masquer » sur un aliment
+        // CIQUAL (`VueGrilleAliments`) : flou de fond, mise à l'échelle et
+        // retour haptique gérés par le système, rien à recoder. Un menu sans
+        // aucune action ne déclenchait pas l'interaction (aucun geste
+        // reconnu) — « Copier l'image » le rend non vide sans rien demander
+        // (pas de permission, contrairement à un enregistrement dans Photos).
+        .contextMenu {
+            if let image {
+                Button {
+                    UIPasteboard.general.image = image
+                } label: {
+                    Label("Copier l'image", systemImage: "doc.on.doc")
+                }
+            }
+        } preview: {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 280, height: 280)
+            }
+        }
     }
 
     @ViewBuilder
