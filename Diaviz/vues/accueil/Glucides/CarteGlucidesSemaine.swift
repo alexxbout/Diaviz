@@ -61,7 +61,7 @@ struct CarteGlucidesSemaine: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 3) {
                     Text("\(Int(synthese.moyenneCetteSemaine.rounded()))")
-                        .font(.system(size: 22, weight: .heavy, design: .rounded))
+                        .font(.system(size: 30, weight: .semibold, design: .rounded))
                         .foregroundStyle(.primary)
                         .monospacedDigit()
                     Text("g / j")
