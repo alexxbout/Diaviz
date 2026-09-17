@@ -410,7 +410,11 @@ struct AccueilVue: View {
                             )
                         }
                     }
-                    .padding(16)
+                    // Marge horizontale système (`.padding(.horizontal)`,
+                    // sans valeur) et non 16 codé en dur — même convention
+                    // que `JournalVue` et `EnTetePage`.
+                    .padding(.horizontal)
+                    .padding(.vertical, 16)
                 }
             }
             .background(Color(.systemGroupedBackground))

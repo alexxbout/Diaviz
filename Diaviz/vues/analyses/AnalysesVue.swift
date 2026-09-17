@@ -84,7 +84,10 @@ struct AnalysesVue: View {
                         }
                     )
                 }
-                .padding(16)
+                // Même correction que l'accueil — marge système au lieu
+                // d'un 16 codé en dur, cohérente avec `JournalVue`.
+                .padding(.horizontal)
+                .padding(.vertical, 16)
 
                 Spacer(minLength: 0)
             }
