@@ -571,26 +571,14 @@ private struct VueGraphiqueParNuit: View {
             }
             .pickerStyle(.segmented)
             chartFullNight()
-                .frame(height: 220)
+                .frame(height: chartTotalHeight)
                 .padding(.top, 6)
                 .padding(.leading, -20)
                 .padding(.trailing, -16)
                 .gesture(swipeNavigation)
-            if modeFond == .zonesNuit, !nuit.zones.isEmpty {
-                bandeZonesNuit
-                    .frame(height: 26)
-                    .padding(.top, -6)
-                    .padding(.leading, -20)
-                    .padding(.trailing, -16)
-            }
             if !intervallesVisibles.isEmpty {
-                hypnogramme
-                    .frame(height: 40)
-                    .padding(.top, -6)
-                    .padding(.leading, -20)
-                    .padding(.trailing, -16)
                 legendeSommeil
-                    .padding(.top, 2)
+                    .padding(.top, 4)
             }
             Divider()
                 .padding(.top, 2)
@@ -775,6 +763,67 @@ private struct VueGraphiqueParNuit: View {
         plageYAvecPadding(nuit.glucoseValues.map(\.value))
     }
 
+    // MARK: Bandes sommeil/zones — fusionnées dans le même Chart que la
+    // courbe (voir doc sur `chartFullNight`).
+
+    private let hauteurCourbePx: CGFloat = 220
+    private let hauteurBandePx: CGFloat = 28
+    private let ecartBandePx: CGFloat = 8
+
+    /// Nombre de bandes réellement affichées cette nuit — détermine la
+    /// hauteur totale du chart et l'extension du domaine Y.
+    private var nombreBandesVisibles: Int {
+        (intervallesVisibles.isEmpty ? 0 : 1) + (modeFond == .zonesNuit && !nuit.zones.isEmpty ? 1 : 0)
+    }
+
+    /// Hauteur totale de `chartFullNight` — la courbe garde toujours
+    /// `hauteurCourbePx`, chaque bande ajoute sa hauteur + son écart.
+    private var chartTotalHeight: CGFloat {
+        guard nombreBandesVisibles > 0 else { return hauteurCourbePx }
+        return hauteurCourbePx + CGFloat(nombreBandesVisibles) * (hauteurBandePx + ecartBandePx)
+    }
+
+    /// Unités de valeur (mg/dL) par pixel de la zone courbe — sert à
+    /// convertir les hauteurs de bande (en pixels) en unités du domaine Y,
+    /// pour qu'elles occupent une hauteur pixel constante quel que soit
+    /// l'amplitude de la nuit.
+    private var uniteParPixel: Double {
+        let span = plageY.upperBound - plageY.lowerBound
+        return span > 0 ? span / Double(hauteurCourbePx) : 1
+    }
+
+    /// Domaine Y réellement passé au chart : `plageY` (la courbe) étendu
+    /// vers le bas pour loger les bandes — **même Chart, même plot rect**
+    /// que la courbe, donc alignement X garanti par construction (contrairement
+    /// à un 2ᵉ `Chart` séparé en dessous, dont la largeur de plot dépend d'un
+    /// axe Y invisible à recaler à la main — approche abandonnée après
+    /// plusieurs échecs, systématiquement désynchronisée).
+    private var domaineYEtendu: ClosedRange<Double> {
+        guard nombreBandesVisibles > 0 else { return plageY }
+        let hauteurTotaleBandesPx = Double(nombreBandesVisibles) * Double(hauteurBandePx + ecartBandePx)
+        return (plageY.lowerBound - hauteurTotaleBandesPx * uniteParPixel)...plageY.upperBound
+    }
+
+    /// Plage de valeurs Y (dans `domaineYEtendu`) occupée par la bande
+    /// sommeil, juste sous la courbe — `nil` si aucune donnée à montrer.
+    private var bandeSommeilRange: ClosedRange<Double>? {
+        guard !intervallesVisibles.isEmpty else { return nil }
+        let bande = Double(hauteurBandePx) * uniteParPixel
+        let ecart = Double(ecartBandePx) * uniteParPixel
+        let haut = plageY.lowerBound - ecart
+        return (haut - bande)...haut
+    }
+
+    /// Plage de valeurs Y occupée par la bande zones B1 — sous la bande
+    /// sommeil si les deux sont visibles, sinon juste sous la courbe.
+    private var bandeZonesRange: ClosedRange<Double>? {
+        guard modeFond == .zonesNuit, !nuit.zones.isEmpty else { return nil }
+        let bande = Double(hauteurBandePx) * uniteParPixel
+        let ecart = Double(ecartBandePx) * uniteParPixel
+        let haut = (bandeSommeilRange?.lowerBound ?? plageY.lowerBound) - ecart
+        return (haut - bande)...haut
+    }
+
     /// Domaine X du chart — de la première à la dernière mesure de la
     /// nuit (typ. 21 h → 7 h).
     private var totalNightRange: ClosedRange<Date> {
@@ -793,9 +842,10 @@ private struct VueGraphiqueParNuit: View {
         Chart {
             seuils
             courbeWholeNight
+            bandesInternes
         }
         .chartXScale(domain: totalNightRange)
-        .chartYScale(domain: plageY)
+        .chartYScale(domain: domaineYEtendu)
         .chartXAxis { axeXFullNight }
         .chartYAxis { axeYTrailingAdaptatif }
         .chartPlotStyle { plotArea in
@@ -945,86 +995,40 @@ private struct VueGraphiqueParNuit: View {
         ProfilService.shared.profil.seuilsGlycemiques
     }
 
-    /// Nombre de chiffres du label Y le plus large actuellement affiché sur
-    /// le chart de glycémie — sert à faire réserver à l'axe (invisible) des
-    /// bandes du dessous (hypnogramme, zones) exactement la même largeur.
-    /// Sans ça, un label à 2 chiffres là-haut vs 3 chiffres ici (ou
-    /// l'inverse) fait diverger la largeur utile des deux plots et la
-    /// bande déborde du bord droit de la courbe au lieu de s'y arrêter.
-    private var largeurLabelYGlycemie: Int {
-        axisYValuesAdaptatives.map { String(Int($0)).count }.max() ?? 3
-    }
-
-    /// Bande fine des zones B1 de la nuit, alternative au fond « Cible »
-    /// pleine hauteur — même gabarit que `hypnogramme` (une seule rangée,
-    /// axe trailing invisible réservant la même largeur que le chart
-    /// de glycémie au-dessus).
-    @ViewBuilder
-    private var bandeZonesNuit: some View {
-        Chart {
-            ForEach(nuit.zones) { zone in
-                RectangleMark(
-                    xStart: .value("Début", max(zone.timeRange.lowerBound, totalNightRange.lowerBound)),
-                    xEnd: .value("Fin", min(zone.timeRange.upperBound, totalNightRange.upperBound)),
-                    y: .value("Zone", "Zones")
-                )
-                .foregroundStyle(zone.zone.couleur)
-            }
-        }
-        .chartXScale(domain: totalNightRange)
-        .chartXAxis(.hidden)
-        .chartYAxis {
-            AxisMarks(position: .trailing, values: ["Zones"]) { _ in
-                AxisValueLabel {
-                    Text(String(repeating: "0", count: largeurLabelYGlycemie))
-                        .font(.caption2)
-                        .foregroundStyle(.clear)
-                        .monospacedDigit()
-                }
-            }
-        }
-    }
-
     /// Ordre d'affichage des stades, de haut (éveil) en bas (au lit) —
     /// même convention que le hypnogramme de l'app Santé d'Apple.
     private var ordreHypnogramme: [SleepStage] {
         [.awake, .rem, .core, .deep, .asleepGenerique, .inBed]
     }
 
-    /// Frise horizontale **distincte** de la courbe glycémique — une barre
-    /// par stade présent, empilées de haut (éveil) en bas (au lit), sur le
-    /// même axe temporel. Séparée du chart glycémie (plutôt qu'en bandes
-    /// translucides derrière la courbe, essayé d'abord) parce que 6 teintes
-    /// superposées à la courbe la rendaient illisible.
-    @ViewBuilder
-    private var hypnogramme: some View {
-        let presents = ordreHypnogramme.filter { stade in intervallesVisibles.contains { $0.stage == stade } }
-        Chart {
+    /// Contenu des bandes sommeil + zones — dans le **même** `Chart` que la
+    /// courbe (voir `domaineYEtendu`), positionnées dans la portion de
+    /// domaine réservée sous `plageY`. Un `RectangleMark` par intervalle,
+    /// une seule teinte pleine (pas de découpage par « rangée » façon
+    /// hypnogramme Santé — inutile ici, un aplat suffit à distinguer les
+    /// stades sur une bande de quelques pixels de haut).
+    @ChartContentBuilder
+    private var bandesInternes: some ChartContent {
+        if let r = bandeSommeilRange {
             ForEach(intervallesVisibles) { intervalle in
                 RectangleMark(
                     xStart: .value("Début", max(intervalle.debut, totalNightRange.lowerBound)),
                     xEnd: .value("Fin", min(intervalle.fin, totalNightRange.upperBound)),
-                    y: .value("Stade", intervalle.stage.label),
-                    height: .ratio(0.75)
+                    yStart: .value("Bas", r.lowerBound),
+                    yEnd: .value("Haut", r.upperBound)
                 )
                 .foregroundStyle(couleurStade(intervalle.stage))
             }
         }
-        .chartXScale(domain: totalNightRange)
-        .chartYScale(domain: presents.reversed().map(\.label))
-        .chartXAxis(.hidden)
-        // Axe trailing invisible mais réservé à la même largeur que celui du
-        // chart de glycémie juste au-dessus (`largeurLabelYGlycemie`) — sans
-        // ça les deux plots n'ont pas la même largeur utile et la frise
-        // déborde du bord droit de la courbe au lieu de s'y arrêter.
-        .chartYAxis {
-            AxisMarks(position: .trailing, values: [presents.first?.label ?? "?"]) { _ in
-                AxisValueLabel {
-                    Text(String(repeating: "0", count: largeurLabelYGlycemie))
-                        .font(.caption2)
-                        .foregroundStyle(.clear)
-                        .monospacedDigit()
-                }
+        if let r = bandeZonesRange {
+            ForEach(nuit.zones) { zone in
+                RectangleMark(
+                    xStart: .value("Début", max(zone.timeRange.lowerBound, totalNightRange.lowerBound)),
+                    xEnd: .value("Fin", min(zone.timeRange.upperBound, totalNightRange.upperBound)),
+                    yStart: .value("Bas", r.lowerBound),
+                    yEnd: .value("Haut", r.upperBound)
+                )
+                .foregroundStyle(zone.zone.couleur)
             }
         }
     }
