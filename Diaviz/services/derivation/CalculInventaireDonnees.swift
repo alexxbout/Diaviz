@@ -64,6 +64,15 @@ nonisolated struct InventaireDonnees: Sendable, Equatable {
     /// récent — toujours 14 points, les jours sans rien à 0.
     let saisiesParJour: [PointSaisieJour]
 
+    /// Jours consécutifs, jusqu'à aujourd'hui inclus, avec au moins une
+    /// saisie manuelle (repas, injection, sport, resucrage — jamais le CGM,
+    /// qui arrive seul depuis Apple Santé). Un jour sans saisie ne casse le
+    /// streak que s'il est déjà passé : tant qu'on est dans la journée en
+    /// cours, le streak d'hier reste affiché.
+    let streakActuel: Int
+    /// Plus longue série jamais atteinte, tous historiques confondus.
+    let streakRecord: Int
+
     var injectionsRapides: Int { injections - injectionsLentes }
     var resucragesCorrectifs: Int { resucrages - resucragesPreventifs }
 
@@ -133,6 +142,9 @@ nonisolated enum CalculInventaireDonnees {
             return PointSaisieJour(jour: jour, saisies: saisiesParJour[jour] ?? 0)
         }
 
+        let joursAvecSaisie = Set(saisiesParJour.keys)
+        let (streakActuel, streakRecord) = streaks(joursAvecSaisie: joursAvecSaisie, aujourdhui: aujourdhui, calendrier: calendrier)
+
         return InventaireDonnees(
             premiereSaisie: premiere,
             joursCouverts: premiere.map { jours(de: $0, a: aujourdhui, calendrier: calendrier) } ?? 0,
@@ -147,8 +159,45 @@ nonisolated enum CalculInventaireDonnees {
             minutesSport: minutes,
             resucrages: resucrages,
             resucragesPreventifs: preventifs,
-            saisiesParJour: trame
+            saisiesParJour: trame,
+            streakActuel: streakActuel,
+            streakRecord: streakRecord
         )
+    }
+
+    /// Streak courant (recule depuis aujourd'hui, ou hier si rien n'est
+    /// encore saisi aujourd'hui) et record historique (plus longue série
+    /// consécutive dans tout le corpus).
+    private static func streaks(
+        joursAvecSaisie: Set<Date>,
+        aujourdhui: Date,
+        calendrier: Calendar
+    ) -> (actuel: Int, record: Int) {
+        guard !joursAvecSaisie.isEmpty else { return (0, 0) }
+
+        var actuel = 0
+        var jour = joursAvecSaisie.contains(aujourdhui)
+            ? aujourdhui
+            : calendrier.date(byAdding: .day, value: -1, to: aujourdhui) ?? aujourdhui
+        while joursAvecSaisie.contains(jour) {
+            actuel += 1
+            guard let precedent = calendrier.date(byAdding: .day, value: -1, to: jour) else { break }
+            jour = precedent
+        }
+
+        var record = 0, courant = 0
+        var precedent: Date?
+        for j in joursAvecSaisie.sorted() {
+            if let p = precedent, calendrier.date(byAdding: .day, value: 1, to: p) == j {
+                courant += 1
+            } else {
+                courant = 1
+            }
+            record = max(record, courant)
+            precedent = j
+        }
+
+        return (actuel, record)
     }
 
     /// Jours **inclusifs** entre deux dates : une première saisie datée

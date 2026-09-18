@@ -45,6 +45,7 @@ struct PageInventaireDonnees: View {
                     } else {
                         tuiles(inventaire)
                         trameSaisie(inventaire)
+                        streakSaisie(inventaire)
                         detail(inventaire)
                         mentionPortee
                     }
@@ -140,6 +141,37 @@ struct PageInventaireDonnees: View {
         case 3...5: Color.indigo.opacity(0.65)
         default:    Color.indigo
         }
+    }
+
+    // MARK: - Streak de saisie
+
+    /// Jours consécutifs avec au moins une saisie manuelle, et record.
+    /// Un score d'usage de l'app, pas de santé : n'a aucun lien avec la
+    /// glycémie, ne juge rien, ne notifie rien.
+    private func streakSaisie(_ i: InventaireDonnees) -> some View {
+        HStack(spacing: 0) {
+            streakColonne(titre: "Streak actuel", valeur: i.streakActuel)
+            Divider().frame(height: 32)
+            streakColonne(titre: "Record", valeur: i.streakRecord)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(16)
+        .surfaceCarte()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Streak actuel : \(i.streakActuel) jour\(i.streakActuel > 1 ? "s" : ""). Record : \(i.streakRecord) jour\(i.streakRecord > 1 ? "s" : "").")
+    }
+
+    private func streakColonne(titre: String, valeur: Int) -> some View {
+        VStack(spacing: 2) {
+            Text(titre)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(valeur > 0 ? "\(valeur) j" : "—")
+                .font(.title2.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(.primary)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Détail
