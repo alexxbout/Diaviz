@@ -65,15 +65,23 @@ struct PreferencesAvancees: Codable, Equatable, Sendable {
     /// Optionnel pour la même raison que ci-dessus.
     var fenetreRepasCorrectionMinutes: Int?
 
+    /// Overlay des stades de sommeil HealthKit sur la courbe nocturne (vue
+    /// « Par nuit » de l'analyse du coucher). `nil` → activé par défaut
+    /// (`true`) ; optionnel pour la même raison que ci-dessus (compatibilité
+    /// des profils déjà persistés).
+    var overlaySommeilActive: Bool?
+
     init(occurrencesMinimalesRepasARevoir: Int? = nil,
          seuilRepasCopieuxNuit: Int? = nil,
          fenetreAffichageResucrageAccueilHeures: Int? = nil,
          glucidesResucrageRapideParDefaut: Int? = nil,
-         fenetreRepasCorrectionMinutes: Int? = nil) {
+         fenetreRepasCorrectionMinutes: Int? = nil,
+         overlaySommeilActive: Bool? = nil) {
         self.occurrencesMinimalesRepasARevoir = occurrencesMinimalesRepasARevoir
         self.seuilRepasCopieuxNuit = seuilRepasCopieuxNuit
         self.fenetreAffichageResucrageAccueilHeures = fenetreAffichageResucrageAccueilHeures
         self.glucidesResucrageRapideParDefaut = glucidesResucrageRapideParDefaut
         self.fenetreRepasCorrectionMinutes = fenetreRepasCorrectionMinutes
+        self.overlaySommeilActive = overlaySommeilActive
     }
 }

@@ -48,6 +48,12 @@ struct AppTabVues: View {
     /// background des glycémies vers le hub.
     @State private var healthKit = HealthKitCGMService()
 
+    /// Service HealthKit — lecture des stades de sommeil pour l'overlay de
+    /// l'analyse du coucher (B1). Autorisation demandée ici (préflight groupé
+    /// avec glycémie/sport), lecture faite à la demande depuis
+    /// `DetailAnalyseBasaleVue`.
+    @State private var sleepService = HealthKitSleepService()
+
     /// Service de l'analyse basale (B1) — instance **unique** partagée entre
     /// l'onglet Analyses (détail), l'accueil (insight « nouvelle tendance »)
     /// et le badge de cet onglet. Doit être la même instance partout (pas un
@@ -215,13 +221,14 @@ struct AppTabVues: View {
             // retombent donc à un no-op silencieux après ce préflight.
             _ = try? await HKHealthStore().requestAuthorization(
                 toShare: [],
-                read: [HKQuantityType(.bloodGlucose), HKObjectType.workoutType()]
+                read: [HKQuantityType(.bloodGlucose), HKObjectType.workoutType(), HKCategoryType(.sleepAnalysis)]
             )
             await healthKit.demanderAcces()
             await healthKit.synchroniser(container: modelContext.container)
             healthKit.demarrerSurveillance(container: modelContext.container)
             await importService.demanderAcces()
             await importService.rafraichir()
+            await sleepService.demanderAcces()
             // Le CGM vient d'être synchronisé : recalcule les réponses
             // glycémiques des repas (au démarrage elles étaient toutes en
             // attente, faute de glycémies encore chargées).

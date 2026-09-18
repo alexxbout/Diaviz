@@ -56,6 +56,15 @@ struct DetailAnalyseBasaleVue: View {
     /// Guide de lecture B1, ouvert depuis le bouton en pied de page.
     @State private var afficherGuide = false
 
+    /// Service de lecture des stades de sommeil HealthKit — instance propre à
+    /// cette page (l'autorisation elle-même est demandée une fois au boot de
+    /// l'app, voir `AppTabVues`). Lecture à la demande, jamais persistée.
+    @State private var sleepService = HealthKitSleepService()
+    /// Stades de sommeil de la nuit actuellement affichée en vue « Par
+    /// nuit » — `[]` par défaut : overlay absent tant que rien n'est chargé
+    /// (dégradation gracieuse, jamais de bande approximative).
+    @State private var sleepStages: [SleepStageInterval] = []
+
     @Environment(\.modelContext) private var modelContext
 
     private let sections = SousAnalyseCoucher.allCases
@@ -109,6 +118,25 @@ struct DetailAnalyseBasaleVue: View {
         .navigationTitle("Analyse du coucher")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { onApparition?(analyse) }
+        .task(id: indexSelectionne) { await chargerStadesSommeil() }
+    }
+
+    /// Recharge les stades de sommeil de la nuit sélectionnée. Silencieux et
+    /// dégradé : réglage désactivé, HealthKit indisponible (simulateur) ou
+    /// aucune donnée cette nuit-là → `sleepStages` reste `[]`, l'overlay ne
+    /// s'affiche simplement pas.
+    private func chargerStadesSommeil() async {
+        guard ProfilService.shared.profil.preferencesAvancees.overlaySommeilActive ?? true,
+              HealthKitSleepService.disponible,
+              let nuit = analyse.nightChartData.indices.contains(indexSelectionne)
+                ? analyse.nightChartData[indexSelectionne] : nil,
+              let debut = nuit.glucoseValues.first?.time,
+              let fin = nuit.glucoseValues.last?.time
+        else {
+            sleepStages = []
+            return
+        }
+        sleepStages = await sleepService.stades(sur: debut...fin)
     }
 
     // MARK: - Contenu de la page sélectionnée
@@ -164,7 +192,8 @@ struct DetailAnalyseBasaleVue: View {
                     nights: analyse.nightChartData,
                     mode: $mode,
                     indexSelectionne: $indexSelectionne,
-                    chargePour: chargeContinue(pour:)
+                    chargePour: chargeContinue(pour:),
+                    sleepStages: sleepStages
                 )
                 TimelineNuitsVue(
                     timeline: analyse.timeline,

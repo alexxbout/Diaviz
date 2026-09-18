@@ -176,6 +176,12 @@ struct CourbesNocturnesChart: View {
     /// contexte transverse affiché dans la carte verdict de la vue « Par
     /// nuit ». Fourni par le parent, qui seul a accès au `ModelContext`.
     let chargePour: (Date) -> SyntheseChargeContinue
+    /// Stades de sommeil HealthKit de la nuit **actuellement affichée** en
+    /// vue « Par nuit » — `[]` si la donnée est indisponible (Watch pas
+    /// portée, autorisation refusée) ou si le réglage overlay est désactivé.
+    /// Uniquement consommé par `VueGraphiqueParNuit` : la vue « Toutes »
+    /// superpose plusieurs nuits, un overlay y perdrait tout son sens.
+    let sleepStages: [SleepStageInterval]
 
     /// `mode` et `indexSelectionne` sont liftés à la page parente
     /// (`DetailAnalyseBasaleVue`) pour que la `TimelineNuitsVue` puisse
@@ -184,12 +190,14 @@ struct CourbesNocturnesChart: View {
         nights: [NightChartData],
         mode: Binding<ModeAffichageGraphiqueBasale>,
         indexSelectionne: Binding<Int>,
-        chargePour: @escaping (Date) -> SyntheseChargeContinue
+        chargePour: @escaping (Date) -> SyntheseChargeContinue,
+        sleepStages: [SleepStageInterval] = []
     ) {
         self.nights = nights
         self._mode = mode
         self._indexSelectionne = indexSelectionne
         self.chargePour = chargePour
+        self.sleepStages = sleepStages
     }
 
     var body: some View {
@@ -229,7 +237,8 @@ struct CourbesNocturnesChart: View {
                 VueGraphiqueParNuit(
                     nights: nights,
                     indexSelectionne: $indexSelectionne,
-                    chargePour: chargePour
+                    chargePour: chargePour,
+                    sleepStages: sleepStages
                 )
             }
         }
@@ -503,6 +512,9 @@ private struct VueGraphiqueParNuit: View {
     let nights: [NightChartData]
     @Binding var indexSelectionne: Int
     let chargePour: (Date) -> SyntheseChargeContinue
+    /// Stades de sommeil de la nuit affichée — voir doc sur
+    /// `CourbesNocturnesChart.sleepStages`.
+    var sleepStages: [SleepStageInterval] = []
 
     /// État courant du crosshair (long-press + drag sur la courbe) —
     /// `nil` quand le doigt est relâché.
@@ -537,6 +549,9 @@ private struct VueGraphiqueParNuit: View {
                 .padding(.leading, -20)
                 .padding(.trailing, -16)
                 .gesture(swipeNavigation)
+            if !intervallesVisibles.isEmpty {
+                legendeSommeil
+            }
             Divider()
                 .padding(.top, 2)
             CarteVerdictNuit(nuit: nuit, nights: nights, chargeSynthese: chargePour(nuit.date))
@@ -689,6 +704,25 @@ private struct VueGraphiqueParNuit: View {
             .locale(Locale(identifier: "fr_FR")))
     }
 
+    /// Légende factuelle des stades affichés — seulement les stades
+    /// réellement présents cette nuit-là, dans l'ordre biologique.
+    private var legendeSommeil: some View {
+        let ordre: [SleepStage] = [.awake, .rem, .core, .deep, .asleepGenerique, .inBed]
+        let presents = ordre.filter { stade in intervallesVisibles.contains { $0.stage == stade } }
+        return HStack(spacing: 12) {
+            ForEach(presents, id: \.self) { stade in
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(couleurStade(stade))
+                        .frame(width: 7, height: 7)
+                    Text(stade.label)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
     // MARK: Carrousel chartZone
 
     /// Courbe de la nuit lissée — calculée une fois par render et
@@ -718,6 +752,7 @@ private struct VueGraphiqueParNuit: View {
     private func chartFullNight() -> some View {
         Chart {
             seuils
+            bandesSommeil
             courbeWholeNight
         }
         .chartXScale(domain: totalNightRange)
@@ -867,6 +902,39 @@ private struct VueGraphiqueParNuit: View {
 
     private var seuilsProfil: SeuilsGlycemiques {
         ProfilService.shared.profil.seuilsGlycemiques
+    }
+
+    /// Bandes verticales pleine hauteur, une par intervalle de stade,
+    /// dessinées **avant** la courbe pour qu'elle reste lisible par-dessus.
+    /// Seuls les intervalles qui chevauchent effectivement la nuit affichée
+    /// sont rendus — `sleepStages` peut déborder de la fenêtre (marge de
+    /// requête côté service).
+    @ChartContentBuilder
+    private var bandesSommeil: some ChartContent {
+        ForEach(intervallesVisibles) { intervalle in
+            RectangleMark(
+                xStart: .value("Début", max(intervalle.debut, totalNightRange.lowerBound)),
+                xEnd: .value("Fin", min(intervalle.fin, totalNightRange.upperBound)),
+                yStart: .value("Bas", plageY.lowerBound),
+                yEnd: .value("Haut", plageY.upperBound)
+            )
+            .foregroundStyle(couleurStade(intervalle.stage).opacity(0.16))
+        }
+    }
+
+    private var intervallesVisibles: [SleepStageInterval] {
+        sleepStages.filter { $0.fin > totalNightRange.lowerBound && $0.debut < totalNightRange.upperBound }
+    }
+
+    private func couleurStade(_ stade: SleepStage) -> Color {
+        switch stade {
+        case .awake:           return .orange
+        case .rem:              return .mint
+        case .core:              return .blue
+        case .deep:               return .indigo
+        case .asleepGenerique:    return .blue
+        case .inBed:              return .gray
+        }
     }
 
     private var couleurCourbe: Color {

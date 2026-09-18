@@ -35,6 +35,16 @@ struct SectionAnalyseCoucherReglages: View {
             verdicts restants sont fiables.
             """)
         }
+
+        Section {
+            Toggle("Stades de sommeil sur la courbe", isOn: bindingOverlaySommeil)
+        } footer: {
+            Text("""
+            Superpose les stades de sommeil enregistrés par ta Watch (ou une \
+            autre source Santé) sur la courbe de la vue « Par nuit ». Absent \
+            les nuits sans donnée de sommeil — jamais de bande approximative.
+            """)
+        }
     }
 
     // MARK: - Binding
@@ -50,6 +60,17 @@ struct SectionAnalyseCoucherReglages: View {
             set: { nouveau in
                 service.mettreAJour {
                     $0.preferencesAvancees.seuilRepasCopieuxNuit = nouveau
+                }
+            }
+        )
+    }
+
+    private var bindingOverlaySommeil: Binding<Bool> {
+        Binding(
+            get: { service.profil.preferencesAvancees.overlaySommeilActive ?? true },
+            set: { nouveau in
+                service.mettreAJour {
+                    $0.preferencesAvancees.overlaySommeilActive = nouveau
                 }
             }
         )
