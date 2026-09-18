@@ -61,6 +61,10 @@ struct AppTabVues: View {
     @State private var analyseEndormissementService = AnalyseEndormissementService()
     @State private var analyseCorrectionsService = AnalyseCorrectionsService()
 
+    /// Bilan des corrections toutes heures — indépendant de B1/B3, aucun
+    /// ancrage de nuit requis, boot autonome.
+    @State private var bilanCorrectionsService = BilanCorrectionsService()
+
     /// Service du mining R1 (ratio observé) — cache mémoire recalculé sur
     /// mutation du hub, pas à chaque frappe de saisie. Lit `repasService.repas`
     /// directement, aucun fetch SwiftData séparé.
@@ -146,6 +150,7 @@ struct AppTabVues: View {
         .environment(analyseBasaleService)
         .environment(analyseEndormissementService)
         .environment(analyseCorrectionsService)
+        .environment(bilanCorrectionsService)
         .environment(analyseRatioService)
         .environment(glucidesHebdoService)
         .fullScreenCover(isPresented: Binding(
@@ -197,7 +202,9 @@ struct AppTabVues: View {
             await analyseBasaleService.demarrer(contexte: modelContext)
             async let endo: Void = analyseEndormissementService.demarrer(contexte: modelContext, basale: analyseBasaleService)
             async let corr: Void = analyseCorrectionsService.demarrer(contexte: modelContext, basale: analyseBasaleService)
-            _ = await (endo, corr)
+            // Boot indépendant : aucun ancrage de nuit requis.
+            async let bilanCorr: Void = bilanCorrectionsService.demarrer(contexte: modelContext)
+            _ = await (endo, corr, bilanCorr)
             // `HealthKitCGMService` et `HealthKitImportService` demandent
             // chacun leur propre type (glycémies / workouts) via leur
             // propre `HKHealthStore` — sans ce préflight groupé, chaque

@@ -28,6 +28,7 @@ struct AnalysesVue: View {
     @Environment(AnalyseBasaleService.self) private var basaleService
     @Environment(AnalyseEndormissementService.self) private var endormissementService
     @Environment(AnalyseCorrectionsService.self) private var correctionsService
+    @Environment(BilanCorrectionsService.self) private var bilanCorrectionsService
 
     /// Service de la page « Charge et équilibre glycémique » — instance
     /// propre à cette vue (pas de badge/insight partagé ailleurs pour
@@ -77,7 +78,9 @@ struct AnalysesVue: View {
                 //
                 // Spacing 28pt entre sections — cohérent avec l'accueil,
                 // donne à chaque carte sommaire l'espace de respirer.
-                VStack(spacing: 28) {
+                // Même gap que les cartes de l'accueil (16pt) — 28 isolait
+                // trop les deux cartes l'une de l'autre.
+                VStack(spacing: 16) {
                     CarteAnalyseCoucher(
                         resume: coucher,
                         analyse: analyseReelle,
@@ -92,6 +95,10 @@ struct AnalysesVue: View {
                     CarteAnalyseChargeGlycemie(
                         synthese: correlationService.synthese,
                         chargement: correlationService.enCalcul
+                    )
+                    CarteBilanCorrections(
+                        bilan: bilanCorrectionsService.bilan,
+                        chargement: coucherOverride == nil && bilanCorrectionsService.enCalcul
                     )
                 }
                 // Même correction que l'accueil — marge système au lieu
@@ -120,13 +127,15 @@ struct AnalysesVue: View {
                 await basaleService.demarrer(contexte: modelContext)
                 async let endo: Void = endormissementService.demarrer(contexte: modelContext, basale: basaleService)
                 async let corr: Void = correctionsService.demarrer(contexte: modelContext, basale: basaleService)
-                _ = await (endo, corr)
+                async let bilanCorr: Void = bilanCorrectionsService.demarrer(contexte: modelContext)
+                _ = await (endo, corr, bilanCorr)
 
                 guard !premierBoot else { return }
                 await basaleService.recharger()
                 async let endoR: Void = endormissementService.recharger()
                 async let corrR: Void = correctionsService.recharger()
-                _ = await (endoR, corrR)
+                async let bilanCorrR: Void = bilanCorrectionsService.recharger()
+                _ = await (endoR, corrR, bilanCorrR)
             }
             Task {
                 await correlationService.recalculer(contexte: modelContext)
