@@ -73,6 +73,16 @@ nonisolated struct SyntheseCorrelationChargeTIR: Sendable, Equatable {
     let tranchesDerive: [TrancheDeriveBasale]
 }
 
+extension SyntheseCorrelationChargeTIR {
+    /// Placeholder avant le premier recalcul (démarrage de l'app) — la carte
+    /// sommaire est `.disabled` tant que le vrai `synthese` n'existe pas, ce
+    /// `vide` ne sert qu'à donner un `SyntheseCorrelationChargeTIR` non
+    /// optionnel à la page poussée si jamais la navigation était forcée.
+    static var vide: SyntheseCorrelationChargeTIR {
+        SyntheseCorrelationChargeTIR(semaines: [], changementsDose: [], tranches: [], tranchesDerive: [])
+    }
+}
+
 // MARK: - Calculateur
 
 /// Corrèle, semaine par semaine, la charge d'activité continue
@@ -121,7 +131,8 @@ nonisolated enum CalculCorrelationChargeTIR {
             return PointSemaineCorrelation(debutSemaine: debut, charge: charge, tir: tir)
         }
 
-        let changements = changementsDose(depuis: lentes, fenetre: debutsSemaines.first ?? debutSemaineCourante)
+        let debutFenetre = debutsSemaines.first ?? debutSemaineCourante
+        let changements = changementsDose(depuis: lentes, fenetre: debutFenetre)
 
         let moyenneCharge = semaines.map(\.charge).reduce(0, +) / Double(max(semaines.count, 1))
         // Niveau par semaine, calculé une fois — réutilisé pour le TIR (par

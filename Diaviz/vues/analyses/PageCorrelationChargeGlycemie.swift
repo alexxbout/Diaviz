@@ -37,9 +37,6 @@ struct PageCorrelationChargeGlycemie: View {
                     ambiance: .chargeActivite
                 )
                 chronologie
-                if !synthese.changementsDose.isEmpty {
-                    changementsDoseListe
-                }
                 tranches
                 if synthese.tranchesDerive.contains(where: { $0.deriveMoyenne != nil }) {
                     tranchesDerive
@@ -73,7 +70,7 @@ struct PageCorrelationChargeGlycemie: View {
             HStack(spacing: 16) {
                 legendePastille(couleur: teinteCharge.opacity(0.55), texte: "Charge", forme: .carre)
                 legendePastille(couleur: teinteTIR, texte: "TIR", forme: .trait)
-                legendePastille(couleur: .secondary, texte: "Δ dose", forme: .pointille)
+                legendePastille(couleur: .secondary, texte: texteLegendeDose, forme: .pointille)
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -216,35 +213,19 @@ struct PageCorrelationChargeGlycemie: View {
         dose == dose.rounded() ? "\(Int(dose))u" : String(format: "%.1fu", dose)
     }
 
-    // MARK: - Liste des changements de dose
-
-    private var changementsDoseListe: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Changements de dose de lente")
-                .font(.subheadline.bold())
-                .foregroundStyle(.secondary)
-            VStack(spacing: 0) {
-                ForEach(Array(synthese.changementsDose.enumerated()), id: \.element.id) { index, marqueur in
-                    if index > 0 { Divider() }
-                    HStack {
-                        Image(systemName: "syringe.fill")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .frame(width: 18)
-                        Text(marqueur.date.formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: "fr_FR"))))
-                            .font(.subheadline)
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        Text(doseFormatee(marqueur.dose))
-                            .font(.subheadline.weight(.semibold))
-                            .monospacedDigit()
-                    }
-                    .padding(.vertical, 8)
-                }
+    /// Légende du repère pointillé — dose courante par défaut, ou dose
+    /// active pendant la semaine tappée sur le graphique (dernier changement
+    /// à date ≤ début de cette semaine) : la légende suit le doigt au lieu
+    /// de rester figée sur la dernière valeur connue.
+    private var texteLegendeDose: String {
+        if let semaineSelectionnee {
+            guard let actif = synthese.changementsDose.last(where: { $0.date <= semaineSelectionnee }) else {
+                return "Δ dose"
             }
+            return "Δ dose (\(doseFormatee(actif.dose)))"
         }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground), in: NiveauCarte.carte.forme)
+        guard let dernier = synthese.changementsDose.last else { return "Δ dose" }
+        return "Δ dose (\(doseFormatee(dernier.dose)))"
     }
 
     // MARK: - TIR par tranche de charge

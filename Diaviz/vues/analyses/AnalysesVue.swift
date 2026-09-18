@@ -89,9 +89,10 @@ struct AnalysesVue: View {
                         }
                     )
 
-                    if let synthese = correlationService.synthese {
-                        CarteAnalyseChargeGlycemie(synthese: synthese)
-                    }
+                    CarteAnalyseChargeGlycemie(
+                        synthese: correlationService.synthese,
+                        chargement: correlationService.enCalcul
+                    )
                 }
                 // Même correction que l'accueil — marge système au lieu
                 // d'un 16 codé en dur, cohérente avec `JournalVue`.
@@ -127,7 +128,9 @@ struct AnalysesVue: View {
                 async let corrR: Void = correctionsService.recharger()
                 _ = await (endoR, corrR)
             }
-            correlationService.recalculer(contexte: modelContext)
+            Task {
+                await correlationService.recalculer(contexte: modelContext)
+            }
         }
     }
 }
@@ -145,15 +148,21 @@ private struct CarteAnalyseChargeGlycemie: View {
 
     private static let accent = Color.orange
 
-    let synthese: SyntheseCorrelationChargeTIR
+    /// `nil` avant le premier recalcul (démarrage de l'app) — la carte
+    /// s'affiche quand même, jamais cachée derrière un `if let` : ça
+    /// causait un saut de layout (la carte popait après le reste de la
+    /// page) sur l'apparition de l'onglet Analyses.
+    let synthese: SyntheseCorrelationChargeTIR?
+    var chargement: Bool = false
 
     var body: some View {
         NavigationLink {
-            PageCorrelationChargeGlycemie(synthese: synthese)
+            PageCorrelationChargeGlycemie(synthese: synthese ?? .vide)
         } label: {
             contenu
         }
         .buttonStyle(.plain)
+        .disabled(synthese == nil)
         .compositingGroup()
         .shadow(color: Self.accent.opacity(0.45), radius: 16, x: 0, y: 8)
         .accessibilityElement(children: .combine)
@@ -206,17 +215,23 @@ private struct CarteAnalyseChargeGlycemie: View {
 
             Spacer()
 
-            Image(systemName: "chevron.right")
-                .font(.body)
-                .foregroundStyle(.tertiary)
-                .accessibilityHidden(true)
+            if chargement {
+                ProgressView()
+                    .controlSize(.small)
+                    .accessibilityHidden(true)
+            } else {
+                Image(systemName: "chevron.right")
+                    .font(.body)
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
+            }
         }
     }
 
     /// Dernière semaine connue — même vocabulaire (basse/normale/haute) que
     /// la carte accueil et la page détail.
     private var ligneGlance: String {
-        guard let derniere = synthese.semaines.last else { return "Pas encore de recul" }
+        guard let synthese, let derniere = synthese.semaines.last else { return "Pas encore de recul" }
         let moyenne = synthese.semaines.map(\.charge).reduce(0, +) / Double(max(synthese.semaines.count, 1))
         guard moyenne > 0 else { return "Pas encore de recul" }
         let ecart = (derniere.charge - moyenne) / moyenne

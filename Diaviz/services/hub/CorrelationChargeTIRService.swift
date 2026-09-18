@@ -25,11 +25,22 @@ final class CorrelationChargeTIRService {
 
     private(set) var synthese: SyntheseCorrelationChargeTIR?
 
-    func demarrer(contexte: ModelContext) {
-        recalculer(contexte: contexte)
+    /// `true` pendant le recalcul — pilote le spinner de la carte sommaire,
+    /// qui reste affichée (jamais cachée) pendant ce temps.
+    private(set) var enCalcul = false
+
+    func demarrer(contexte: ModelContext) async {
+        await recalculer(contexte: contexte)
     }
 
-    func recalculer(contexte: ModelContext) {
+    /// Le fetch (I/O, a besoin du `ModelContext`) reste sur le `MainActor` ;
+    /// l'assemblage (`CalculAnalyseBasale.analyser` +
+    /// `CalculCorrelationChargeTIR.analyser`, purs et `Sendable`) est déporté
+    /// sur une tâche détachée pour ne pas bloquer le thread principal pendant
+    /// la segmentation des 70 nuits — même correctif que `AnalyseBasaleService`
+    /// pour le lag perçu au changement d'onglet.
+    func recalculer(contexte: ModelContext) async {
+        enCalcul = true
         let borne = Calendar.current.date(
             byAdding: .day, value: -7 * CalculCorrelationChargeTIR.nombreSemaines, to: Date()
         ) ?? Date()
@@ -47,17 +58,40 @@ final class CorrelationChargeTIRService {
             FetchDescriptor<Injection>(predicate: #Predicate { $0.heure >= borne && $0.type == typeLente })
         )) ?? []
 
-        synthese = CalculCorrelationChargeTIR.analyser(
-            activites: activites.map { (debut: $0.dateDebut, dureeMin: $0.dureeMinutes, intensite: $0.intensite) },
-            glucoses: glucoses.map { (date: $0.date, valeur: $0.valeur) },
-            lentes: lentes.map { (date: $0.heure, dose: $0.dose) },
-            nuitsDerive: deriveNuitsB1(contexte: contexte, borne: borne)
-        )
+        let (entrees, config) = chargerEntreesB1(contexte: contexte, borne: borne)
+
+        let activitesMappees = activites.map { (debut: $0.dateDebut, dureeMin: $0.dureeMinutes, intensite: $0.intensite) }
+        let glucosesMappes = glucoses.map { (date: $0.date, valeur: $0.valeur) }
+        let lentesMappees = lentes.map { (date: $0.heure, dose: $0.dose) }
+
+        synthese = await Task.detached(priority: .userInitiated) {
+            let detail = CalculAnalyseBasale.analyser(entrees: entrees, config: config)
+            let nuitsDerive = Self.deriveNuits(depuis: detail)
+            return CalculCorrelationChargeTIR.analyser(
+                activites: activitesMappees,
+                glucoses: glucosesMappes,
+                lentes: lentesMappees,
+                nuitsDerive: nuitsDerive
+            )
+        }.value
+        enCalcul = false
     }
 
-    // MARK: - Dérive basale par nuit (B1 sur fenêtre élargie)
+    /// Dérive de zone 3 (nuit profonde) par nuit — extrait du détail B1 déjà
+    /// assemblé. Pur, exécuté sur la tâche détachée avec `analyser`.
+    private nonisolated static func deriveNuits(depuis detail: AnalyseBasaleDetail) -> [(date: Date, derive: Double)] {
+        detail.nightChartData.compactMap { nuit -> (date: Date, derive: Double)? in
+            guard let zone3 = nuit.zones.first(where: { $0.zone == .nuitProfonde }),
+                  zone3.isAnalyzed, let pente = zone3.slope
+            else { return nil }
+            let heures = zone3.timeRange.upperBound.timeIntervalSince(zone3.timeRange.lowerBound) / 3600
+            return (date: nuit.date, derive: pente * heures)
+        }
+    }
 
-    private func deriveNuitsB1(contexte: ModelContext, borne: Date) -> [(date: Date, derive: Double)] {
+    // MARK: - Faits B1 (fenêtre élargie)
+
+    private func chargerEntreesB1(contexte: ModelContext, borne: Date) -> (EntreesBasale, ConfigBasale) {
         let cal = Calendar.current
         let nombreNuits = CalculCorrelationChargeTIR.nombreSemaines * 7
         // Marge zone 1 (pré-endormissement) + historique de dose, même esprit
@@ -105,15 +139,7 @@ final class CorrelationChargeTIRService {
         config.seuilHyper = Int(profil.seuilsGlycemiques.hyperglycemie)
         config.fenetreNuits = nombreNuits
 
-        let detail = CalculAnalyseBasale.analyser(entrees: entrees, config: config)
-
-        return detail.nightChartData.compactMap { nuit -> (date: Date, derive: Double)? in
-            guard let zone3 = nuit.zones.first(where: { $0.zone == .nuitProfonde }),
-                  zone3.isAnalyzed, let pente = zone3.slope
-            else { return nil }
-            let heures = zone3.timeRange.upperBound.timeIntervalSince(zone3.timeRange.lowerBound) / 3600
-            return (date: nuit.date, derive: pente * heures)
-        }
+        return (entrees, config)
     }
 }
 
