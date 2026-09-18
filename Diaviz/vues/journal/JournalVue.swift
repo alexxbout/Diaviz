@@ -113,12 +113,12 @@ struct JournalVue: View {
                             icone: "externaldrive",
                             titre: "Mes données",
                             sousTitre: "Tout ce qui a été enregistré",
-                            couleur: .teal
+                            couleur: .indigo
                         )
                     }
                     .buttonStyle(.plain)
                     .compositingGroup()
-                    .shadow(color: Color.teal.opacity(0.45), radius: 16, x: 0, y: 8)
+                    .shadow(color: Color.indigo.opacity(0.45), radius: 16, x: 0, y: 8)
                 }
                 .padding(.horizontal)
                 .padding(.top, 20)
