@@ -47,22 +47,12 @@ struct PageChargeActivite: View {
 
     private var enTeteStats: some View {
         VStack(alignment: .leading, spacing: 4) {
-            if let ecart = synthese.ecartRelatif {
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(ecartFormate(ecart))
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(.primary)
-                    Text("vs votre normale")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-            } else {
-                Text("Pas assez de recul")
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .foregroundStyle(.primary)
-            }
-            Text(libelleTendance.capitalizedFirstLetter)
+            // Hero = le niveau en mot (basse/normale/haute), pas l'écart
+            // brut — même principe que la carte accueil.
+            Text(niveau.libelle)
+                .font(.system(size: 26, weight: .bold, design: .rounded))
+                .foregroundStyle(niveau.couleur)
+            Text(ligneDetail)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -118,18 +108,46 @@ struct PageChargeActivite: View {
         return "\(signe)\(abs(pct))%"
     }
 
-    private var libelleTendance: String {
-        switch synthese.tendance {
-        case .enBaisse(let jours): return "en baisse depuis \(jours) jours"
-        case .enHausse(let jours): return "en hausse depuis \(jours) jours"
-        case .stable: return "stable vs votre normale"
+    private enum Niveau {
+        case basse, normale, haute, inconnue
+
+        var libelle: String {
+            switch self {
+            case .basse:    return "Charge basse"
+            case .normale:  return "Charge normale"
+            case .haute:    return "Charge haute"
+            case .inconnue: return "Pas assez de recul"
+            }
+        }
+
+        var couleur: Color {
+            switch self {
+            case .basse:    return .red
+            case .haute:    return .blue
+            case .normale, .inconnue: return .primary
+            }
         }
     }
-}
 
-private extension String {
-    var capitalizedFirstLetter: String {
-        prefix(1).uppercased() + dropFirst()
+    private var niveau: Niveau {
+        guard let ecart = synthese.ecartRelatif else { return .inconnue }
+        if ecart <= -CalculChargeContinue.seuilEcartTendance { return .basse }
+        if ecart >= CalculChargeContinue.seuilEcartTendance { return .haute }
+        return .normale
+    }
+
+    /// « −22 % vs votre normale · en baisse depuis 5 jours » — écart et
+    /// tendance fusionnés en une ligne, plus de sous-titre redondant.
+    private var ligneDetail: String {
+        let ecartTexte = synthese.ecartRelatif.map { "\(ecartFormate($0)) vs votre normale" }
+        switch synthese.tendance {
+        case .enBaisse(let jours):
+            return [ecartTexte, "en baisse depuis \(jours) jours"].compactMap { $0 }.joined(separator: " · ")
+        case .enHausse(let jours):
+            return [ecartTexte, "en hausse depuis \(jours) jours"].compactMap { $0 }.joined(separator: " · ")
+        case .stable:
+            return ecartTexte ?? "pas d'activité récente sur 4 semaines"
+        }
     }
 }
 

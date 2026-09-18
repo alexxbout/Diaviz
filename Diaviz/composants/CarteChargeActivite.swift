@@ -61,22 +61,16 @@ struct CarteChargeActivite: View {
     private var ligneContenu: some View {
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 2) {
-                if let ecart = synthese.ecartRelatif {
-                    HStack(alignment: .firstTextBaseline, spacing: 3) {
-                        Text(ecartFormate(ecart))
-                            .font(.system(size: 30, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.primary)
-                            .monospacedDigit()
-                        Text("vs normale")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                } else {
-                    Text("Pas assez de recul")
-                        .font(.system(size: 17, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.primary)
-                }
-                Text(libelleTendance)
+                // Hero = le **niveau actuel** en mot (basse/normale/haute),
+                // pas l'écart brut : un pourcentage seul obligeait à faire
+                // le calcul mental pour savoir où on en est.
+                Text(niveau.libelle)
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundStyle(niveau.couleur(teinteDefaut: Self.teinte))
+                // Une seule ligne secondaire : écart chiffré + tendance
+                // fusionnés (au lieu de deux lignes qui répétaient « vs
+                // normale »).
+                Text(ligneDetail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
@@ -89,6 +83,52 @@ struct CarteChargeActivite: View {
         }
     }
 
+    /// Niveau courant vs normale perso — même seuil que la détection de
+    /// tendance (`CalculChargeContinue.seuilEcartTendance`), pour que le mot
+    /// affiché et la tendance racontent toujours la même histoire.
+    private enum Niveau {
+        case basse, normale, haute, inconnue
+
+        var libelle: String {
+            switch self {
+            case .basse:    return "Charge basse"
+            case .normale:  return "Charge normale"
+            case .haute:    return "Charge haute"
+            case .inconnue: return "Pas assez de recul"
+            }
+        }
+
+        func couleur(teinteDefaut: Color) -> Color {
+            switch self {
+            case .basse:    return .red
+            case .haute:    return .blue
+            case .normale:  return .primary
+            case .inconnue: return .primary
+            }
+        }
+    }
+
+    private var niveau: Niveau {
+        guard let ecart = synthese.ecartRelatif else { return .inconnue }
+        if ecart <= -CalculChargeContinue.seuilEcartTendance { return .basse }
+        if ecart >= CalculChargeContinue.seuilEcartTendance { return .haute }
+        return .normale
+    }
+
+    /// « −22 % vs normale · en baisse depuis 5 j », ou juste la tendance
+    /// quand l'écart n'est pas calculable.
+    private var ligneDetail: String {
+        let ecartTexte = synthese.ecartRelatif.map { "\(ecartFormate($0)) vs normale" }
+        switch synthese.tendance {
+        case .enBaisse(let jours):
+            return [ecartTexte, "en baisse depuis \(jours) j"].compactMap { $0 }.joined(separator: " · ")
+        case .enHausse(let jours):
+            return [ecartTexte, "en hausse depuis \(jours) j"].compactMap { $0 }.joined(separator: " · ")
+        case .stable:
+            return ecartTexte ?? "pas d'activité récente sur 4 semaines"
+        }
+    }
+
     /// Signe explicite (« +12 % » / « −22 % »), même convention que les
     /// deltas glucides — un écart relatif se lit toujours signé.
     private func ecartFormate(_ ecart: Double) -> String {
@@ -97,18 +137,8 @@ struct CarteChargeActivite: View {
         return "\(signe)\(abs(pct))%"
     }
 
-    private var libelleTendance: String {
-        switch synthese.tendance {
-        case .enBaisse(let jours): return "en baisse depuis \(jours) j"
-        case .enHausse(let jours): return "en hausse depuis \(jours) j"
-        case .stable: return "stable vs votre normale"
-        }
-    }
-
     private var libelleAccessibilite: String {
-        let base = synthese.ecartRelatif.map { "Charge d'activité, \(ecartFormate($0)) vs votre normale" }
-            ?? "Charge d'activité, pas assez de recul"
-        return "\(base), \(libelleTendance)"
+        "\(niveau.libelle), \(ligneDetail)"
     }
 }
 
