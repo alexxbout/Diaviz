@@ -21,7 +21,7 @@ struct PageCorrelationChargeGlycemie: View {
     let synthese: SyntheseCorrelationChargeTIR
 
     private let teinteCharge = Color.orange
-    private let teinteTIR = Color.blue
+    private let teinteScore = Color.blue
 
     /// Semaine sélectionnée au tap/drag sur la chronologie — `nil` par
     /// défaut, la carte n'affiche alors rien de plus que le graphique.
@@ -33,7 +33,7 @@ struct PageCorrelationChargeGlycemie: View {
                 EnTeteAnalyse(
                     surtitre: "Sport",
                     titre: "Charge et glycémie",
-                    accroche: "Votre charge d'activité et votre temps dans la cible, semaine après semaine — avec vos changements de dose de lente en repère.",
+                    accroche: "Votre charge d'activité et votre score glycémique, semaine après semaine — avec vos changements de dose de lente en repère.",
                     ambiance: .chargeActivite
                 )
                 chronologie
@@ -69,7 +69,12 @@ struct PageCorrelationChargeGlycemie: View {
 
             HStack(spacing: 16) {
                 legendePastille(couleur: teinteCharge.opacity(0.55), texte: "Charge", forme: .carre)
-                legendePastille(couleur: teinteTIR, texte: "TIR", forme: .trait)
+                legendePastille(couleur: teinteScore, texte: "Score", forme: .trait)
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
+            HStack(spacing: 16) {
                 legendePastille(couleur: .secondary, texte: texteLegendeDose, forme: .pointille)
             }
             .font(.caption)
@@ -94,14 +99,14 @@ struct PageCorrelationChargeGlycemie: View {
                     .cornerRadius(3)
                 }
 
-                ForEach(synthese.semaines.filter { $0.tir != nil }) { point in
+                ForEach(synthese.semaines.filter { $0.score != nil }) { point in
                     LineMark(
                         x: .value("Semaine", point.debutSemaine, unit: .weekOfYear),
-                        y: .value("TIR", (point.tir ?? 0) / 100 * maxCharge)
+                        y: .value("Score", (point.score ?? 0) / 100 * maxCharge)
                     )
-                    .foregroundStyle(teinteTIR)
+                    .foregroundStyle(teinteScore)
                     .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                    .interpolationMethod(.catmullRom)
+                    .interpolationMethod(.monotone)
                 }
 
                 // Repères de changement de dose — trait pointillé seul, sans
@@ -171,12 +176,12 @@ struct PageCorrelationChargeGlycemie: View {
                 Text("charge \(Int(point.charge.rounded()))")
                     .font(.caption)
                     .foregroundStyle(teinteCharge)
-                if let tir = point.tir {
-                    Text("TIR \(Int(tir.rounded()))%")
+                if let score = point.score {
+                    Text("score \(Int(score.rounded()))")
                         .font(.caption)
-                        .foregroundStyle(teinteTIR)
+                        .foregroundStyle(teinteScore)
                 } else {
-                    Text("TIR indisponible")
+                    Text("score indisponible")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -193,7 +198,7 @@ struct PageCorrelationChargeGlycemie: View {
         }
     }
 
-    private enum FormeLegende { case carre, trait, pointille }
+    private enum FormeLegende { case carre, trait, traitPointille, pointille }
 
     private func legendePastille(couleur: Color, texte: String, forme: FormeLegende) -> some View {
         HStack(spacing: 5) {
@@ -202,6 +207,12 @@ struct PageCorrelationChargeGlycemie: View {
                 RoundedRectangle(cornerRadius: 2).fill(couleur).frame(width: 8, height: 8)
             case .trait:
                 Rectangle().fill(couleur).frame(width: 14, height: 2.5)
+            case .traitPointille:
+                HStack(spacing: 2) {
+                    ForEach(0..<3, id: \.self) { _ in
+                        Rectangle().fill(couleur).frame(width: 3, height: 2.5)
+                    }
+                }
             case .pointille:
                 Rectangle().fill(couleur).frame(width: 1.5, height: 10)
             }

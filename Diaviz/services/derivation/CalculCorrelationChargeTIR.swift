@@ -15,6 +15,11 @@ nonisolated struct PointSemaineCorrelation: Sendable, Equatable, Identifiable {
     let charge: Double
     /// `nil` si aucune `GlucoseReading` sur la semaine (capteur absent).
     let tir: Double?
+    /// Score quotidien moyen (100 − GRI, Klonoff 2022) sur la semaine — même
+    /// formule que la carte accueil, recalculée directement sur les lectures
+    /// de la semaine plutôt que moyennée jour par jour. `nil` si aucune
+    /// lecture (même condition que `tir`).
+    let score: Double?
     var id: Date { debutSemaine }
 }
 
@@ -128,7 +133,8 @@ nonisolated enum CalculCorrelationChargeTIR {
             let tir: Double? = mesures.isEmpty ? nil : Double(
                 mesures.filter { (70...180).contains($0.valeur) }.count
             ) / Double(mesures.count) * 100
-            return PointSemaineCorrelation(debutSemaine: debut, charge: charge, tir: tir)
+            let score = scoreGRI(mesures: mesures)
+            return PointSemaineCorrelation(debutSemaine: debut, charge: charge, tir: tir, score: score)
         }
 
         let debutFenetre = debutsSemaines.first ?? debutSemaineCourante
@@ -173,6 +179,23 @@ nonisolated enum CalculCorrelationChargeTIR {
                 : nuitsTranche.map(\.derive).reduce(0, +) / Double(nuitsTranche.count)
             return TrancheDeriveBasale(niveau: niveau, deriveMoyenne: deriveMoyenne, nombreNuits: nuitsTranche.count)
         }
+    }
+
+    /// Score = 100 − GRI (Klonoff 2022), même formule et mêmes coefficients
+    /// que la carte accueil (`CalculScoreJournalier`) — dupliqués ici plutôt
+    /// que réutilisés car ce calculateur-ci l'applique sur une semaine entière
+    /// de lectures d'un coup, pas jour par jour avec un seuil de couverture.
+    private static func scoreGRI(mesures: [(date: Date, valeur: Int)]) -> Double? {
+        guard !mesures.isEmpty else { return nil }
+        let total = Double(mesures.count)
+        let pct = { (plage: (Int) -> Bool) in
+            Double(mesures.filter { plage($0.valeur) }.count) / total * 100
+        }
+        let gri = 3.0 * pct { $0 < 54 }
+            + 2.4 * pct { (54...69).contains($0) }
+            + 1.6 * pct { $0 > 250 }
+            + 0.8 * pct { (181...250).contains($0) }
+        return max(0, min(100, 100 - gri))
     }
 
     private static func tranche(pour charge: Double, moyenne: Double) -> NiveauChargeCorrelation {

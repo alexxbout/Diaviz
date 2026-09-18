@@ -161,11 +161,13 @@ extension SyntheseCorrelationChargeTIR {
         let debut = cal.date(byAdding: .day, value: -7 * (CalculCorrelationChargeTIR.nombreSemaines - 1), to: Date()) ?? Date()
         let charges: [Double] = [90, 140, 260, 310, 70, 55, 40, 230, 280, 150]
         let tirs: [Double?] = [62, 68, 74, 77, 58, 54, 51, 72, 76, 65]
+        let scores: [Double?] = [70, 74, 80, 83, 66, 60, 58, 78, 82, 72]
         let semaines = (0..<CalculCorrelationChargeTIR.nombreSemaines).map { i in
             PointSemaineCorrelation(
                 debutSemaine: cal.date(byAdding: .day, value: 7 * i, to: debut) ?? debut,
                 charge: charges[i],
-                tir: tirs[i]
+                tir: tirs[i],
+                score: scores[i]
             )
         }
         return SyntheseCorrelationChargeTIR(
