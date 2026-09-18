@@ -551,10 +551,12 @@ private struct VueGraphiqueParNuit: View {
                 .gesture(swipeNavigation)
             if !intervallesVisibles.isEmpty {
                 hypnogramme
-                    .frame(height: 46)
+                    .frame(height: 40)
+                    .padding(.top, -6)
                     .padding(.leading, -20)
                     .padding(.trailing, -16)
                 legendeSommeil
+                    .padding(.top, 2)
             }
             Divider()
                 .padding(.top, 2)
@@ -935,7 +937,20 @@ private struct VueGraphiqueParNuit: View {
         .chartXScale(domain: totalNightRange)
         .chartYScale(domain: presents.reversed().map(\.label))
         .chartXAxis(.hidden)
-        .chartYAxis { AxisMarks(position: .leading) { _ in } }
+        // Axe trailing invisible mais réservé à la même largeur que celui du
+        // chart de glycémie juste au-dessus (`axeYTrailingAdaptatif`, labels
+        // à 3 chiffres) — sans ça les deux plots n'ont pas la même largeur
+        // utile et la frise déborde par rapport à la courbe.
+        .chartYAxis {
+            AxisMarks(position: .trailing, values: [presents.first?.label ?? "?"]) { _ in
+                AxisValueLabel {
+                    Text("000")
+                        .font(.caption2)
+                        .foregroundStyle(.clear)
+                        .monospacedDigit()
+                }
+            }
+        }
     }
 
     private var intervallesVisibles: [SleepStageInterval] {
