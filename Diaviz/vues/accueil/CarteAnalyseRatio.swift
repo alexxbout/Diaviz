@@ -79,7 +79,8 @@ struct CarteAnalyseRatio: View {
         }
     }
 
-    fileprivate static let teinte = Color.indigo
+    /// Jaune doré (« goldenrod »).
+    fileprivate static let teinte = Color(red: 0.85, green: 0.65, blue: 0.13)
 
     var body: some View {
         if lignes.isEmpty {
@@ -190,10 +191,17 @@ struct CarteAnalyseRatio: View {
         }
     }
 
+    /// Hauteur symbolique de la barre hachurée — sans donnée exploitable, une
+    /// hauteur pleine (`hauteurGraphe`) dominait visuellement les barres
+    /// pleines à côté, comme si l'absence de donnée pesait plus que les
+    /// vrais taux mesurés. Une barre basse dit « rien à montrer » sans
+    /// écraser le reste du graphique.
+    private static let hauteurHachuree: CGFloat = 40
+
     /// Barre pleine, teintée, hauteur proportionnelle au taux — sauf quand
     /// aucune comparaison n'est possible (changement de ratio récent, ou
     /// aucun repas exploitable) : la hauteur ne représenterait alors rien,
-    /// donc la barre reste pleine et se distingue par un **motif hachuré**
+    /// donc la barre reste basse et se distingue par un **motif hachuré**
     /// plutôt que par une hauteur trompeuse.
     @ViewBuilder
     private func barre(_ ligne: LigneVerdictRatio) -> some View {
@@ -209,7 +217,7 @@ struct CarteAnalyseRatio: View {
                     MotifHachures(couleur: ligne.teinte)
                         .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                 )
-                .frame(width: 28, height: Self.hauteurGraphe)
+                .frame(width: 28, height: Self.hauteurHachuree)
         }
     }
 

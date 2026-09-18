@@ -136,9 +136,9 @@ struct PageInventaireDonnees: View {
     private func couleurTrame(_ saisies: Int) -> Color {
         switch saisies {
         case 0:     Color(.tertiarySystemFill)
-        case 1...2: Color.accentColor.opacity(0.35)
-        case 3...5: Color.accentColor.opacity(0.65)
-        default:    Color.accentColor
+        case 1...2: Color.indigo.opacity(0.35)
+        case 3...5: Color.indigo.opacity(0.65)
+        default:    Color.indigo
         }
     }
 

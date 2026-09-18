@@ -123,12 +123,16 @@ struct EnTeteAnalyse: View {
                     Color(sombre: (0xD2, 0xDE, 0x3E), clair: (0xC2, 0xCC, 0x4A))
                 )
             case .ratio:
+                // Jaune doré — même teinte que la carte accueil « Repas
+                // dans le ratio » (`CarteAnalyseRatio`). Indigo, teal/mint
+                // et rose vif essayés puis écartés (déjà pris, ou pas au
+                // goût).
                 (
-                    Color(sombre: (0x09, 0x21, 0x26), clair: (0x1B, 0x52, 0x60)),
-                    Color(sombre: (0x12, 0x3A, 0x42), clair: (0x23, 0x68, 0x77)),
-                    Color(sombre: (0x1A, 0x57, 0x63), clair: (0x2E, 0x8A, 0x9B)),
-                    Color(sombre: (0x31, 0x99, 0xB0), clair: (0x3D, 0x9E, 0xB0)),
-                    Color(sombre: (0x41, 0x68, 0xAD), clair: (0x4F, 0x7E, 0xBD))
+                    Color(sombre: (0x24, 0x1A, 0x04), clair: (0x54, 0x3E, 0x0C)),
+                    Color(sombre: (0x3C, 0x2C, 0x08), clair: (0x7C, 0x5C, 0x14)),
+                    Color(sombre: (0x5C, 0x44, 0x0C), clair: (0xA6, 0x80, 0x20)),
+                    Color(sombre: (0x8C, 0x68, 0x14), clair: (0xCE, 0xA6, 0x30)),
+                    Color(sombre: (0xB0, 0x86, 0x20), clair: (0xE6, 0xBC, 0x44))
                 )
             case .glucides:
                 (
@@ -155,12 +159,14 @@ struct EnTeteAnalyse: View {
                     Color(sombre: (0xCE, 0x2E, 0x3E), clair: (0xC8, 0x44, 0x4A))
                 )
             case .donnees:
+                // Indigo — remplace l'ancien vert/teal, trop proche de la
+                // carte « Médications » du Journal (déjà verte).
                 (
-                    Color(sombre: (0x08, 0x1E, 0x1A), clair: (0x17, 0x44, 0x3B)),
-                    Color(sombre: (0x0E, 0x30, 0x2A), clair: (0x1E, 0x5C, 0x4F)),
-                    Color(sombre: (0x18, 0x4C, 0x42), clair: (0x2C, 0x7C, 0x6A)),
-                    Color(sombre: (0x3D, 0x8E, 0x7C), clair: (0x4E, 0x9E, 0x8A)),
-                    Color(sombre: (0x2A, 0x6E, 0x82), clair: (0x3C, 0x82, 0x96))
+                    Color(sombre: (0x14, 0x10, 0x2E), clair: (0x2E, 0x25, 0x66)),
+                    Color(sombre: (0x1E, 0x18, 0x44), clair: (0x3C, 0x30, 0x82)),
+                    Color(sombre: (0x30, 0x26, 0x68), clair: (0x50, 0x42, 0xA8)),
+                    Color(sombre: (0x4A, 0x3D, 0x9E), clair: (0x66, 0x58, 0xC4)),
+                    Color(sombre: (0x5A, 0x4E, 0xB0), clair: (0x74, 0x68, 0xD2))
                 )
             case .chargeActivite:
                 // Ambre/flamme — même famille chaude que les glucides et

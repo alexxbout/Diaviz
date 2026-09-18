@@ -321,24 +321,6 @@ struct AccueilVue: View {
                                     )
                                 }
 
-                                // « Repas à revoir » — carte résumé (compteur
-                                // + répartition par moment), le détail complet
-                                // vit sur `PageTousRepasARevoir`.
-                                SectionRepasARevoir(
-                                    repas: repasARevoir,
-                                    onToutVoir: { afficherTousRepasARevoir = true }
-                                )
-                                    // Anime uniquement l'apparition/disparition
-                                    // de cette carte — pas tout le VStack —
-                                    // pour que le peuplement post-fetch
-                                    // (RepasService charge en arrière-plan) se
-                                    // voie comme un fondu doux plutôt qu'un
-                                    // saut de layout brutal.
-                                    .animation(
-                                        reduceMotion ? nil : .easeOut(duration: 0.3),
-                                        value: repasARevoir.count
-                                    )
-
                                 // Tant que l'historique ne couvre pas assez de
                                 // jours (voir
                                 // `CalculGlucidesHebdo.joursMinimumParSemaine`),
@@ -358,6 +340,24 @@ struct AccueilVue: View {
                                         progression: progressionGlucides
                                     )
                                 }
+
+                                // « Repas à revoir » — carte résumé (compteur
+                                // + répartition par moment), le détail complet
+                                // vit sur `PageTousRepasARevoir`.
+                                SectionRepasARevoir(
+                                    repas: repasARevoir,
+                                    onToutVoir: { afficherTousRepasARevoir = true }
+                                )
+                                    // Anime uniquement l'apparition/disparition
+                                    // de cette carte — pas tout le VStack —
+                                    // pour que le peuplement post-fetch
+                                    // (RepasService charge en arrière-plan) se
+                                    // voie comme un fondu doux plutôt qu'un
+                                    // saut de layout brutal.
+                                    .animation(
+                                        reduceMotion ? nil : .easeOut(duration: 0.3),
+                                        value: repasARevoir.count
+                                    )
                             }
                             // Anime UNIQUEMENT l'insertion/sortie de la carte
                             // lente. Portée restreinte à ce VStack (et non au
