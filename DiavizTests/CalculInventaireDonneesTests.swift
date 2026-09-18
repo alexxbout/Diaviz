@@ -121,6 +121,52 @@ struct CalculInventaireDonneesTests {
         #expect(inventaire.repas == 3)
     }
 
+    // MARK: - Streak
+
+    @Test("Hub vide → streak actuel et record à 0")
+    func streakHubVide() {
+        let inventaire = analyser([])
+        #expect(inventaire.streakActuel == 0)
+        #expect(inventaire.streakRecord == 0)
+    }
+
+    @Test("Saisies 3 jours de suite jusqu'à aujourd'hui → streak actuel = 3")
+    func streakConsecutifJusquAujourdhui() {
+        let inventaire = analyser([
+            EntreeInventaire(date: jour(0), domaine: .repas(glucides: 40)),
+            EntreeInventaire(date: jour(1), domaine: .injection(unites: 5, lente: false)),
+            EntreeInventaire(date: jour(2), domaine: .resucrage(preventif: true)),
+        ])
+        #expect(inventaire.streakActuel == 3)
+        #expect(inventaire.streakRecord == 3)
+    }
+
+    @Test("Rien saisi aujourd'hui mais hier → le streak d'hier reste affiché")
+    func streakToleranceJourEnCours() {
+        let inventaire = analyser([
+            EntreeInventaire(date: jour(1), domaine: .repas(glucides: 40)),
+            EntreeInventaire(date: jour(2), domaine: .repas(glucides: 40)),
+        ])
+        #expect(inventaire.streakActuel == 2)
+    }
+
+    @Test("Trou de 2 jours → streak actuel repart de la série la plus récente, record garde la plus longue passée")
+    func streakCasseParTrou() {
+        let inventaire = analyser([
+            // Série ancienne, plus longue : J-10 à J-6 (5 jours).
+            EntreeInventaire(date: jour(10), domaine: .repas(glucides: 40)),
+            EntreeInventaire(date: jour(9), domaine: .repas(glucides: 40)),
+            EntreeInventaire(date: jour(8), domaine: .repas(glucides: 40)),
+            EntreeInventaire(date: jour(7), domaine: .repas(glucides: 40)),
+            EntreeInventaire(date: jour(6), domaine: .repas(glucides: 40)),
+            // Trou J-5 à J-2, puis série récente : J-1, J-0 (2 jours).
+            EntreeInventaire(date: jour(1), domaine: .repas(glucides: 40)),
+            EntreeInventaire(date: jour(0), domaine: .repas(glucides: 40)),
+        ])
+        #expect(inventaire.streakActuel == 2)
+        #expect(inventaire.streakRecord == 5)
+    }
+
     // MARK: - Glycémies
 
     @Test("Les glycémies sont transmises telles quelles, sans entrer dans l'ancienneté")
