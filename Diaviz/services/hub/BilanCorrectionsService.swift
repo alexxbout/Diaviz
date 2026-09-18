@@ -44,8 +44,18 @@ final class BilanCorrectionsService {
             seuilHypo: Int(profil.seuilsGlycemiques.hypoglycemie),
             diaHeures: profil.dureeActionInsulineHeures,
             picMinutes: profil.insulineRapide.picActionMinutes,
-            ratioCorrection: profil.ratioCorrection
+            ratioCorrection: profil.ratioCorrection,
+            fenetreRepasMinutes: Double(
+                profil.preferencesAvancees.fenetreRepasCorrectionMinutes
+                    ?? Int(CalculBilanCorrections.fenetreRepasMinutesParDefaut)
+            )
         )
+        // Même règle que B1/B2/B3 : le fetch reste `MainActor` (ModelContext
+        // non-Sendable), mais l'assemblage pur (potentiellement des dizaines
+        // de corrections × fenêtres CGM) est déporté via `Task.detached` pour
+        // ne jamais bloquer le thread principal à l'arrivée sur l'onglet
+        // Analyses. Ne pas retirer ce détachement même si le calcul paraît
+        // rapide sur peu de données — il ne le restera pas avec l'historique.
         let entrees = chargerEntrees(contexte: contexte)
         bilan = await Task.detached(priority: .userInitiated) {
             CalculBilanCorrections.analyser(entrees: entrees, config: config)
@@ -67,7 +77,8 @@ final class BilanCorrectionsService {
             lectures: ChargeurFaitsCoucher.cgm(contexte, depuis: borne),
             rapides: ChargeurFaitsCoucher.rapides(contexte, depuis: borne),
             resucrages: ChargeurFaitsCoucher.resucrages(contexte, depuis: borne),
-            pauses: ChargeurFaitsCoucher.pauses(contexte, depuis: borne)
+            pauses: ChargeurFaitsCoucher.pauses(contexte, depuis: borne),
+            repas: ChargeurFaitsCoucher.repasHorsResucrage(contexte, depuis: borne)
         )
     }
 }

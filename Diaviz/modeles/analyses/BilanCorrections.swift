@@ -75,13 +75,22 @@ struct CorrectionEvaluee: Identifiable, Sendable, Equatable {
     /// correction n'est pas configuré (dégradation gracieuse : pas de
     /// segmentation sans référence pour la calculer).
     let tranche: TrancheDoseCorrection?
+
+    /// `true` si un repas est survenu à moins de la fenêtre configurée
+    /// (`PreferencesAvancees.fenetreRepasCorrectionMinutes`) de cette
+    /// correction — ses glucides confondent alors l'effet de la correction
+    /// sur la courbe CGM qui suit. Sépare les deux portées du bilan
+    /// (`BilanCorrections.isolees` / `.auRepas`), jamais mêlées.
+    let auRepas: Bool
 }
 
-// MARK: - Snapshot
+// MARK: - Une portée du bilan (isolées ou au repas)
 
-/// Snapshot prêt à afficher de la page « Corrections » : bilan de toutes les
-/// corrections rapides, à toute heure (≠ B3, limité au coucher).
-struct BilanCorrections: Sendable, Equatable {
+/// Agrégats d'un sous-ensemble de corrections partageant la même portée
+/// (isolées ou au repas) — les deux se calculent et s'affichent séparément,
+/// jamais mêlées : un taux d'adaptation qui mélangerait les deux mesurerait
+/// tantôt l'insuline seule, tantôt insuline + glucides.
+struct SousBilanCorrections: Sendable, Equatable {
 
     /// Triées par date décroissante (la plus récente en tête).
     let corrections: [CorrectionEvaluee]
@@ -104,5 +113,20 @@ struct BilanCorrections: Sendable, Equatable {
     }
     var iobMaxAuxCorrections: Double? { iobsConnus.max() }
 
-    static var vide: BilanCorrections { .init(corrections: [], buckets: []) }
+    static var vide: SousBilanCorrections { .init(corrections: [], buckets: []) }
+}
+
+// MARK: - Snapshot
+
+/// Snapshot prêt à afficher de la page « Corrections » : bilan de toutes les
+/// corrections rapides, à toute heure (≠ B3, limité au coucher), scindé en
+/// deux portées non comparables (voir `CorrectionEvaluee.auRepas`).
+struct BilanCorrections: Sendable, Equatable {
+
+    let isolees: SousBilanCorrections
+    let auRepas: SousBilanCorrections
+
+    var nombreTotal: Int { isolees.nombre + auRepas.nombre }
+
+    static var vide: BilanCorrections { .init(isolees: .vide, auRepas: .vide) }
 }

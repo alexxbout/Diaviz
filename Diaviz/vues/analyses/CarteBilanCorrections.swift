@@ -78,9 +78,13 @@ struct CarteBilanCorrections: View {
         .surfaceCarte(fond: Self.accent.opacity(0.10))
     }
 
+    /// Résumé toutes portées confondues (isolées + au repas) — le détail
+    /// par portée vit dans la page, la carte sommaire ne fait qu'annoncer
+    /// s'il y a de la matière à consulter.
     private var sousTitre: String {
-        guard bilan.nombre > 0 else { return "Pas encore assez de données" }
-        return "\(bilan.nombreAdapte) adaptée\(bilan.nombreAdapte > 1 ? "s" : "") sur \(bilan.nombre)"
+        guard bilan.nombreTotal > 0 else { return "Pas encore assez de données" }
+        let adaptees = bilan.isolees.nombreAdapte + bilan.auRepas.nombreAdapte
+        return "\(adaptees) adaptée\(adaptees > 1 ? "s" : "") sur \(bilan.nombreTotal)"
     }
 }
 

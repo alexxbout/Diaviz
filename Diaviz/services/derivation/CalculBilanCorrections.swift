@@ -15,6 +15,9 @@ nonisolated struct EntreesBilanCorrections: Sendable {
     let rapides: [(heure: Date, dose: Double, correction: Bool)]
     let resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)]
     let pauses: [(debut: Date, fin: Date?)]
+    /// Repas hors resucrage — sert uniquement à détecter la concomitance
+    /// d'un repas (`CorrectionEvaluee.auRepas`), pas à mesurer des glucides.
+    let repas: [(heure: Date, glucides: Int)]
 }
 
 nonisolated struct ConfigBilanCorrections: Sendable {
@@ -28,12 +31,20 @@ nonisolated struct ConfigBilanCorrections: Sendable {
     /// Ratio de correction (ISF) du profil, en mg/dL baissés par unité —
     /// `nil` si non renseigné (champ optionnel du profil).
     var ratioCorrection: Double?
+    /// Fenêtre (min, symétrique) de concomitance avec un repas — profil
+    /// (`preferencesAvancees.fenetreRepasCorrectionMinutes`).
+    var fenetreRepasMinutes: Double = CalculBilanCorrections.fenetreRepasMinutesParDefaut
 }
 
 /// Assembleur **bilan des corrections** : dérivation pure, jamais persistée.
 /// Reprend la classification de B3 (`IssueCorrection`) mais sans restriction
 /// horaire — chaque rapide `motif == .correction` de la fenêtre chargée est
 /// évaluée, coucher ou pas.
+///
+/// Scinde le résultat en deux portées non comparables (`isolees` / `auRepas`)
+/// : une correction prise près d'un repas voit sa courbe CGM portée par les
+/// glucides autant que par l'insuline, la mélanger aux corrections isolées
+/// fausserait le taux d'adaptation et la segmentation dose vs ratio.
 ///
 /// Doc : Eraser « Diaviz / Corrections — Bilan toutes heures ».
 nonisolated enum CalculBilanCorrections {
@@ -50,6 +61,10 @@ nonisolated enum CalculBilanCorrections {
     /// correction pour être classée « proche ».
     static let toleranceUnites = 0.5
 
+    /// Fenêtre par défaut (min) de concomitance avec un repas, réglable
+    /// dans Profil → Ratios (`SectionCorrectionsReglages`).
+    static let fenetreRepasMinutesParDefaut = 30.0
+
     // MARK: - Point d'entrée
 
     static func analyser(
@@ -65,9 +80,11 @@ nonisolated enum CalculBilanCorrections {
         }
         .sorted { $0.date > $1.date }
 
+        let (auRepas, isolees) = corrections.partitioned(by: \.auRepas)
+
         return BilanCorrections(
-            corrections: corrections,
-            buckets: construireBuckets(corrections)
+            isolees: SousBilanCorrections(corrections: isolees, buckets: construireBuckets(isolees)),
+            auRepas: SousBilanCorrections(corrections: auRepas, buckets: construireBuckets(auRepas))
         )
     }
 
@@ -112,7 +129,8 @@ nonisolated enum CalculBilanCorrections {
             id: UUID(), date: heure, glycemie: glycemie, dose: correction.dose,
             iobAvant: iobAvant, picMax: picMax, issue: issue,
             iobAuMomentHypo: iobAuMomentHypo, rechute: rechute,
-            tranche: tranche(glycemie: glycemie, dose: correction.dose, config: config)
+            tranche: tranche(glycemie: glycemie, dose: correction.dose, config: config),
+            auRepas: repasConcomitant(entrees.repas, de: heure, fenetreMinutes: config.fenetreRepasMinutes)
         )
     }
 
@@ -181,6 +199,17 @@ nonisolated enum CalculBilanCorrections {
         lectures.min(by: { abs($0.date.timeIntervalSince(instant)) < abs($1.date.timeIntervalSince(instant)) })?.valeur
     }
 
+    /// `true` si un repas tombe dans la fenêtre symétrique autour de
+    /// `instant` — la fenêtre est symétrique (avant **et** après) parce que
+    /// les glucides d'un repas pris juste après la correction pèsent tout
+    /// autant sur la courbe qui suit que ceux d'un repas pris juste avant.
+    private static func repasConcomitant(
+        _ repas: [(heure: Date, glucides: Int)], de instant: Date, fenetreMinutes: Double
+    ) -> Bool {
+        let demiFenetre = fenetreMinutes * 60
+        return repas.contains { abs($0.heure.timeIntervalSince(instant)) <= demiFenetre }
+    }
+
     // MARK: - Segmentation dose vs ratio de correction
 
     /// `nil` si le ratio de correction n'est pas configuré, ou si la
@@ -207,5 +236,20 @@ nonisolated enum CalculBilanCorrections {
             let adaptees = groupe.count(where: { $0.issue == .adapte })
             return BucketDoseCorrection(tranche: t, total: groupe.count, adaptees: adaptees)
         }
+    }
+}
+
+// MARK: - Partition
+
+private extension Array {
+    /// Découpe en (éléments qui satisfont le prédicat, les autres) — évite
+    /// deux `.filter` séquentiels sur la même collection.
+    func partitioned(by predicat: (Element) -> Bool) -> (matches: [Element], reste: [Element]) {
+        var matches: [Element] = []
+        var reste: [Element] = []
+        for element in self {
+            if predicat(element) { matches.append(element) } else { reste.append(element) }
+        }
+        return (matches, reste)
     }
 }

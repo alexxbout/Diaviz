@@ -55,13 +55,25 @@ struct PreferencesAvancees: Codable, Equatable, Sendable {
     /// de resucrage). Optionnel pour la même raison que ci-dessus.
     var glucidesResucrageRapideParDefaut: Int?
 
+    /// Fenêtre (min, symétrique autour de l'heure de correction) au-delà de
+    /// laquelle un repas proche ne compte plus comme concomitant — sépare
+    /// les corrections « isolées » des corrections « au repas » dans le
+    /// bilan des corrections (les glucides du repas confondent l'effet de
+    /// la correction sur la courbe CGM qui suit).
+    ///
+    /// `nil` → `CalculBilanCorrections.fenetreRepasMinutesParDefaut` (30).
+    /// Optionnel pour la même raison que ci-dessus.
+    var fenetreRepasCorrectionMinutes: Int?
+
     init(occurrencesMinimalesRepasARevoir: Int? = nil,
          seuilRepasCopieuxNuit: Int? = nil,
          fenetreAffichageResucrageAccueilHeures: Int? = nil,
-         glucidesResucrageRapideParDefaut: Int? = nil) {
+         glucidesResucrageRapideParDefaut: Int? = nil,
+         fenetreRepasCorrectionMinutes: Int? = nil) {
         self.occurrencesMinimalesRepasARevoir = occurrencesMinimalesRepasARevoir
         self.seuilRepasCopieuxNuit = seuilRepasCopieuxNuit
         self.fenetreAffichageResucrageAccueilHeures = fenetreAffichageResucrageAccueilHeures
         self.glucidesResucrageRapideParDefaut = glucidesResucrageRapideParDefaut
+        self.fenetreRepasCorrectionMinutes = fenetreRepasCorrectionMinutes
     }
 }

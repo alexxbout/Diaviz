@@ -14,36 +14,47 @@ import SwiftUI
 /// corrections prises au coucher : ici, toutes les corrections comptent,
 /// jour comme nuit.
 ///
-/// Structure, espacée pour laisser chaque bloc respirer (40pt entre
-/// sections, contre 24 en V1 — la densité initiale rendait la page dure à
-/// scanner) :
-///   1. Carte de métriques (grille 2×2 + répartition en anneau)
-///   2. Segmentation dose vs ratio de correction (barres, si ratio configuré)
-///   3. Liste des corrections (tri date/glycémie)
+/// **Deux portées séparées** (`Portee`) : une correction prise à moins de la
+/// fenêtre réglée (Profil → Ratios → Corrections, 30 min par défaut) d'un
+/// repas voit sa courbe CGM portée par les glucides autant que par
+/// l'insuline — la mélanger aux corrections isolées fausserait le taux
+/// d'adaptation. Le picker segmenté bascule entre les deux, jamais affichées
+/// ensemble.
+///
+/// Par portée sélectionnée, deux blocs (40pt entre sections pour respirer) :
+///   1. Carte de métriques (répartition en anneau + tuiles dangereuses)
+///   2. Segmentation dose vs ratio de correction (si ratio configuré)
+///
+/// La liste correction par correction a été retirée : sans détail de
+/// soirée à ouvrir (contrairement à `PageHyposCoucher`), elle n'ajoutait
+/// qu'une redite tassée des mêmes chiffres déjà agrégés au-dessus.
 struct PageBilanCorrections: View {
 
     let bilan: BilanCorrections
 
-    enum TriCorrections: CaseIterable {
-        case date, glycemie
+    private enum Portee: CaseIterable {
+        case isolees, auRepas
 
         var libelle: String {
             switch self {
-            case .date:     return "Date"
-            case .glycemie: return "Glycémie"
-            }
-        }
-
-        var symbole: String {
-            switch self {
-            case .date:     return "calendar"
-            case .glycemie: return "drop"
+            case .isolees: return "Isolées"
+            case .auRepas: return "Au repas"
             }
         }
     }
-    @State private var tri: TriCorrections = .date
 
-    @Environment(\.dynamicTypeSize) private var tailleTexte
+    /// Défaut sur la portée la mieux dotée — pas de préférence a priori
+    /// entre les deux, mais ouvrir sur une portée vide serait déroutant.
+    @State private var portee: Portee
+
+    init(bilan: BilanCorrections) {
+        self.bilan = bilan
+        _portee = State(initialValue: bilan.auRepas.nombre > bilan.isolees.nombre ? .auRepas : .isolees)
+    }
+
+    private var sousBilan: SousBilanCorrections {
+        portee == .isolees ? bilan.isolees : bilan.auRepas
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 40) {
@@ -54,22 +65,41 @@ struct PageBilanCorrections: View {
                 ambiance: .corrections
             )
 
+            if bilan.nombreTotal > 0 {
+                Picker("Portée", selection: $portee) {
+                    ForEach(Portee.allCases, id: \.self) { p in
+                        Text(p.libelle).tag(p)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            SousPageBilanCorrections(sousBilan: sousBilan)
+        }
+    }
+}
+
+// MARK: - Contenu d'une portée
+
+/// Le contenu affiché pour une portée (isolées ou au repas) — extrait pour
+/// que `PageBilanCorrections` ne porte que le picker et la sélection.
+private struct SousPageBilanCorrections: View {
+
+    let sousBilan: SousBilanCorrections
+
+    @Environment(\.dynamicTypeSize) private var tailleTexte
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 40) {
             VStack(alignment: .leading, spacing: 12) {
                 TitreSection(texte: "Vue d'ensemble")
                 carteMetriques
             }
 
-            if !bilan.buckets.isEmpty {
+            if !sousBilan.buckets.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
                     TitreSection(texte: "Dose vs résultat")
                     sectionBuckets
-                }
-            }
-
-            if bilan.nombre > 0 {
-                VStack(alignment: .leading, spacing: 12) {
-                    TitreSection(texte: "Corrections")
-                    sectionListe
                 }
             }
         }
@@ -79,7 +109,7 @@ struct PageBilanCorrections: View {
 
     @ViewBuilder
     private var carteMetriques: some View {
-        if bilan.nombre == 0 {
+        if sousBilan.nombre == 0 {
             Text("Aucune correction analysable pour l'instant — il faut de la couverture CGM après vos corrections.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -107,9 +137,9 @@ struct PageBilanCorrections: View {
                     }
                 }
 
-                if let moyen = bilan.iobMoyenAuxCorrections {
+                if let moyen = sousBilan.iobMoyenAuxCorrections {
                     Divider()
-                    ligneIOB(moyen: moyen, max: bilan.iobMaxAuxCorrections ?? moyen)
+                    ligneIOB(moyen: moyen, max: sousBilan.iobMaxAuxCorrections ?? moyen)
                 }
             }
             .padding(20)
@@ -119,7 +149,7 @@ struct PageBilanCorrections: View {
     }
 
     private var enTeteMetriques: some View {
-        Text("\(bilan.nombre) correction\(bilan.nombre > 1 ? "s" : "") analysée\(bilan.nombre > 1 ? "s" : "")")
+        Text("\(sousBilan.nombre) correction\(sousBilan.nombre > 1 ? "s" : "") analysée\(sousBilan.nombre > 1 ? "s" : "")")
             .font(.headline)
             .monospacedDigit()
     }
@@ -135,9 +165,9 @@ struct PageBilanCorrections: View {
 
     private var repartition: [PartRepartition] {
         [
-            PartRepartition(id: .adapte, libelle: "Adaptées", valeur: bilan.nombreAdapte, couleur: .green),
-            PartRepartition(id: .insuffisant, libelle: "Insuffisantes", valeur: bilan.nombreInsuffisant, couleur: .orange),
-            PartRepartition(id: .surCorrection, libelle: "Sur-corrections", valeur: bilan.nombreSurCorrection, couleur: .red),
+            PartRepartition(id: .adapte, libelle: "Adaptées", valeur: sousBilan.nombreAdapte, couleur: .green),
+            PartRepartition(id: .insuffisant, libelle: "Insuffisantes", valeur: sousBilan.nombreInsuffisant, couleur: .orange),
+            PartRepartition(id: .surCorrection, libelle: "Sur-corrections", valeur: sousBilan.nombreSurCorrection, couleur: .red),
         ]
         .filter { $0.valeur > 0 }
     }
@@ -159,7 +189,7 @@ struct PageBilanCorrections: View {
             .chartLegend(.hidden)
 
             VStack(spacing: 0) {
-                Text(bilan.tauxAdapteFormate)
+                Text(sousBilan.tauxAdapteFormate)
                     .font(.title2.weight(.bold))
                     .monospacedDigit()
                 Text("adaptées")
@@ -186,14 +216,14 @@ struct PageBilanCorrections: View {
     private var metriques: [Metrique] {
         [
             Metrique(
-                valeur: bilan.nombreHyposCausees,
-                libelle: bilan.nombreHyposCausees > 1 ? "hypos causées" : "hypo causée",
+                valeur: sousBilan.nombreHyposCausees,
+                libelle: sousBilan.nombreHyposCausees > 1 ? "hypos causées" : "hypo causée",
                 detail: nil,
                 symbole: "arrow.down.right.circle.fill",
                 couleur: .red
             ),
             Metrique(
-                valeur: bilan.nombreRechutes,
+                valeur: sousBilan.nombreRechutes,
                 libelle: "avec rechute",
                 detail: "resucrage puis nouvelle hypo",
                 symbole: "arrow.uturn.down.circle.fill",
@@ -262,10 +292,12 @@ struct PageBilanCorrections: View {
 
     /// Une barre horizontale par tranche — le taux se lit d'un coup d'œil,
     /// le dénominateur reste en toutes lettres sous la barre (jamais un
-    /// pourcentage seul).
+    /// pourcentage seul). Trait plein sans dégradé ni fond : la carte
+    /// « Vue d'ensemble » porte déjà la couleur au-dessus, ces barres n'ont
+    /// besoin que d'un repère de longueur.
     private var sectionBuckets: some View {
         VStack(alignment: .leading, spacing: 20) {
-            ForEach(bilan.buckets, id: \.tranche) { bucket in
+            ForEach(sousBilan.buckets, id: \.tranche) { bucket in
                 ligneBucket(bucket)
             }
         }
@@ -285,18 +317,17 @@ struct PageBilanCorrections: View {
                     .monospacedDigit()
             }
 
-            Chart {
-                BarMark(x: .value("Taux", bucket.tauxAdapte))
-                    .foregroundStyle(Color.green.gradient)
-                    .cornerRadius(4)
+            // Capsule pleine plutôt qu'un `Chart` : une seule valeur à
+            // représenter, pas besoin du poids d'un graphique pour ça.
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.secondary.opacity(0.15))
+                    Capsule()
+                        .fill(Color.accentColor)
+                        .frame(width: geo.size.width * bucket.tauxAdapte)
+                }
             }
-            .chartXScale(domain: 0...1)
-            .chartXAxis(.hidden)
-            .chartYAxis(.hidden)
-            .chartPlotStyle { plot in
-                plot.background(Color.secondary.opacity(0.12))
-            }
-            .frame(height: 10)
+            .frame(height: 6)
 
             Text("\(bucket.adaptees) adaptée\(bucket.adaptees > 1 ? "s" : "") sur \(bucket.total)")
                 .font(.caption)
@@ -304,128 +335,15 @@ struct PageBilanCorrections: View {
         }
         .accessibilityElement(children: .combine)
     }
-
-    // MARK: - 3. Liste des corrections
-
-    private var correctionsTriees: [CorrectionEvaluee] {
-        switch tri {
-        case .date:     return bilan.corrections.sorted { $0.date > $1.date }
-        case .glycemie: return bilan.corrections.sorted { $0.glycemie < $1.glycemie }
-        }
-    }
-
-    private var sectionListe: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Spacer(minLength: 0)
-                menuTri
-            }
-            VStack(spacing: 12) {
-                ForEach(correctionsTriees) { correction in
-                    ligneCorrection(correction)
-                }
-            }
-        }
-    }
-
-    private var menuTri: some View {
-        Menu {
-            Picker("Trier par", selection: $tri) {
-                ForEach(TriCorrections.allCases, id: \.self) { valeur in
-                    Label(valeur.libelle, systemImage: valeur.symbole).tag(valeur)
-                }
-            }
-        } label: {
-            Label(tri.libelle, systemImage: "arrow.up.arrow.down")
-                .font(.subheadline)
-                .labelStyle(.titleAndIcon)
-        }
-        .buttonStyle(.bordered)
-        .controlSize(.regular)
-        .accessibilityLabel("Trier les corrections")
-    }
-
-    private func ligneCorrection(_ c: CorrectionEvaluee) -> some View {
-        HStack(alignment: .top, spacing: 14) {
-            Image(systemName: c.issue.symbole)
-                .font(.title3)
-                .foregroundStyle(c.issue.couleur)
-                .frame(width: 28)
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("\(c.glycemie) mg/dL · \(formateDose(c.dose))u")
-                    .font(.body.weight(.medium))
-                    .monospacedDigit()
-                Text(sousLigne(c))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            Text(c.date, format: .dateTime.day().month(.abbreviated).hour().minute())
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .monospacedDigit()
-        }
-        .padding(16)
-        .surfaceCarte()
-        .accessibilityElement(children: .combine)
-    }
-
-    /// « Pic 245 · IOB 0,8u · rechute » — tout ce qui n'est pas déjà en tête
-    /// de ligne, dans l'ordre pic → IOB → rechute.
-    private func sousLigne(_ c: CorrectionEvaluee) -> String {
-        var parts = [c.issue.libelle, "pic \(c.picMax)"]
-        if let iob = c.iobAvant { parts.append("IOB \(formateIOB(iob))u") }
-        if c.hypoCausee, let iobHypo = c.iobAuMomentHypo {
-            parts.append("IOB à l'hypo \(formateIOB(iobHypo))u")
-        }
-        if c.rechute { parts.append("rechute") }
-        return parts.joined(separator: " · ")
-    }
-
-    private func formateDose(_ valeur: Double) -> String {
-        valeur == floor(valeur) ? String(format: "%.0f", valeur) : String(format: "%.1f", valeur)
-    }
 }
 
 // MARK: - Taux formaté (arrondi, pour le centre de l'anneau)
 
-private extension BilanCorrections {
+private extension SousBilanCorrections {
     var tauxAdapteFormate: String {
         guard nombre > 0 else { return "—" }
         let taux = Double(nombreAdapte) / Double(nombre)
         return taux.formatted(.percent.precision(.fractionLength(0)))
-    }
-}
-
-// MARK: - Habillage de l'issue
-
-private extension IssueCorrection {
-    var libelle: String {
-        switch self {
-        case .insuffisant:   return "insuffisante"
-        case .adapte:        return "adaptée"
-        case .surCorrection: return "sur-correction"
-        }
-    }
-
-    var symbole: String {
-        switch self {
-        case .insuffisant:   return "arrow.up.right.circle.fill"
-        case .adapte:        return "checkmark.circle.fill"
-        case .surCorrection: return "arrow.down.right.circle.fill"
-        }
-    }
-
-    var couleur: Color {
-        switch self {
-        case .insuffisant:   return .orange
-        case .adapte:        return .green
-        case .surCorrection: return .red
-        }
     }
 }
 

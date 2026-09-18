@@ -92,13 +92,13 @@ struct AnalysesVue: View {
                         }
                     )
 
-                    CarteAnalyseChargeGlycemie(
-                        synthese: correlationService.synthese,
-                        chargement: correlationService.enCalcul
-                    )
                     CarteBilanCorrections(
                         bilan: bilanCorrectionsService.bilan,
                         chargement: coucherOverride == nil && bilanCorrectionsService.enCalcul
+                    )
+                    CarteAnalyseChargeGlycemie(
+                        synthese: correlationService.synthese,
+                        chargement: correlationService.enCalcul
                     )
                 }
                 // Même correction que l'accueil — marge système au lieu
