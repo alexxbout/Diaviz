@@ -66,9 +66,11 @@ struct PreferencesAvancees: Codable, Equatable, Sendable {
     var fenetreRepasCorrectionMinutes: Int?
 
     /// Overlay des stades de sommeil HealthKit sur la courbe nocturne (vue
-    /// « Par nuit » de l'analyse du coucher). `nil` → activé par défaut
-    /// (`true`) ; optionnel pour la même raison que ci-dessus (compatibilité
-    /// des profils déjà persistés).
+    /// « Par nuit » de l'analyse du coucher). `nil` → désactivé par défaut
+    /// (`false`) : l'accès HealthKit au sommeil n'est demandé qu'à
+    /// l'activation explicite de ce réglage, jamais au boot. Optionnel pour
+    /// la même raison que ci-dessus (compatibilité des profils déjà
+    /// persistés).
     var overlaySommeilActive: Bool?
 
     init(occurrencesMinimalesRepasARevoir: Int? = nil,

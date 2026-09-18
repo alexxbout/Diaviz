@@ -550,6 +550,10 @@ private struct VueGraphiqueParNuit: View {
                 .padding(.trailing, -16)
                 .gesture(swipeNavigation)
             if !intervallesVisibles.isEmpty {
+                hypnogramme
+                    .frame(height: 46)
+                    .padding(.leading, -20)
+                    .padding(.trailing, -16)
                 legendeSommeil
             }
             Divider()
@@ -752,7 +756,6 @@ private struct VueGraphiqueParNuit: View {
     private func chartFullNight() -> some View {
         Chart {
             seuils
-            bandesSommeil
             courbeWholeNight
         }
         .chartXScale(domain: totalNightRange)
@@ -904,22 +907,35 @@ private struct VueGraphiqueParNuit: View {
         ProfilService.shared.profil.seuilsGlycemiques
     }
 
-    /// Bandes verticales pleine hauteur, une par intervalle de stade,
-    /// dessinées **avant** la courbe pour qu'elle reste lisible par-dessus.
-    /// Seuls les intervalles qui chevauchent effectivement la nuit affichée
-    /// sont rendus — `sleepStages` peut déborder de la fenêtre (marge de
-    /// requête côté service).
-    @ChartContentBuilder
-    private var bandesSommeil: some ChartContent {
-        ForEach(intervallesVisibles) { intervalle in
-            RectangleMark(
-                xStart: .value("Début", max(intervalle.debut, totalNightRange.lowerBound)),
-                xEnd: .value("Fin", min(intervalle.fin, totalNightRange.upperBound)),
-                yStart: .value("Bas", plageY.lowerBound),
-                yEnd: .value("Haut", plageY.upperBound)
-            )
-            .foregroundStyle(couleurStade(intervalle.stage).opacity(0.16))
+    /// Ordre d'affichage des stades, de haut (éveil) en bas (au lit) —
+    /// même convention que le hypnogramme de l'app Santé d'Apple.
+    private var ordreHypnogramme: [SleepStage] {
+        [.awake, .rem, .core, .deep, .asleepGenerique, .inBed]
+    }
+
+    /// Frise horizontale **distincte** de la courbe glycémique — une barre
+    /// par stade présent, empilées de haut (éveil) en bas (au lit), sur le
+    /// même axe temporel. Séparée du chart glycémie (plutôt qu'en bandes
+    /// translucides derrière la courbe, essayé d'abord) parce que 6 teintes
+    /// superposées à la courbe la rendaient illisible.
+    @ViewBuilder
+    private var hypnogramme: some View {
+        let presents = ordreHypnogramme.filter { stade in intervallesVisibles.contains { $0.stage == stade } }
+        Chart {
+            ForEach(intervallesVisibles) { intervalle in
+                RectangleMark(
+                    xStart: .value("Début", max(intervalle.debut, totalNightRange.lowerBound)),
+                    xEnd: .value("Fin", min(intervalle.fin, totalNightRange.upperBound)),
+                    y: .value("Stade", intervalle.stage.label),
+                    height: .ratio(0.75)
+                )
+                .foregroundStyle(couleurStade(intervalle.stage))
+            }
         }
+        .chartXScale(domain: totalNightRange)
+        .chartYScale(domain: presents.reversed().map(\.label))
+        .chartXAxis(.hidden)
+        .chartYAxis { AxisMarks(position: .leading) { _ in } }
     }
 
     private var intervallesVisibles: [SleepStageInterval] {
