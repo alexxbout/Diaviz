@@ -29,6 +29,11 @@ struct AnalysesVue: View {
     @Environment(AnalyseEndormissementService.self) private var endormissementService
     @Environment(AnalyseCorrectionsService.self) private var correctionsService
 
+    /// Service de la page « Charge et équilibre glycémique » — instance
+    /// propre à cette vue (pas de badge/insight partagé ailleurs pour
+    /// cette analyse, contrairement à B1).
+    @State private var correlationService = CorrelationChargeTIRService()
+
     /// Override pour previews : quand fourni, court-circuite le service réel
     /// (et le `.task` de démarrage) pour exercer les états visuels mockés.
     private let coucherOverride: ResumeAnalyseCoucher?
@@ -83,6 +88,10 @@ struct AnalysesVue: View {
                             basaleService.marquerVerdictCommeVu(pour: analyseAffichee)
                         }
                     )
+
+                    if let synthese = correlationService.synthese {
+                        CarteAnalyseChargeGlycemie(synthese: synthese)
+                    }
                 }
                 // Même correction que l'accueil — marge système au lieu
                 // d'un 16 codé en dur, cohérente avec `JournalVue`.
@@ -118,7 +127,102 @@ struct AnalysesVue: View {
                 async let corrR: Void = correctionsService.recharger()
                 _ = await (endoR, corrR)
             }
+            correlationService.recalculer(contexte: modelContext)
         }
+    }
+}
+
+// MARK: - Carte sommaire « Charge et glycémie »
+
+/// Carte d'entrée de `PageCorrelationChargeGlycemie` — **même patron hero**
+/// que `CarteAnalyseCoucher` (badge cerclé en dégradé, fond teinté, glow,
+/// chevron/spinner) : deux cartes sommaires côte à côte sur la même page
+/// doivent porter le même traitement visuel, pas une variante.
+///
+/// Une seule ligne glance (pas de sous-sections comme le coucher B1+B2+B3) :
+/// le niveau de charge courant, contexte suffisant pour cette analyse.
+private struct CarteAnalyseChargeGlycemie: View {
+
+    private static let accent = Color.orange
+
+    let synthese: SyntheseCorrelationChargeTIR
+
+    var body: some View {
+        NavigationLink {
+            PageCorrelationChargeGlycemie(synthese: synthese)
+        } label: {
+            contenu
+        }
+        .buttonStyle(.plain)
+        .compositingGroup()
+        .shadow(color: Self.accent.opacity(0.45), radius: 16, x: 0, y: 8)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Charge et glycémie. \(ligneGlance)")
+        .accessibilityHint("Ouvre l'analyse détaillée")
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private var contenu: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            enTete
+            HStack(spacing: 12) {
+                Image(systemName: "chart.xyaxis.line")
+                    .font(.subheadline)
+                    .foregroundStyle(Self.accent)
+                    .frame(width: 22)
+                Text(ligneGlance)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+            }
+            .padding(.vertical, 10)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .surfaceCarte(fond: Self.accent.opacity(0.10))
+    }
+
+    private var enTete: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle().fill(
+                    LinearGradient(
+                        colors: [Self.accent, Self.accent.opacity(0.7)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                Image(systemName: "flame.fill")
+                    .font(.title3)
+                    .foregroundStyle(.white)
+            }
+            .frame(width: 40, height: 40)
+            .accessibilityHidden(true)
+
+            Text("Charge et glycémie")
+                .font(.title3.bold())
+                .foregroundStyle(.primary)
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.body)
+                .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
+        }
+    }
+
+    /// Dernière semaine connue — même vocabulaire (basse/normale/haute) que
+    /// la carte accueil et la page détail.
+    private var ligneGlance: String {
+        guard let derniere = synthese.semaines.last else { return "Pas encore de recul" }
+        let moyenne = synthese.semaines.map(\.charge).reduce(0, +) / Double(max(synthese.semaines.count, 1))
+        guard moyenne > 0 else { return "Pas encore de recul" }
+        let ecart = (derniere.charge - moyenne) / moyenne
+        if ecart <= -CalculChargeContinue.seuilEcartTendance { return "Charge basse cette semaine" }
+        if ecart >= CalculChargeContinue.seuilEcartTendance { return "Charge haute cette semaine" }
+        return "Charge normale cette semaine"
     }
 }
 
