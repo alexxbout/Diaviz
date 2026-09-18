@@ -5,14 +5,18 @@
 
 import SwiftUI
 
-/// Carte sommaire « Corrections » — pousse `PageBilanCorrections`. Traitement
-/// plus léger que `CarteAnalyseCoucher` (pas de lignes glance par sous-
-/// analyse) : une seule analyse ici, la sous-ligne suffit à résumer l'état.
+/// Carte sommaire « Corrections » — pousse `PageBilanCorrections`. Même
+/// patron que `CarteAnalyseCoucher`/`CarteAnalyseChargeGlycemie` : badge +
+/// titre + chevron, puis une ligne glance en dessous — pas un sous-titre
+/// sous le titre, qui donnait à cette carte une hauteur différente des deux
+/// autres cartes de la page Analyses.
 struct CarteBilanCorrections: View {
 
-    /// Bleu roi profond — même accent que le halo de l'ambiance
-    /// `EnTeteAnalyse.corrections`.
-    private static let accent = Color(red: 0x1A / 255, green: 0x48 / 255, blue: 0xE8 / 255)
+    /// Bleu système — le bleu roi custom (`0x1A48E8`) était nettement plus
+    /// sombre/saturé que l'indigo et l'orange des deux autres cartes
+    /// (`Color.indigo`/`Color.orange`, tous deux des couleurs système),
+    /// ce qui cassait la cohérence visuelle de la page.
+    private static let accent = Color.blue
 
     let bilan: BilanCorrections
 
@@ -39,6 +43,16 @@ struct CarteBilanCorrections: View {
     }
 
     private var contenu: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            enTete
+            ligneGlance
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .surfaceCarte(fond: Self.accent.opacity(0.10))
+    }
+
+    private var enTete: some View {
         HStack(spacing: 12) {
             ZStack {
                 Circle().fill(
@@ -55,27 +69,39 @@ struct CarteBilanCorrections: View {
             .frame(width: 40, height: 40)
             .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Corrections")
-                    .font(.title3.bold())
-                Text(sousTitre)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+            Text("Corrections")
+                .font(.title3.bold())
+                .foregroundStyle(.primary)
 
-            Spacer(minLength: 8)
+            Spacer()
 
             if chargement {
                 ProgressView()
+                    .controlSize(.small)
+                    .accessibilityHidden(true)
             } else {
                 Image(systemName: "chevron.right")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .font(.body)
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .surfaceCarte(fond: Self.accent.opacity(0.10))
+    }
+
+    private var ligneGlance: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark.circle")
+                .font(.subheadline)
+                .foregroundStyle(Self.accent)
+                .frame(width: 22)
+                .accessibilityHidden(true)
+            Text(sousTitre)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+            Spacer(minLength: 8)
+        }
+        .padding(.vertical, 10)
     }
 
     /// Résumé toutes portées confondues (isolées + au repas) — le détail
