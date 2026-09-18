@@ -52,6 +52,10 @@ struct DetailScoreVue: View {
     /// (futur, ou > J-30).
     @State private var jourConsulte: Date
 
+    /// Pilote la sheet d'empreinte glycémique — ouverte par tap sur
+    /// `CercleScoreDetail` (carte Résumé).
+    @State private var afficherEmpreinte = false
+
     init(jourInitial: Date) {
         self.jourInitial = jourInitial
         self._jourConsulte = State(initialValue: jourInitial)
@@ -83,6 +87,9 @@ struct DetailScoreVue: View {
             // Recale `jourConsulte` sur le jour navigable le plus proche de
             // `jourInitial` après `demarrer` (sinon `joursNavigables` est vide).
             jourConsulte = jourPlusProche(de: jourInitial)
+        }
+        .sheet(isPresented: $afficherEmpreinte) {
+            EmpreinteGlycemiqueSheet(service: service, jourInitial: jourConsulte)
         }
     }
 
@@ -136,8 +143,15 @@ struct DetailScoreVue: View {
 
                 HStack(alignment: .top, spacing: 16) {
                     VStack(spacing: 10) {
-                        CercleScoreDetail(score: scoreCourant?.score)
-                            .frame(width: 88, height: 88)
+                        Button {
+                            afficherEmpreinte = true
+                        } label: {
+                            CercleScoreDetail(score: scoreCourant?.score)
+                                .frame(width: 88, height: 88)
+                        }
+                        .buttonStyle(.glass)
+                        .buttonBorderShape(.circle)
+                        .accessibilityHint("Ouvre l'empreinte glycémique du jour")
 
                         Text(libelleQualitatif)
                             .font(.headline.bold())

@@ -150,6 +150,38 @@ final class ScoreService {
         return max(0, min(24, now.timeIntervalSince(debut) / 3600))
     }
 
+    /// Fenêtre métabolique (06h→06h) du jour calendaire donné. Pour le jour en
+    /// cours, la borne haute est `maintenant` plutôt que +24h (fenêtre
+    /// tronquée, cohérent avec `partielDuJour`).
+    func fenetreMetabolique(pourJourCalendaire jour: Date) -> ClosedRange<Date> {
+        let cal = Calendar.current
+        let debut = cal.date(byAdding: .hour, value: 6, to: cal.startOfDay(for: jour)) ?? jour
+        if estJourCourant(jour) {
+            return debut...max(debut, Date())
+        }
+        return debut...debut.addingTimeInterval(ScoreJournalier.dureeJourSec)
+    }
+
+    /// Échantillons CGM bruts du jour calendaire donné, filtrés sur sa fenêtre
+    /// métabolique. Source pour l'empreinte glycémique (aucune persistance
+    /// dédiée — recalculé à la volée depuis `echantillons`).
+    func echantillonsPourJour(_ jour: Date) -> [(date: Date, valeur: Int)] {
+        let fenetre = fenetreMetabolique(pourJourCalendaire: jour)
+        return echantillons.filter { fenetre.contains($0.date) }
+    }
+
+    /// Score à afficher pour un jour donné, avec le même traitement spécial
+    /// du jour en cours que `scoreCourant` dans `DetailScoreVue` : score
+    /// partiel seulement s'il est significatif (sinon `nil`, jamais un faux
+    /// 0). Centralisé ici pour que la sheet d'empreinte (qui navigue jour
+    /// par jour) n'ait pas à dupliquer cette logique.
+    func scoreAffiche(pour jour: Date) -> Int? {
+        if estJourCourant(jour) {
+            return jourCourantSignificatif ? scoreDuJour : nil
+        }
+        return score(pour: jour)?.score
+    }
+
     // MARK: - Jour en cours
 
     /// Score partiel du jour métabolique en cours, recalculé à chaque accès
