@@ -3,6 +3,7 @@
 //  diaviz
 //
 
+import HealthKit
 import SwiftUI
 
 /// Section « ANALYSE DU COUCHER » de la sheet Profil — réglages de l'analyse
@@ -35,6 +36,17 @@ struct SectionAnalyseCoucherReglages: View {
             verdicts restants sont fiables.
             """)
         }
+
+        Section {
+            Toggle("Stades de sommeil sur la courbe", isOn: bindingOverlaySommeil)
+        } footer: {
+            Text("""
+            Superpose les stades de sommeil enregistrés par ta Watch (ou une \
+            autre source Santé) sur la courbe de la vue « Par nuit ». Absent \
+            les nuits sans donnée de sommeil — jamais de bande approximative. \
+            L'accès à Santé n'est demandé qu'à l'activation.
+            """)
+        }
     }
 
     // MARK: - Binding
@@ -50,6 +62,22 @@ struct SectionAnalyseCoucherReglages: View {
             set: { nouveau in
                 service.mettreAJour {
                     $0.preferencesAvancees.seuilRepasCopieuxNuit = nouveau
+                }
+            }
+        )
+    }
+
+    private var bindingOverlaySommeil: Binding<Bool> {
+        Binding(
+            get: { service.profil.preferencesAvancees.overlaySommeilActive ?? false },
+            set: { nouveau in
+                service.mettreAJour {
+                    $0.preferencesAvancees.overlaySommeilActive = nouveau
+                }
+                // Accès Santé demandé seulement à l'activation explicite du
+                // réglage — jamais au boot de l'app (voir HealthKitSleepService).
+                if nouveau {
+                    Task { await HealthKitSleepService().demanderAcces() }
                 }
             }
         )

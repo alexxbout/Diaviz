@@ -213,6 +213,10 @@ struct AppTabVues: View {
             // fois un type tranché (accordé ou refusé), HealthKit ne
             // redemande jamais — les deux `demanderAcces()` ci-dessous
             // retombent donc à un no-op silencieux après ce préflight.
+            // Le sommeil n'est **pas** inclus ici volontairement : sa
+            // sheet d'autorisation Santé ne doit apparaître qu'à
+            // l'activation explicite du réglage overlay (voir
+            // `SectionAnalyseCoucherReglages`), jamais au boot.
             _ = try? await HKHealthStore().requestAuthorization(
                 toShare: [],
                 read: [HKQuantityType(.bloodGlucose), HKObjectType.workoutType()]
