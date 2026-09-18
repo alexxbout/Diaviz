@@ -507,6 +507,20 @@ private struct VueGraphiqueToutes: View {
 /// un `Chart` whole-night avec crosshair (long-press + drag), swipe gauche/
 /// droite pour naviguer entre nuits, et pills d'events tappables (popover
 /// détaillé).
+/// Mode d'affichage du fond du chart « Par nuit » — voir doc sur
+/// `VueGraphiqueParNuit.modeFond`.
+private enum ModeFondNuit: String, CaseIterable, Hashable {
+    case cible
+    case zonesNuit
+
+    var label: String {
+        switch self {
+        case .cible:      return "Cible"
+        case .zonesNuit:  return "Zones de la nuit"
+        }
+    }
+}
+
 private struct VueGraphiqueParNuit: View {
 
     let nights: [NightChartData]
@@ -537,18 +551,39 @@ private struct VueGraphiqueParNuit: View {
     /// pour déclencher le retour haptique via `.sensoryFeedback(trigger:)`.
     @State private var compteurNavigation: Int = 0
 
+    /// Mode d'affichage du fond du chart « Par nuit » — soit la zone cible
+    /// pleine hauteur (comportement historique), soit une bande fine des 4
+    /// zones B1 (pré-endormissement/endormissement/nuit profonde/dawn), sur
+    /// le modèle de la frise sommeil. Local à la vue (pas un réglage
+    /// persisté) : c'est une bascule d'exploration ponctuelle, pas une
+    /// préférence durable.
+    @State private var modeFond: ModeFondNuit = .cible
+
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             entete
                 .padding(.top, 10)
+            Picker("Fond du graphique", selection: $modeFond) {
+                ForEach(ModeFondNuit.allCases, id: \.self) { mode in
+                    Text(mode.label).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
             chartFullNight()
                 .frame(height: 220)
-                .padding(.top, 10)
+                .padding(.top, 6)
                 .padding(.leading, -20)
                 .padding(.trailing, -16)
                 .gesture(swipeNavigation)
+            if modeFond == .zonesNuit, !nuit.zones.isEmpty {
+                bandeZonesNuit
+                    .frame(height: 26)
+                    .padding(.top, -6)
+                    .padding(.leading, -20)
+                    .padding(.trailing, -16)
+            }
             if !intervallesVisibles.isEmpty {
                 hypnogramme
                     .frame(height: 40)
@@ -898,15 +933,47 @@ private struct VueGraphiqueParNuit: View {
     /// Même peau que les graphiques repas et sport — voir `StyleGrapheGlycemie`.
     @ChartContentBuilder
     private var seuils: some ChartContent {
-        StyleGrapheGlycemie.zoneCible(
-            de: totalNightRange.lowerBound, a: totalNightRange.upperBound,
-            seuils: seuilsProfil
-        )
+        if modeFond == .cible {
+            StyleGrapheGlycemie.zoneCible(
+                de: totalNightRange.lowerBound, a: totalNightRange.upperBound,
+                seuils: seuilsProfil
+            )
+        }
         StyleGrapheGlycemie.lignesSeuils(seuilsProfil)
     }
 
     private var seuilsProfil: SeuilsGlycemiques {
         ProfilService.shared.profil.seuilsGlycemiques
+    }
+
+    /// Bande fine des 4 zones B1 de la nuit, alternative au fond « Cible »
+    /// pleine hauteur — même gabarit que `hypnogramme` (une seule rangée,
+    /// axe trailing invisible réservant la même largeur que le chart
+    /// au-dessus).
+    @ViewBuilder
+    private var bandeZonesNuit: some View {
+        Chart {
+            ForEach(nuit.zones) { zone in
+                RectangleMark(
+                    xStart: .value("Début", max(zone.timeRange.lowerBound, totalNightRange.lowerBound)),
+                    xEnd: .value("Fin", min(zone.timeRange.upperBound, totalNightRange.upperBound)),
+                    y: .value("Zone", "Zones")
+                )
+                .foregroundStyle(zone.zone.couleur)
+            }
+        }
+        .chartXScale(domain: totalNightRange)
+        .chartXAxis(.hidden)
+        .chartYAxis {
+            AxisMarks(position: .trailing, values: ["Zones"]) { _ in
+                AxisValueLabel {
+                    Text("000")
+                        .font(.caption2)
+                        .foregroundStyle(.clear)
+                        .monospacedDigit()
+                }
+            }
+        }
     }
 
     /// Ordre d'affichage des stades, de haut (éveil) en bas (au lit) —
