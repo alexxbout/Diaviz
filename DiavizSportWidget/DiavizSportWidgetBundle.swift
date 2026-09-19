@@ -2,8 +2,8 @@
 //  DiavizSportWidgetBundle.swift
 //  DiavizSportWidget
 //
-//  Point d'entrée de la widget extension. Ne contient que la Live Activity
-//  de séance sportive (pas de widget d'écran d'accueil ni de Control).
+//  Point d'entrée de la widget extension : Live Activity de séance sportive
+//  + widget écran d'accueil "empreinte glycémique du jour". Pas de Control.
 //
 
 import WidgetKit
@@ -13,5 +13,6 @@ import SwiftUI
 struct DiavizSportWidgetBundle: WidgetBundle {
     var body: some Widget {
         SeanceSportiveLiveActivity()
+        EmpreinteGlycemiqueWidget()
     }
 }

@@ -27,7 +27,7 @@ nonisolated enum CalculEmpreinteGlycemique {
     static let nombreAnneaux = 14
 
     /// Un anneau concentrique dérivé d'une tranche de temps.
-    struct Anneau: Sendable, Equatable, Hashable {
+    struct Anneau: Sendable, Equatable, Hashable, Codable {
         /// Position de l'anneau, 0 (centre) ..< `nombreAnneaux` (bord).
         let index: Int
         /// Toujours égal à `nombreAnneaux` — porté ici pour que `Anneau`
