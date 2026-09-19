@@ -8,6 +8,7 @@
 import Foundation
 import Observation
 import SwiftData
+import WidgetKit
 
 /// Score quotidien complet — `FaitsJour` (score + décomposition GRI) ancré à un
 /// jour calendaire. Les pourcentages sont la source de vérité ; les durées sont
@@ -78,6 +79,26 @@ final class ScoreService {
         guard let contexte else { return }
         echantillons = chargerEchantillons(contexte: contexte)
         scores = consoliderJours()
+        ecrireInstantaneWidget()
+    }
+
+    /// Publie l'empreinte du jour en cours pour le widget écran d'accueil
+    /// (App Group) et déclenche son rafraîchissement. Best-effort : le
+    /// widget se contente de l'instantané le plus récent entre deux appels
+    /// (pas d'exécution garantie en fond, cf. `EmpreinteWidgetSnapshot`).
+    private func ecrireInstantaneWidget() {
+        let jour = jourCourant
+        let instantane = EmpreinteWidgetSnapshot(
+            jour: jour,
+            anneaux: CalculEmpreinteGlycemique.anneaux(
+                depuis: echantillonsPourJour(jour),
+                fenetre: fenetreMetabolique(pourJourCalendaire: jour)
+            ),
+            score: scoreAffiche(pour: jour),
+            ecritLe: Date()
+        )
+        EmpreinteWidgetSnapshot.ecrire(instantane)
+        WidgetCenter.shared.reloadTimelines(ofKind: EmpreinteWidgetKind.identifiant)
     }
 
     // MARK: - Lecture (API publique identique au mock)
