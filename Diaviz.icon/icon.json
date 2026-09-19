@@ -1,120 +1,83 @@
 {
   "fill" : {
-    "linear-gradient" : [
-      "display-p3:0.61266,1.00000,0.48510,1.00000",
-      "display-p3:0.35771,0.64060,0.18143,1.00000"
-    ],
-    "orientation" : {
-      "start" : {
-        "x" : 0.5,
-        "y" : 1
-      },
-      "stop" : {
-        "x" : 0.5,
-        "y" : 0.3
-      }
-    }
+    "solid" : "display-p3:1.00000,1.00000,1.00000,1.00000"
   },
   "groups" : [
     {
-      "blur-material" : null,
+      "blend-mode" : "soft-light",
+      "blur-material" : 0.6,
       "layers" : [
         {
           "fill" : {
-            "solid" : "display-p3:0.41889,0.96197,0.28676,1.00000"
+            "solid" : "display-p3:1.00000,1.00000,1.00000,1.00000"
           },
-          "glass" : true,
-          "image-name" : "d 2.svg",
-          "name" : "d 2",
+          "image-name" : "SVG Image 8.svg",
+          "name" : "SVG Image 8",
           "position" : {
-            "scale" : 3.5,
+            "scale" : 0.49,
             "translation-in-points" : [
-              224.4003260425713,
-              -120.18839931180656
-            ]
-          }
-        }
-      ],
-      "shadow" : {
-        "kind" : "layer-color",
-        "opacity" : 1
-      },
-      "specular" : true,
-      "translucency" : {
-        "enabled" : false,
-        "value" : 0
-      }
-    },
-    {
-      "blur-material" : null,
-      "hidden" : false,
-      "layers" : [
-        {
-          "fill" : {
-            "solid" : "display-p3:0.00000,0.00000,0.00000,1.00000"
-          },
-          "glass" : true,
-          "image-name" : "zz.svg",
-          "name" : "zz",
-          "position" : {
-            "scale" : 1.7,
-            "translation-in-points" : [
-              0,
-              0
+              297,
+              -17.012511494162254
             ]
           }
         }
       ],
       "lighting" : "individual",
+      "opacity" : 1,
+      "refractivity" : {
+        "depth" : 0,
+        "enabled" : false,
+        "strength" : 0.5
+      },
       "shadow" : {
-        "kind" : "layer-color",
+        "kind" : "neutral",
         "opacity" : 0.5
       },
-      "specular" : false,
+      "specular" : true,
       "translucency" : {
         "enabled" : true,
-        "value" : 0.5
+        "value" : 0.3
       }
     },
     {
-      "blur-material" : null,
+      "blur-material" : 0.5,
       "layers" : [
         {
           "fill" : {
             "linear-gradient" : [
-              "display-p3:1.00000,1.00000,1.00000,1.00000",
-              "gray:1.00000,1.00000"
+              "display-p3:0.46067,0.81950,0.28058,1.00000",
+              "srgb:0.21961,0.69020,0.00000,1.00000"
             ],
             "orientation" : {
               "start" : {
-                "x" : 0.5,
-                "y" : 1
+                "x" : 0.7381371670081966,
+                "y" : 0
               },
               "stop" : {
-                "x" : 0.5,
-                "y" : 0.49999999999999994
+                "x" : 0.2554275473198879,
+                "y" : 1
               }
             }
           },
-          "image-name" : "SVG Image 2.svg",
-          "name" : "SVG Image 2",
+          "image-name" : "SVG Image.svg",
+          "name" : "SVG Image",
           "position" : {
-            "scale" : 1.45,
+            "scale" : 1.46,
             "translation-in-points" : [
-              0,
-              0
+              -24,
+              0.0032881791488534873
             ]
           }
         },
         {
           "fill" : {
-            "solid" : "display-p3:1.00000,1.00000,1.00000,0.60080"
+            "solid" : "srgb:0.21961,0.69020,0.00000,1.00000"
           },
-          "hidden" : false,
-          "image-name" : "a 8.svg",
-          "name" : "a 8",
+          "hidden" : true,
+          "image-name" : "wave.svg",
+          "name" : "wave",
           "position" : {
-            "scale" : 1.45,
+            "scale" : 1.47,
             "translation-in-points" : [
               0,
               0
@@ -123,12 +86,12 @@
         }
       ],
       "shadow" : {
-        "kind" : "neutral",
+        "kind" : "layer-color",
         "opacity" : 0.5
       },
       "translucency" : {
-        "enabled" : true,
-        "value" : 0.5
+        "enabled" : false,
+        "value" : 0.3
       }
     }
   ],
