@@ -23,26 +23,21 @@ struct SportVue: View {
     /// Contexte du hub SwiftData — passé au service au démarrage de la vue.
     @Environment(\.modelContext) private var modelContext
 
-    /// Phase de scène — au retour au premier plan on resynchronise l'état de
-    /// séance (les boutons de la Dynamic Island mutent hors de l'app).
-    @Environment(\.scenePhase) private var scenePhase
-
     @State private var service = ActivitesSportService()
     /// Écrit les resucrages issus des glucides pré-sport saisis avec une
     /// activité — la page Resucrage garde sa propre instance.
     @State private var resucragesService = ResucragesService()
 
-    /// Service de séance chronométrée « en direct » (singleton, survit au
-    /// relaunch). Observé pour présenter l'écran plein écran quand une séance
-    /// tourne — y compris au retour dans l'onglet après un kill de l'app.
+    /// Service de séance chronométrée « en direct » (singleton) — utilisé
+    /// ici uniquement pour **démarrer** une séance depuis la sheet de
+    /// création. L'écran plein écran de la séance en cours et sa
+    /// réconciliation avec la Dynamic Island sont pilotés depuis
+    /// `AppTabVues` (racine toujours montée), pas ici : `SportVue` est
+    /// poussée via `NavigationLink` et se désalloue dès qu'on la quitte
+    /// (retour au Journal, changement d'onglet…), ce qui faisait
+    /// disparaître l'écran de séance en cours jusqu'au retour manuel sur
+    /// cette page.
     @State private var sessionService = SessionSportService.shared
-
-    /// Brouillon d'activité à enregistrer après l'arrêt d'une séance
-    /// chronométrée — pilote la sheet d'enregistrement pré-remplie.
-    /// Enveloppé dans un wrapper `Identifiable` car `ActiviteSportive` est un
-    /// `@Model` (conformance `Identifiable` explicite impossible : conflit
-    /// isolation MainActor / SendableMetatype).
-    @State private var brouillonSession: BrouillonSession?
 
     /// Service d'import HealthKit — injecté depuis la racine de l'app
     /// via `@Environment`. Observé pour afficher la bannière d'accès
@@ -65,16 +60,6 @@ struct SportVue: View {
 
     private var activitesDuJour: [ActiviteSportive] {
         service.activitesDuJour(selectedDate)
-    }
-
-    /// Binding vers la séance en cours pour piloter le `fullScreenCover`.
-    /// `set` : seule la mise à `nil` (dismiss système) est relayée en abandon
-    /// — le service reste la source de vérité pour les transitions internes.
-    private var bindingSession: Binding<SessionSportiveEnCours?> {
-        Binding(
-            get: { sessionService.session },
-            set: { nouvelle in if nouvelle == nil { sessionService.annuler() } }
-        )
     }
 
     /// Événements corrélés à chaque activité du jour — dérivation à la volée
@@ -110,25 +95,6 @@ struct SportVue: View {
             .toolbar { boutonAjouter }
             .sheet(item: $sheetActive) { sheet in
                 sheetVue(pour: sheet)
-            }
-            .sheet(item: $brouillonSession) { brouillon in
-                SheetNouvelleActivite(
-                    preremplissage: brouillon.activite,
-                    onValider: { service.enregistrer($0) }
-                )
-            }
-            .fullScreenCover(item: bindingSession) { session in
-                SeanceEnCoursVue(
-                    session: session,
-                    onTerminer: { brouillon in brouillonSession = BrouillonSession(activite: brouillon) },
-                    onAnnuler: { sessionService.annuler() }
-                )
-            }
-            .onChange(of: scenePhase) { _, phase in
-                guard phase == .active else { return }
-                if let brouillon = sessionService.reconcilier() {
-                    brouillonSession = BrouillonSession(activite: brouillon)
-                }
             }
             .onChange(of: scrollCible) { _, nouvelle in
                 guard let nouvelle else { return }
@@ -312,7 +278,10 @@ struct SportVue: View {
 /// désormais depuis sa page détail (push) — plus depuis cette page.
 /// Enveloppe `Identifiable` d'un brouillon d'activité — `ActiviteSportive`
 /// étant un `@Model`, il ne peut pas conformer `Identifiable` directement.
-private struct BrouillonSession: Identifiable {
+/// Pas `private` : réutilisée par `AppTabVues`, qui pilote désormais la
+/// sheet d'enregistrement de fin de séance (voir le commentaire sur
+/// `sessionService` plus haut dans ce fichier).
+struct BrouillonSession: Identifiable {
     let id = UUID()
     let activite: ActiviteSportive
 }

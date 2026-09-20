@@ -78,8 +78,30 @@ struct AppTabVues: View {
     /// singleton, les services du hub y écrivent sans passer par une vue.
     @State private var toastsService = ToastsService.shared
 
+    /// Service de séance sportive chronométrée « en direct » (singleton) —
+    /// l'écran plein écran de la séance en cours est présenté **ici**, à la
+    /// racine toujours montée, et non depuis `SportVue` (qui est poussée via
+    /// `NavigationLink` et se désalloue dès qu'on la quitte — c'est ce qui
+    /// faisait disparaître le chrono jusqu'au retour manuel sur cette page).
+    @State private var sessionService = SessionSportService.shared
+
+    /// Instance dédiée à l'enregistrement du brouillon de fin de séance —
+    /// même pattern que les instances déjà indépendantes de `JournalVue` et
+    /// `SportVue` (`ActivitesSportService` n'a pas de singleton, chaque
+    /// appelant garde son propre cache ; l'écriture passe par le hub donc
+    /// aucune donnée n'est perdue entre instances).
+    @State private var sessionActivitesService = ActivitesSportService()
+
+    /// Brouillon d'activité à enregistrer après l'arrêt d'une séance
+    /// chronométrée — pilote la sheet d'enregistrement pré-remplie.
+    @State private var brouillonSession: BrouillonSession?
+
     /// Contexte SwiftData du hub (pour récupérer le `ModelContainer`).
     @Environment(\.modelContext) private var modelContext
+
+    /// Phase de scène — au retour au premier plan on resynchronise l'état de
+    /// séance (les boutons de la Dynamic Island mutent hors de l'app).
+    @Environment(\.scenePhase) private var scenePhase
 
     /// Jour pour lequel on souhaite pousser `DetailScoreVue` dans l'onglet
     /// Accueil — écrit au tap sur la carte score, observé par `AccueilVue`
@@ -108,6 +130,16 @@ struct AppTabVues: View {
     }
 
     @State private var etatDemarrage: EtatDemarrage = .verification
+
+    /// Binding vers la séance en cours pour piloter le `fullScreenCover`.
+    /// `set` : seule la mise à `nil` (dismiss système) est relayée en abandon
+    /// — le service reste la source de vérité pour les transitions internes.
+    private var bindingSession: Binding<SessionSportiveEnCours?> {
+        Binding(
+            get: { sessionService.session },
+            set: { nouvelle in if nouvelle == nil { sessionService.annuler() } }
+        )
+    }
 
     var body: some View {
         TabView(selection: $ongletActif) {
@@ -191,9 +223,35 @@ struct AppTabVues: View {
             }
             .environment(profilService)
         }
+        // Écran plein écran de la séance sportive en cours — présenté depuis
+        // la racine (toujours montée) pour ne pas disparaître au changement
+        // d'onglet ou en remontant la stack de navigation du Journal.
+        .fullScreenCover(item: bindingSession) { session in
+            SeanceEnCoursVue(
+                session: session,
+                onTerminer: { brouillon in brouillonSession = BrouillonSession(activite: brouillon) },
+                onAnnuler: { sessionService.annuler() }
+            )
+        }
+        .sheet(item: $brouillonSession) { brouillon in
+            SheetNouvelleActivite(
+                preremplissage: brouillon.activite,
+                onValider: { sessionActivitesService.enregistrer($0) }
+            )
+        }
+        // Réconciliation avec la Dynamic Island (pause/reprise/fin mutées
+        // hors de l'app par un `LiveActivityIntent`) — au retour au premier
+        // plan, peu importe l'onglet actif.
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            if let brouillon = sessionService.reconcilier() {
+                brouillonSession = BrouillonSession(activite: brouillon)
+            }
+        }
         .task {
             await resoudreEtatDemarrage()
             demarrerServicesPreferences()
+            sessionActivitesService.demarrer(contexte: modelContext)
             repasService.demarrer(contexte: modelContext)
             analyseRatioService.recalculer(depuis: repasService.repas, contexte: modelContext)
             glucidesHebdoService.recalculer(depuis: repasService.repas)
