@@ -69,6 +69,12 @@ struct CalculAnalyseBasaleTests {
                 let finCreux = debutCreux.addingTimeInterval(creux.dureeMinutes * 60)
                 if instant >= debutCreux && instant <= finCreux { valeur = Double(creux.valeur) }
             }
+            // Plancher capteur réel (Dexcom ne descend pas sous 40) : sans lui,
+            // une dérive linéaire non clampée sur une fenêtre étendue par la
+            // détection dawn (`extensionDawnMaxH`) file vers des valeurs
+            // irréalistes qui gonflent artificiellement le coefficient de
+            // variation et déclenchent `chaotique` à tort.
+            valeur = max(40, valeur)
             return (date: instant, valeur: Int(valeur.rounded()))
         }
     }
@@ -179,8 +185,12 @@ struct CalculAnalyseBasaleTests {
 
     @Test("3 nuits descendantes → tendance descendante (basale trop forte)")
     func nuitsDescendantes() {
+        // Dérive assez marquée pour approcher l'hypo (garde-fou dérive-sans-
+        // danger) sans être si abrupte qu'elle heurte le plancher capteur et
+        // fausse le coefficient de variation sur la fenêtre étendue par la
+        // détection dawn (`extensionDawnMaxH`).
         let analyse = analyser(
-            (1...3).map { SpecNuit(decalage: $0, deriveParHeure: -20, depart: 180) }, fenetre: 4
+            (1...3).map { SpecNuit(decalage: $0, deriveParHeure: -12, depart: 150) }, fenetre: 4
         )
         #expect(analyse.nuitsTendanceBasse == 3)
         #expect(analyse.verdict == .tropHaute)

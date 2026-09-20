@@ -101,6 +101,16 @@ nonisolated struct ConfigBasale: Sendable {
     var fenetreRebondMin: Double = 90
     /// Heure d'horloge à partir de laquelle un repas / sport compte comme « du soir ».
     var heureSoir: Int = 17
+    /// Pente (mg/dL/h) au-delà de laquelle une montée après `dawnHeure` est
+    /// jugée « dawn réel » — coupe la zone 3 à cet instant. En-deçà, la
+    /// courbe est jugée encore plate et la zone 3 continue.
+    var seuilMonteeDawnMgDlH: Double = 15
+    /// Fenêtre de lissage (min) pour la pente de détection de montée dawn —
+    /// évite qu'un pic de bruit CGM isolé déclenche une coupure prématurée.
+    var fenetreDetectionMonteeMin: Double = 45
+    /// Extension max (h) de la zone 3 au-delà de `dawnHeure` quand aucune
+    /// montée n'est détectée — garde-fou pour ne pas dériver vers la matinée.
+    var extensionDawnMaxH: Double = 2
 }
 
 /// Assembleur **B1 — détection basale inadaptée** : dérivation pure, jamais
@@ -293,7 +303,12 @@ nonisolated enum CalculAnalyseBasale {
         let dawn = prochainDawn(apres: L, heure: config.dawnHeure, cal: cal)
         let z1 = L.addingTimeInterval(-3 * 3600)...L
         let z2 = L...L.addingTimeInterval(2 * 3600)
-        let finZ3 = max(z2.upperBound, dawn)         // garde z3 non vide même si lente tardive
+        let dawnAncre = max(z2.upperBound, dawn)      // garde z3 non vide même si lente tardive
+        // Fin de zone 3 dynamique : la borne dawn n'avance que si une vraie
+        // montée est détectée après elle — une nuit plate au-delà de 04h ne
+        // doit pas perdre sa nuit profonde faute de dawn phenomenon réel.
+        let plafondDawn = min(finGrille, dawnAncre.addingTimeInterval(config.extensionDawnMaxH * 3600))
+        let finZ3 = finZone3Dynamique(cgm: cgmFenetre, dawn: dawnAncre, plafond: plafondDawn, config: config)
         let z3 = z2.upperBound...finZ3
         let reveilDate = min(finGrille, finZ3.addingTimeInterval(2 * 3600))
         let z4 = finZ3...max(finZ3, reveilDate)
@@ -686,6 +701,32 @@ nonisolated enum CalculAnalyseBasale {
         var d = cal.date(bySettingHour: heure, minute: 0, second: 0, of: date) ?? date
         if d <= date { d = cal.date(byAdding: .day, value: 1, to: d) ?? d }
         return d
+    }
+
+    /// Avance `dawn` par pas de 15 min tant qu'aucune montée soutenue n'est
+    /// détectée (pente glissante sur `fenetreDetectionMonteeMin`), jusqu'à
+    /// `plafond`. Renvoie l'instant de la montée dès qu'elle dépasse
+    /// `seuilMonteeDawnMgDlH`, ou `plafond` si la courbe reste plate.
+    private static func finZone3Dynamique(
+        cgm: [(date: Date, valeur: Int)],
+        dawn: Date,
+        plafond: Date,
+        config: ConfigBasale
+    ) -> Date {
+        guard plafond > dawn else { return dawn }
+        let pas: TimeInterval = 15 * 60
+        let fenetre = config.fenetreDetectionMonteeMin * 60
+        var t = dawn
+        while t < plafond {
+            let fenetrePts = cgm.filter { $0.date >= t && $0.date < t.addingTimeInterval(fenetre) }
+            if fenetrePts.count >= 2,
+               let pente = penteRegression(fenetrePts, depuis: t),
+               pente > config.seuilMonteeDawnMgDlH {
+                return t
+            }
+            t = t.addingTimeInterval(pas)
+        }
+        return plafond
     }
 }
 
