@@ -883,8 +883,13 @@ private struct VueGraphiqueParNuit: View {
                                            value: info.event.id)
                         }
                         if let sel = crosshairSelection {
-                            CrosshairVisual(selection: sel, plotRect: plotRect)
-                                .transition(.opacity)
+                            let stadeSel = stade(a: sel.time)
+                            CrosshairVisual(
+                                selection: sel, plotRect: plotRect,
+                                stade: stadeSel,
+                                couleurStade: stadeSel.map(couleurStade)
+                            )
+                            .transition(.opacity)
                         }
                     }
                 }
@@ -1035,6 +1040,11 @@ private struct VueGraphiqueParNuit: View {
 
     private var intervallesVisibles: [SleepStageInterval] {
         sleepStages.filter { $0.fin > totalNightRange.lowerBound && $0.debut < totalNightRange.upperBound }
+    }
+
+    /// Stade de sommeil à l'instant scrubé — alimente la bulle du crosshair.
+    private func stade(a instant: Date) -> SleepStage? {
+        sleepStages.first { $0.debut <= instant && instant < $0.fin }?.stage
     }
 
     private func couleurStade(_ stade: SleepStage) -> Color {
@@ -1759,6 +1769,8 @@ private struct CrosshairSelection: Equatable {
 private struct CrosshairVisual: View {
     let selection: CrosshairSelection
     let plotRect: CGRect
+    var stade: SleepStage? = nil
+    var couleurStade: Color? = nil
 
     var body: some View {
         // Ligne verticale full-height (sur plot area)
@@ -1769,7 +1781,7 @@ private struct CrosshairVisual: View {
 
         // Bulle valeur — posée au sommet du plot area, clampée
         // horizontalement pour ne pas sortir.
-        ValueBubble(value: selection.value, time: selection.time)
+        ValueBubble(value: selection.value, time: selection.time, stade: stade, couleurStade: couleurStade)
             .fixedSize()
             .background(
                 GeometryReader { bg in
@@ -1799,6 +1811,8 @@ private struct BubbleWidthKey: PreferenceKey {
 private struct ValueBubble: View {
     let value: Double
     let time: Date
+    var stade: SleepStage? = nil
+    var couleurStade: Color? = nil
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -1808,9 +1822,15 @@ private struct ValueBubble: View {
                 .font(.title3.weight(.semibold))
                 .monospacedDigit()
                 .foregroundStyle(couleur)
-            Text(timeStr)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 4) {
+                Text(timeStr)
+                    .foregroundStyle(.secondary)
+                if let stade {
+                    Text("· \(stade.label)")
+                        .foregroundStyle(couleurStade ?? .secondary)
+                }
+            }
+            .font(.caption2)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
