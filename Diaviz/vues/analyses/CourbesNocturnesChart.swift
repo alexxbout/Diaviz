@@ -533,6 +533,10 @@ private struct VueGraphiqueParNuit: View {
     /// État courant du crosshair (long-press + drag sur la courbe) —
     /// `nil` quand le doigt est relâché.
     @State private var crosshairSelection: CrosshairSelection?
+    /// Stade de sommeil scrubé — sert uniquement de trigger au retour
+    /// haptique (`sensoryFeedback`) quand le doigt change de bande, comme
+    /// sur la frise sportive (`FriseSeanceSportive`).
+    @State private var stadeScrube: SleepStage?
 
     /// Popover lifted ici (au lieu d'être attaché aux pills) → permet
     /// de le rendre toujours au premier plan (zIndex max) et de le
@@ -890,11 +894,14 @@ private struct VueGraphiqueParNuit: View {
                                 couleurStade: stadeSel.map(couleurStade)
                             )
                             .transition(.opacity)
+                            .onAppear { stadeScrube = stadeSel }
+                            .onChange(of: stadeSel) { _, nouveau in stadeScrube = nouveau }
                         }
                     }
                 }
             }
         }
+        .sensoryFeedback(.selection, trigger: stadeScrube)
     }
 
     /// Axe Y posé à droite (`position: .trailing`) avec graduations
@@ -1710,10 +1717,13 @@ private struct CrosshairGestureLayer: View {
         Color.clear
             .contentShape(Rectangle())
             // LongPress avant Drag → un tap simple n'active pas le
-            // crosshair (les pills d'events restent tappables). Seul
-            // un appui ~200 ms active la lecture de courbe.
+            // crosshair (les pills d'events restent tappables), et un
+            // swipe pour changer de nuit n'active pas non plus le scrub.
+            // Seul un appui ~120 ms active la lecture de courbe — raccourci
+            // depuis 200 ms (2026-09-20), qui donnait une sensation de
+            // lenteur par rapport au drag instantané de la frise sportive.
             .gesture(
-                LongPressGesture(minimumDuration: 0.2)
+                LongPressGesture(minimumDuration: 0.12)
                     .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
                     .onChanged { value in
                         if case .second(_, let drag?) = value {
