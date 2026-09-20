@@ -106,8 +106,11 @@ nonisolated struct ConfigBasale: Sendable {
     /// courbe est jugée encore plate et la zone 3 continue.
     var seuilMonteeDawnMgDlH: Double = 15
     /// Fenêtre de lissage (min) pour la pente de détection de montée dawn —
-    /// évite qu'un pic de bruit CGM isolé déclenche une coupure prématurée.
-    var fenetreDetectionMonteeMin: Double = 45
+    /// le dawn phenomenon est une montée qui dure des heures (+20 à +50
+    /// mg/dL sur 04h–08h) : une fenêtre courte confond un simple zigzag de
+    /// bruit CGM avec une vraie montée. 90 min lisse le bruit sans retarder
+    /// significativement la détection d'un vrai dawn.
+    var fenetreDetectionMonteeMin: Double = 90
     /// Extension max (h) de la zone 3 au-delà de `dawnHeure` quand aucune
     /// montée n'est détectée — garde-fou pour ne pas dériver vers la matinée.
     var extensionDawnMaxH: Double = 2
