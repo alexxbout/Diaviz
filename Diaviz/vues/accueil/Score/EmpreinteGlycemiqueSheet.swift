@@ -42,7 +42,6 @@ struct EmpreinteGlycemiqueSheet: View {
                 }
                 .padding(.top, 28)
                 .padding(.bottom, 24)
-                .animation(.spring(response: 0.4, dampingFraction: 0.85), value: detente)
                 .frame(maxWidth: .infinity)
             }
             .scrollIndicators(.hidden)
@@ -63,30 +62,46 @@ struct EmpreinteGlycemiqueSheet: View {
     /// statiques) — pensée pour comparer d'un coup d'œil, sans avoir à
     /// sélectionner chaque jour un par un. Le tap reste possible pour
     /// afficher un jour en grand au-dessus.
+    ///
+    /// `Grid` (non paresseuse) plutôt que `LazyVGrid` : sur 21 cellules, le
+    /// coût de tout instancier d'un coup est négligeable, et ça évite le
+    /// bug visuel d'un `LazyVGrid` dont les lignes s'instancient au fil du
+    /// scroll — chacune captait alors l'animation ambiante du conteneur et
+    /// « tombait » depuis le haut de la sheet au lieu d'être simplement là.
     private var historique: some View {
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 20) {
-            ForEach(joursHistorique, id: \.self) { j in
-                Button {
-                    jour = j
-                } label: {
-                    VStack(spacing: 6) {
-                        EmpreinteGlycemiqueVue(anneaux: anneaux(pour: j), score: score(pour: j), diametre: 92)
-                            .overlay(
-                                Circle().strokeBorder(
-                                    Color.accentColor,
-                                    lineWidth: calendrierFrancais.isDate(j, inSameDayAs: jour) ? 2 : 0
-                                )
-                            )
-                        Text(libelleCourt(j))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+        Grid(horizontalSpacing: 20, verticalSpacing: 20) {
+            ForEach(lignesHistorique, id: \.self) { ligne in
+                GridRow {
+                    ForEach(ligne, id: \.self) { j in
+                        Button {
+                            jour = j
+                        } label: {
+                            VStack(spacing: 6) {
+                                EmpreinteGlycemiqueVue(anneaux: anneaux(pour: j), score: score(pour: j), diametre: 92)
+                                    .overlay(
+                                        Circle().strokeBorder(
+                                            Color.accentColor,
+                                            lineWidth: calendrierFrancais.isDate(j, inSameDayAs: jour) ? 2 : 0
+                                        )
+                                    )
+                                Text(libelleCourt(j))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 28)
-        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+
+    /// `joursHistorique` regroupé par lignes de 3 pour `Grid`/`GridRow`.
+    private var lignesHistorique: [[Date]] {
+        stride(from: 0, to: joursHistorique.count, by: 3).map { debut in
+            Array(joursHistorique[debut..<min(debut + 3, joursHistorique.count)])
+        }
     }
 
     /// 21 derniers jours métaboliques (3 semaines) se terminant au jour en
