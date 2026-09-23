@@ -58,6 +58,10 @@ final class ProfilService {
     /// pas été appelé.
     private var modelContext: ModelContext?
 
+    /// Saisies en cours sur les paramètres suivis — voir
+    /// `HistoriqueParametres.SessionsEdition`.
+    private var sessionsEdition = HistoriqueParametres.SessionsEdition()
+
     // MARK: - Init
 
     private init() {}
@@ -155,9 +159,19 @@ final class ProfilService {
     /// en une seule opération (« j'écris ratio + mode en bascule ») et
     /// garantit qu'une seule sauvegarde sera émise au lieu d'une par
     /// champ.
+    ///
+    /// Point de passage unique de toutes les saisies du profil (Réglages et
+    /// onboarding, qui réutilisent les mêmes sections) : c'est donc ici que
+    /// les changements de ratios et de facteur de correction sont
+    /// historisés, quel que soit l'écran d'origine. L'adoption d'une ligne
+    /// iCloud, l'import d'archive et la réinitialisation ne passent
+    /// volontairement pas par ici — ils remplacent le profil, ils ne le
+    /// modifient pas.
     func mettreAJour(_ modifications: (inout ProfilUtilisateur) -> Void) {
+        let avant = HistoriqueParametres.Instantane(profil: profil)
         modifications(&profil)
-        profil.derniereMiseAJour = Date()
+        let maintenant = Date()
+        profil.derniereMiseAJour = maintenant
         // Matérialisation tardive : `demarrer(contexte:)` n'insère rien
         // quand le store est vide, pour ne pas fabriquer un brouillon qui
         // partirait vers iCloud et gagnerait le départage contre le vrai
@@ -166,7 +180,55 @@ final class ProfilService {
         if let modelContext, profil.modelContext == nil {
             modelContext.insert(profil)
         }
+        historiser(
+            HistoriqueParametres.differences(
+                avant: avant,
+                apres: HistoriqueParametres.Instantane(profil: profil)
+            ),
+            a: maintenant
+        )
         sauvegarder()
+    }
+
+    /// Écrit les lignes `ChangementParametre` décidées par les sessions
+    /// d'édition. Sauvegardées avec le profil, dans la même transaction.
+    private func historiser(_ differences: [HistoriqueParametres.Difference], a date: Date) {
+        guard let modelContext else { return }
+        for difference in differences {
+            switch sessionsEdition.decider(difference, a: date) {
+            case .ignorer:
+                break
+            case let .creer(id, ancienne, nouvelle):
+                modelContext.insert(ChangementParametre(
+                    id: id,
+                    date: date,
+                    cle: difference.cle,
+                    ancienneValeur: ancienne,
+                    nouvelleValeur: nouvelle
+                ))
+            case let .prolonger(id, nouvelle):
+                if let ligne = changement(id: id, contexte: modelContext) {
+                    ligne.date = date
+                    ligne.nouvelleValeur = nouvelle
+                }
+            case let .supprimer(id):
+                if let ligne = changement(id: id, contexte: modelContext) {
+                    modelContext.delete(ligne)
+                }
+            }
+        }
+    }
+
+    private func changement(id: UUID, contexte: ModelContext) -> ChangementParametre? {
+        var descripteur = FetchDescriptor<ChangementParametre>(predicate: #Predicate { $0.id == id })
+        descripteur.fetchLimit = 1
+        return try? contexte.fetch(descripteur).first
+    }
+
+    /// Oublie les saisies en cours — appelé quand l'historique vient d'être
+    /// effacé ou remplacé (suppression, import d'archive).
+    func oublierSaisiesEnCours() {
+        sessionsEdition.oublier()
     }
 
     /// Définit (ou retire si `nil`) la photo de profil, puis persiste.
@@ -180,6 +242,7 @@ final class ProfilService {
     /// valeurs par défaut sur la ligne existante plutôt que de la
     /// remplacer — garde `id` stable et la ligne suivie par SwiftData.
     func reinitialiser() {
+        sessionsEdition.oublier()
         profil.appliquer(depuis: .parDefaut())
         sauvegarder()
     }
@@ -203,7 +266,10 @@ extension ProfilService {
     /// interférence avec le vrai profil de l'utilisateur.
     private static func conteneurMock() -> ModelContainer {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        return try! ModelContainer(for: ProfilUtilisateur.self, configurations: config)
+        return try! ModelContainer(
+            for: ProfilUtilisateur.self, ChangementParametre.self,
+            configurations: config
+        )
     }
 
     /// Construit un service de preview pré-rempli avec `profil`, inséré

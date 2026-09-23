@@ -70,6 +70,7 @@ enum ArchiveDonneesService {
             alimentsRecents: tout(AlimentRecentEnregistre.self).map(AlimentRecentArchive.init),
             contextes: tout(ContexteNormaliseEnregistre.self).map(ContexteArchive.init),
             repasMasques: tout(RepasARevoirMasque.self).map(\.idRepas),
+            changementsParametres: tout(ChangementParametre.self).map(ChangementParametreArchive.init),
             preferences: preferencesActuelles()
         )
 
@@ -126,6 +127,8 @@ enum ArchiveDonneesService {
         for element in archive.medicaments { contexte.insert(element.versModele()) }
         for element in archive.pauses { contexte.insert(element.versModele()) }
         for element in archive.glycemies { contexte.insert(element.versModele()) }
+
+        for element in archive.changementsParametres { contexte.insert(element.versModele()) }
 
         if let profil = archive.profil {
             let modele = profil.versModele()
@@ -205,6 +208,7 @@ private struct Archive: Codable {
     var alimentsRecents: [AlimentRecentArchive]
     var contextes: [ContexteArchive]
     var repasMasques: [UUID]
+    var changementsParametres: [ChangementParametreArchive]
     var preferences: [String: Data]
 
     /// Champs ajoutés après la v1 du format : absents des archives déjà
@@ -214,7 +218,7 @@ private struct Archive: Codable {
         case version, dateExport, profil, repas, injections, activites
         case resucrages, etats, medicaments, pauses, glycemies
         case preferencesAliments, alimentsRecents, contextes, repasMasques
-        case preferences
+        case changementsParametres, preferences
     }
 
     init(
@@ -233,6 +237,7 @@ private struct Archive: Codable {
         alimentsRecents: [AlimentRecentArchive],
         contextes: [ContexteArchive],
         repasMasques: [UUID],
+        changementsParametres: [ChangementParametreArchive],
         preferences: [String: Data]
     ) {
         self.version = version
@@ -250,6 +255,7 @@ private struct Archive: Codable {
         self.alimentsRecents = alimentsRecents
         self.contextes = contextes
         self.repasMasques = repasMasques
+        self.changementsParametres = changementsParametres
         self.preferences = preferences
     }
 
@@ -274,6 +280,9 @@ private struct Archive: Codable {
         ) ?? []
         contextes = try valeurs.decodeIfPresent([ContexteArchive].self, forKey: .contextes) ?? []
         repasMasques = try valeurs.decodeIfPresent([UUID].self, forKey: .repasMasques) ?? []
+        changementsParametres = try valeurs.decodeIfPresent(
+            [ChangementParametreArchive].self, forKey: .changementsParametres
+        ) ?? []
         preferences = try valeurs.decodeIfPresent([String: Data].self, forKey: .preferences) ?? [:]
     }
 }
@@ -660,6 +669,38 @@ private struct GlycemieArchive: Codable {
             tendance: tendance,
             tauxVariation: tauxVariation,
             source: source
+        )
+    }
+}
+
+/// Paramètre gardé sous sa forme brute (`parametreBrut`) : une archive
+/// produite par une version future, avec un paramètre inconnu d'ici, se
+/// réimporte sans perte — la ligne est conservée et simplement ignorée.
+private struct ChangementParametreArchive: Codable {
+    var id: UUID
+    var date: Date
+    var parametre: String
+    var typeSport: String?
+    var ancienneValeur: Double?
+    var nouvelleValeur: Double?
+
+    init(_ modele: ChangementParametre) {
+        id = modele.id
+        date = modele.date
+        parametre = modele.parametreBrut
+        typeSport = modele.typeSport
+        ancienneValeur = modele.ancienneValeur
+        nouvelleValeur = modele.nouvelleValeur
+    }
+
+    func versModele() -> ChangementParametre {
+        ChangementParametre(
+            id: id,
+            date: date,
+            parametreBrut: parametre,
+            typeSport: typeSport,
+            ancienneValeur: ancienneValeur,
+            nouvelleValeur: nouvelleValeur
         )
     }
 }

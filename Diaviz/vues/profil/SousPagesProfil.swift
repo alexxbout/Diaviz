@@ -182,6 +182,7 @@ struct SousPageDonnees: View {
 
                 ligneCompte("Profil enregistré", profilService.profil.estValide ? "oui" : "non")
                 ligneCompte("Lignes profil", "\(compte(ProfilUtilisateur.self))")
+                ligneCompte("Changements de réglages", "\(compte(ChangementParametre.self))")
                 ligneCompte("Glycémies", "\(compte(GlucoseReading.self))")
                 ligneCompte("Repas", "\(compte(Repas.self))")
                 ligneCompte("Injections", "\(compte(Injection.self))")

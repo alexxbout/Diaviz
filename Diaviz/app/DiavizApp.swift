@@ -36,6 +36,7 @@ struct DiavizApp: App {
             PeriodePause.self,
             Resucrage.self,
             ProfilUtilisateur.self,
+            ChangementParametre.self,
             PreferenceAlimentCiqual.self,
             AlimentRecentEnregistre.self,
             ContexteNormaliseEnregistre.self,

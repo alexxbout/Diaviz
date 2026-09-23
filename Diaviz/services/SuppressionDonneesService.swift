@@ -55,11 +55,15 @@ enum SuppressionDonneesService {
         try? contexte.save()
     }
 
-    /// Supprime toutes les lignes profil, y compris les doublons éventuels.
+    /// Supprime toutes les lignes profil, y compris les doublons éventuels,
+    /// avec l'historique des changements de réglages : il décrit ce profil
+    /// et n'a plus de sens sans lui.
     @MainActor
     static func supprimerProfils(contexte: ModelContext) {
         supprimerToutes(ProfilUtilisateur.self, contexte: contexte)
+        supprimerToutes(ChangementParametre.self, contexte: contexte)
         try? contexte.save()
+        ProfilService.shared.oublierSaisiesEnCours()
     }
 
     /// Supprime les préférences d'usage (renommages, masquages, aliments
