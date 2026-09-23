@@ -62,6 +62,13 @@ nonisolated enum CalculChargeContinue {
     /// Écart relatif (vs normale) à partir duquel un jour compte comme
     /// « marqué » pour la détection de tendance.
     static let seuilEcartTendance = 0.4
+    /// Seuil de **sortie** d'un niveau haut/bas de charge active
+    /// (`CalculChargeActive`) — bande d'hystérésis avec `seuilEcartTendance`
+    /// comme seuil d'entrée : on entre en charge haute à +40 %, on n'en sort
+    /// qu'en repassant sous +25 % (symétriquement −40 % / −25 % en bas).
+    /// Sans effet sur la tendance hebdomadaire ci-dessous, qui garde un
+    /// seuil unique.
+    static let seuilSortieNiveau = 0.25
 
     static func facteur(_ intensite: IntensiteSport) -> Double {
         switch intensite {

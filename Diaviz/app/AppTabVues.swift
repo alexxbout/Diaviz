@@ -277,7 +277,12 @@ struct AppTabVues: View {
             // `SectionAnalyseCoucherReglages`), jamais au boot.
             _ = try? await HKHealthStore().requestAuthorization(
                 toShare: [],
-                read: [HKQuantityType(.bloodGlucose), HKObjectType.workoutType()]
+                read: [
+                    HKQuantityType(.bloodGlucose), HKObjectType.workoutType(),
+                    // Charge active : pas (bouts de marche soutenue) et FC
+                    // des séances (intensité) — `ChargeActiveService`.
+                    HKQuantityType(.stepCount), HKQuantityType(.heartRate),
+                ]
             )
             await healthKit.demanderAcces()
             await healthKit.synchroniser(container: modelContext.container)

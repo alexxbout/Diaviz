@@ -34,6 +34,8 @@ struct AnalysesVue: View {
     /// propre à cette vue (pas de badge/insight partagé ailleurs pour
     /// cette analyse, contrairement à B1).
     @State private var correlationService = CorrelationChargeTIRService()
+    /// Charge active (indice + niveau), affichée en tête de la même page.
+    @State private var chargeActiveService = ChargeActiveService()
 
     /// Override pour previews : quand fourni, court-circuite le service réel
     /// (et le `.task` de démarrage) pour exercer les états visuels mockés.
@@ -98,6 +100,7 @@ struct AnalysesVue: View {
                     )
                     CarteAnalyseChargeGlycemie(
                         synthese: correlationService.synthese,
+                        chargeActive: chargeActiveService.synthese,
                         chargement: correlationService.enCalcul
                     )
                 }
@@ -140,6 +143,9 @@ struct AnalysesVue: View {
             Task {
                 await correlationService.recalculer(contexte: modelContext)
             }
+            Task {
+                await chargeActiveService.recalculer(contexte: modelContext)
+            }
         }
     }
 }
@@ -162,11 +168,12 @@ private struct CarteAnalyseChargeGlycemie: View {
     /// causait un saut de layout (la carte popait après le reste de la
     /// page) sur l'apparition de l'onglet Analyses.
     let synthese: SyntheseCorrelationChargeTIR?
+    var chargeActive: SyntheseChargeActive? = nil
     var chargement: Bool = false
 
     var body: some View {
         NavigationLink {
-            PageCorrelationChargeGlycemie(synthese: synthese ?? .vide)
+            PageCorrelationChargeGlycemie(synthese: synthese ?? .vide, chargeActive: chargeActive)
         } label: {
             contenu
         }

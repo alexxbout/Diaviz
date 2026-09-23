@@ -19,6 +19,9 @@ import SwiftUI
 struct PageCorrelationChargeGlycemie: View {
 
     let synthese: SyntheseCorrelationChargeTIR
+    /// Charge active (`CalculChargeActive`) — `nil` tant que le premier
+    /// calcul n'a pas abouti (lecture Apple Santé en cours).
+    var chargeActive: SyntheseChargeActive? = nil
 
     private let teinteCharge = Color.orange
     private let teinteScore = Color.blue
@@ -36,6 +39,7 @@ struct PageCorrelationChargeGlycemie: View {
                     accroche: "Votre charge d'activité et votre score glycémique, semaine après semaine — avec vos changements de dose de lente en repère.",
                     ambiance: .chargeActivite
                 )
+                CarteChargeActiveIndice(synthese: chargeActive)
                 chronologie
                 tranches
                 if synthese.tranchesDerive.contains(where: { $0.deriveMoyenne != nil }) {
@@ -378,12 +382,118 @@ struct PageCorrelationChargeGlycemie: View {
     }
 }
 
+// MARK: - Charge active
+
+/// Indice de charge active et niveau (bande d'hystérésis) — **jamais le
+/// nombre brut**, toujours relatif à la normale personnelle. Affichage
+/// volontairement minimal : phase de confrontation au ressenti avant la
+/// frise des périodes (C1).
+private struct CarteChargeActiveIndice: View {
+
+    let synthese: SyntheseChargeActive?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Charge active")
+                .font(.subheadline.bold())
+                .foregroundStyle(.secondary)
+
+            if let synthese {
+                contenu(synthese)
+            } else {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Lecture d'Apple Santé…")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemGroupedBackground), in: NiveauCarte.carte.forme)
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private func contenu(_ synthese: SyntheseChargeActive) -> some View {
+        switch synthese.etat {
+        case .pasAssezDeRecul:
+            Text("Pas assez de recul")
+                .font(.title3.bold())
+            Text("Il faut au moins 5 semaines d'historique d'activité pour établir votre normale.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        case .aucuneActiviteDeReference:
+            Text("Pas de normale")
+                .font(.title3.bold())
+            Text("Aucune séance ni marche soutenue sur les 4 semaines de référence : pas d'indice à calculer.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        case let .disponible(indice, niveau, depuisJours):
+            HStack(alignment: .firstTextBaseline) {
+                Text(niveau.libelle)
+                    .font(.title3.bold())
+                    .foregroundStyle(couleur(niveau))
+                Spacer(minLength: 8)
+                if let depuisJours {
+                    Text("depuis \(depuisJours) j")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Text(texteIndice(indice))
+                .font(.subheadline)
+                .monospacedDigit()
+        }
+        Text(texteSources(synthese))
+            .font(.caption)
+            .foregroundStyle(synthese.marcheIncluse ? Color.secondary : Color.orange)
+    }
+
+    private func texteIndice(_ indice: Double) -> String {
+        let ecart = Int(((indice - 1) * 100).rounded())
+        if ecart == 0 { return "Au niveau de votre normale" }
+        let signe = ecart > 0 ? "+" : "\u{2212}"
+        return "\(signe)\(abs(ecart)) % par rapport à votre normale"
+    }
+
+    private func texteSources(_ synthese: SyntheseChargeActive) -> String {
+        synthese.marcheIncluse
+            ? "Séances et marche soutenue, décroissance sur 24 h. Normale : 4 semaines, hors semaine en cours."
+            : "Partiel : séances seules — pas non lus depuis Apple Santé."
+    }
+
+    private func couleur(_ niveau: NiveauChargeActive) -> Color {
+        switch niveau {
+        case .basse:   .red
+        case .haute:   .blue
+        case .normale: .primary
+        }
+    }
+}
+
 // MARK: - Aperçus
 
 #if DEBUG
 #Preview {
     NavigationStack {
-        PageCorrelationChargeGlycemie(synthese: .mock)
+        PageCorrelationChargeGlycemie(
+            synthese: .mock,
+            chargeActive: SyntheseChargeActive(
+                etat: .disponible(indice: 1.32, niveau: .haute, depuisJours: 4),
+                marcheIncluse: true
+            )
+        )
+    }
+}
+
+#Preview("Charge active partielle") {
+    NavigationStack {
+        PageCorrelationChargeGlycemie(
+            synthese: .mock,
+            chargeActive: SyntheseChargeActive(etat: .pasAssezDeRecul, marcheIncluse: false)
+        )
     }
 }
 
