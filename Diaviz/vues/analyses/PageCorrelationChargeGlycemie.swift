@@ -36,7 +36,7 @@ struct PageCorrelationChargeGlycemie: View {
                 EnTeteAnalyse(
                     surtitre: "Sport",
                     titre: "Charge et glycémie",
-                    accroche: "Votre charge d'activité et votre score glycémique, semaine après semaine — avec vos changements de dose de lente en repère.",
+                    accroche: "Votre charge active (séances et marche, relative à votre normale) et votre score glycémique, semaine après semaine — avec vos changements de dose de lente en repère.",
                     ambiance: .chargeActivite
                 )
                 CarteChargeActiveIndice(synthese: chargeActive)
@@ -62,7 +62,7 @@ struct PageCorrelationChargeGlycemie: View {
     // MARK: - Chronologie superposée
 
     private var maxCharge: Double {
-        max(synthese.semaines.map(\.charge).max() ?? 0, 1)
+        max(synthese.semaines.compactMap(\.indiceCharge).max() ?? 0, 1.5)
     }
 
     private var chronologie: some View {
@@ -72,7 +72,7 @@ struct PageCorrelationChargeGlycemie: View {
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 16) {
-                legendePastille(couleur: teinteCharge.opacity(0.55), texte: "Charge", forme: .carre)
+                legendePastille(couleur: teinteCharge.opacity(0.55), texte: "Charge active / normale", forme: .carre)
                 legendePastille(couleur: teinteScore, texte: "Score", forme: .trait)
             }
             .font(.caption)
@@ -91,10 +91,10 @@ struct PageCorrelationChargeGlycemie: View {
                 .frame(height: 16)
 
             Chart {
-                ForEach(synthese.semaines) { point in
+                ForEach(synthese.semaines.filter { $0.indiceCharge != nil }) { point in
                     BarMark(
                         x: .value("Semaine", point.debutSemaine, unit: .weekOfYear),
-                        y: .value("Charge", point.charge)
+                        y: .value("Charge", point.indiceCharge ?? 0)
                     )
                     .foregroundStyle(
                         (semaineSelectionnee == nil || semaineSelectionnee == point.debutSemaine)
@@ -112,6 +112,11 @@ struct PageCorrelationChargeGlycemie: View {
                     .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
                     .interpolationMethod(.monotone)
                 }
+
+                // Repère de la normale personnelle (indice 1).
+                RuleMark(y: .value("Normale", 1.0))
+                    .foregroundStyle(teinteCharge.opacity(0.6))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
 
                 // Repères de changement de dose — trait pointillé seul, sans
                 // texte sur le graphique : avec plusieurs changements
@@ -138,7 +143,15 @@ struct PageCorrelationChargeGlycemie: View {
                 }
             }
             .chartYAxis {
-                AxisMarks(position: .leading)
+                AxisMarks(position: .leading, values: [0, 1]) { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let v = value.as(Double.self) {
+                            Text(v == 1 ? "normale" : "0")
+                                .font(.caption2)
+                        }
+                    }
+                }
                 AxisMarks(position: .trailing, values: [0, maxCharge / 2, maxCharge]) { value in
                     AxisGridLine()
                     AxisValueLabel {
@@ -177,7 +190,7 @@ struct PageCorrelationChargeGlycemie: View {
             HStack(spacing: 10) {
                 Text(semaineSelectionnee.formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: "fr_FR"))))
                     .font(.caption.bold())
-                Text("charge \(Int(point.charge.rounded()))")
+                Text(point.indiceCharge.map { "charge \(ecartFormate($0))" } ?? "charge indisponible")
                     .font(.caption)
                     .foregroundStyle(teinteCharge)
                 if let score = point.score {
@@ -224,6 +237,13 @@ struct PageCorrelationChargeGlycemie: View {
         }
     }
 
+    /// « +30 % » / « −15 % » par rapport à la normale — jamais le nombre brut.
+    private func ecartFormate(_ indice: Double) -> String {
+        let pct = Int(((indice - 1) * 100).rounded())
+        if pct == 0 { return "normale" }
+        return "\(pct > 0 ? "+" : "\u{2212}")\(abs(pct)) %"
+    }
+
     private func doseFormatee(_ dose: Double) -> String {
         dose == dose.rounded() ? "\(Int(dose))u" : String(format: "%.1fu", dose)
     }
@@ -247,7 +267,7 @@ struct PageCorrelationChargeGlycemie: View {
 
     private var tranches: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Temps dans la cible selon votre charge")
+            Text("Temps dans la cible selon la charge active du jour")
                 .font(.subheadline.bold())
                 .foregroundStyle(.secondary)
 
@@ -273,7 +293,7 @@ struct PageCorrelationChargeGlycemie: View {
                         Text("\(Int(tir.rounded()))%")
                             .font(.subheadline.bold())
                             .monospacedDigit()
-                        Text("(n=\(tranche.nombreSemaines))")
+                        Text("(n=\(tranche.nombreJours) j)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -305,7 +325,7 @@ struct PageCorrelationChargeGlycemie: View {
             Text("Dérive basale selon votre charge")
                 .font(.subheadline.bold())
                 .foregroundStyle(.secondary)
-            Text("Dérive moyenne de la nuit profonde (B1), nuits groupées par charge de leur semaine")
+            Text("Dérive moyenne de la nuit profonde (B1), nuits groupées par charge active du jour")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -373,12 +393,8 @@ struct PageCorrelationChargeGlycemie: View {
         return "\(signe)\(Int(abs(derive).rounded())) mg/dL"
     }
 
-    private func couleurNiveau(_ niveau: NiveauChargeCorrelation) -> Color {
-        switch niveau {
-        case .basse:   return .red
-        case .haute:   return .blue
-        case .normale: return .secondary
-        }
+    private func couleurNiveau(_ niveau: NiveauChargeActive) -> Color {
+        niveau.couleur
     }
 }
 

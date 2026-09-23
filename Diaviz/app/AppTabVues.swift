@@ -289,6 +289,13 @@ struct AppTabVues: View {
             healthKit.demarrerSurveillance(container: modelContext.container)
             await importService.demanderAcces()
             await importService.rafraichir()
+            // Charge active : contexte partagé (accueil, badges, B2/B3).
+            // B2/B3 ont démarré sans lui plus haut — rechargés pour porter
+            // le niveau de charge de chaque soir.
+            await ChargeActiveService.shared.recalculer(contexte: modelContext)
+            async let endoCharge: Void = analyseEndormissementService.recharger()
+            async let corrCharge: Void = analyseCorrectionsService.recharger()
+            _ = await (endoCharge, corrCharge)
             // Le CGM vient d'être synchronisé : recalcule les réponses
             // glycémiques des repas (au démarrage elles étaient toutes en
             // attente, faute de glycémies encore chargées).

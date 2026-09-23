@@ -23,7 +23,7 @@ struct CalculDetailSoireeTests {
         SoirCoucher(
             id: UUID(), date: jour, dateNuit: Calendar.current.startOfDay(for: jour),
             glycemie: 105, tendance: .baisse,
-            correction: nil, glucides: nil, sport: nil, iob: nil, charge: .aucune,
+            correction: nil, glucides: nil, sport: nil, iob: nil, charge: nil,
             categorieB1: nil, enHypo: enHypo, delaiHypoMinutes: enHypo ? 120 : nil,
             issueCorrection: nil
         )

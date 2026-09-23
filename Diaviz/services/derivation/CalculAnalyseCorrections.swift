@@ -21,6 +21,9 @@ nonisolated struct EntreesCorrections: Sendable {
     let resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)]
     let sports: [(debut: Date, resume: SportResume)]
     let pauses: [(debut: Date, fin: Date?)]
+    /// Niveau de charge active par début de jour (`ContexteChargeActive.niveauxParJour`)
+    /// — vide si le contexte n'est pas encore calculé : charge inconnue.
+    var niveauxCharge: [Date: NiveauChargeActive] = [:]
 }
 
 nonisolated struct ConfigCorrections: Sendable {
@@ -118,10 +121,7 @@ nonisolated enum CalculAnalyseCorrections {
         let tendance = tendanceProche(entrees.lectures, a: heure) ?? .stable
         let glucides = glucidesAutour(entrees.repas, a: heure)
         let sport = sportDuJour(entrees.sports, jour: jour, cal: cal)
-        let charge = CalculChargeActivite.charge(
-            jusqua: jour,
-            activites: entrees.sports.map { (debut: $0.debut, dureeMin: 0) }
-        )
+        let charge = entrees.niveauxCharge[cal.startOfDay(for: jour)]
         let iob = iobAvantCorrection(entrees.rapides, a: heure, config: config)
 
         let rechute = DetectionRechute.rechute(

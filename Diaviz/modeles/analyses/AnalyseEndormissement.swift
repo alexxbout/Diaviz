@@ -69,9 +69,10 @@ struct NuitEndormissement: Identifiable, Sendable, Equatable {
     /// IOB résiduel au coucher (unités). `nil` si nul.
     let iob: Double?
 
-    /// Charge d'activité de la semaine glissante — contexte qui éclaire les
-    /// hypos « inexpliquées » (sport non loggé ce soir mais semaine chargée).
-    let charge: ChargeActivite
+    /// Niveau de charge active du jour — contexte qui éclaire les hypos
+    /// « inexpliquées » (sport non loggé ce soir mais stock élevé). `nil` si
+    /// pas assez de recul.
+    let charge: NiveauChargeActive?
 
     let issue: IssueEndormissement
 

@@ -6,33 +6,31 @@
 import Charts
 import SwiftUI
 
-/// Page de détail « Charge d'activité » — pushée depuis `CarteChargeActivite`.
-/// Écart + tendance en tête, histogramme des 14 derniers jours (7 « semaine
-/// dernière » en teinte atténuée, 7 « cette semaine » en teinte pleine) —
-/// même structure que `PageGlucides`.
-///
-/// Reste volontairement simple : une seule page, un seul graphique, aucune
-/// interaction de sélection — la carte accueil donne déjà l'essentiel, cette
-/// page ne fait qu'étaler la série sous-jacente.
+/// Page de détail « Activité » — pushée depuis `CarteChargeActivite`.
+/// Faits bruts des 14 derniers jours : séances et marche soutenue, en
+/// minutes, empilées par jour. **Aucune interprétation** : le niveau de
+/// charge active (relatif à la normale) vit dans Analyses → Charge et
+/// glycémie.
 struct PageChargeActivite: View {
 
-    let synthese: SyntheseChargeContinue
+    let jours: [JourChargeActive]
+    let marcheIncluse: Bool
 
-    private let teinte = Color.orange
+    private var quatorze: [JourChargeActive] { Array(jours.suffix(14)) }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 EnTeteAnalyse(
                     surtitre: "Sport",
-                    titre: "Charge d'activité",
-                    accroche: "Votre charge sportive des 7 derniers jours, comparée à votre normale des 4 dernières semaines.",
+                    titre: "Activité",
+                    accroche: "Vos séances et votre marche soutenue des 14 derniers jours.",
                     ambiance: .chargeActivite
                 )
-                enTeteStats
+                totaux
                 graphique
                 Label(
-                    "14 derniers jours. Charge = durée × intensité de chaque séance, sommée par jour.",
+                    "Marche soutenue : au moins 10 minutes d'affilée à 100 pas/min ou plus, hors séance enregistrée. La lecture relative à votre normale est dans Analyses → Charge et glycémie.",
                     systemImage: "info.circle"
                 )
                 .font(.footnote)
@@ -41,45 +39,88 @@ struct PageChargeActivite: View {
             .padding(16)
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Charge d'activité")
+        .navigationTitle("Activité")
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private var enTeteStats: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            // Hero = le niveau en mot (basse/normale/haute), pas l'écart
-            // brut — même principe que la carte accueil.
-            Text(niveau.libelle)
-                .font(.system(size: 26, weight: .bold, design: .rounded))
-                .foregroundStyle(niveau.couleur)
-            Text(ligneDetail)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+    // MARK: - Totaux
+
+    private var totaux: some View {
+        let recents = Array(quatorze.suffix(7))
+        let precedents = Array(quatorze.prefix(max(0, quatorze.count - 7)))
+        return VStack(alignment: .leading, spacing: 12) {
+            ligneTotal(titre: "7 derniers jours", jours: recents)
+            Divider()
+            ligneTotal(titre: "Il y a 8 à 14 jours", jours: precedents)
+            if !marcheIncluse {
+                Text("Marche non lue depuis Apple Santé (autorisation « Pas »).")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemGroupedBackground), in: NiveauCarte.carte.forme)
     }
+
+    private func ligneTotal(titre: String, jours: [JourChargeActive]) -> some View {
+        let seances = jours.reduce(0) { $0 + $1.nombreSeances }
+        let minutesSeances = jours.reduce(0) { $0 + $1.minutesSeances }
+        let minutesMarche = jours.reduce(0) { $0 + $1.minutesMarche }
+        return VStack(alignment: .leading, spacing: 4) {
+            Text(titre)
+                .font(.subheadline.bold())
+                .foregroundStyle(.secondary)
+            HStack(spacing: 16) {
+                Label(
+                    seances == 0 ? "Aucune séance" : "\(seances) séance\(seances > 1 ? "s" : "") · \(DureeActivite.texte(minutesSeances))",
+                    systemImage: "figure.run"
+                )
+                .foregroundStyle(CarteChargeActivite.teinteSeances)
+                if marcheIncluse {
+                    Label(DureeActivite.texte(minutesMarche), systemImage: "figure.walk")
+                        .foregroundStyle(CarteChargeActivite.teinteMarche)
+                }
+            }
+            .font(.subheadline)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    // MARK: - Graphique
 
     private var graphique: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 16) {
-                legendePastille(couleur: teinte.opacity(0.35), texte: "Il y a 8-14 jours")
-                legendePastille(couleur: teinte, texte: "7 derniers jours")
+                legendePastille(couleur: CarteChargeActivite.teinteSeances, texte: "Séances")
+                if marcheIncluse {
+                    legendePastille(couleur: CarteChargeActivite.teinteMarche, texte: "Marche soutenue")
+                }
             }
             .font(.caption)
             .foregroundStyle(.secondary)
 
             Chart {
-                ForEach(Array(synthese.serieJournaliere.enumerated()), id: \.offset) { index, point in
+                ForEach(quatorze) { jour in
                     BarMark(
-                        x: .value("Jour", point.jour, unit: .day),
-                        y: .value("Charge", point.score)
+                        x: .value("Jour", jour.jour, unit: .day),
+                        y: .value("Minutes", jour.minutesSeances)
                     )
-                    .foregroundStyle(index >= 7 ? teinte : teinte.opacity(0.35))
-                    .cornerRadius(3)
+                    .foregroundStyle(by: .value("Type", "Séances"))
+                    if marcheIncluse {
+                        BarMark(
+                            x: .value("Jour", jour.jour, unit: .day),
+                            y: .value("Minutes", jour.minutesMarche)
+                        )
+                        .foregroundStyle(by: .value("Type", "Marche soutenue"))
+                    }
                 }
             }
+            .chartForegroundStyleScale([
+                "Séances": CarteChargeActivite.teinteSeances,
+                "Marche soutenue": CarteChargeActivite.teinteMarche,
+            ])
+            .chartLegend(.hidden)
             .chartXAxis {
                 AxisMarks(values: .stride(by: .day, count: 2)) { _ in
                     AxisValueLabel(format: .dateTime.day().month(.abbreviated))
@@ -87,7 +128,14 @@ struct PageChargeActivite: View {
                 }
             }
             .chartYAxis {
-                AxisMarks(position: .leading)
+                AxisMarks(position: .leading) { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let v = value.as(Double.self) {
+                            Text("\(Int(v)) min").font(.caption2)
+                        }
+                    }
+                }
             }
             .frame(height: 180)
         }
@@ -101,54 +149,6 @@ struct PageChargeActivite: View {
             Text(texte)
         }
     }
-
-    private func ecartFormate(_ ecart: Double) -> String {
-        let pct = Int((ecart * 100).rounded())
-        let signe = pct > 0 ? "+" : (pct < 0 ? "\u{2212}" : "")
-        return "\(signe)\(abs(pct))%"
-    }
-
-    private enum Niveau {
-        case basse, normale, haute, inconnue
-
-        var libelle: String {
-            switch self {
-            case .basse:    return "Charge basse"
-            case .normale:  return "Charge normale"
-            case .haute:    return "Charge haute"
-            case .inconnue: return "Pas assez de recul"
-            }
-        }
-
-        var couleur: Color {
-            switch self {
-            case .basse:    return .red
-            case .haute:    return .blue
-            case .normale, .inconnue: return .primary
-            }
-        }
-    }
-
-    private var niveau: Niveau {
-        guard let ecart = synthese.ecartRelatif else { return .inconnue }
-        if ecart <= -CalculChargeContinue.seuilEcartTendance { return .basse }
-        if ecart >= CalculChargeContinue.seuilEcartTendance { return .haute }
-        return .normale
-    }
-
-    /// « −22 % vs votre normale · en baisse depuis 5 jours » — écart et
-    /// tendance fusionnés en une ligne, plus de sous-titre redondant.
-    private var ligneDetail: String {
-        let ecartTexte = synthese.ecartRelatif.map { "\(ecartFormate($0)) vs votre normale" }
-        switch synthese.tendance {
-        case .enBaisse(let jours):
-            return [ecartTexte, "en baisse depuis \(jours) jours"].compactMap { $0 }.joined(separator: " · ")
-        case .enHausse(let jours):
-            return [ecartTexte, "en hausse depuis \(jours) jours"].compactMap { $0 }.joined(separator: " · ")
-        case .stable:
-            return ecartTexte ?? "pas d'activité récente sur 4 semaines"
-        }
-    }
 }
 
 // MARK: - Aperçus
@@ -156,13 +156,13 @@ struct PageChargeActivite: View {
 #if DEBUG
 #Preview {
     NavigationStack {
-        PageChargeActivite(synthese: .mockBaisse)
+        PageChargeActivite(jours: ContexteChargeActive.mock.jours, marcheIncluse: true)
     }
 }
 
-#Preview("Sombre") {
+#Preview("Sombre, marche non lue") {
     NavigationStack {
-        PageChargeActivite(synthese: .mockBaisse)
+        PageChargeActivite(jours: ContexteChargeActive.mock.jours, marcheIncluse: false)
     }
     .preferredColorScheme(.dark)
 }

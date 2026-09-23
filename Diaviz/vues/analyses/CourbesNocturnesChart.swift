@@ -175,7 +175,7 @@ struct CourbesNocturnesChart: View {
     /// Charge d'activité continue de la semaine précédant une nuit donnée —
     /// contexte transverse affiché dans la carte verdict de la vue « Par
     /// nuit ». Fourni par le parent, qui seul a accès au `ModelContext`.
-    let chargePour: (Date) -> SyntheseChargeContinue
+    let chargePour: (Date) -> SyntheseChargeActive?
     /// Stades de sommeil HealthKit de la nuit **actuellement affichée** en
     /// vue « Par nuit » — `[]` si la donnée est indisponible (Watch pas
     /// portée, autorisation refusée) ou si le réglage overlay est désactivé.
@@ -190,7 +190,7 @@ struct CourbesNocturnesChart: View {
         nights: [NightChartData],
         mode: Binding<ModeAffichageGraphiqueBasale>,
         indexSelectionne: Binding<Int>,
-        chargePour: @escaping (Date) -> SyntheseChargeContinue,
+        chargePour: @escaping (Date) -> SyntheseChargeActive?,
         sleepStages: [SleepStageInterval] = []
     ) {
         self.nights = nights
@@ -525,7 +525,7 @@ private struct VueGraphiqueParNuit: View {
 
     let nights: [NightChartData]
     @Binding var indexSelectionne: Int
-    let chargePour: (Date) -> SyntheseChargeContinue
+    let chargePour: (Date) -> SyntheseChargeActive?
     /// Stades de sommeil de la nuit affichée — voir doc sur
     /// `CourbesNocturnesChart.sleepStages`.
     var sleepStages: [SleepStageInterval] = []
@@ -1093,10 +1093,9 @@ private struct CarteVerdictNuit: View {
     /// Toutes les nuits du dataset — nécessaires au pied de carte pour
     /// afficher les vraies nuits retenues (chacune colorée par sa catégorie).
     var nights: [NightChartData] = []
-    /// Charge d'activité de la semaine précédant cette nuit — contexte
-    /// corrélé au verdict, jamais présenté comme cause (dette technique B1,
-    /// doc Eraser « B1 — Détection basale », V2 priorité haute).
-    var chargeSynthese: SyntheseChargeContinue? = nil
+    /// Charge active le jour de cette nuit — contexte corrélé au verdict,
+    /// jamais présenté comme cause. Affichée seulement hors normale.
+    var chargeSynthese: SyntheseChargeActive? = nil
 
     /// Seuil de stabilité (± mg/dL) — même source que le calculateur.
     private let seuil = CalculAnalyseBasale.seuilDeriveStableParDefaut
@@ -1120,36 +1119,9 @@ private struct CarteVerdictNuit: View {
                     verdictExclu(z3)
                 }
 
-                if let chargeSynthese, let libelle = libelleCharge(chargeSynthese) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "flame.fill")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(couleurCharge(chargeSynthese))
-                        Text(libelle)
-                            .font(.caption)
-                            .foregroundStyle(couleurCharge(chargeSynthese))
-                    }
+                LigneChargeHorsNormale(synthese: chargeSynthese)
                     .padding(.top, 10)
-                    .accessibilityElement(children: .combine)
-                }
             }
-        }
-    }
-
-    /// `nil` si tendance stable (rien à signaler) ou pas assez de recul.
-    private func libelleCharge(_ synthese: SyntheseChargeContinue) -> String? {
-        switch synthese.tendance {
-        case .enBaisse(let jours): return "Charge d'activité en baisse depuis \(jours)j"
-        case .enHausse(let jours): return "Charge d'activité en hausse depuis \(jours)j"
-        case .stable: return nil
-        }
-    }
-
-    private func couleurCharge(_ synthese: SyntheseChargeContinue) -> Color {
-        switch synthese.tendance {
-        case .enBaisse: return .red
-        case .enHausse: return .blue
-        case .stable: return .secondary
         }
     }
 
@@ -2348,7 +2320,7 @@ private struct _PreviewWrapperBasalChart: View {
             nights: nights,
             mode: $mode,
             indexSelectionne: $index,
-            chargePour: { _ in .mockBaisse }
+            chargePour: { _ in SyntheseChargeActive(etat: .disponible(indice: 0.5, niveau: .basse, depuisJours: 4), marcheIncluse: true) }
         )
     }
 }

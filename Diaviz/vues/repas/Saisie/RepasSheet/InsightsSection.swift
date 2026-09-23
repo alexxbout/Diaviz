@@ -100,7 +100,7 @@ private let _previewContexteComplet = ContexteInsights(
             InjectionActive(unitesInjectees: 1.0, heureInjection: Date().addingTimeInterval(-4 * 3600 - 30 * 60), unitesRestantes: 0.6),
         ]
     ),
-    chargeSynthese: .mockBaisse
+    chargeSynthese: SyntheseChargeActive(etat: .disponible(indice: 0.5, niveau: .basse, depuisJours: 5), marcheIncluse: true)
 )
 
 private let _previewContexteCoherent = ContexteInsights(

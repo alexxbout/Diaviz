@@ -19,7 +19,7 @@ struct ValidationRatioCard: View {
     /// Charge d'activité continue (7j vs normale perso), affichée quel que
     /// soit le ratio en vigueur — contrairement au ratio post-sport, elle
     /// ne dépend pas d'une séance récente précise. `nil` si indisponible.
-    var chargeSynthese: SyntheseChargeContinue? = nil
+    var chargeSynthese: SyntheseChargeActive? = nil
 
     @State private var afficherExplication: Bool = false
 
@@ -128,17 +128,15 @@ struct ValidationRatioCard: View {
 
     /// Badge charge — même famille visuelle que `badgeProfil`/`badgeAjustement`
     /// (capsule, icône + texte bold), affiché **quel que soit le ratio en
-    /// vigueur** (pas seulement le post-sport). Le libellé porte le niveau ;
-    /// s'il y a un changement de tendance en cours, il est ajouté dans le
-    /// même badge plutôt qu'à côté — le changement est ce qui compte le
-    /// plus ici, mais reste un seul repère visuel, pas deux.
+    /// vigueur** (pas seulement le post-sport). Niveau de charge active au
+    /// moment du repas, avec la durée depuis la dernière bascule.
     @ViewBuilder
-    private func badgeCharge(_ synthese: SyntheseChargeContinue) -> some View {
-        let couleur = couleurNiveauCharge(synthese)
+    private func badgeCharge(_ niveau: NiveauChargeActive, depuisJours: Int?) -> some View {
+        let couleur = niveau.couleur
         HStack(spacing: 4) {
             Image(systemName: "flame.fill")
                 .font(.caption2.bold())
-            Text(libelleBadgeCharge(synthese))
+            Text(depuisJours.map { "Charge \(niveau.libelleCourt) · \($0)j" } ?? "Charge \(niveau.libelleCourt)")
                 .font(.caption.bold())
                 .lineLimit(1)
         }
@@ -149,47 +147,14 @@ struct ValidationRatioCard: View {
         .background(couleur.opacity(0.14), in: Capsule())
     }
 
-    /// « Charge basse », ou « Charge basse ↓5j » si la tendance change
-    /// depuis plusieurs jours — le badge est le seul repère, pas de ligne
-    /// à côté, donc le changement doit tenir dans le même texte.
-    private func libelleBadgeCharge(_ synthese: SyntheseChargeContinue) -> String {
-        let niveau = libelleNiveauCharge(synthese)
-        guard let suffixeTendance = suffixeTendanceCharge(synthese) else { return "Charge \(niveau)" }
-        return "Charge \(niveau) \(suffixeTendance)"
-    }
-
-    /// Niveau courant vs normale perso — même seuil que la détection de
-    /// tendance, pour rester cohérent avec la carte accueil et le détail nuit.
-    private func libelleNiveauCharge(_ synthese: SyntheseChargeContinue) -> String {
-        guard let ecart = synthese.ecartRelatif else { return "— pas assez de recul" }
-        if ecart <= -CalculChargeContinue.seuilEcartTendance { return "basse" }
-        if ecart >= CalculChargeContinue.seuilEcartTendance { return "haute" }
-        return "normale"
-    }
-
-    private func couleurNiveauCharge(_ synthese: SyntheseChargeContinue) -> Color {
-        guard let ecart = synthese.ecartRelatif else { return .secondary }
-        if ecart <= -CalculChargeContinue.seuilEcartTendance { return .red }
-        if ecart >= CalculChargeContinue.seuilEcartTendance { return .blue }
-        return .secondary
-    }
-
-    private func suffixeTendanceCharge(_ synthese: SyntheseChargeContinue) -> String? {
-        switch synthese.tendance {
-        case .enBaisse(let jours): return "↓\(jours)j"
-        case .enHausse(let jours): return "↑\(jours)j"
-        case .stable: return nil
-        }
-    }
-
     @ViewBuilder
     private var badges: some View {
         badgeProfil
         if validation.ajustements != 0 {
             badgeAjustement
         }
-        if let chargeSynthese {
-            badgeCharge(chargeSynthese)
+        if case let .disponible(_, niveau, depuisJours)? = chargeSynthese?.etat {
+            badgeCharge(niveau, depuisJours: depuisJours)
         }
     }
 

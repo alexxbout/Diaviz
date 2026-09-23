@@ -23,8 +23,8 @@ nonisolated enum CritereCoucher: Hashable, Sendable, Identifiable {
     /// Même type de séance (« Course », « Vélo »…). Proposé seulement quand
     /// une séance a eu lieu ce soir — sinon il n'y a rien à égaler.
     case typeSport(String)
-    /// Même charge d'activité sur 7 jours glissants.
-    case charge(ChargeActivite)
+    /// Même niveau de charge active.
+    case charge(NiveauChargeActive)
     /// Présence (ou absence) d'insuline rapide encore active.
     case insuline(active: Bool)
 
@@ -82,7 +82,7 @@ nonisolated enum FiltreCoucher {
     /// Critères proposables pour le contexte de ce soir, dans l'ordre
     /// d'affichage. Le type de sport n'apparaît que si une séance a eu lieu.
     static func criteres(
-        charge: ChargeActivite,
+        charge: NiveauChargeActive?,
         sport: SportResume?,
         iob: Double?
     ) -> [CritereCoucher] {
@@ -90,7 +90,7 @@ nonisolated enum FiltreCoucher {
         if let type = sport?.type, !type.isEmpty {
             liste.append(.typeSport(type))
         }
-        liste.append(.charge(charge))
+        if let charge { liste.append(.charge(charge)) }
         liste.append(.insuline(active: iob != nil))
         return liste
     }

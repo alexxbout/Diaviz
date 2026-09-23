@@ -63,11 +63,6 @@ nonisolated struct DetailSoiree: Sendable {
     /// courbe (« ~1u encore actif au moment de l'hypo »).
     let iobAuMomentHypo: Double?
     let constatB1: ConstatB1Nuit
-    /// Charge d'activité de la semaine **précédant cette nuit** (pas
-    /// aujourd'hui) — contexte transverse pour lire le constat B1 à sa
-    /// juste mesure. `ecartRelatif`/`tendance` restent neutres si pas assez
-    /// d'activités sur la fenêtre pour calculer une normale personnelle.
-    let chargeSynthese: SyntheseChargeContinue
 }
 
 // MARK: - Calculateur
@@ -84,19 +79,16 @@ nonisolated enum CalculDetailSoiree {
         rapides: [(heure: Date, dose: Double, correction: Bool)],
         repas: [(heure: Date, glucides: Int)],
         resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)] = [],
-        activitesPourCharge: [(debut: Date, dureeMin: Int, intensite: IntensiteSport)] = [],
         changementDoseRecent: Date?,
         config: ConfigEndormissement = ConfigEndormissement()
     ) -> DetailSoiree {
-        let chargeSynthese = CalculChargeContinue.analyser(activites: activitesPourCharge, maintenant: soir.date)
-
         guard let nuitB1 else {
             // Sans nuit B1 : pas de courbe ni d'ancre lente fiable — on ne
             // montre que le soir lui-même (dégradation gracieuse).
             return DetailSoiree(
                 soir: soir, evenements: [], courbe: [],
                 seuilHypo: config.seuilHypo, courbeIOB: [], iobAuMomentHypo: nil,
-                constatB1: .indisponible, chargeSynthese: chargeSynthese
+                constatB1: .indisponible
             )
         }
 
@@ -172,8 +164,7 @@ nonisolated enum CalculDetailSoiree {
             seuilHypo: config.seuilHypo,
             courbeIOB: courbeIOB,
             iobAuMomentHypo: (iobHypo ?? 0) > 0.05 ? iobHypo : nil,
-            constatB1: constat(nuitB1),
-            chargeSynthese: chargeSynthese
+            constatB1: constat(nuitB1)
         )
     }
 

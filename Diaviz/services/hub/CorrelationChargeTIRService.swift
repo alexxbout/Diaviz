@@ -7,8 +7,9 @@ import Foundation
 import Observation
 import SwiftData
 
-/// Service **réel** de la page « Charge et équilibre glycémique » — lit
-/// `ActiviteSportive`, `GlucoseReading` et les injections de lente sur la
+/// Service **réel** de la page « Charge et équilibre glycémique » — lit le
+/// contexte partagé de charge active (`ChargeActiveService`, à calculer
+/// avant), `GlucoseReading` et les injections de lente sur la
 /// fenêtre de `CalculCorrelationChargeTIR.nombreSemaines`, délègue à
 /// `CalculCorrelationChargeTIR` (pur). Pattern aligné sur les autres
 /// services hub : `synthese` démarre `nil`, peuplé à `demarrer`.
@@ -45,10 +46,6 @@ final class CorrelationChargeTIRService {
             byAdding: .day, value: -7 * CalculCorrelationChargeTIR.nombreSemaines, to: Date()
         ) ?? Date()
 
-        let activites = (try? contexte.fetch(
-            FetchDescriptor<ActiviteSportive>(predicate: #Predicate { $0.dateDebut >= borne })
-        )) ?? []
-
         let glucoses = (try? contexte.fetch(
             FetchDescriptor<GlucoseReading>(predicate: #Predicate { $0.date >= borne })
         )) ?? []
@@ -60,7 +57,7 @@ final class CorrelationChargeTIRService {
 
         let (entrees, config) = chargerEntreesB1(contexte: contexte, borne: borne)
 
-        let activitesMappees = activites.map { (debut: $0.dateDebut, dureeMin: $0.dureeMinutes, intensite: $0.intensite) }
+        let charge = ChargeActiveService.shared.contexte ?? .vide
         let glucosesMappes = glucoses.map { (date: $0.date, valeur: $0.valeur) }
         let lentesMappees = lentes.map { (date: $0.heure, dose: $0.dose) }
 
@@ -68,7 +65,7 @@ final class CorrelationChargeTIRService {
             let detail = CalculAnalyseBasale.analyser(entrees: entrees, config: config)
             let nuitsDerive = Self.deriveNuits(depuis: detail)
             return CalculCorrelationChargeTIR.analyser(
-                activites: activitesMappees,
+                charge: charge,
                 glucoses: glucosesMappes,
                 lentes: lentesMappees,
                 nuitsDerive: nuitsDerive
@@ -159,13 +156,13 @@ extension SyntheseCorrelationChargeTIR {
     static var mock: SyntheseCorrelationChargeTIR {
         let cal = Calendar.current
         let debut = cal.date(byAdding: .day, value: -7 * (CalculCorrelationChargeTIR.nombreSemaines - 1), to: Date()) ?? Date()
-        let charges: [Double] = [90, 140, 260, 310, 70, 55, 40, 230, 280, 150]
+        let charges: [Double?] = [0.6, 0.9, 1.3, 1.5, 0.5, 0.4, 0.35, 1.2, 1.4, 1.0]
         let tirs: [Double?] = [62, 68, 74, 77, 58, 54, 51, 72, 76, 65]
         let scores: [Double?] = [70, 74, 80, 83, 66, 60, 58, 78, 82, 72]
         let semaines = (0..<CalculCorrelationChargeTIR.nombreSemaines).map { i in
             PointSemaineCorrelation(
                 debutSemaine: cal.date(byAdding: .day, value: 7 * i, to: debut) ?? debut,
-                charge: charges[i],
+                indiceCharge: charges[i],
                 tir: tirs[i],
                 score: scores[i]
             )
@@ -179,9 +176,9 @@ extension SyntheseCorrelationChargeTIR {
                 )
             ],
             tranches: [
-                TrancheChargeTIR(niveau: .basse, tirMoyen: 54, nombreSemaines: 3),
-                TrancheChargeTIR(niveau: .normale, tirMoyen: 65, nombreSemaines: 4),
-                TrancheChargeTIR(niveau: .haute, tirMoyen: 75, nombreSemaines: 3),
+                TrancheChargeTIR(niveau: .basse, tirMoyen: 54, nombreJours: 18),
+                TrancheChargeTIR(niveau: .normale, tirMoyen: 65, nombreJours: 31),
+                TrancheChargeTIR(niveau: .haute, tirMoyen: 75, nombreJours: 16),
             ],
             tranchesDerive: [
                 TrancheDeriveBasale(niveau: .basse, deriveMoyenne: 18, nombreNuits: 5),

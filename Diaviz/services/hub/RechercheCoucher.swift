@@ -32,10 +32,10 @@ enum RechercheCoucher {
     }
 
     /// Contexte « ce soir » connu de l'app sans saisie : dose de lente
-    /// courante, charge 7 jours, sport du jour, IOB à l'instant.
+    /// courante, niveau de charge active, sport du jour, IOB à l'instant.
     struct ContexteCeSoir {
         let doseLente: Double
-        let charge: ChargeActivite
+        let charge: NiveauChargeActive?
         let sport: SportResume?
         let iob: Double?
     }
@@ -83,6 +83,7 @@ enum RechercheCoucher {
 
         // Fusion B2+B3 **sans** reset de dose (`changementDoseRecent: nil`).
         let ancrages = ChargeurFaitsCoucher.ancragesNuit(depuis: analyseB1.nightChartData)
+        let niveauxCharge = ChargeActiveService.shared.contexte?.niveauxParJour ?? [:]
         let configEndo = ConfigEndormissement(
             seuilHypo: Int(profil.seuilsGlycemiques.hypoglycemie),
             diaHeures: profil.dureeActionInsulineHeures,
@@ -92,7 +93,7 @@ enum RechercheCoucher {
             entrees: EntreesEndormissement(
                 nuits: ancrages, lectures: cgm, rapides: rapides,
                 repas: repasHorsResucrage, resucrages: resucrages,
-                sports: sports, pauses: pauses
+                sports: sports, pauses: pauses, niveauxCharge: niveauxCharge
             ),
             doseActuelle: analyseB1.doseActuelle,
             changementDoseRecent: nil,
@@ -102,7 +103,7 @@ enum RechercheCoucher {
             entrees: EntreesCorrections(
                 nuits: ancrages, lectures: cgm, rapides: rapides,
                 repas: repasHorsResucrage, resucrages: resucrages,
-                sports: sports, pauses: pauses
+                sports: sports, pauses: pauses, niveauxCharge: niveauxCharge
             ),
             changementDoseRecent: nil,
             config: ConfigCorrections(
@@ -133,10 +134,7 @@ enum RechercheCoucher {
         let borne = cal.date(byAdding: .day, value: -8, to: maintenant) ?? maintenant
         let sports = ChargeurFaitsCoucher.sports(contexte, depuis: borne)
 
-        let charge = CalculChargeActivite.charge(
-            jusqua: maintenant,
-            activites: sports.map { (debut: $0.debut, dureeMin: $0.resume.dureeMinutes) }
-        )
+        let charge = ChargeActiveService.shared.contexte?.niveau(le: maintenant)
         let sportDuJour = sports
             .filter { cal.isDate($0.debut, inSameDayAs: maintenant) }
             .max(by: { $0.debut < $1.debut })?.resume

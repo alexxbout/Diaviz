@@ -282,4 +282,60 @@ struct CalculChargeActiveTests {
         #expect(indice < 0.6)
         #expect(niveauApres == .basse)
     }
+
+    // MARK: - Contexte partagé
+
+    /// Séance d'1 h à 18 h chaque jour pendant 100 jours, puis arrêt 6 jours.
+    private func contexteRegulierPuisArret() -> (ContexteChargeActive, Date) {
+        let seances = (0..<100).map { seance(finAPlusHeures: Double($0) * 24 + 18) }
+        let bouts = [BoutMarche(debut: Fixtures.instant(plusHeures: 104 * 24 + 9), fin: Fixtures.instant(plusHeures: 104 * 24 + 9.5), pas: 3300)]
+        let maintenant = Fixtures.instant(plusHeures: 105 * 24 + 20)
+        return (CalculChargeActive.contexte(
+            seances: seances, bouts: bouts, debutHistorique: Fixtures.reference,
+            maintenant: maintenant, calendrier: utc
+        ), maintenant)
+    }
+
+    @Test("Contexte : un jour, un niveau — la lecture à n'importe quelle heure du jour donne le même niveau")
+    func contexteNiveauStableDansLaJournee() {
+        let (contexte, maintenant) = contexteRegulierPuisArret()
+        #expect(contexte.jours.count == CalculChargeActive.horizonJours)
+        let jourPasse = Fixtures.instant(plusHeures: 80 * 24)
+        let matin = contexte.synthese(a: jourPasse.addingTimeInterval(8 * 3600)).niveau
+        let soir = contexte.synthese(a: jourPasse.addingTimeInterval(22 * 3600)).niveau
+        #expect(matin == .normale)
+        #expect(matin == soir)
+        #expect(contexte.niveau(le: jourPasse) == .normale)
+        #expect(contexte.synthese(a: maintenant).niveau == .basse)
+        #expect(contexte.niveauxParJour[utc.startOfDay(for: maintenant)] == .basse)
+    }
+
+    @Test("Contexte : faits bruts par jour (séances et marche en minutes)")
+    func contexteFaitsJournaliers() {
+        let (contexte, maintenant) = contexteRegulierPuisArret()
+        let jourSeance = contexte.jour(contenant: Fixtures.instant(plusHeures: 99 * 24 + 12))
+        #expect(jourSeance?.nombreSeances == 1)
+        #expect(jourSeance?.minutesSeances == 60)
+        #expect(jourSeance?.minutesMarche == 0)
+        let jourMarche = contexte.jour(contenant: Fixtures.instant(plusHeures: 104 * 24 + 12))
+        #expect(jourMarche?.nombreSeances == 0)
+        #expect(jourMarche?.minutesMarche == 30)
+        #expect(contexte.jours.last?.jour == utc.startOfDay(for: maintenant))
+    }
+
+    @Test("Contexte : indice moyen d'une semaine régulière ≈ 1")
+    func contexteIndiceMoyen() {
+        let (contexte, _) = contexteRegulierPuisArret()
+        let debut = Fixtures.instant(plusHeures: 70 * 24)
+        let indice = contexte.indiceMoyen(de: debut, a: debut.addingTimeInterval(7 * 86_400))
+        #expect(indice.map { abs($0 - 1) < 0.05 } == true)
+        #expect(contexte.indiceMoyen(de: Fixtures.instant(plusHeures: 24), a: Fixtures.instant(plusHeures: 48)) == nil)
+    }
+
+    @Test("Niveaux successifs : inconnu avant le premier indice, puis rejoué")
+    func niveauxSuccessifs() {
+        let r = CalculChargeActive.niveauxSuccessifs(indicesJournaliers: [nil, nil, 1.0, 1.5, 1.5, 1.5])
+        #expect(r.map(\.niveau) == [nil, nil, .normale, .normale, .normale, .haute])
+        #expect(r.last?.depuisJours == 3)
+    }
 }

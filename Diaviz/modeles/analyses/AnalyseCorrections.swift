@@ -53,8 +53,9 @@ struct CorrectionSoir: Identifiable, Sendable, Equatable {
     /// Séance de sport le jour même (détail au tap). `nil` si aucune.
     let sport: SportResume?
 
-    /// Charge d'activité de la semaine (contexte transverse).
-    let charge: ChargeActivite
+    /// Niveau de charge active du jour (contexte transverse), `nil` si
+    /// pas assez de recul.
+    let charge: NiveauChargeActive?
 
     let issue: IssueCorrection
 
