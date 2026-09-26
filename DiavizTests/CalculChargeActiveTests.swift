@@ -404,4 +404,15 @@ struct CalculChargeActiveTests {
         )
         #expect(fusion == [ancien, aCheval, nouveau])
     }
+
+    @Test("Référence en faits : séances et marche par semaine sur la fenêtre de référence")
+    func referenceEnFaits() {
+        let (contexte, maintenant) = contexteRegulierPuisArret()
+        // Fenêtre = 4 semaines se terminant 7 j avant : une séance d'1 h par jour.
+        let r = contexte.referenceEnFaits(a: maintenant)
+        #expect(r?.seancesParSemaine == 7)
+        #expect(r?.minutesSeancesParSemaine == 420)
+        #expect(r?.minutesMarcheParSemaine == 0)
+        #expect(ContexteChargeActive.vide.referenceEnFaits(a: maintenant) == nil)
+    }
 }

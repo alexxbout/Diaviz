@@ -99,10 +99,11 @@ struct PageCorrelationChargeGlycemie: View {
             HStack(spacing: 5) {
                 HStack(spacing: 2) {
                     ForEach(0..<3, id: \.self) { _ in
-                        Rectangle().fill(Color.primary.opacity(0.7)).frame(width: 4, height: 1.5)
+                        Rectangle().fill(Color.gray).frame(width: 4, height: 1.5)
                     }
                 }
-                Text("Référence : votre moyenne habituelle")
+                Text(texteReference)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -142,7 +143,7 @@ struct PageCorrelationChargeGlycemie: View {
             // Référence (indice 1) dessinée après les barres, en neutre :
             // en orange derrière elles, elle disparaissait.
             RuleMark(y: .value("Référence", 1.0))
-                .foregroundStyle(Color.primary.opacity(0.7))
+                .foregroundStyle(Color.gray)
                 .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
 
             if let semaineSelectionnee {
@@ -177,11 +178,25 @@ struct PageCorrelationChargeGlycemie: View {
         .frame(height: 220)
     }
 
+    /// Référence **actuelle** en faits : chaque barre a la sienne (ses 4
+    /// semaines précédentes), la légende ne peut en donner qu'une.
+    private var texteReference: String {
+        guard let r = ChargeActiveService.shared.contexte?.referenceEnFaits(a: Date()) else {
+            return "Référence : votre moyenne habituelle"
+        }
+        let seances = r.seancesParSemaine.formatted(.number.precision(.fractionLength(0...1)))
+        var texte = "Référence actuelle : \(seances) séance\(r.seancesParSemaine >= 2 ? "s" : "") (\(DureeActivite.texte(r.minutesSeancesParSemaine)))"
+        if r.minutesMarcheParSemaine >= 1 {
+            texte += " et \(DureeActivite.texte(r.minutesMarcheParSemaine)) de marche"
+        }
+        return texte + " par semaine"
+    }
+
     /// Mode d'emploi court, toujours visible.
     private var aideLecture: some View {
         VStack(alignment: .leading, spacing: 6) {
             ligneAide("Barre orange : votre charge de la semaine. À la hauteur de la ligne pointillée, semaine habituelle. Touchez une semaine pour l'écart en %.")
-            ligneAide("Référence : votre moyenne des 4 semaines précédentes, hors semaine juste avant.")
+            ligneAide("Référence : votre moyenne des 4 semaines précédentes, hors semaine juste avant. Chaque semaine a donc la sienne ; la légende donne celle d'aujourd'hui.")
             ligneAide("Pas de barre : moins de 5 semaines d'historique avant cette semaine, pas encore de comparaison possible.")
             ligneAide("Courbe bleue : score GRI moyen de la semaine, sur 100, échelle de droite.")
         }

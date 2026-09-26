@@ -128,6 +128,14 @@ nonisolated struct JourChargeActive: Sendable, Equatable, Identifiable {
     var id: Date { jour }
 }
 
+/// Référence traduite en faits hebdomadaires moyens (voir
+/// `ContexteChargeActive.referenceEnFaits`).
+nonisolated struct ReferenceEnFaits: Sendable, Equatable {
+    let seancesParSemaine: Double
+    let minutesSeancesParSemaine: Double
+    let minutesMarcheParSemaine: Double
+}
+
 /// Contexte de charge active calculé **une fois** et partagé par tous les
 /// écrans (analyses, badges, B2/B3, accueil). Le niveau d'un jour donné est
 /// rejoué une seule fois sur toute la série : deux écrans qui parlent du
@@ -182,6 +190,27 @@ nonisolated struct ContexteChargeActive: Sendable {
         return SyntheseChargeActive(
             etat: .disponible(indice: indice, niveau: niveau, depuisJours: jourLu?.depuisJours),
             marcheIncluse: marcheIncluse
+        )
+    }
+
+    /// La référence en **faits** : séances et marche soutenue par semaine,
+    /// en moyenne sur la fenêtre de la normale lue en `instant` (4 semaines,
+    /// hors semaine juste avant). Jamais le stock brut, sans unité parlante.
+    /// `nil` sans assez de recul ou si la fenêtre sort de l'horizon.
+    func referenceEnFaits(a instant: Date) -> ReferenceEnFaits? {
+        guard CalculChargeActive.reculSuffisant(a: instant, debutHistorique: debutHistorique, calendrier: calendrier),
+              let finInstant = calendrier.date(byAdding: .day, value: -CalculChargeActive.exclusionRecenteJours, to: instant),
+              // Jours entiers : exactement `fenetreNormaleJours` jours comptés.
+              case let fin = calendrier.startOfDay(for: finInstant),
+              let debut = calendrier.date(byAdding: .day, value: -CalculChargeActive.fenetreNormaleJours, to: fin),
+              let premier = jours.first, premier.jour <= debut
+        else { return nil }
+        let fenetre = jours.filter { $0.jour >= debut && $0.jour < fin }
+        let semaines = Double(CalculChargeActive.fenetreNormaleJours) / 7
+        return ReferenceEnFaits(
+            seancesParSemaine: Double(fenetre.reduce(0) { $0 + $1.nombreSeances }) / semaines,
+            minutesSeancesParSemaine: fenetre.reduce(0) { $0 + $1.minutesSeances } / semaines,
+            minutesMarcheParSemaine: fenetre.reduce(0) { $0 + $1.minutesMarche } / semaines
         )
     }
 
