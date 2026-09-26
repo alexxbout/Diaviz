@@ -78,11 +78,6 @@ struct PageCorrelationChargeGlycemie: View {
                 .font(.subheadline.bold())
                 .foregroundStyle(.secondary)
 
-            // Ligne de détail de la semaine tappée, hauteur fixe pour ne pas
-            // faire sauter la mise en page.
-            detailSelection
-                .frame(height: 34, alignment: .top)
-
             HStack(spacing: 16) {
                 HStack(spacing: 5) {
                     RoundedRectangle(cornerRadius: 2).fill(teinteCharge.opacity(0.6)).frame(width: 8, height: 8)
@@ -108,6 +103,10 @@ struct PageCorrelationChargeGlycemie: View {
             .foregroundStyle(.secondary)
 
             graphique
+
+            // Détail de la semaine touchée, sous le graphique : pas d'espace
+            // réservé au-dessus, et le graphique ne bouge pas à la sélection.
+            detailSelection
 
             aideLecture
         }
@@ -215,34 +214,25 @@ struct PageCorrelationChargeGlycemie: View {
     @ViewBuilder
     private var detailSelection: some View {
         if let semaineSelectionnee, let point = synthese.semaines.first(where: { $0.debutSemaine == semaineSelectionnee }) {
-            VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 10) {
-                Text(semaineSelectionnee.formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: "fr_FR"))))
-                    .font(.caption.bold())
-                Text(point.indiceCharge.map { "charge \(ecartFormate($0))" } ?? "pas assez de recul")
-                    .font(.caption)
-                    .foregroundStyle(teinteCharge)
-                if let score = point.score {
-                    Text("score \(Int(score.rounded()))")
-                        .font(.caption)
-                        .foregroundStyle(teinteScore)
-                } else {
-                    Text("score indisponible")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Semaine du \(semaineSelectionnee.formatted(.dateTime.day().month(.wide).locale(Locale(identifier: "fr_FR"))))")
+                    .font(.subheadline.bold())
+                HStack(spacing: 10) {
+                    Text(point.indiceCharge.map { "Charge \(ecartFormate($0))" } ?? "Charge : pas assez de recul")
+                        .foregroundStyle(teinteCharge)
+                    Text(point.score.map { "Score GRI \(Int($0.rounded()))" } ?? "Score GRI indisponible")
+                        .foregroundStyle(point.score == nil ? Color.secondary : teinteScore)
                 }
-                Spacer()
-            }
+                .font(.caption.bold())
                 if let reference = texteReference(semaine: point.debutSemaine) {
                     Text(reference)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
-        } else {
-            Color.clear
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
         }
     }
 
@@ -253,11 +243,11 @@ struct PageCorrelationChargeGlycemie: View {
         let fin = Calendar.current.date(byAdding: .day, value: 7, to: debut) ?? debut
         guard let r = ChargeActiveService.shared.contexte?.referenceEnFaits(a: min(fin, Date())) else { return nil }
         let seances = r.seancesParSemaine.formatted(.number.precision(.fractionLength(0...1)))
-        var texte = "référence : \(seances) séance\(r.seancesParSemaine >= 2 ? "s" : "") (\(DureeActivite.texte(r.minutesSeancesParSemaine)))"
+        var texte = "Référence : \(seances) séance\(r.seancesParSemaine >= 2 ? "s" : "") (\(DureeActivite.texte(r.minutesSeancesParSemaine)))"
         if r.minutesMarcheParSemaine >= 1 {
             texte += " + \(DureeActivite.texte(r.minutesMarcheParSemaine)) de marche"
         }
-        return texte + " / sem."
+        return texte + " par semaine"
     }
 
     /// « +30 % » / « −15 % » par rapport à la normale — jamais le nombre brut.
