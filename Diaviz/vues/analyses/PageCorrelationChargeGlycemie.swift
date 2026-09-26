@@ -25,6 +25,7 @@ struct PageCorrelationChargeGlycemie: View {
 
     private let teinteCharge = Color.orange
     private let teinteScore = Color.blue
+    private let teinteSansRecul = Color.secondary.opacity(0.15)
 
     /// Semaine sélectionnée au tap/drag sur la chronologie — `nil` par
     /// défaut, la carte n'affiche alors rien de plus que le graphique.
@@ -72,13 +73,14 @@ struct PageCorrelationChargeGlycemie: View {
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 16) {
-                legendePastille(couleur: teinteCharge.opacity(0.55), texte: "Charge active / normale", forme: .carre)
-                legendePastille(couleur: teinteScore, texte: "Score", forme: .trait)
+                legendePastille(couleur: teinteCharge.opacity(0.55), texte: "Charge vs normale", forme: .carre)
+                legendePastille(couleur: teinteScore, texte: "Score glycémique", forme: .trait)
             }
             .font(.caption)
             .foregroundStyle(.secondary)
 
             HStack(spacing: 16) {
+                legendePastille(couleur: teinteSansRecul, texte: "Pas assez de recul", forme: .carre)
                 legendePastille(couleur: .secondary, texte: texteLegendeDose, forme: .pointille)
             }
             .font(.caption)
@@ -91,6 +93,17 @@ struct PageCorrelationChargeGlycemie: View {
                 .frame(height: 16)
 
             Chart {
+                // Semaines sans normale calculable : colonne grisée pleine
+                // hauteur — une absence de barre se lisait « pas de sport ».
+                ForEach(synthese.semaines.filter { $0.indiceCharge == nil }) { point in
+                    BarMark(
+                        x: .value("Semaine", point.debutSemaine, unit: .weekOfYear),
+                        y: .value("Charge", maxCharge)
+                    )
+                    .foregroundStyle(teinteSansRecul)
+                    .cornerRadius(3)
+                }
+
                 ForEach(synthese.semaines.filter { $0.indiceCharge != nil }) { point in
                     BarMark(
                         x: .value("Semaine", point.debutSemaine, unit: .weekOfYear),
@@ -156,7 +169,7 @@ struct PageCorrelationChargeGlycemie: View {
                     AxisGridLine()
                     AxisValueLabel {
                         if let v = value.as(Double.self) {
-                            Text("\(Int((v / maxCharge * 100).rounded()))%")
+                            Text("\(Int((v / maxCharge * 100).rounded()))")
                                 .font(.caption2)
                         }
                     }
@@ -164,9 +177,36 @@ struct PageCorrelationChargeGlycemie: View {
             }
             .chartXSelection(value: semaineSelectionneeBrute)
             .frame(height: 200)
+
+            aideLecture
         }
         .padding(16)
         .background(Color(.secondarySystemGroupedBackground), in: NiveauCarte.carte.forme)
+    }
+
+    /// Mode d'emploi du graphique, toujours visible : deux échelles et des
+    /// barres relatives ne se devinent pas au premier regard.
+    private var aideLecture: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Comment lire ce graphique")
+                .font(.caption.bold())
+            ligneAide("Chaque colonne est une semaine (lundi → dimanche).")
+            ligneAide("Barre orange : votre charge d'activité de la semaine comparée à votre normale. Sur la ligne pointillée « normale » = semaine habituelle ; deux fois plus haut = deux fois plus d'activité que d'habitude.")
+            ligneAide("Votre normale = votre moyenne des 4 semaines précédentes, sans compter la semaine juste avant. Il faut donc 5 semaines d'activité enregistrée avant une semaine pour pouvoir la comparer.")
+            ligneAide("Colonne grise : ces 5 semaines d'historique n'existent pas encore — ce n'est pas une semaine sans sport.")
+            ligneAide("Courbe bleue : score glycémique moyen de la semaine (100 − GRI), sur l'échelle de droite.")
+            ligneAide("Traits verticaux pointillés : changements de dose de lente. Touchez une semaine pour son détail.")
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .padding(.top, 4)
+    }
+
+    private func ligneAide(_ texte: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text("•")
+            Text(texte).fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     /// `chartXSelection` retombe sur la date exacte du doigt, pas le début
@@ -190,7 +230,7 @@ struct PageCorrelationChargeGlycemie: View {
             HStack(spacing: 10) {
                 Text(semaineSelectionnee.formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: "fr_FR"))))
                     .font(.caption.bold())
-                Text(point.indiceCharge.map { "charge \(ecartFormate($0))" } ?? "charge indisponible")
+                Text(point.indiceCharge.map { "charge \(ecartFormate($0))" } ?? "pas assez de recul")
                     .font(.caption)
                     .foregroundStyle(teinteCharge)
                 if let score = point.score {
