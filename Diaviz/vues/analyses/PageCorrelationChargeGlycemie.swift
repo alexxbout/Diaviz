@@ -78,26 +78,21 @@ struct PageCorrelationChargeGlycemie: View {
                 .font(.subheadline.bold())
                 .foregroundStyle(.secondary)
 
-            HStack(spacing: 16) {
-                HStack(spacing: 5) {
-                    RoundedRectangle(cornerRadius: 2).fill(teinteCharge.opacity(0.6)).frame(width: 8, height: 8)
-                    Text("Charge vs référence")
+            // Une seule ligne ; si elle ne tient pas (grande police), repli
+            // sur deux lignes plutôt qu'un texte tronqué.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 14) {
+                    legendeCharge
+                    legendeScore
+                    legendeReference
                 }
-                HStack(spacing: 5) {
-                    Rectangle().fill(teinteScore).frame(width: 14, height: 2.5)
-                    Text("Score GRI (échelle de droite)")
-                }
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-
-            HStack(spacing: 5) {
-                HStack(spacing: 2) {
-                    ForEach(0..<3, id: \.self) { _ in
-                        Rectangle().fill(Color.gray).frame(width: 4, height: 1.5)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 14) {
+                        legendeCharge
+                        legendeScore
                     }
+                    legendeReference
                 }
-                Text("Référence")
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -200,6 +195,34 @@ struct PageCorrelationChargeGlycemie: View {
             }
         }
         .frame(height: 220)
+    }
+
+    private var legendeCharge: some View {
+        HStack(spacing: 5) {
+            RoundedRectangle(cornerRadius: 2).fill(teinteCharge.opacity(0.6)).frame(width: 8, height: 8)
+            Text("Charge vs référence")
+        }
+        .fixedSize()
+    }
+
+    private var legendeScore: some View {
+        HStack(spacing: 5) {
+            Rectangle().fill(teinteScore).frame(width: 14, height: 2.5)
+            Text("Score GRI")
+        }
+        .fixedSize()
+    }
+
+    private var legendeReference: some View {
+        HStack(spacing: 5) {
+            HStack(spacing: 2) {
+                ForEach(0..<3, id: \.self) { _ in
+                    Rectangle().fill(Color.gray).frame(width: 4, height: 1.5)
+                }
+            }
+            Text("Référence")
+        }
+        .fixedSize()
     }
 
     /// Mode d'emploi, replié par défaut (même patron que « Zones de la
