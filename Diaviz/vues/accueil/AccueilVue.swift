@@ -310,12 +310,20 @@ struct AccueilVue: View {
                                         ))
                                 }
 
+                                // Toujours présente : pendant la lecture
+                                // d'Apple Santé, même carte en placeholder —
+                                // pas de saut de mise en page à l'arrivée.
                                 if let contexte = chargeActive.contexte, !contexte.jours.isEmpty {
                                     CarteChargeActivite(
                                         jours: contexte.jours,
                                         marcheIncluse: contexte.marcheIncluse,
                                         onTap: { afficherPageCharge = true }
                                     )
+                                } else {
+                                    CarteChargeActivite(jours: [], marcheIncluse: true, onTap: {})
+                                        .redacted(reason: .placeholder)
+                                        .disabled(true)
+                                        .accessibilityLabel("Activité, chargement")
                                 }
 
                                 // Tant que l'historique ne couvre pas assez de

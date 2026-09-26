@@ -35,6 +35,10 @@ final class ChargeActiveService {
     /// les séances du hub changent (saisie, import), pour ne pas relire des
     /// mois de pas à chaque mutation.
     private var cacheSante: (workouts: [WorkoutPourCharge], bouts: [BoutMarche]?, premierPas: Date?)?
+    private var dernierPassageComplet: Date?
+
+    /// Au-delà, un retour sur l'onglet Analyses relit Apple Santé.
+    static let fraicheurSante: TimeInterval = 15 * 60
 
     /// Passage complet : Apple Santé (pas, workouts, FC) + hub.
     func recalculer(contexte modelContext: ModelContext) async {
@@ -46,15 +50,30 @@ final class ChargeActiveService {
         let fenetre = DateInterval(start: borne, end: maintenant)
 
         await lecteur.demanderAcces()
-        let workouts = await lecteur.workouts(sur: DateInterval(start: Self.borneHub(borne), end: maintenant))
-        let premierPas = await lecteur.premierPas()
+        // Lectures indépendantes lancées ensemble.
+        async let workoutsLus = lecteur.workouts(sur: DateInterval(start: Self.borneHub(borne), end: maintenant))
+        async let premierPasLu = lecteur.premierPas()
+        async let heuresLues = lecteur.pasParHeure(sur: fenetre)
+        let (workouts, premierPas, heures) = await (workoutsLus, premierPasLu, heuresLues)
         var bouts: [BoutMarche]?
         if premierPas != nil {
-            let plages = CalculChargeActive.plagesCandidates(pasParHeure: await lecteur.pasParHeure(sur: fenetre))
+            let plages = CalculChargeActive.plagesCandidates(pasParHeure: heures)
             bouts = CalculChargeActive.boutsMarche(pasParMinute: await lecteur.pasParMinute(plages: plages))
         }
         cacheSante = (workouts, bouts, premierPas)
+        dernierPassageComplet = maintenant
         await assembler(modelContext: modelContext, maintenant: maintenant)
+    }
+
+    /// Retour sur un écran : relit Apple Santé seulement si le dernier
+    /// passage complet date de plus de `fraicheurSante`, sinon réassemble
+    /// avec les faits en cache (quasi instantané).
+    func recalculerSiNecessaire(contexte modelContext: ModelContext) async {
+        if let dernierPassageComplet, Date().timeIntervalSince(dernierPassageComplet) < Self.fraicheurSante {
+            await assembler(modelContext: modelContext, maintenant: Date())
+        } else {
+            await recalculer(contexte: modelContext)
+        }
     }
 
     /// Séances du hub modifiées : réassemble avec les faits Santé en cache.
@@ -103,7 +122,7 @@ final class ChargeActiveService {
         let intervallesSeances = seances.map { DateInterval(start: $0.debut, end: $0.fin) }
             + sante.workouts.map(\.intervalle)
         let bouts = sante.bouts.map { CalculChargeActive.exclureChevauchements($0, seances: intervallesSeances) }
-        let debutHistorique = [sante.premierPas, premiereSeance].compactMap { $0 }.min()
+        let debutHistorique = CalculChargeActive.debutHistorique(premierPas: sante.premierPas, premiereSeance: premiereSeance)
 
         Logger.sante.info("Charge active : \(seances.count, privacy: .public) séances, \(bouts?.count ?? -1, privacy: .public) bouts de marche")
 

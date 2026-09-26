@@ -65,14 +65,19 @@ nonisolated struct HealthKitChargeActiveLecteur: Sendable {
 
     /// Pas par minute sur chaque plage candidate. HealthKit fusionne les
     /// sources (iPhone + montre) et répartit les échantillons au prorata des
-    /// buckets : pas de double comptage.
+    /// buckets : pas de double comptage. Plages lues en parallèle.
     func pasParMinute(plages: [DateInterval]) async -> [PasMinute] {
-        var minutes: [PasMinute] = []
-        for plage in plages {
-            minutes += await sommes(de: plage.start, a: plage.end, pas: DateComponents(minute: 1))
-                .map { PasMinute(debut: $0.debut, pas: $0.pas) }
+        await withTaskGroup(of: [PasMinute].self) { groupe in
+            for plage in plages {
+                groupe.addTask {
+                    await sommes(de: plage.start, a: plage.end, pas: DateComponents(minute: 1))
+                        .map { PasMinute(debut: $0.debut, pas: $0.pas) }
+                }
+            }
+            var minutes: [PasMinute] = []
+            for await lot in groupe { minutes += lot }
+            return minutes
         }
-        return minutes
     }
 
     /// Tous les workouts Apple Santé de `intervalle`, importés ou non dans le

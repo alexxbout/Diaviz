@@ -322,7 +322,7 @@ struct PageCorrelationChargeGlycemie: View {
 
     private var tranchesDerive: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Dérive basale selon votre charge")
+            Text("Dérive basale selon la charge active du jour")
                 .font(.subheadline.bold())
                 .foregroundStyle(.secondary)
             Text("Dérive moyenne de la nuit profonde (B1), nuits groupées par charge active du jour")
@@ -469,14 +469,14 @@ private struct CarteChargeActiveIndice: View {
 
     private func texteIndice(_ indice: Double) -> String {
         let ecart = Int(((indice - 1) * 100).rounded())
-        if ecart == 0 { return "Au niveau de votre normale" }
+        if ecart == 0 { return "Au niveau de votre normale aujourd'hui" }
         let signe = ecart > 0 ? "+" : "\u{2212}"
-        return "\(signe)\(abs(ecart)) % par rapport à votre normale"
+        return "\(signe)\(abs(ecart)) % par rapport à votre normale aujourd'hui"
     }
 
     private func texteSources(_ synthese: SyntheseChargeActive) -> String {
         synthese.marcheIncluse
-            ? "Séances et marche soutenue, décroissance sur 24 h. Normale : 4 semaines, hors semaine en cours."
+            ? "Moyenne de la journée. Séances et marche soutenue, décroissance sur 24 h. Normale : 4 semaines, hors semaine en cours."
             : "Partiel : séances seules — pas non lus depuis Apple Santé."
     }
 

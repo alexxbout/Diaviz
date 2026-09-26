@@ -338,4 +338,34 @@ struct CalculChargeActiveTests {
         #expect(r.map(\.niveau) == [nil, nil, .normale, .normale, .normale, .haute])
         #expect(r.last?.depuisJours == 3)
     }
+
+    @Test("Début d'historique : la plus tardive des deux sources présentes")
+    func debutHistorique() {
+        let ancien = Fixtures.reference
+        let recent = Fixtures.instant(plusHeures: 24 * 400)
+        #expect(CalculChargeActive.debutHistorique(premierPas: ancien, premiereSeance: recent) == recent)
+        #expect(CalculChargeActive.debutHistorique(premierPas: recent, premiereSeance: ancien) == recent)
+        #expect(CalculChargeActive.debutHistorique(premierPas: nil, premiereSeance: ancien) == ancien)
+        #expect(CalculChargeActive.debutHistorique(premierPas: ancien, premiereSeance: nil) == ancien)
+        #expect(CalculChargeActive.debutHistorique(premierPas: nil, premiereSeance: nil) == nil)
+    }
+
+    @Test("L'indice affiché est celui du jour (même lecture que le niveau), pas la valeur à l'instant")
+    func indiceAfficheDuJour() {
+        let (contexte, maintenant) = contexteRegulierPuisArret()
+        let jourPasse = Fixtures.instant(plusHeures: 80 * 24)
+        let apresSeance = contexte.synthese(a: jourPasse.addingTimeInterval(18.5 * 3600))
+        guard case let .disponible(indice, _, _) = apresSeance.etat else {
+            Issue.record("indice attendu"); return
+        }
+        let duJour = contexte.jour(contenant: jourPasse)?.indice
+        // Juste après la séance, l'indice lu reste la moyenne de la journée,
+        // proche de 1 — loin du pic instantané du stock.
+        #expect(abs(indice - 1) < 0.3)
+        #expect(duJour.map { abs($0 - 1) < 0.1 } == true)
+        guard case let .disponible(indiceMaintenant, _, _) = contexte.synthese(a: maintenant).etat else {
+            Issue.record("indice attendu"); return
+        }
+        #expect(indiceMaintenant == contexte.jours.last?.indice)
+    }
 }

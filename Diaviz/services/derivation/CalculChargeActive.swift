@@ -81,7 +81,10 @@ nonisolated enum EtatChargeActive: Sendable, Equatable {
     /// est nulle, un rapport n'a pas de sens (et « charge basse » serait un
     /// faux constat).
     case aucuneActiviteDeReference
-    /// `indice` = charge active à l'instant / normale personnelle.
+    /// `indice` = moyenne du stock sur la journée (jusqu'à l'instant lu) /
+    /// normale personnelle — la même lecture que celle qui fixe le niveau.
+    /// La valeur à l'instant, qui bondit juste après chaque séance, n'est
+    /// plus affichée : « normale » à côté de « +53 % » se contredisait.
     /// `depuisJours` = jours depuis la dernière bascule de niveau, `nil` si
     /// aucune bascule observée.
     case disponible(indice: Double, niveau: NiveauChargeActive, depuisJours: Int?)
@@ -148,8 +151,9 @@ nonisolated struct ContexteChargeActive: Sendable {
         Dictionary(jours.compactMap { j in j.niveau.map { (j.jour, $0) } }, uniquingKeysWith: { a, _ in a })
     }
 
-    /// Lecture à un instant : indice instantané, niveau du jour. Hors
-    /// horizon, le niveau est rejoué à la demande sur les mêmes apports.
+    /// Lecture à un instant : indice et niveau du jour qui le contient (jour
+    /// passé : moyenne de toute la journée ; aujourd'hui : jusqu'au dernier
+    /// calcul). Hors horizon, le jour est rejoué à la demande.
     func synthese(a instant: Date) -> SyntheseChargeActive {
         let normale = CalculChargeActive.normale(a: instant, contributions: contributions, calendrier: calendrier)
         guard CalculChargeActive.reculSuffisant(a: instant, debutHistorique: debutHistorique, calendrier: calendrier),
@@ -158,7 +162,6 @@ nonisolated struct ContexteChargeActive: Sendable {
         guard normale > 0 else {
             return SyntheseChargeActive(etat: .aucuneActiviteDeReference, marcheIncluse: marcheIncluse)
         }
-        let indice = CalculChargeActive.chargeActive(a: instant, contributions: contributions) / normale
         let jourConnu = jour(contenant: instant).flatMap { $0.niveau == nil ? nil : $0 }
         let jourLu = jourConnu ?? CalculChargeActive.jours(
             contributions: contributions, seances: [], bouts: [], debutHistorique: debutHistorique,
@@ -167,6 +170,8 @@ nonisolated struct ContexteChargeActive: Sendable {
         guard let niveau = jourLu?.niveau else {
             return SyntheseChargeActive(etat: .pasAssezDeRecul, marcheIncluse: marcheIncluse)
         }
+        let indice = jourLu?.indice
+            ?? CalculChargeActive.chargeActive(a: instant, contributions: contributions) / normale
         return SyntheseChargeActive(
             etat: .disponible(indice: indice, niveau: niveau, depuisJours: jourLu?.depuisJours),
             marcheIncluse: marcheIncluse
@@ -313,6 +318,15 @@ nonisolated enum CalculChargeActive {
               let debut = calendrier.date(byAdding: .day, value: -fenetreNormaleJours, to: fin)
         else { return nil }
         return moyenneChargeActive(de: debut, a: fin, contributions: contributions)
+    }
+
+    /// Début de l'historique exploitable : la date **la plus tardive** des
+    /// sources présentes. Les pas remontent souvent à des années, mais les
+    /// séances ne sont saisies que depuis la première du hub : avant elle,
+    /// une normale ne verrait que la marche et serait sous-estimée — l'indice
+    /// exploserait (constaté sur les premières semaines d'historique).
+    static func debutHistorique(premierPas: Date?, premiereSeance: Date?) -> Date? {
+        [premierPas, premiereSeance].compactMap { $0 }.max()
     }
 
     /// L'historique couvre-t-il toute la fenêtre de la normale lue en `instant` ?
