@@ -65,13 +65,19 @@ nonisolated enum NiveauChargeActive: String, Sendable, Equatable, CaseIterable {
     var libelle: String {
         switch self {
         case .basse:   "Charge active basse"
-        case .normale: "Charge active normale"
+        case .normale: "Charge active dans la référence"
         case .haute:   "Charge active haute"
         }
     }
 
-    /// « basse » / « normale » / « haute » — pour les pastilles.
-    var libelleCourt: String { rawValue }
+    /// « basse » / « dans la référence » / « haute » — pour les pastilles.
+    var libelleCourt: String {
+        switch self {
+        case .basse:   "basse"
+        case .normale: "dans la référence"
+        case .haute:   "haute"
+        }
+    }
 }
 
 nonisolated enum EtatChargeActive: Sendable, Equatable {

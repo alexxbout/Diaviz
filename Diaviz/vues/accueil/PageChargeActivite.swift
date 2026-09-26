@@ -30,7 +30,7 @@ struct PageChargeActivite: View {
                 totaux
                 graphique
                 Label(
-                    "Marche soutenue : au moins 10 minutes d'affilée à 100 pas/min ou plus, hors séance enregistrée. La lecture relative à votre normale est dans Analyses → Charge et glycémie.",
+                    "Marche soutenue : au moins 10 minutes d'affilée à 100 pas/min ou plus, hors séance enregistrée. La comparaison à votre référence est dans Analyses, Charge et glycémie.",
                     systemImage: "info.circle"
                 )
                 .font(.footnote)
