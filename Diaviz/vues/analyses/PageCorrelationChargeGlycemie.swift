@@ -96,6 +96,17 @@ struct PageCorrelationChargeGlycemie: View {
             .font(.caption)
             .foregroundStyle(.secondary)
 
+            HStack(spacing: 5) {
+                HStack(spacing: 2) {
+                    ForEach(0..<3, id: \.self) { _ in
+                        Rectangle().fill(Color.primary.opacity(0.7)).frame(width: 4, height: 1.5)
+                    }
+                }
+                Text("Référence : votre moyenne habituelle")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
             graphique
 
             aideLecture
@@ -104,8 +115,8 @@ struct PageCorrelationChargeGlycemie: View {
         .background(Color(.secondarySystemGroupedBackground), in: NiveauCarte.carte.forme)
     }
 
-    /// Un seul graphique : barres de charge (échelle implicite, % d'écart
-    /// écrit au-dessus de chaque barre, ligne « référence » neutre devant)
+    /// Un seul graphique : barres de charge (lues contre la ligne de
+    /// référence neutre dessinée devant, nommée dans la légende)
     /// et score GRI rapporté sur la même hauteur, gradué à droite de 0 à 100.
     private var graphique: some View {
         Chart {
@@ -116,11 +127,6 @@ struct PageCorrelationChargeGlycemie: View {
                 )
                 .foregroundStyle(teinteCharge.opacity(estAttenuee(point.debutSemaine) ? 0.2 : 0.6))
                 .cornerRadius(3)
-                .annotation(position: .top, spacing: 2) {
-                    Text(ecartFormate(point.indiceCharge ?? 1))
-                        .font(.caption2.bold())
-                        .foregroundStyle(.secondary)
-                }
             }
 
             ForEach(synthese.semaines.filter { $0.score != nil }) { point in
@@ -138,11 +144,6 @@ struct PageCorrelationChargeGlycemie: View {
             RuleMark(y: .value("Référence", 1.0))
                 .foregroundStyle(Color.primary.opacity(0.7))
                 .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
-                .annotation(position: .top, alignment: .leading, spacing: 2) {
-                    Text("référence")
-                        .font(.caption2.bold())
-                        .foregroundStyle(.primary)
-                }
 
             if let semaineSelectionnee {
                 RuleMark(x: .value("Semaine sélectionnée", semaineSelectionnee, unit: .weekOfYear))
@@ -160,7 +161,7 @@ struct PageCorrelationChargeGlycemie: View {
         }
         .chartYAxis {
             // Seule échelle graduée : celle du score. La charge se lit par
-            // rapport à la ligne « référence » et au % de chaque barre.
+            // rapport à la ligne de référence ; le % exact au tap.
             AxisMarks(position: .trailing, values: [0, maxCharge / 2, maxCharge]) { value in
                 AxisGridLine()
                 AxisValueLabel {
@@ -179,7 +180,7 @@ struct PageCorrelationChargeGlycemie: View {
     /// Mode d'emploi court, toujours visible.
     private var aideLecture: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ligneAide("Barre orange : votre charge de la semaine. À la hauteur de la ligne « référence », semaine habituelle. Le % au-dessus dit l'écart.")
+            ligneAide("Barre orange : votre charge de la semaine. À la hauteur de la ligne pointillée, semaine habituelle. Touchez une semaine pour l'écart en %.")
             ligneAide("Référence : votre moyenne des 4 semaines précédentes, hors semaine juste avant.")
             ligneAide("Pas de barre : moins de 5 semaines d'historique avant cette semaine, pas encore de comparaison possible.")
             ligneAide("Courbe bleue : score GRI moyen de la semaine, sur 100, échelle de droite.")
