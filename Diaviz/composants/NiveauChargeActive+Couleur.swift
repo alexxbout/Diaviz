@@ -29,7 +29,7 @@ extension SyntheseChargeActive {
 }
 
 /// Ligne « flamme + niveau » affichée sous un verdict (nuit B1) quand la
-/// charge active sort de la normale — contexte corrélé, jamais une cause.
+/// charge active sort de la référence — contexte corrélé, jamais une cause.
 struct LigneChargeHorsNormale: View {
 
     let synthese: SyntheseChargeActive?

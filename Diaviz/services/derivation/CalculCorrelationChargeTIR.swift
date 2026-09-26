@@ -24,15 +24,6 @@ nonisolated struct PointSemaineCorrelation: Sendable, Equatable, Identifiable {
     var id: Date { debutSemaine }
 }
 
-/// Un changement de dose de lente détecté dans la fenêtre — simple repère
-/// visuel sur la chronologie, pas la détection de palier complète de B1
-/// (`CalculAnalyseBasale`) : ici on ne fait que marquer où la dose a changé.
-nonisolated struct MarqueurChangementDose: Sendable, Equatable, Identifiable {
-    let date: Date
-    let dose: Double
-    var id: Date { date }
-}
-
 /// Niveau de charge active et TIR moyen des **jours** qui y tombent — même
 /// niveau (hystérésis comprise) que partout ailleurs dans l'app. **Pas de
 /// seuil minimal d'affichage** — `n` est toujours montré à côté du chiffre,
@@ -61,7 +52,6 @@ nonisolated struct TrancheDeriveBasale: Sendable, Equatable, Identifiable {
 nonisolated struct SyntheseCorrelationChargeTIR: Sendable, Equatable {
     /// Chronologique, plus ancienne en premier.
     let semaines: [PointSemaineCorrelation]
-    let changementsDose: [MarqueurChangementDose]
     /// Une entrée par niveau, toujours les 3 — `nombreJours` peut être 0.
     let tranches: [TrancheChargeTIR]
     /// Une entrée par niveau — vide si aucune nuit B1 fournie à `analyser`.
@@ -74,15 +64,15 @@ extension SyntheseCorrelationChargeTIR {
     /// `vide` ne sert qu'à donner un `SyntheseCorrelationChargeTIR` non
     /// optionnel à la page poussée si jamais la navigation était forcée.
     static var vide: SyntheseCorrelationChargeTIR {
-        SyntheseCorrelationChargeTIR(semaines: [], changementsDose: [], tranches: [], tranchesDerive: [])
+        SyntheseCorrelationChargeTIR(semaines: [], tranches: [], tranchesDerive: [])
     }
 }
 
 // MARK: - Calculateur
 
 /// Corrèle, semaine par semaine, la charge active (`ContexteChargeActive`),
-/// le temps dans la cible (TIR) et la dérive basale moyenne (B1, nuit
-/// profonde), avec les changements de dose de lente comme repères temporels.
+/// le score GRI et le temps dans la cible (TIR), puis regroupe TIR et
+/// dérive basale (B1, nuit profonde) par niveau de charge active du jour.
 /// Purement descriptif — **co-occurrence affichée, jamais une cause
 /// affirmée**.
 ///
@@ -98,7 +88,6 @@ nonisolated enum CalculCorrelationChargeTIR {
     static func analyser(
         charge: ContexteChargeActive,
         glucoses: [(date: Date, valeur: Int)],
-        lentes: [(date: Date, dose: Double)],
         nuitsDerive: [(date: Date, derive: Double)] = [],
         maintenant: Date = Date(),
         calendrier: Calendar = .current
@@ -120,7 +109,6 @@ nonisolated enum CalculCorrelationChargeTIR {
         }
 
         let debutFenetre = debutsSemaines.first ?? debutSemaineCourante
-        let changements = changementsDose(depuis: lentes, fenetre: debutFenetre)
 
         // TIR par jour, regroupé selon le niveau de charge active du jour.
         var mesuresParJour: [Date: [(date: Date, valeur: Int)]] = [:]
@@ -150,7 +138,7 @@ nonisolated enum CalculCorrelationChargeTIR {
         }
 
         return SyntheseCorrelationChargeTIR(
-            semaines: semaines, changementsDose: changements, tranches: tranches, tranchesDerive: tranchesDerive
+            semaines: semaines, tranches: tranches, tranchesDerive: tranchesDerive
         )
     }
 
@@ -174,27 +162,6 @@ nonisolated enum CalculCorrelationChargeTIR {
             + 1.6 * pct { $0 > 250 }
             + 0.8 * pct { (181...250).contains($0) }
         return max(0, min(100, 100 - gri))
-    }
-
-    /// Un marqueur par changement de valeur de dose, en ordre chronologique
-    /// — regroupement simple, pas la détection de palier complète de B1.
-    private static func changementsDose(
-        depuis lentes: [(date: Date, dose: Double)], fenetre debut: Date
-    ) -> [MarqueurChangementDose] {
-        let triees = lentes.filter { $0.date >= debut }.sorted { $0.date < $1.date }
-        var marqueurs: [MarqueurChangementDose] = []
-        var doseCourante: Double?
-        for lente in triees {
-            if doseCourante == nil {
-                doseCourante = lente.dose
-                continue
-            }
-            if lente.dose != doseCourante {
-                marqueurs.append(MarqueurChangementDose(date: lente.date, dose: lente.dose))
-                doseCourante = lente.dose
-            }
-        }
-        return marqueurs
     }
 
     private static func debutDeSemaine(_ date: Date, calendrier: Calendar) -> Date {

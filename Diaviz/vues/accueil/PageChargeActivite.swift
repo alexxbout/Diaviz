@@ -9,7 +9,7 @@ import SwiftUI
 /// Page de détail « Activité » — pushée depuis `CarteChargeActivite`.
 /// Faits bruts des 14 derniers jours : séances et marche soutenue, en
 /// minutes, empilées par jour. **Aucune interprétation** : le niveau de
-/// charge active (relatif à la normale) vit dans Analyses → Charge et
+/// charge active (relatif à la référence) vit dans Analyses → Charge et
 /// glycémie.
 struct PageChargeActivite: View {
 

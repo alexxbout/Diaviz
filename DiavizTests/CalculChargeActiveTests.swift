@@ -19,7 +19,7 @@ struct CalculChargeActiveTests {
     }
 
     private func apport(_ charge: Double, plusHeures heures: Double) -> ContributionCharge {
-        ContributionCharge(instant: Fixtures.instant(plusHeures: heures), charge: charge, source: .seance)
+        ContributionCharge(instant: Fixtures.instant(plusHeures: heures), charge: charge)
     }
 
     private func seance(finAPlusHeures heures: Double, dureeMin: Int = 60, intensite: IntensiteSport = .moderee) -> SeancePourCharge {

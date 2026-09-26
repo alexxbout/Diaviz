@@ -49,10 +49,8 @@ nonisolated struct BoutMarche: Sendable, Equatable, Codable {
 /// Apport élémentaire au stock : `charge` réalisée à `instant` (fin de la
 /// séance ou du bout de marche), puis décroissance exponentielle.
 nonisolated struct ContributionCharge: Sendable, Equatable {
-    enum Source: Sendable, Equatable { case seance, marche }
     let instant: Date
     let charge: Double
-    let source: Source
 }
 
 // MARK: - Résultat
@@ -514,8 +512,8 @@ nonisolated enum CalculChargeActive {
     // MARK: Assemblage
 
     static func contributions(seances: [SeancePourCharge], bouts: [BoutMarche]) -> [ContributionCharge] {
-        seances.map { ContributionCharge(instant: $0.fin, charge: charge($0), source: .seance) }
-            + bouts.map { ContributionCharge(instant: $0.fin, charge: charge($0), source: .marche) }
+        seances.map { ContributionCharge(instant: $0.fin, charge: charge($0)) }
+            + bouts.map { ContributionCharge(instant: $0.fin, charge: charge($0)) }
     }
 
     /// Contexte partagé sur `horizonJours` jours jusqu'à `maintenant`.

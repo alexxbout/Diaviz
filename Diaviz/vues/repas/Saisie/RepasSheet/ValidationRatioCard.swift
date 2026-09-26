@@ -16,7 +16,7 @@ import SwiftUI
 struct ValidationRatioCard: View {
 
     let validation: ValidationRatio
-    /// Charge d'activité continue (7j vs normale perso), affichée quel que
+    /// Charge active au moment du repas (niveau vs référence), affichée quel que
     /// soit le ratio en vigueur — contrairement au ratio post-sport, elle
     /// ne dépend pas d'une séance récente précise. `nil` si indisponible.
     var chargeSynthese: SyntheseChargeActive? = nil

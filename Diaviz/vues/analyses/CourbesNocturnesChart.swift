@@ -1094,7 +1094,7 @@ private struct CarteVerdictNuit: View {
     /// afficher les vraies nuits retenues (chacune colorée par sa catégorie).
     var nights: [NightChartData] = []
     /// Charge active le jour de cette nuit — contexte corrélé au verdict,
-    /// jamais présenté comme cause. Affichée seulement hors normale.
+    /// jamais présenté comme cause. Affichée seulement hors référence.
     var chargeSynthese: SyntheseChargeActive? = nil
 
     /// Seuil de stabilité (± mg/dL) — même source que le calculateur.
