@@ -102,7 +102,7 @@ struct PageCorrelationChargeGlycemie: View {
                         Rectangle().fill(Color.gray).frame(width: 4, height: 1.5)
                     }
                 }
-                Text("Référence (touchez une semaine pour la sienne)")
+                Text("Référence")
             }
             .font(.caption)
             .foregroundStyle(.secondary)
