@@ -104,10 +104,6 @@ struct PageCorrelationChargeGlycemie: View {
 
             graphique
 
-            // Détail de la semaine touchée, sous le graphique : pas d'espace
-            // réservé au-dessus, et le graphique ne bouge pas à la sélection.
-            detailSelection
-
             aideLecture
         }
         .padding(16)
@@ -173,20 +169,64 @@ struct PageCorrelationChargeGlycemie: View {
             }
         }
         .chartXSelection(value: semaineSelectionneeBrute)
+        // Bulle d'info au doigt, même patron que le graphique d'une nuit B1
+        // (`CourbesNocturnesChart`) : posée en haut de la zone de tracé,
+        // bornée pour ne pas en sortir, rien ne bouge autour.
+        .chartOverlay { proxy in
+            GeometryReader { geo in
+                if let plotFrame = proxy.plotFrame,
+                   let semaineSelectionnee,
+                   let point = synthese.semaines.first(where: { $0.debutSemaine == semaineSelectionnee }),
+                   let x = proxy.position(forX: semaineSelectionnee) {
+                    let zone = geo[plotFrame]
+                    let largeur = min(zone.width - 8, 240)
+                    BulleSemaine(
+                        debutSemaine: point.debutSemaine,
+                        charge: point.indiceCharge.map { "Charge \(ecartFormate($0))" } ?? "Charge : pas assez de recul",
+                        score: point.score.map { "GRI \(Int($0.rounded()))" },
+                        reference: texteReference(semaine: point.debutSemaine),
+                        teinteCharge: teinteCharge,
+                        teinteScore: teinteScore
+                    )
+                    .frame(width: largeur)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .position(
+                        x: min(max(zone.minX + x, zone.minX + largeur / 2), zone.maxX - largeur / 2),
+                        y: zone.minY + 36
+                    )
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+                }
+            }
+        }
         .frame(height: 220)
     }
 
-    /// Mode d'emploi court, toujours visible.
+    /// Mode d'emploi, replié par défaut (même patron que « Zones de la
+    /// nuit » de B1) : utile une fois, encombrant ensuite.
+    @State private var aideDepliee = false
+
     private var aideLecture: some View {
+        DisclosureGroup(isExpanded: $aideDepliee) {
+            contenuAide
+                .padding(.top, 8)
+        } label: {
+            Text("Comment lire ce graphique")
+                .font(.subheadline.bold())
+                .foregroundStyle(.secondary)
+        }
+        .padding(.top, 4)
+    }
+
+    private var contenuAide: some View {
         VStack(alignment: .leading, spacing: 6) {
             ligneAide("Barre orange : votre charge de la semaine. À la hauteur de la ligne pointillée, semaine habituelle. Touchez une semaine pour l'écart en %.")
-            ligneAide("Référence : votre moyenne des 4 semaines précédentes, hors semaine juste avant. Chaque semaine a donc la sienne : touchez une semaine pour la voir.")
+            ligneAide("Référence : votre moyenne des 4 semaines précédentes, hors semaine juste avant. Chaque semaine a donc la sienne : glissez le doigt sur le graphique pour la voir.")
             ligneAide("Pas de barre : moins de 5 semaines d'historique avant cette semaine, pas encore de comparaison possible.")
             ligneAide("Courbe bleue : score GRI moyen de la semaine, sur 100, échelle de droite.")
         }
         .font(.caption)
         .foregroundStyle(.secondary)
-        .padding(.top, 4)
     }
 
     private func ligneAide(_ texte: String) -> some View {
@@ -209,31 +249,6 @@ struct PageCorrelationChargeGlycemie: View {
                 }?.debutSemaine
             }
         )
-    }
-
-    @ViewBuilder
-    private var detailSelection: some View {
-        if let semaineSelectionnee, let point = synthese.semaines.first(where: { $0.debutSemaine == semaineSelectionnee }) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Semaine du \(semaineSelectionnee.formatted(.dateTime.day().month(.wide).locale(Locale(identifier: "fr_FR"))))")
-                    .font(.subheadline.bold())
-                HStack(spacing: 10) {
-                    Text(point.indiceCharge.map { "Charge \(ecartFormate($0))" } ?? "Charge : pas assez de recul")
-                        .foregroundStyle(teinteCharge)
-                    Text(point.score.map { "Score GRI \(Int($0.rounded()))" } ?? "Score GRI indisponible")
-                        .foregroundStyle(point.score == nil ? Color.secondary : teinteScore)
-                }
-                .font(.caption.bold())
-                if let reference = texteReference(semaine: point.debutSemaine) {
-                    Text(reference)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityElement(children: .combine)
-        }
     }
 
     /// Référence **de la semaine touchée**, en faits : chaque barre a la
@@ -481,6 +496,52 @@ private struct CarteChargeActiveIndice: View {
         case .haute:   .blue
         case .normale: .primary
         }
+    }
+}
+
+// MARK: - Bulle de la semaine
+
+/// Bulle d'info affichée au doigt sur la chronologie — même traitement que
+/// la bulle de valeur du graphique d'une nuit B1 (fond système, coins 12,
+/// ombre légère).
+private struct BulleSemaine: View {
+    let debutSemaine: Date
+    let charge: String
+    let score: String?
+    let reference: String?
+    let teinteCharge: Color
+    let teinteScore: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Semaine du \(debutSemaine.formatted(.dateTime.day().month(.wide).locale(Locale(identifier: "fr_FR"))))")
+                .font(.caption.bold())
+            HStack(spacing: 8) {
+                Text(charge).foregroundStyle(teinteCharge)
+                Text(score ?? "GRI indisponible").foregroundStyle(score == nil ? Color.secondary : teinteScore)
+            }
+            .font(.caption.weight(.semibold))
+            .monospacedDigit()
+            if let reference {
+                Text(reference)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(.systemBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color.secondary.opacity(0.15), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.10), radius: 8, y: 2)
+        .accessibilityElement(children: .combine)
     }
 }
 
