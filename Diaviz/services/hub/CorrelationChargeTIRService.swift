@@ -9,7 +9,7 @@ import SwiftData
 
 /// Service **réel** de la page « Charge et équilibre glycémique » — lit le
 /// contexte partagé de charge active (`ChargeActiveService`, à calculer
-/// avant), `GlucoseReading` et les injections de lente sur la
+/// avant) et `GlucoseReading` sur la
 /// fenêtre de `CalculCorrelationChargeTIR.nombreSemaines`, délègue à
 /// `CalculCorrelationChargeTIR` (pur). Pattern aligné sur les autres
 /// services hub : `synthese` démarre `nil`, peuplé à `demarrer`.
@@ -50,16 +50,10 @@ final class CorrelationChargeTIRService {
             FetchDescriptor<GlucoseReading>(predicate: #Predicate { $0.date >= borne })
         )) ?? []
 
-        let typeLente = TypeInsuline.lente
-        let lentes = (try? contexte.fetch(
-            FetchDescriptor<Injection>(predicate: #Predicate { $0.heure >= borne && $0.type == typeLente })
-        )) ?? []
-
         let (entrees, config) = chargerEntreesB1(contexte: contexte, borne: borne)
 
         let charge = ChargeActiveService.shared.contexte ?? .vide
         let glucosesMappes = glucoses.map { (date: $0.date, valeur: $0.valeur) }
-        let lentesMappees = lentes.map { (date: $0.heure, dose: $0.dose) }
 
         synthese = await Task.detached(priority: .userInitiated) {
             let detail = CalculAnalyseBasale.analyser(entrees: entrees, config: config)
@@ -67,7 +61,6 @@ final class CorrelationChargeTIRService {
             return CalculCorrelationChargeTIR.analyser(
                 charge: charge,
                 glucoses: glucosesMappes,
-                lentes: lentesMappees,
                 nuitsDerive: nuitsDerive
             )
         }.value
@@ -169,12 +162,6 @@ extension SyntheseCorrelationChargeTIR {
         }
         return SyntheseCorrelationChargeTIR(
             semaines: semaines,
-            changementsDose: [
-                MarqueurChangementDose(
-                    date: cal.date(byAdding: .day, value: 7 * 4, to: debut) ?? debut,
-                    dose: 20
-                )
-            ],
             tranches: [
                 TrancheChargeTIR(niveau: .basse, tirMoyen: 54, nombreJours: 18),
                 TrancheChargeTIR(niveau: .normale, tirMoyen: 65, nombreJours: 31),

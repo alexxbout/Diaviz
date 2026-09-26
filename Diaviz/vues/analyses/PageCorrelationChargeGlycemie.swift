@@ -6,15 +6,15 @@
 import Charts
 import SwiftUI
 
-/// Page d'analyse « Charge et équilibre glycémique » — corrèle la charge
-/// d'activité continue, le temps dans la cible et la dérive basale moyenne
-/// (B1, nuit profonde) sur `CalculCorrelationChargeTIR.nombreSemaines`
-/// semaines, avec les changements de dose de lente comme repères temporels.
+/// Page d'analyse « Charge et glycémie » — indice et niveau de charge
+/// active, chronologie de la charge (vs référence) face au score GRI sur
+/// `CalculCorrelationChargeTIR.nombreSemaines` semaines, puis TIR et dérive
+/// basale (B1, nuit profonde) regroupés par niveau de charge active du jour.
 ///
 /// **Co-occurrence affichée, jamais une cause affirmée** — même garde-fou
 /// que partout ailleurs dans l'app (B2/B3 pour sport/glucides, etc.).
 /// Aucun seuil minimal n'empêche l'affichage d'une tranche : le nombre de
-/// semaines/nuits (`n=`) reste toujours visible à côté du chiffre, c'est lui
+/// jours/nuits (`n=`) reste toujours visible à côté du chiffre, c'est lui
 /// qui porte l'honnêteté de la mesure.
 struct PageCorrelationChargeGlycemie: View {
 
@@ -288,7 +288,7 @@ struct PageCorrelationChargeGlycemie: View {
         return texte + " par semaine"
     }
 
-    /// « +30 % » / « −15 % » par rapport à la normale — jamais le nombre brut.
+    /// « +30 % » / « −15 % » par rapport à la référence — jamais le nombre brut.
     private func ecartFormate(_ indice: Double) -> String {
         let pct = Int(((indice - 1) * 100).rounded())
         if pct == 0 { return "comme la référence" }
@@ -434,7 +434,7 @@ struct PageCorrelationChargeGlycemie: View {
 // MARK: - Charge active
 
 /// Indice de charge active et niveau (bande d'hystérésis) — **jamais le
-/// nombre brut**, toujours relatif à la normale personnelle. Affichage
+/// nombre brut**, toujours relatif à la référence personnelle. Affichage
 /// volontairement minimal : phase de confrontation au ressenti avant la
 /// frise des périodes (C1).
 private struct CarteChargeActiveIndice: View {

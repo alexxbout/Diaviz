@@ -39,7 +39,7 @@ struct CalculCorrelationChargeTIRTests {
             (Fixtures.instant(plusHeures: 63 * 24 + 10), 110),
         ]
         let synthese = CalculCorrelationChargeTIR.analyser(
-            charge: contexte, glucoses: glucoses, lentes: [],
+            charge: contexte, glucoses: glucoses,
             nuitsDerive: [(Fixtures.instant(plusHeures: 61 * 24 + 22), -12)],
             maintenant: Fixtures.instant(plusHeures: 64 * 24), calendrier: utc
         )
@@ -56,7 +56,7 @@ struct CalculCorrelationChargeTIRTests {
     @Test("Sans recul, les semaines n'ont pas d'indice de charge")
     func semainesSansRecul() {
         let synthese = CalculCorrelationChargeTIR.analyser(
-            charge: .vide, glucoses: [], lentes: [], maintenant: Fixtures.instant(plusHeures: 64 * 24), calendrier: utc
+            charge: .vide, glucoses: [], maintenant: Fixtures.instant(plusHeures: 64 * 24), calendrier: utc
         )
         #expect(synthese.semaines.count == CalculCorrelationChargeTIR.nombreSemaines)
         #expect(synthese.semaines.allSatisfy { $0.indiceCharge == nil })
