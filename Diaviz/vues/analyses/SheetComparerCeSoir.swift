@@ -13,14 +13,14 @@ import SwiftUI
 ///
 /// L'utilisateur saisit sa glycémie actuelle (le CGM ayant ~3h de retard,
 /// c'est la seule donnée que l'app ne connaît pas) ; le reste du contexte
-/// (dose de lente, charge 7 j, sport du jour, IOB) est **pré-rempli depuis le
+/// (dose de lente, charge active, sport du jour, IOB) est **pré-rempli depuis le
 /// hub**. La recherche remonte les soirs passés dont la glycémie de coucher
 /// est dans une **bande réglable** (slider ±10…±30 mg/dL), scindés « fini en
 /// hypo / resté stable », sur **60 nuits glissantes toutes doses confondues**
 /// (corpus `RechercheCoucher`, distinct de la fenêtre de dose du tableau).
 ///
 /// Le contexte de ce soir est proposé en **critères activables** (chips) :
-/// même sport, même type de séance, même charge de la semaine, insuline encore
+/// même sport, même type de séance, même niveau de charge active, insuline encore
 /// active. Ils se combinent en ET et rétrécissent le corpus.
 ///
 /// Chaque chip porte le **nombre de soirs qui resteraient** si on l'activait :
@@ -93,7 +93,7 @@ struct SheetComparerCeSoir: View {
         corpus = corpusApercu ?? RechercheCoucher.corpus(contexte: modelContext)
         contexteCeSoir = corpusApercu == nil
             ? RechercheCoucher.contexteCeSoir(contexte: modelContext, doseLente: doseActuelle)
-            : RechercheCoucher.ContexteCeSoir(doseLente: doseActuelle, charge: .moderee, sport: nil, iob: nil)
+            : RechercheCoucher.ContexteCeSoir(doseLente: doseActuelle, charge: .normale, sport: nil, iob: nil)
     }
 
     /// Nuit B1 du corpus correspondant à un soir (fenêtre de coucher, puis

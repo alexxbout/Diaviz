@@ -192,7 +192,7 @@ struct DetailAnalyseBasaleVue: View {
                     nights: analyse.nightChartData,
                     mode: $mode,
                     indexSelectionne: $indexSelectionne,
-                    chargePour: chargeContinue(pour:),
+                    chargePour: { ChargeActiveService.shared.contexte?.synthese(a: $0) },
                     sleepStages: sleepStages
                 )
                 TimelineNuitsVue(
@@ -260,21 +260,6 @@ struct DetailAnalyseBasaleVue: View {
             mode = .parNuit
             indexSelectionne = idx
         }
-    }
-
-    /// Charge d'activité des 45 jours précédant `nuit` — même signal que
-    /// l'accueil et le détail de soirée (`CalculChargeContinue`), pour lire
-    /// le verdict basale de cette nuit avec le même contexte (dette
-    /// technique B1, doc Eraser « B1 — Détection basale », V2 priorité
-    /// haute). Calculé à la demande (dataset petit, coût négligeable).
-    private func chargeContinue(pour nuit: Date) -> SyntheseChargeContinue {
-        let borne = Calendar.current.date(byAdding: .day, value: -45, to: nuit) ?? nuit
-        let descripteur = FetchDescriptor<ActiviteSportive>(
-            predicate: #Predicate { $0.dateDebut >= borne && $0.dateDebut <= nuit }
-        )
-        let activites = (try? modelContext.fetch(descripteur)) ?? []
-        let entrees = activites.map { (debut: $0.dateDebut, dureeMin: $0.dureeMinutes, intensite: $0.intensite) }
-        return CalculChargeContinue.analyser(activites: entrees, maintenant: nuit)
     }
 }
 

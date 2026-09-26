@@ -65,13 +65,12 @@ struct ChipContexte: View {
 
 // MARK: - Chip charge d'activité
 
-/// Pastille dédiée à la charge — mêmes proportions que `ChipContexte`, mais
-/// avec une flamme **colorée par intensité** en tête (bleu calme → orange
-/// modérée → rouge intense). Couleur partagée avec `BadgeChargeActivite`
-/// (`ChargeActivite.couleur`, source unique).
+/// Pastille dédiée à la charge active du jour — mêmes proportions que
+/// `ChipContexte`, avec une flamme **colorée par niveau** en tête
+/// (`NiveauChargeActive.couleur`, source unique).
 struct ChipCharge: View {
 
-    let charge: ChargeActivite
+    let charge: NiveauChargeActive
     var taille: TailleChip = .compacte
 
     var body: some View {
@@ -86,7 +85,7 @@ struct ChipCharge: View {
         .padding(.vertical, taille.padVertical)
         .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: taille.radius, style: .continuous))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Activité de la semaine : \(charge.libelle)")
+        .accessibilityLabel(charge.libelle)
     }
 }
 
@@ -189,10 +188,10 @@ extension SoirCoucher {
         return chips
     }
 
-    /// Charge affichée seulement quand elle « pèse » (modérée / intense) —
-    /// aucune / calme = contexte neutre, masqué pour ne pas noyer.
+    /// Charge affichée seulement quand elle sort de la normale — normale ou
+    /// inconnue = contexte neutre, masqué pour ne pas noyer.
     var chargeVisible: Bool {
-        charge == .moderee || charge == .intense
+        charge == .basse || charge == .haute
     }
 }
 
@@ -201,7 +200,7 @@ extension SoirCoucher {
 #if DEBUG
 #Preview("Chips soirée") {
     FlowLayout(spacing: 6) {
-        ChipCharge(charge: .intense)
+        ChipCharge(charge: .haute)
         ChipContexte(chip: .init(symbole: "syringe.fill", texte: "correction +4u", accent: true))
         ChipContexte(chip: .init(symbole: "drop.fill", texte: "IOB 1.5U", accent: false))
         ChipContexte(chip: .init(symbole: "figure.run", texte: "Course · 45 min", accent: false))

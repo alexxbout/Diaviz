@@ -31,7 +31,7 @@ nonisolated struct SoirCoucher: Identifiable, Sendable, Equatable {
     let sport: SportResume?
     /// IOB résiduel **avant** l'événement (correction exclue du calcul côté B3).
     let iob: Double?
-    let charge: ChargeActivite
+    let charge: NiveauChargeActive?
     /// Catégorie B1 de la même nuit (dérive zone 3) — `nil` si nuit non
     /// classée par B1 (exclue / sans données).
     let categorieB1: CategorieNuit?

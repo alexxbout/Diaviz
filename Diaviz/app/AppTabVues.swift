@@ -250,6 +250,10 @@ struct AppTabVues: View {
         }
         .task {
             await resoudreEtatDemarrage()
+            // Charge active lancée tout de suite, en parallèle du reste du
+            // démarrage, si l'autorisation Santé est déjà tranchée : la carte
+            // Activité de l'accueil n'attend plus B1, B2/B3 ni la synchro CGM.
+            let chargeAnticipee = Task { await ChargeActiveService.shared.demarrerSiAutorise(contexte: modelContext) }
             demarrerServicesPreferences()
             sessionActivitesService.demarrer(contexte: modelContext)
             repasService.demarrer(contexte: modelContext)
@@ -277,13 +281,28 @@ struct AppTabVues: View {
             // `SectionAnalyseCoucherReglages`), jamais au boot.
             _ = try? await HKHealthStore().requestAuthorization(
                 toShare: [],
-                read: [HKQuantityType(.bloodGlucose), HKObjectType.workoutType()]
+                read: [
+                    HKQuantityType(.bloodGlucose), HKObjectType.workoutType(),
+                    // Charge active : pas (bouts de marche soutenue) et FC
+                    // des séances (intensité) — `ChargeActiveService`.
+                    HKQuantityType(.stepCount), HKQuantityType(.heartRate),
+                ]
             )
             await healthKit.demanderAcces()
             await healthKit.synchroniser(container: modelContext.container)
             healthKit.demarrerSurveillance(container: modelContext.container)
             await importService.demanderAcces()
             await importService.rafraichir()
+            // Charge active : contexte partagé (accueil, badges, B2/B3).
+            // B2/B3 ont démarré sans lui plus haut — rechargés pour porter
+            // le niveau de charge de chaque soir.
+            // Attend le passage anticipé ; sinon (premier lancement, sheet
+            // d'autorisation), le lance maintenant.
+            await chargeAnticipee.value
+            await ChargeActiveService.shared.recalculerSiNecessaire(contexte: modelContext)
+            async let endoCharge: Void = analyseEndormissementService.recharger()
+            async let corrCharge: Void = analyseCorrectionsService.recharger()
+            _ = await (endoCharge, corrCharge)
             // Le CGM vient d'être synchronisé : recalcule les réponses
             // glycémiques des repas (au démarrage elles étaient toutes en
             // attente, faute de glycémies encore chargées).

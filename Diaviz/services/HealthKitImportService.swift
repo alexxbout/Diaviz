@@ -42,7 +42,7 @@ final class HealthKitImportService {
     static var disponible: Bool { HKHealthStore.isHealthDataAvailable() }
 
     /// Fenêtre de recherche des workouts récents — cohérente avec la
-    /// `ChargeActivite` 7j déjà consommée par les analyses coucher.
+    /// fenêtre 7 j des analyses coucher.
     private let fenetreRecherche: TimeInterval = 7 * 24 * 3600
 
     private let cleWorkoutsImportes = "healthkit.sport.importes"

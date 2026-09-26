@@ -98,6 +98,7 @@ struct AnalysesVue: View {
                     )
                     CarteAnalyseChargeGlycemie(
                         synthese: correlationService.synthese,
+                        chargeActive: ChargeActiveService.shared.synthese,
                         chargement: correlationService.enCalcul
                     )
                 }
@@ -137,7 +138,10 @@ struct AnalysesVue: View {
                 async let bilanCorrR: Void = bilanCorrectionsService.recharger()
                 _ = await (endoR, corrR, bilanCorrR)
             }
+            // Charge active d'abord : la page Charge et glycémie lit son
+            // contexte (tranches par niveau du jour).
             Task {
+                await ChargeActiveService.shared.recalculerSiNecessaire(contexte: modelContext)
                 await correlationService.recalculer(contexte: modelContext)
             }
         }
@@ -162,11 +166,12 @@ private struct CarteAnalyseChargeGlycemie: View {
     /// causait un saut de layout (la carte popait après le reste de la
     /// page) sur l'apparition de l'onglet Analyses.
     let synthese: SyntheseCorrelationChargeTIR?
+    var chargeActive: SyntheseChargeActive? = nil
     var chargement: Bool = false
 
     var body: some View {
         NavigationLink {
-            PageCorrelationChargeGlycemie(synthese: synthese ?? .vide)
+            PageCorrelationChargeGlycemie(synthese: synthese ?? .vide, chargeActive: chargeActive)
         } label: {
             contenu
         }
@@ -237,16 +242,13 @@ private struct CarteAnalyseChargeGlycemie: View {
         }
     }
 
-    /// Dernière semaine connue — même vocabulaire (basse/normale/haute) que
-    /// la carte accueil et la page détail.
+    /// Niveau de charge active actuel — le même que partout ailleurs.
     private var ligneGlance: String {
-        guard let synthese, let derniere = synthese.semaines.last else { return "Pas encore de recul" }
-        let moyenne = synthese.semaines.map(\.charge).reduce(0, +) / Double(max(synthese.semaines.count, 1))
-        guard moyenne > 0 else { return "Pas encore de recul" }
-        let ecart = (derniere.charge - moyenne) / moyenne
-        if ecart <= -CalculChargeContinue.seuilEcartTendance { return "Charge basse cette semaine" }
-        if ecart >= CalculChargeContinue.seuilEcartTendance { return "Charge haute cette semaine" }
-        return "Charge normale cette semaine"
+        switch chargeActive?.etat {
+        case let .disponible(_, niveau, _)?: return niveau.libelle
+        case .aucuneActiviteDeReference?:    return "Aucune activité de référence"
+        case .pasAssezDeRecul?, nil:         return "Pas encore de recul"
+        }
     }
 }
 

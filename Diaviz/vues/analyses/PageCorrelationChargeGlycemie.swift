@@ -19,6 +19,9 @@ import SwiftUI
 struct PageCorrelationChargeGlycemie: View {
 
     let synthese: SyntheseCorrelationChargeTIR
+    /// Charge active (`CalculChargeActive`) — `nil` tant que le premier
+    /// calcul n'a pas abouti (lecture Apple Santé en cours).
+    var chargeActive: SyntheseChargeActive? = nil
 
     private let teinteCharge = Color.orange
     private let teinteScore = Color.blue
@@ -33,9 +36,10 @@ struct PageCorrelationChargeGlycemie: View {
                 EnTeteAnalyse(
                     surtitre: "Sport",
                     titre: "Charge et glycémie",
-                    accroche: "Votre charge d'activité et votre score glycémique, semaine après semaine — avec vos changements de dose de lente en repère.",
+                    accroche: "Votre charge d'activité comparée à votre référence, et votre score glycémique, semaine après semaine.",
                     ambiance: .chargeActivite
                 )
+                CarteChargeActiveIndice(synthese: chargeActive)
                 chronologie
                 tranches
                 if synthese.tranchesDerive.contains(where: { $0.deriveMoyenne != nil }) {
@@ -55,10 +59,17 @@ struct PageCorrelationChargeGlycemie: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    // MARK: - Chronologie superposée
+    // MARK: - Chronologie
 
+    /// Haut de l'échelle de charge : marge au-dessus de la plus haute barre
+    /// (place pour son %), et jamais moins de 1,5 pour que la ligne de
+    /// référence (1) ne colle pas au sommet.
     private var maxCharge: Double {
-        max(synthese.semaines.map(\.charge).max() ?? 0, 1)
+        max((synthese.semaines.compactMap(\.indiceCharge).max() ?? 0) * 1.2, 1.5)
+    }
+
+    private func estAttenuee(_ semaine: Date) -> Bool {
+        semaineSelectionnee != nil && semaineSelectionnee != semaine
     }
 
     private var chronologie: some View {
@@ -67,89 +78,185 @@ struct PageCorrelationChargeGlycemie: View {
                 .font(.subheadline.bold())
                 .foregroundStyle(.secondary)
 
-            HStack(spacing: 16) {
-                legendePastille(couleur: teinteCharge.opacity(0.55), texte: "Charge", forme: .carre)
-                legendePastille(couleur: teinteScore, texte: "Score", forme: .trait)
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-
-            HStack(spacing: 16) {
-                legendePastille(couleur: .secondary, texte: texteLegendeDose, forme: .pointille)
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-
-            // Ligne de détail de la semaine tappée — remplace la légende
-            // visuellement à la même hauteur pour ne pas faire sauter la
-            // mise en page du reste de la carte.
-            detailSelection
-                .frame(height: 16)
-
-            Chart {
-                ForEach(synthese.semaines) { point in
-                    BarMark(
-                        x: .value("Semaine", point.debutSemaine, unit: .weekOfYear),
-                        y: .value("Charge", point.charge)
-                    )
-                    .foregroundStyle(
-                        (semaineSelectionnee == nil || semaineSelectionnee == point.debutSemaine)
-                            ? teinteCharge.opacity(0.55) : teinteCharge.opacity(0.2)
-                    )
-                    .cornerRadius(3)
+            // Une seule ligne ; si elle ne tient pas (grande police), repli
+            // sur deux lignes plutôt qu'un texte tronqué.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 14) {
+                    legendeCharge
+                    legendeScore
+                    legendeReference
                 }
-
-                ForEach(synthese.semaines.filter { $0.score != nil }) { point in
-                    LineMark(
-                        x: .value("Semaine", point.debutSemaine, unit: .weekOfYear),
-                        y: .value("Score", (point.score ?? 0) / 100 * maxCharge)
-                    )
-                    .foregroundStyle(teinteScore)
-                    .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                    .interpolationMethod(.monotone)
-                }
-
-                // Repères de changement de dose — trait pointillé seul, sans
-                // texte sur le graphique : avec plusieurs changements
-                // rapprochés, les annotations se chevauchaient et devenaient
-                // illisibles. Le détail (date + dose) vit dans la liste
-                // `changementsDoseListe` juste en dessous.
-                ForEach(synthese.changementsDose) { marqueur in
-                    RuleMark(x: .value("Changement de dose", marqueur.date, unit: .day))
-                        .foregroundStyle(Color.secondary.opacity(0.5))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                }
-
-                if let semaineSelectionnee {
-                    RuleMark(x: .value("Semaine sélectionnée", semaineSelectionnee, unit: .weekOfYear))
-                        .foregroundStyle(Color.primary.opacity(0.25))
-                        .lineStyle(StrokeStyle(lineWidth: 1))
-                }
-            }
-            .chartXAxis {
-                AxisMarks(values: .stride(by: .weekOfYear, count: 2)) { _ in
-                    AxisGridLine()
-                    AxisValueLabel(format: .dateTime.day().month(.abbreviated))
-                        .font(.caption2)
-                }
-            }
-            .chartYAxis {
-                AxisMarks(position: .leading)
-                AxisMarks(position: .trailing, values: [0, maxCharge / 2, maxCharge]) { value in
-                    AxisGridLine()
-                    AxisValueLabel {
-                        if let v = value.as(Double.self) {
-                            Text("\(Int((v / maxCharge * 100).rounded()))%")
-                                .font(.caption2)
-                        }
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 14) {
+                        legendeCharge
+                        legendeScore
                     }
+                    legendeReference
                 }
             }
-            .chartXSelection(value: semaineSelectionneeBrute)
-            .frame(height: 200)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
+            graphique
+
+            aideLecture
         }
         .padding(16)
         .background(Color(.secondarySystemGroupedBackground), in: NiveauCarte.carte.forme)
+    }
+
+    /// Un seul graphique : barres de charge (lues contre la ligne de
+    /// référence neutre dessinée devant, nommée dans la légende)
+    /// et score GRI rapporté sur la même hauteur, gradué à droite de 0 à 100.
+    private var graphique: some View {
+        Chart {
+            ForEach(synthese.semaines.filter { $0.indiceCharge != nil }) { point in
+                BarMark(
+                    x: .value("Semaine", point.debutSemaine, unit: .weekOfYear),
+                    y: .value("Charge", point.indiceCharge ?? 0)
+                )
+                .foregroundStyle(teinteCharge.opacity(estAttenuee(point.debutSemaine) ? 0.2 : 0.6))
+                .cornerRadius(3)
+            }
+
+            ForEach(synthese.semaines.filter { $0.score != nil }) { point in
+                LineMark(
+                    x: .value("Semaine", point.debutSemaine, unit: .weekOfYear),
+                    y: .value("Score", (point.score ?? 0) / 100 * maxCharge)
+                )
+                .foregroundStyle(teinteScore)
+                .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                .interpolationMethod(.monotone)
+            }
+
+            // Référence (indice 1) dessinée après les barres, en neutre :
+            // en orange derrière elles, elle disparaissait.
+            RuleMark(y: .value("Référence", 1.0))
+                .foregroundStyle(Color.gray)
+                .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
+
+            if let semaineSelectionnee {
+                RuleMark(x: .value("Semaine sélectionnée", semaineSelectionnee, unit: .weekOfYear))
+                    .foregroundStyle(Color.primary.opacity(0.25))
+                    .lineStyle(StrokeStyle(lineWidth: 1))
+            }
+        }
+        .chartYScale(domain: 0...maxCharge)
+        .chartXAxis {
+            AxisMarks(values: .stride(by: .weekOfYear, count: 2)) { _ in
+                AxisGridLine()
+                AxisValueLabel(format: .dateTime.day().month(.abbreviated))
+                    .font(.caption2)
+            }
+        }
+        .chartYAxis {
+            // Seule échelle graduée : celle du score. La charge se lit par
+            // rapport à la ligne de référence ; le % exact au tap.
+            AxisMarks(position: .trailing, values: [0, maxCharge / 2, maxCharge]) { value in
+                AxisGridLine()
+                AxisValueLabel {
+                    if let v = value.as(Double.self) {
+                        Text("\(Int((v / maxCharge * 100).rounded()))")
+                            .font(.caption2)
+                            .foregroundStyle(teinteScore)
+                    }
+                }
+            }
+        }
+        .chartXSelection(value: semaineSelectionneeBrute)
+        // Bulle d'info au doigt, même patron que le graphique d'une nuit B1
+        // (`CourbesNocturnesChart`) : posée en haut de la zone de tracé,
+        // bornée pour ne pas en sortir, rien ne bouge autour.
+        .chartOverlay { proxy in
+            GeometryReader { geo in
+                if let plotFrame = proxy.plotFrame,
+                   let semaineSelectionnee,
+                   let point = synthese.semaines.first(where: { $0.debutSemaine == semaineSelectionnee }),
+                   let x = proxy.position(forX: semaineSelectionnee) {
+                    let zone = geo[plotFrame]
+                    let largeur = min(zone.width - 8, 240)
+                    BulleSemaine(
+                        debutSemaine: point.debutSemaine,
+                        charge: point.indiceCharge.map { "Charge \(ecartFormate($0))" } ?? "Charge : pas assez de recul",
+                        score: point.score.map { "GRI \(Int($0.rounded()))" },
+                        reference: texteReference(semaine: point.debutSemaine),
+                        teinteCharge: teinteCharge,
+                        teinteScore: teinteScore
+                    )
+                    .frame(width: largeur)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .position(
+                        x: min(max(zone.minX + x, zone.minX + largeur / 2), zone.maxX - largeur / 2),
+                        y: zone.minY + 36
+                    )
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+                }
+            }
+        }
+        .frame(height: 220)
+    }
+
+    private var legendeCharge: some View {
+        HStack(spacing: 5) {
+            RoundedRectangle(cornerRadius: 2).fill(teinteCharge.opacity(0.6)).frame(width: 8, height: 8)
+            Text("Charge vs référence")
+        }
+        .fixedSize()
+    }
+
+    private var legendeScore: some View {
+        HStack(spacing: 5) {
+            Rectangle().fill(teinteScore).frame(width: 14, height: 2.5)
+            Text("Score GRI")
+        }
+        .fixedSize()
+    }
+
+    private var legendeReference: some View {
+        HStack(spacing: 5) {
+            HStack(spacing: 2) {
+                ForEach(0..<3, id: \.self) { _ in
+                    Rectangle().fill(Color.gray).frame(width: 4, height: 1.5)
+                }
+            }
+            Text("Référence")
+        }
+        .fixedSize()
+    }
+
+    /// Mode d'emploi, replié par défaut (même patron que « Zones de la
+    /// nuit » de B1) : utile une fois, encombrant ensuite.
+    @State private var aideDepliee = false
+
+    private var aideLecture: some View {
+        DisclosureGroup(isExpanded: $aideDepliee) {
+            contenuAide
+                .padding(.top, 8)
+        } label: {
+            Text("Comment lire ce graphique")
+                .font(.subheadline.bold())
+                .foregroundStyle(.secondary)
+        }
+        .padding(.top, 4)
+    }
+
+    private var contenuAide: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ligneAide("Barre orange : votre charge de la semaine. À la hauteur de la ligne pointillée, semaine habituelle. Touchez une semaine pour l'écart en %.")
+            ligneAide("Référence : votre moyenne des 4 semaines précédentes, hors semaine juste avant. Chaque semaine a donc la sienne : glissez le doigt sur le graphique pour la voir.")
+            ligneAide("Pas de barre : moins de 5 semaines d'historique avant cette semaine, pas encore de comparaison possible.")
+            ligneAide("Courbe bleue : score GRI moyen de la semaine, sur 100, échelle de droite.")
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+    }
+
+    private func ligneAide(_ texte: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text("•")
+            Text(texte).fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     /// `chartXSelection` retombe sur la date exacte du doigt, pas le début
@@ -167,83 +274,33 @@ struct PageCorrelationChargeGlycemie: View {
         )
     }
 
-    @ViewBuilder
-    private var detailSelection: some View {
-        if let semaineSelectionnee, let point = synthese.semaines.first(where: { $0.debutSemaine == semaineSelectionnee }) {
-            HStack(spacing: 10) {
-                Text(semaineSelectionnee.formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: "fr_FR"))))
-                    .font(.caption.bold())
-                Text("charge \(Int(point.charge.rounded()))")
-                    .font(.caption)
-                    .foregroundStyle(teinteCharge)
-                if let score = point.score {
-                    Text("score \(Int(score.rounded()))")
-                        .font(.caption)
-                        .foregroundStyle(teinteScore)
-                } else {
-                    Text("score indisponible")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button {
-                    self.semaineSelectionnee = nil
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.tertiary)
-                }
-            }
-        } else {
-            Color.clear
+    /// Référence **de la semaine touchée**, en faits : chaque barre a la
+    /// sienne (ses 4 semaines précédentes, hors semaine juste avant), lue au
+    /// même instant que son indice (fin de semaine, ou maintenant).
+    private func texteReference(semaine debut: Date) -> String? {
+        let fin = Calendar.current.date(byAdding: .day, value: 7, to: debut) ?? debut
+        guard let r = ChargeActiveService.shared.contexte?.referenceEnFaits(a: min(fin, Date())) else { return nil }
+        let seances = r.seancesParSemaine.formatted(.number.precision(.fractionLength(0...1)))
+        var texte = "Référence : \(seances) séance\(r.seancesParSemaine >= 2 ? "s" : "") (\(DureeActivite.texte(r.minutesSeancesParSemaine)))"
+        if r.minutesMarcheParSemaine >= 1 {
+            texte += " + \(DureeActivite.texte(r.minutesMarcheParSemaine)) de marche"
         }
+        return texte + " par semaine"
     }
 
-    private enum FormeLegende { case carre, trait, traitPointille, pointille }
-
-    private func legendePastille(couleur: Color, texte: String, forme: FormeLegende) -> some View {
-        HStack(spacing: 5) {
-            switch forme {
-            case .carre:
-                RoundedRectangle(cornerRadius: 2).fill(couleur).frame(width: 8, height: 8)
-            case .trait:
-                Rectangle().fill(couleur).frame(width: 14, height: 2.5)
-            case .traitPointille:
-                HStack(spacing: 2) {
-                    ForEach(0..<3, id: \.self) { _ in
-                        Rectangle().fill(couleur).frame(width: 3, height: 2.5)
-                    }
-                }
-            case .pointille:
-                Rectangle().fill(couleur).frame(width: 1.5, height: 10)
-            }
-            Text(texte)
-        }
+    /// « +30 % » / « −15 % » par rapport à la normale — jamais le nombre brut.
+    private func ecartFormate(_ indice: Double) -> String {
+        let pct = Int(((indice - 1) * 100).rounded())
+        if pct == 0 { return "comme la référence" }
+        return "\(pct > 0 ? "+" : "\u{2212}")\(abs(pct)) %"
     }
 
-    private func doseFormatee(_ dose: Double) -> String {
-        dose == dose.rounded() ? "\(Int(dose))u" : String(format: "%.1fu", dose)
-    }
-
-    /// Légende du repère pointillé — dose courante par défaut, ou dose
-    /// active pendant la semaine tappée sur le graphique (dernier changement
-    /// à date ≤ début de cette semaine) : la légende suit le doigt au lieu
-    /// de rester figée sur la dernière valeur connue.
-    private var texteLegendeDose: String {
-        if let semaineSelectionnee {
-            guard let actif = synthese.changementsDose.last(where: { $0.date <= semaineSelectionnee }) else {
-                return "Δ dose"
-            }
-            return "Δ dose (\(doseFormatee(actif.dose)))"
-        }
-        guard let dernier = synthese.changementsDose.last else { return "Δ dose" }
-        return "Δ dose (\(doseFormatee(dernier.dose)))"
-    }
 
     // MARK: - TIR par tranche de charge
 
     private var tranches: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Temps dans la cible selon votre charge")
+            Text("Temps dans la cible selon la charge active du jour")
                 .font(.subheadline.bold())
                 .foregroundStyle(.secondary)
 
@@ -269,7 +326,7 @@ struct PageCorrelationChargeGlycemie: View {
                         Text("\(Int(tir.rounded()))%")
                             .font(.subheadline.bold())
                             .monospacedDigit()
-                        Text("(n=\(tranche.nombreSemaines))")
+                        Text("(n=\(tranche.nombreJours) j)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -298,10 +355,10 @@ struct PageCorrelationChargeGlycemie: View {
 
     private var tranchesDerive: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Dérive basale selon votre charge")
+            Text("Dérive basale selon la charge active du jour")
                 .font(.subheadline.bold())
                 .foregroundStyle(.secondary)
-            Text("Dérive moyenne de la nuit profonde (B1), nuits groupées par charge de leur semaine")
+            Text("Dérive moyenne de la nuit profonde (B1), nuits groupées par charge active du jour")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -311,7 +368,7 @@ struct PageCorrelationChargeGlycemie: View {
                 }
             }
 
-            Text("Barres centrées sur 0 — à droite = basale trop faible, à gauche = trop forte.")
+            Text("Barres centrées sur 0 : à droite, basale trop faible ; à gauche, trop forte.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
@@ -369,12 +426,145 @@ struct PageCorrelationChargeGlycemie: View {
         return "\(signe)\(Int(abs(derive).rounded())) mg/dL"
     }
 
-    private func couleurNiveau(_ niveau: NiveauChargeCorrelation) -> Color {
-        switch niveau {
-        case .basse:   return .red
-        case .haute:   return .blue
-        case .normale: return .secondary
+    private func couleurNiveau(_ niveau: NiveauChargeActive) -> Color {
+        niveau.couleur
+    }
+}
+
+// MARK: - Charge active
+
+/// Indice de charge active et niveau (bande d'hystérésis) — **jamais le
+/// nombre brut**, toujours relatif à la normale personnelle. Affichage
+/// volontairement minimal : phase de confrontation au ressenti avant la
+/// frise des périodes (C1).
+private struct CarteChargeActiveIndice: View {
+
+    let synthese: SyntheseChargeActive?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Charge active")
+                .font(.subheadline.bold())
+                .foregroundStyle(.secondary)
+
+            if let synthese {
+                contenu(synthese)
+            } else {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Lecture d'Apple Santé…")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemGroupedBackground), in: NiveauCarte.carte.forme)
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private func contenu(_ synthese: SyntheseChargeActive) -> some View {
+        switch synthese.etat {
+        case .pasAssezDeRecul:
+            Text("Pas assez de recul")
+                .font(.title3.bold())
+            Text("Il faut au moins 5 semaines d'historique d'activité pour établir votre référence.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        case .aucuneActiviteDeReference:
+            Text("Pas de référence")
+                .font(.title3.bold())
+            Text("Aucune séance ni marche soutenue sur les 4 semaines de référence : pas d'indice à calculer.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        case let .disponible(indice, niveau, depuisJours):
+            HStack(alignment: .firstTextBaseline) {
+                Text(niveau.libelle)
+                    .font(.title3.bold())
+                    .foregroundStyle(couleur(niveau))
+                Spacer(minLength: 8)
+                if let depuisJours {
+                    Text("depuis \(depuisJours) j")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Text(texteIndice(indice))
+                .font(.subheadline)
+                .monospacedDigit()
+        }
+        Text(texteSources(synthese))
+            .font(.caption)
+            .foregroundStyle(synthese.marcheIncluse ? Color.secondary : Color.orange)
+    }
+
+    private func texteIndice(_ indice: Double) -> String {
+        let ecart = Int(((indice - 1) * 100).rounded())
+        if ecart == 0 { return "Au niveau de votre référence aujourd'hui" }
+        let signe = ecart > 0 ? "+" : "\u{2212}"
+        return "\(signe)\(abs(ecart)) % par rapport à votre référence aujourd'hui"
+    }
+
+    private func texteSources(_ synthese: SyntheseChargeActive) -> String {
+        synthese.marcheIncluse
+            ? "Moyenne de la journée. Séances et marche soutenue, décroissance sur 24 h. Référence : 4 semaines, hors semaine en cours."
+            : "Partiel : séances seules, pas non lus depuis Apple Santé."
+    }
+
+    private func couleur(_ niveau: NiveauChargeActive) -> Color {
+        switch niveau {
+        case .basse:   .red
+        case .haute:   .blue
+        case .normale: .primary
+        }
+    }
+}
+
+// MARK: - Bulle de la semaine
+
+/// Bulle d'info affichée au doigt sur la chronologie — même traitement que
+/// la bulle de valeur du graphique d'une nuit B1 (fond système, coins 12,
+/// ombre légère).
+private struct BulleSemaine: View {
+    let debutSemaine: Date
+    let charge: String
+    let score: String?
+    let reference: String?
+    let teinteCharge: Color
+    let teinteScore: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Semaine du \(debutSemaine.formatted(.dateTime.day().month(.wide).locale(Locale(identifier: "fr_FR"))))")
+                .font(.caption.bold())
+            HStack(spacing: 8) {
+                Text(charge).foregroundStyle(teinteCharge)
+                Text(score ?? "GRI indisponible").foregroundStyle(score == nil ? Color.secondary : teinteScore)
+            }
+            .font(.caption.weight(.semibold))
+            .monospacedDigit()
+            if let reference {
+                Text(reference)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(.systemBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color.secondary.opacity(0.15), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.10), radius: 8, y: 2)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -383,7 +573,22 @@ struct PageCorrelationChargeGlycemie: View {
 #if DEBUG
 #Preview {
     NavigationStack {
-        PageCorrelationChargeGlycemie(synthese: .mock)
+        PageCorrelationChargeGlycemie(
+            synthese: .mock,
+            chargeActive: SyntheseChargeActive(
+                etat: .disponible(indice: 1.32, niveau: .haute, depuisJours: 4),
+                marcheIncluse: true
+            )
+        )
+    }
+}
+
+#Preview("Charge active partielle") {
+    NavigationStack {
+        PageCorrelationChargeGlycemie(
+            synthese: .mock,
+            chargeActive: SyntheseChargeActive(etat: .pasAssezDeRecul, marcheIncluse: false)
+        )
     }
 }
 

@@ -27,7 +27,7 @@ struct CalculHyposCoucherTests {
             date: Fixtures.instant(plusHeures: jour * 24),
             glycemieCoucher: glycemie,
             tendance: .stable,
-            glucides: nil, sport: nil, iob: nil, charge: .aucune,
+            glucides: nil, sport: nil, iob: nil, charge: nil,
             issue: issue,
             rechute: rechute
         )
@@ -53,7 +53,7 @@ struct CalculHyposCoucherTests {
         let b3 = CorrectionSoir(
             id: UUID(), date: jour.addingTimeInterval(24 * 3600), glycemie: 210,
             tendance: .hausse, glucides: nil, dose: 3, iob: nil, sport: nil,
-            charge: .aucune, issue: .surCorrection
+            charge: nil, issue: .surCorrection
         )
 
         let resultat = analyse(
@@ -74,7 +74,7 @@ struct CalculHyposCoucherTests {
     func correctionInsuffisanteHorsFocusHypo() {
         let b3 = CorrectionSoir(
             id: UUID(), date: Fixtures.reference, glycemie: 240, tendance: .stable,
-            glucides: nil, dose: 2, iob: nil, sport: nil, charge: .aucune, issue: .insuffisant
+            glucides: nil, dose: 2, iob: nil, sport: nil, charge: nil, issue: .insuffisant
         )
         let resultat = analyse([], corrections: [b3])
 
@@ -143,7 +143,7 @@ struct CalculHyposCoucherTests {
     func rechuteCoteCorrections() {
         let b3 = CorrectionSoir(
             id: UUID(), date: Fixtures.reference, glycemie: 220, tendance: .hausse,
-            glucides: nil, dose: 4, iob: nil, sport: nil, charge: .aucune,
+            glucides: nil, dose: 4, iob: nil, sport: nil, charge: nil,
             issue: .surCorrection, rechute: true
         )
         let resultat = analyse([], corrections: [b3])

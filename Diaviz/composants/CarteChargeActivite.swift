@@ -5,27 +5,26 @@
 
 import SwiftUI
 
-/// Carte accueil « Charge d'activité » — écart de la semaine vs la normale
-/// personnelle, mini-sparkline 7 jours. **Même patron exact** que
-/// `CarteGlucidesSemaine` (icône+titre teintés, gros chiffre+sous-titre,
-/// sparkline à droite, chevron) : chrome identique, pas une variante.
+/// Carte accueil « Activité » — **faits bruts** des 7 derniers jours :
+/// séances enregistrées et marche soutenue, en minutes. Aucun niveau, aucun
+/// écart à la normale : l'accueil affiche, l'interprétation (charge active
+/// basse/normale/haute) vit uniquement dans Analyses → Charge et glycémie.
 ///
-/// Fond plat, pas de verre — rien ne défile derrière cette carte, le
-/// matériau Liquid Glass n'a de sens que sur un calque de navigation/contrôle
-/// qui flotte au-dessus d'un contenu qui bouge.
+/// Mêmes faits que la charge active (`ContexteChargeActive.jours`) : séances
+/// **et** marche soutenue hors séance — les deux écrans comptent la même
+/// activité.
 ///
-/// Couleur des barres de la sparkline **neutre** — la tendance (hausse/
-/// baisse) est un jugement sur l'**agrégat** de plusieurs jours
-/// (`CalculChargeContinue`), jamais un calcul par jour : comparer un jour
-/// isolé à une moyenne journalière, que le sport ne respecte jamais par
-/// nature, faisait ressortir un jour de repos ordinaire en rouge au milieu
-/// d'une semaine par ailleurs normale.
+/// Fond plat, pas de verre — rien ne défile derrière cette carte.
 struct CarteChargeActivite: View {
 
-    let synthese: SyntheseChargeContinue
+    let jours: [JourChargeActive]
+    let marcheIncluse: Bool
     let onTap: () -> Void
 
-    fileprivate static let teinte = Color.orange
+    static let teinteSeances = Color.orange
+    static let teinteMarche = Color.teal
+
+    private var semaine: [JourChargeActive] { Array(jours.suffix(7)) }
 
     var body: some View {
         Button(action: onTap) {
@@ -39,18 +38,19 @@ struct CarteChargeActivite: View {
             .contentShape(NiveauCarte.carte.forme)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(libelleAccessibilite)
-        .accessibilityHint("Ouvre le détail de la charge d'activité sur 14 jours")
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Activité, 7 derniers jours. \(ligneSeances). \(ligneMarche)")
+        .accessibilityHint("Ouvre le détail de l'activité sur 14 jours")
     }
 
     private var ligneTitre: some View {
         HStack(spacing: 6) {
             Image(systemName: "flame.fill")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Self.teinte)
-            Text("Charge d'activité")
+                .foregroundStyle(Self.teinteSeances)
+            Text("Activité")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Self.teinte)
+                .foregroundStyle(Self.teinteSeances)
             Spacer(minLength: 8)
             Image(systemName: "chevron.right")
                 .font(.system(size: 13, weight: .semibold))
@@ -61,115 +61,75 @@ struct CarteChargeActivite: View {
     private var ligneContenu: some View {
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 2) {
-                // Hero = le **niveau actuel** en mot (basse/normale/haute),
-                // pas l'écart brut : un pourcentage seul obligeait à faire
-                // le calcul mental pour savoir où on en est.
-                Text(niveau.libelle)
+                Text(ligneSeances)
                     .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundStyle(niveau.couleur(teinteDefaut: Self.teinte))
-                // Une seule ligne secondaire : écart chiffré + tendance
-                // fusionnés (au lieu de deux lignes qui répétaient « vs
-                // normale »).
-                Text(ligneDetail)
+                    .foregroundStyle(.primary)
+                Text(ligneMarche)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
-
             Spacer(minLength: 8)
-
-            SparklineCharge(serie: Array(synthese.serieJournaliere.suffix(7)), teinte: Self.teinte)
+            SparklineActivite(jours: semaine)
                 .accessibilityHidden(true)
         }
     }
 
-    /// Niveau courant vs normale perso — même seuil que la détection de
-    /// tendance (`CalculChargeContinue.seuilEcartTendance`), pour que le mot
-    /// affiché et la tendance racontent toujours la même histoire.
-    private enum Niveau {
-        case basse, normale, haute, inconnue
-
-        var libelle: String {
-            switch self {
-            case .basse:    return "Charge basse"
-            case .normale:  return "Charge normale"
-            case .haute:    return "Charge haute"
-            case .inconnue: return "Pas assez de recul"
-            }
-        }
-
-        func couleur(teinteDefaut: Color) -> Color {
-            switch self {
-            case .basse:    return .red
-            case .haute:    return .blue
-            case .normale:  return .primary
-            case .inconnue: return .primary
-            }
-        }
+    private var ligneSeances: String {
+        let nombre = semaine.reduce(0) { $0 + $1.nombreSeances }
+        guard nombre > 0 else { return "Aucune séance" }
+        let minutes = semaine.reduce(0) { $0 + $1.minutesSeances }
+        return "\(nombre) séance\(nombre > 1 ? "s" : "") · \(DureeActivite.texte(minutes))"
     }
 
-    private var niveau: Niveau {
-        guard let ecart = synthese.ecartRelatif else { return .inconnue }
-        if ecart <= -CalculChargeContinue.seuilEcartTendance { return .basse }
-        if ecart >= CalculChargeContinue.seuilEcartTendance { return .haute }
-        return .normale
+    private var ligneMarche: String {
+        guard marcheIncluse else { return "Marche non lue depuis Apple Santé · 7 derniers jours" }
+        let minutes = semaine.reduce(0) { $0 + $1.minutesMarche }
+        return minutes > 0
+            ? "Marche soutenue \(DureeActivite.texte(minutes)) · 7 derniers jours"
+            : "Pas de marche soutenue · 7 derniers jours"
     }
+}
 
-    /// « −22 % vs normale · en baisse depuis 5 j », ou juste la tendance
-    /// quand l'écart n'est pas calculable.
-    private var ligneDetail: String {
-        let ecartTexte = synthese.ecartRelatif.map { "\(ecartFormate($0)) vs normale" }
-        switch synthese.tendance {
-        case .enBaisse(let jours):
-            return [ecartTexte, "en baisse depuis \(jours) j"].compactMap { $0 }.joined(separator: " · ")
-        case .enHausse(let jours):
-            return [ecartTexte, "en hausse depuis \(jours) j"].compactMap { $0 }.joined(separator: " · ")
-        case .stable:
-            return ecartTexte ?? "pas d'activité récente sur 4 semaines"
-        }
-    }
-
-    /// Signe explicite (« +12 % » / « −22 % »), même convention que les
-    /// deltas glucides — un écart relatif se lit toujours signé.
-    private func ecartFormate(_ ecart: Double) -> String {
-        let pct = Int((ecart * 100).rounded())
-        let signe = pct > 0 ? "+" : (pct < 0 ? "\u{2212}" : "")
-        return "\(signe)\(abs(pct))%"
-    }
-
-    private var libelleAccessibilite: String {
-        "\(niveau.libelle), \(ligneDetail)"
+/// « 45 min », « 2 h 10 » — durées d'activité lisibles.
+enum DureeActivite {
+    static func texte(_ minutes: Double) -> String {
+        let total = Int(minutes.rounded())
+        guard total >= 60 else { return "\(total) min" }
+        let reste = total % 60
+        return reste == 0 ? "\(total / 60) h" : "\(total / 60) h \(String(format: "%02d", reste))"
     }
 }
 
 // MARK: - Sparkline
 
-/// Mini histogramme 7 barres — même composant que `SparklineGlucides`
-/// (`CarteGlucidesSemaine`) : hauteur proportionnelle au maximum de la
-/// série affichée, dernier jour (aujourd'hui) en teinte pleine.
-private struct SparklineCharge: View {
-    let serie: [PointChargeJour]
-    let teinte: Color
+/// Mini histogramme 7 barres empilées (séances + marche), hauteur
+/// proportionnelle au maximum de la série, aujourd'hui en teinte pleine.
+private struct SparklineActivite: View {
+    let jours: [JourChargeActive]
 
     private static let largeurBarre: CGFloat = 5
     private static let spacing: CGFloat = 4
 
     private var maximum: Double {
-        max(serie.map(\.score).max() ?? 0, 1)
+        max(jours.map { $0.minutesSeances + $0.minutesMarche }.max() ?? 0, 1)
     }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: Self.spacing) {
-            ForEach(Array(serie.enumerated()), id: \.offset) { index, point in
-                let estAujourdhui = index == serie.count - 1
+            ForEach(Array(jours.enumerated()), id: \.offset) { index, jour in
+                let opacite = index == jours.count - 1 ? 1.0 : 0.5
                 GeometryReader { geo in
-                    let fraction = max(0.03, point.score / maximum)
                     VStack(spacing: 0) {
                         Spacer(minLength: 0)
-                        RoundedRectangle(cornerRadius: 1.5)
-                            .fill(teinte.opacity(estAujourdhui ? 1 : 0.5))
-                            .frame(height: geo.size.height * fraction)
+                        Rectangle()
+                            .fill(CarteChargeActivite.teinteMarche.opacity(opacite))
+                            .frame(height: geo.size.height * jour.minutesMarche / maximum)
+                        Rectangle()
+                            .fill(CarteChargeActivite.teinteSeances.opacity(opacite))
+                            .frame(height: max(geo.size.height * 0.03, geo.size.height * jour.minutesSeances / maximum))
                     }
+                    .clipShape(RoundedRectangle(cornerRadius: 1.5))
                 }
                 .frame(width: Self.largeurBarre)
             }
@@ -181,14 +141,14 @@ private struct SparklineCharge: View {
 // MARK: - Aperçu
 
 #if DEBUG
-#Preview("Charge en baisse") {
-    CarteChargeActivite(synthese: .mockBaisse, onTap: {})
+#Preview("Activité") {
+    CarteChargeActivite(jours: ContexteChargeActive.mock.jours, marcheIncluse: true, onTap: {})
         .padding()
         .background(Color(.systemGroupedBackground))
 }
 
-#Preview("Sombre") {
-    CarteChargeActivite(synthese: .mockBaisse, onTap: {})
+#Preview("Marche non lue") {
+    CarteChargeActivite(jours: ContexteChargeActive.mock.jours, marcheIncluse: false, onTap: {})
         .padding()
         .background(Color(.systemGroupedBackground))
         .preferredColorScheme(.dark)

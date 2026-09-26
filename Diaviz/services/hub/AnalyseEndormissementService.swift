@@ -83,7 +83,8 @@ final class AnalyseEndormissementService {
             repas: ChargeurFaitsCoucher.repasHorsResucrage(contexte, depuis: borneCourte),
             resucrages: ChargeurFaitsCoucher.resucrages(contexte, depuis: borneCourte),
             sports: ChargeurFaitsCoucher.sports(contexte, depuis: borneCourte),
-            pauses: ChargeurFaitsCoucher.pauses(contexte, depuis: borneCourte)
+            pauses: ChargeurFaitsCoucher.pauses(contexte, depuis: borneCourte),
+            niveauxCharge: ChargeActiveService.shared.contexte?.niveauxParJour ?? [:]
         )
     }
 }

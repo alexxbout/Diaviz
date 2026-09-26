@@ -41,6 +41,9 @@ nonisolated struct EntreesEndormissement: Sendable {
     /// en libellés français) par le service hub.
     let sports: [(debut: Date, resume: SportResume)]
     let pauses: [(debut: Date, fin: Date?)]
+    /// Niveau de charge active par début de jour (`ContexteChargeActive.niveauxParJour`)
+    /// — vide si le contexte n'est pas encore calculé : charge inconnue.
+    var niveauxCharge: [Date: NiveauChargeActive] = [:]
 }
 
 nonisolated struct ConfigEndormissement: Sendable {
@@ -56,7 +59,7 @@ nonisolated struct ConfigEndormissement: Sendable {
 /// Assembleur **B2 — endormissement (hypos au coucher)** : dérivation pure,
 /// jamais persistée. Reprend l'ancrage de nuit calculé par B1 (lente, zones
 /// 1-2), remonte les hypos survenues ~2h post-lente pour les couchers sous
-/// `seuilCoucher`, avec leur contexte (IOB, sport, charge d'activité).
+/// `seuilCoucher`, avec leur contexte (IOB, sport, charge active du jour).
 ///
 /// Frontière avec B3 : une nuit portant une **correction rapide** dans la
 /// fenêtre de coucher (zones 1+2, soit lente −3h → lente +2h) est **exclue**
@@ -141,10 +144,7 @@ nonisolated enum CalculAnalyseEndormissement {
         let tendance = tendanceProche(entrees.lectures, a: L) ?? .stable
         let glucides = glucidesAutourDuCoucher(entrees.repas, z1: z1, z2: z2)
         let sport = sportDuJour(entrees.sports, jour: nuit.dateNuit, cal: cal)
-        let charge = CalculChargeActivite.charge(
-            jusqua: nuit.dateNuit,
-            activites: entrees.sports.map { (debut: $0.debut, dureeMin: 0) }
-        )
+        let charge = entrees.niveauxCharge[cal.startOfDay(for: nuit.dateNuit)]
         let iob = iobAuCoucher(entrees.rapides, a: L, config: config)
 
         // Rechute cherchée à partir de la lente, pas seulement sur la zone 2 :

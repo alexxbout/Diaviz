@@ -106,10 +106,9 @@ struct AccueilVue: View {
     @State private var injectionsRecentes: [Injection] = []
     @State private var activitesRecentes: [ActiviteSportive] = []
 
-    /// Charge d'activité continue (7j vs normale perso 4 semaines) —
-    /// recalculée depuis `activitesRecentes` (même fenêtre 45j, largement
-    /// suffisante pour la normale sur 4 semaines).
-    @State private var chargeContinueService = ChargeContinueService()
+    /// Faits d'activité (séances + marche soutenue) — contexte partagé de
+    /// charge active, lu tel quel : l'accueil n'interprète pas.
+    private var chargeActive: ChargeActiveService { ChargeActiveService.shared }
 
     /// Repas signalés « à revoir » : les groupes **récurrents** dont la
     /// dernière occurrence est sortie de cible (`CalculRepasARevoir`) et les
@@ -175,7 +174,7 @@ struct AccueilVue: View {
         )
         injectionsRecentes = (try? modelContext.fetch(descripteurInjections)) ?? []
         activitesRecentes = (try? modelContext.fetch(descripteurActivites)) ?? []
-        chargeContinueService.recalculer(depuis: activitesRecentes)
+        Task { await ChargeActiveService.shared.actualiserSeances(contexte: modelContext) }
     }
 
     /// Contexte de la carte « Insuline lente » — **réel**, construit depuis la
@@ -195,11 +194,8 @@ struct AccueilVue: View {
     /// pousser la page avec des données obsolètes ou absentes.
     @State private var syntheseGlucidesPourPage: SyntheseGlucidesHebdo?
 
-    /// Pilote le push de `PageChargeActivite`. Bool plutôt que
-    /// `navigationDestination(item:)` : `SyntheseChargeContinue` n'a pas
-    /// d'identité naturelle (pas d'`id`), contrairement à
-    /// `SyntheseGlucidesHebdo` — la page relit `chargeContinueService.synthese`
-    /// au moment du push.
+    /// Pilote le push de `PageChargeActivite` — la page relit le contexte
+    /// partagé de charge active au moment du push.
     @State private var afficherPageCharge = false
 
     /// Pilote la sheet Profil ouverte depuis le placeholder « aucun ratio
@@ -314,11 +310,20 @@ struct AccueilVue: View {
                                         ))
                                 }
 
-                                if let synthese = chargeContinueService.synthese {
+                                // Toujours présente : pendant la lecture
+                                // d'Apple Santé, même carte en placeholder —
+                                // pas de saut de mise en page à l'arrivée.
+                                if let contexte = chargeActive.contexte, !contexte.jours.isEmpty {
                                     CarteChargeActivite(
-                                        synthese: synthese,
+                                        jours: contexte.jours,
+                                        marcheIncluse: contexte.marcheIncluse,
                                         onTap: { afficherPageCharge = true }
                                     )
+                                } else {
+                                    CarteChargeActivite(jours: [], marcheIncluse: true, onTap: {})
+                                        .redacted(reason: .placeholder)
+                                        .disabled(true)
+                                        .accessibilityLabel("Activité, chargement")
                                 }
 
                                 // Tant que l'historique ne couvre pas assez de
@@ -425,16 +430,8 @@ struct AccueilVue: View {
                 PageGlucides(synthese: synthese)
             }
             .navigationDestination(isPresented: $afficherPageCharge) {
-                // Fallback vide inatteignable en pratique : la carte qui
-                // déclenche ce push n'existe que si `synthese` est déjà
-                // non-nil. `.mockBaisse` (préview) n'est pas dispo en
-                // Release, d'où cette synthèse neutre plutôt qu'un `!`.
-                PageChargeActivite(
-                    synthese: chargeContinueService.synthese ?? SyntheseChargeContinue(
-                        serieJournaliere: [], chargeSemaine: 0, normaleHebdo: 0,
-                        ecartRelatif: nil, tendance: .stable
-                    )
-                )
+                let contexte = chargeActive.contexte ?? .vide
+                PageChargeActivite(jours: contexte.jours, marcheIncluse: contexte.marcheIncluse)
             }
             .navigationDestination(isPresented: $afficherResucrages) {
                 ListeResucrages()
