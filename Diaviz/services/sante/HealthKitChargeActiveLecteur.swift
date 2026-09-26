@@ -131,6 +131,50 @@ nonisolated struct HealthKitChargeActiveLecteur: Sendable {
         }
     }
 
+    /// Échantillons de FC relevés pendant `intervalle` (une séance) — entrée
+    /// de `CalculFCMax.picSoutenu`. Toutes sources confondues : la montre
+    /// échantillonne en continu pendant un entraînement.
+    func echantillonsFC(pendant intervalle: DateInterval) async -> [EchantillonFC] {
+        guard Self.disponible else { return [] }
+        let descripteur = HKSampleQueryDescriptor(
+            predicates: [.quantitySample(
+                type: typeFC,
+                predicate: HKQuery.predicateForSamples(withStart: intervalle.start, end: intervalle.end, options: .strictStartDate)
+            )],
+            sortDescriptors: [SortDescriptor(\.startDate, order: .forward)]
+        )
+        do {
+            let bpm = HKUnit.count().unitDivided(by: .minute())
+            return try await descripteur.result(for: store).map {
+                EchantillonFC(date: $0.startDate, bpm: $0.quantity.doubleValue(for: bpm))
+            }
+        } catch {
+            Logger.sante.error("query FC: \(error.localizedDescription, privacy: .public)")
+            return []
+        }
+    }
+
+    /// Pic soutenu de chaque séance, au plus `parallelisme` requêtes à la
+    /// fois (même raison que `pasParMinute`).
+    func picsSoutenus(seances: [WorkoutPourCharge], parallelisme: Int = 4) async -> [UUID: Double?] {
+        await withTaskGroup(of: (UUID, Double?).self) { groupe in
+            var restantes = seances[...]
+            func lancer() {
+                guard let seance = restantes.popFirst() else { return }
+                groupe.addTask {
+                    (seance.uuid, CalculFCMax.picSoutenu(await echantillonsFC(pendant: seance.intervalle)))
+                }
+            }
+            for _ in 0..<parallelisme { lancer() }
+            var pics: [UUID: Double?] = [:]
+            for await (uuid, pic) in groupe {
+                pics[uuid] = pic
+                lancer()
+            }
+            return pics
+        }
+    }
+
     // MARK: - Statistiques
 
     private func sommes(de debut: Date, a fin: Date, pas: DateComponents) async -> [(debut: Date, pas: Double)] {

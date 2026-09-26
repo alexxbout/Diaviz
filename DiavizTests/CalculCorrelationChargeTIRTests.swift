@@ -28,7 +28,7 @@ struct CalculCorrelationChargeTIRTests {
     @Test("Le TIR est regroupé par niveau de charge active du jour, n en jours")
     func tranchesParJour() {
         let contexte = ContexteChargeActive(
-            contributions: [], debutHistorique: nil, marcheIncluse: true,
+            contributions: [], debutHistorique: nil, marcheIncluse: true, fcMax: .theorique,
             jours: [jour(60, niveau: .haute), jour(61, niveau: .haute), jour(62, niveau: .basse), jour(63, niveau: nil)],
             calendrier: utc
         )

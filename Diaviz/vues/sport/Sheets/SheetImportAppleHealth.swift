@@ -20,7 +20,7 @@ import SwiftUI
 ///    et l'état activé sont dérivés du nombre de cartes sélectionnées.
 ///
 /// L'intensité de chaque carte est pré-remplie à partir de la FC moyenne
-/// du workout via `intensiteDepuisFC(_:)` — l'utilisateur peut ajuster.
+/// du workout via `intensiteDepuisFC(_:fcMax:)` — l'utilisateur peut ajuster.
 struct SheetImportAppleHealth: View {
 
     // MARK: - Paramètres
@@ -242,7 +242,7 @@ struct SheetImportAppleHealth: View {
                 nouveau[w.id] = existant
             } else {
                 nouveau[w.id] = EtatSelectionWorkout(
-                    intensite: intensiteDepuisFC(w.fcMoyenne)
+                    intensite: intensiteDepuisFC(w.fcMoyenne, fcMax: ChargeActiveService.shared.fcMax)
                 )
             }
         }
