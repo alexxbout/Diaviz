@@ -68,16 +68,6 @@ struct PageCorrelationChargeGlycemie: View {
         max((synthese.semaines.compactMap(\.indiceCharge).max() ?? 0) * 1.2, 1.5)
     }
 
-    /// Même domaine horizontal pour les deux graphiques : les colonnes des
-    /// semaines tombent exactement l'une sous l'autre.
-    private var domaineSemaines: ClosedRange<Date> {
-        let debut = synthese.semaines.first?.debutSemaine ?? Date()
-        let fin = synthese.semaines.last.flatMap {
-            Calendar.current.date(byAdding: .day, value: 7, to: $0.debutSemaine)
-        } ?? debut
-        return debut...max(fin, debut)
-    }
-
     private func estAttenuee(_ semaine: Date) -> Bool {
         semaineSelectionnee != nil && semaineSelectionnee != semaine
     }
@@ -93,16 +83,20 @@ struct PageCorrelationChargeGlycemie: View {
             detailSelection
                 .frame(height: 16)
 
-            Text("Charge par rapport à votre référence")
-                .font(.caption.bold())
-                .foregroundStyle(teinteCharge)
-            graphiqueCharge
+            HStack(spacing: 16) {
+                HStack(spacing: 5) {
+                    RoundedRectangle(cornerRadius: 2).fill(teinteCharge.opacity(0.6)).frame(width: 8, height: 8)
+                    Text("Charge vs référence")
+                }
+                HStack(spacing: 5) {
+                    Rectangle().fill(teinteScore).frame(width: 14, height: 2.5)
+                    Text("Score GRI (échelle de droite)")
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
 
-            Text("Score GRI moyen (sur 100)")
-                .font(.caption.bold())
-                .foregroundStyle(teinteScore)
-                .padding(.top, 4)
-            graphiqueScore
+            graphique
 
             aideLecture
         }
@@ -110,7 +104,10 @@ struct PageCorrelationChargeGlycemie: View {
         .background(Color(.secondarySystemGroupedBackground), in: NiveauCarte.carte.forme)
     }
 
-    private var graphiqueCharge: some View {
+    /// Un seul graphique : barres de charge (échelle implicite, % d'écart
+    /// écrit au-dessus de chaque barre, ligne « référence » neutre devant)
+    /// et score GRI rapporté sur la même hauteur, gradué à droite de 0 à 100.
+    private var graphique: some View {
         Chart {
             ForEach(synthese.semaines.filter { $0.indiceCharge != nil }) { point in
                 BarMark(
@@ -126,7 +123,17 @@ struct PageCorrelationChargeGlycemie: View {
                 }
             }
 
-            // Référence (indice 1) dessinée **après** les barres, en neutre :
+            ForEach(synthese.semaines.filter { $0.score != nil }) { point in
+                LineMark(
+                    x: .value("Semaine", point.debutSemaine, unit: .weekOfYear),
+                    y: .value("Score", (point.score ?? 0) / 100 * maxCharge)
+                )
+                .foregroundStyle(teinteScore)
+                .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                .interpolationMethod(.monotone)
+            }
+
+            // Référence (indice 1) dessinée après les barres, en neutre :
             // en orange derrière elles, elle disparaissait.
             RuleMark(y: .value("Référence", 1.0))
                 .foregroundStyle(Color.primary.opacity(0.7))
@@ -143,40 +150,7 @@ struct PageCorrelationChargeGlycemie: View {
                     .lineStyle(StrokeStyle(lineWidth: 1))
             }
         }
-        .chartXScale(domain: domaineSemaines)
         .chartYScale(domain: 0...maxCharge)
-        .chartXAxis(.hidden)
-        .chartYAxis(.hidden)
-        .chartXSelection(value: semaineSelectionneeBrute)
-        .frame(height: 150)
-    }
-
-    private var graphiqueScore: some View {
-        Chart {
-            ForEach(synthese.semaines.filter { $0.score != nil }) { point in
-                LineMark(
-                    x: .value("Semaine", point.debutSemaine, unit: .weekOfYear),
-                    y: .value("Score", point.score ?? 0)
-                )
-                .foregroundStyle(teinteScore)
-                .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                .interpolationMethod(.monotone)
-                PointMark(
-                    x: .value("Semaine", point.debutSemaine, unit: .weekOfYear),
-                    y: .value("Score", point.score ?? 0)
-                )
-                .foregroundStyle(teinteScore.opacity(estAttenuee(point.debutSemaine) ? 0.3 : 1))
-                .symbolSize(20)
-            }
-
-            if let semaineSelectionnee {
-                RuleMark(x: .value("Semaine sélectionnée", semaineSelectionnee, unit: .weekOfYear))
-                    .foregroundStyle(Color.primary.opacity(0.25))
-                    .lineStyle(StrokeStyle(lineWidth: 1))
-            }
-        }
-        .chartXScale(domain: domaineSemaines)
-        .chartYScale(domain: 0...100)
         .chartXAxis {
             AxisMarks(values: .stride(by: .weekOfYear, count: 2)) { _ in
                 AxisGridLine()
@@ -185,13 +159,21 @@ struct PageCorrelationChargeGlycemie: View {
             }
         }
         .chartYAxis {
-            AxisMarks(position: .leading, values: [0, 50, 100]) { _ in
+            // Seule échelle graduée : celle du score. La charge se lit par
+            // rapport à la ligne « référence » et au % de chaque barre.
+            AxisMarks(position: .trailing, values: [0, maxCharge / 2, maxCharge]) { value in
                 AxisGridLine()
-                AxisValueLabel().font(.caption2)
+                AxisValueLabel {
+                    if let v = value.as(Double.self) {
+                        Text("\(Int((v / maxCharge * 100).rounded()))")
+                            .font(.caption2)
+                            .foregroundStyle(teinteScore)
+                    }
+                }
             }
         }
         .chartXSelection(value: semaineSelectionneeBrute)
-        .frame(height: 110)
+        .frame(height: 220)
     }
 
     /// Mode d'emploi court, toujours visible.
@@ -200,7 +182,7 @@ struct PageCorrelationChargeGlycemie: View {
             ligneAide("Barre orange : votre charge de la semaine. À la hauteur de la ligne « référence », semaine habituelle. Le % au-dessus dit l'écart.")
             ligneAide("Référence : votre moyenne des 4 semaines précédentes, hors semaine juste avant.")
             ligneAide("Pas de barre : moins de 5 semaines d'historique avant cette semaine, pas encore de comparaison possible.")
-            ligneAide("En dessous : score GRI moyen de la semaine, sur 100, pour les mêmes semaines.")
+            ligneAide("Courbe bleue : score GRI moyen de la semaine, sur 100, échelle de droite.")
         }
         .font(.caption)
         .foregroundStyle(.secondary)
