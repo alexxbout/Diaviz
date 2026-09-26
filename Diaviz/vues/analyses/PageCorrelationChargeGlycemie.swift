@@ -59,10 +59,27 @@ struct PageCorrelationChargeGlycemie: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    // MARK: - Chronologie superposée
+    // MARK: - Chronologie
 
+    /// Haut de l'échelle de charge : marge au-dessus de la plus haute barre
+    /// (place pour son %), et jamais moins de 1,5 pour que la ligne de
+    /// référence (1) ne colle pas au sommet.
     private var maxCharge: Double {
-        max(synthese.semaines.compactMap(\.indiceCharge).max() ?? 0, 1.5)
+        max((synthese.semaines.compactMap(\.indiceCharge).max() ?? 0) * 1.2, 1.5)
+    }
+
+    /// Même domaine horizontal pour les deux graphiques : les colonnes des
+    /// semaines tombent exactement l'une sous l'autre.
+    private var domaineSemaines: ClosedRange<Date> {
+        let debut = synthese.semaines.first?.debutSemaine ?? Date()
+        let fin = synthese.semaines.last.flatMap {
+            Calendar.current.date(byAdding: .day, value: 7, to: $0.debutSemaine)
+        } ?? debut
+        return debut...max(fin, debut)
+    }
+
+    private func estAttenuee(_ semaine: Date) -> Bool {
+        semaineSelectionnee != nil && semaineSelectionnee != semaine
     }
 
     private var chronologie: some View {
@@ -71,82 +88,21 @@ struct PageCorrelationChargeGlycemie: View {
                 .font(.subheadline.bold())
                 .foregroundStyle(.secondary)
 
-            HStack(spacing: 16) {
-                legendePastille(couleur: teinteCharge.opacity(0.55), texte: "Charge", forme: .carre)
-                legendePastille(couleur: teinteScore, texte: "Score GRI", forme: .trait)
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-
-            // Ligne de détail de la semaine tappée, remplace la légende
-            // visuellement à la même hauteur pour ne pas faire sauter la
-            // mise en page du reste de la carte.
+            // Ligne de détail de la semaine tappée, hauteur fixe pour ne pas
+            // faire sauter la mise en page.
             detailSelection
                 .frame(height: 16)
 
-            Chart {
-                ForEach(synthese.semaines.filter { $0.indiceCharge != nil }) { point in
-                    BarMark(
-                        x: .value("Semaine", point.debutSemaine, unit: .weekOfYear),
-                        y: .value("Charge", point.indiceCharge ?? 0)
-                    )
-                    .foregroundStyle(
-                        (semaineSelectionnee == nil || semaineSelectionnee == point.debutSemaine)
-                            ? teinteCharge.opacity(0.55) : teinteCharge.opacity(0.2)
-                    )
-                    .cornerRadius(3)
-                }
+            Text("Charge par rapport à votre référence")
+                .font(.caption.bold())
+                .foregroundStyle(teinteCharge)
+            graphiqueCharge
 
-                ForEach(synthese.semaines.filter { $0.score != nil }) { point in
-                    LineMark(
-                        x: .value("Semaine", point.debutSemaine, unit: .weekOfYear),
-                        y: .value("Score", (point.score ?? 0) / 100 * maxCharge)
-                    )
-                    .foregroundStyle(teinteScore)
-                    .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                    .interpolationMethod(.monotone)
-                }
-
-                // Repère de la référence personnelle (indice 1).
-                RuleMark(y: .value("Référence", 1.0))
-                    .foregroundStyle(teinteCharge.opacity(0.6))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
-
-                if let semaineSelectionnee {
-                    RuleMark(x: .value("Semaine sélectionnée", semaineSelectionnee, unit: .weekOfYear))
-                        .foregroundStyle(Color.primary.opacity(0.25))
-                        .lineStyle(StrokeStyle(lineWidth: 1))
-                }
-            }
-            .chartXAxis {
-                AxisMarks(values: .stride(by: .weekOfYear, count: 2)) { _ in
-                    AxisGridLine()
-                    AxisValueLabel(format: .dateTime.day().month(.abbreviated))
-                        .font(.caption2)
-                }
-            }
-            .chartYAxis {
-                AxisMarks(position: .leading, values: [0, 1]) { value in
-                    AxisGridLine()
-                    AxisValueLabel {
-                        if let v = value.as(Double.self) {
-                            Text(v == 1 ? "référence" : "0")
-                                .font(.caption2)
-                        }
-                    }
-                }
-                AxisMarks(position: .trailing, values: [0, maxCharge / 2, maxCharge]) { value in
-                    AxisGridLine()
-                    AxisValueLabel {
-                        if let v = value.as(Double.self) {
-                            Text("\(Int((v / maxCharge * 100).rounded()))")
-                                .font(.caption2)
-                        }
-                    }
-                }
-            }
-            .chartXSelection(value: semaineSelectionneeBrute)
-            .frame(height: 200)
+            Text("Score GRI moyen (sur 100)")
+                .font(.caption.bold())
+                .foregroundStyle(teinteScore)
+                .padding(.top, 4)
+            graphiqueScore
 
             aideLecture
         }
@@ -154,14 +110,97 @@ struct PageCorrelationChargeGlycemie: View {
         .background(Color(.secondarySystemGroupedBackground), in: NiveauCarte.carte.forme)
     }
 
+    private var graphiqueCharge: some View {
+        Chart {
+            ForEach(synthese.semaines.filter { $0.indiceCharge != nil }) { point in
+                BarMark(
+                    x: .value("Semaine", point.debutSemaine, unit: .weekOfYear),
+                    y: .value("Charge", point.indiceCharge ?? 0)
+                )
+                .foregroundStyle(teinteCharge.opacity(estAttenuee(point.debutSemaine) ? 0.2 : 0.6))
+                .cornerRadius(3)
+                .annotation(position: .top, spacing: 2) {
+                    Text(ecartFormate(point.indiceCharge ?? 1))
+                        .font(.caption2.bold())
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            // Référence (indice 1) dessinée **après** les barres, en neutre :
+            // en orange derrière elles, elle disparaissait.
+            RuleMark(y: .value("Référence", 1.0))
+                .foregroundStyle(Color.primary.opacity(0.7))
+                .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
+                .annotation(position: .top, alignment: .leading, spacing: 2) {
+                    Text("référence")
+                        .font(.caption2.bold())
+                        .foregroundStyle(.primary)
+                }
+
+            if let semaineSelectionnee {
+                RuleMark(x: .value("Semaine sélectionnée", semaineSelectionnee, unit: .weekOfYear))
+                    .foregroundStyle(Color.primary.opacity(0.25))
+                    .lineStyle(StrokeStyle(lineWidth: 1))
+            }
+        }
+        .chartXScale(domain: domaineSemaines)
+        .chartYScale(domain: 0...maxCharge)
+        .chartXAxis(.hidden)
+        .chartYAxis(.hidden)
+        .chartXSelection(value: semaineSelectionneeBrute)
+        .frame(height: 150)
+    }
+
+    private var graphiqueScore: some View {
+        Chart {
+            ForEach(synthese.semaines.filter { $0.score != nil }) { point in
+                LineMark(
+                    x: .value("Semaine", point.debutSemaine, unit: .weekOfYear),
+                    y: .value("Score", point.score ?? 0)
+                )
+                .foregroundStyle(teinteScore)
+                .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                .interpolationMethod(.monotone)
+                PointMark(
+                    x: .value("Semaine", point.debutSemaine, unit: .weekOfYear),
+                    y: .value("Score", point.score ?? 0)
+                )
+                .foregroundStyle(teinteScore.opacity(estAttenuee(point.debutSemaine) ? 0.3 : 1))
+                .symbolSize(20)
+            }
+
+            if let semaineSelectionnee {
+                RuleMark(x: .value("Semaine sélectionnée", semaineSelectionnee, unit: .weekOfYear))
+                    .foregroundStyle(Color.primary.opacity(0.25))
+                    .lineStyle(StrokeStyle(lineWidth: 1))
+            }
+        }
+        .chartXScale(domain: domaineSemaines)
+        .chartYScale(domain: 0...100)
+        .chartXAxis {
+            AxisMarks(values: .stride(by: .weekOfYear, count: 2)) { _ in
+                AxisGridLine()
+                AxisValueLabel(format: .dateTime.day().month(.abbreviated))
+                    .font(.caption2)
+            }
+        }
+        .chartYAxis {
+            AxisMarks(position: .leading, values: [0, 50, 100]) { _ in
+                AxisGridLine()
+                AxisValueLabel().font(.caption2)
+            }
+        }
+        .chartXSelection(value: semaineSelectionneeBrute)
+        .frame(height: 110)
+    }
+
     /// Mode d'emploi court, toujours visible.
     private var aideLecture: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ligneAide("Une colonne par semaine.")
-            ligneAide("Barre orange : votre charge de la semaine. Sur la ligne « référence », semaine habituelle. Au double de la hauteur, deux fois plus d'activité.")
+            ligneAide("Barre orange : votre charge de la semaine. À la hauteur de la ligne « référence », semaine habituelle. Le % au-dessus dit l'écart.")
             ligneAide("Référence : votre moyenne des 4 semaines précédentes, hors semaine juste avant.")
             ligneAide("Pas de barre : moins de 5 semaines d'historique avant cette semaine, pas encore de comparaison possible.")
-            ligneAide("Courbe bleue : score GRI moyen de la semaine, sur l'échelle de droite.")
+            ligneAide("En dessous : score GRI moyen de la semaine, sur 100, pour les mêmes semaines.")
         }
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -218,20 +257,6 @@ struct PageCorrelationChargeGlycemie: View {
             }
         } else {
             Color.clear
-        }
-    }
-
-    private enum FormeLegende { case carre, trait }
-
-    private func legendePastille(couleur: Color, texte: String, forme: FormeLegende) -> some View {
-        HStack(spacing: 5) {
-            switch forme {
-            case .carre:
-                RoundedRectangle(cornerRadius: 2).fill(couleur).frame(width: 8, height: 8)
-            case .trait:
-                Rectangle().fill(couleur).frame(width: 14, height: 2.5)
-            }
-            Text(texte)
         }
     }
 
