@@ -81,7 +81,7 @@ struct PageCorrelationChargeGlycemie: View {
             // Ligne de détail de la semaine tappée, hauteur fixe pour ne pas
             // faire sauter la mise en page.
             detailSelection
-                .frame(height: 16)
+                .frame(height: 34, alignment: .top)
 
             HStack(spacing: 16) {
                 HStack(spacing: 5) {
@@ -102,8 +102,7 @@ struct PageCorrelationChargeGlycemie: View {
                         Rectangle().fill(Color.gray).frame(width: 4, height: 1.5)
                     }
                 }
-                Text(texteReference)
-                    .fixedSize(horizontal: false, vertical: true)
+                Text("Référence (touchez une semaine pour la sienne)")
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -178,25 +177,11 @@ struct PageCorrelationChargeGlycemie: View {
         .frame(height: 220)
     }
 
-    /// Référence **actuelle** en faits : chaque barre a la sienne (ses 4
-    /// semaines précédentes), la légende ne peut en donner qu'une.
-    private var texteReference: String {
-        guard let r = ChargeActiveService.shared.contexte?.referenceEnFaits(a: Date()) else {
-            return "Référence : votre moyenne habituelle"
-        }
-        let seances = r.seancesParSemaine.formatted(.number.precision(.fractionLength(0...1)))
-        var texte = "Référence actuelle : \(seances) séance\(r.seancesParSemaine >= 2 ? "s" : "") (\(DureeActivite.texte(r.minutesSeancesParSemaine)))"
-        if r.minutesMarcheParSemaine >= 1 {
-            texte += " et \(DureeActivite.texte(r.minutesMarcheParSemaine)) de marche"
-        }
-        return texte + " par semaine"
-    }
-
     /// Mode d'emploi court, toujours visible.
     private var aideLecture: some View {
         VStack(alignment: .leading, spacing: 6) {
             ligneAide("Barre orange : votre charge de la semaine. À la hauteur de la ligne pointillée, semaine habituelle. Touchez une semaine pour l'écart en %.")
-            ligneAide("Référence : votre moyenne des 4 semaines précédentes, hors semaine juste avant. Chaque semaine a donc la sienne ; la légende donne celle d'aujourd'hui.")
+            ligneAide("Référence : votre moyenne des 4 semaines précédentes, hors semaine juste avant. Chaque semaine a donc la sienne : touchez une semaine pour la voir.")
             ligneAide("Pas de barre : moins de 5 semaines d'historique avant cette semaine, pas encore de comparaison possible.")
             ligneAide("Courbe bleue : score GRI moyen de la semaine, sur 100, échelle de droite.")
         }
@@ -230,6 +215,7 @@ struct PageCorrelationChargeGlycemie: View {
     @ViewBuilder
     private var detailSelection: some View {
         if let semaineSelectionnee, let point = synthese.semaines.first(where: { $0.debutSemaine == semaineSelectionnee }) {
+            VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 10) {
                 Text(semaineSelectionnee.formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: "fr_FR"))))
                     .font(.caption.bold())
@@ -247,9 +233,31 @@ struct PageCorrelationChargeGlycemie: View {
                 }
                 Spacer()
             }
+                if let reference = texteReference(semaine: point.debutSemaine) {
+                    Text(reference)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+            }
         } else {
             Color.clear
         }
+    }
+
+    /// Référence **de la semaine touchée**, en faits : chaque barre a la
+    /// sienne (ses 4 semaines précédentes, hors semaine juste avant), lue au
+    /// même instant que son indice (fin de semaine, ou maintenant).
+    private func texteReference(semaine debut: Date) -> String? {
+        let fin = Calendar.current.date(byAdding: .day, value: 7, to: debut) ?? debut
+        guard let r = ChargeActiveService.shared.contexte?.referenceEnFaits(a: min(fin, Date())) else { return nil }
+        let seances = r.seancesParSemaine.formatted(.number.precision(.fractionLength(0...1)))
+        var texte = "référence : \(seances) séance\(r.seancesParSemaine >= 2 ? "s" : "") (\(DureeActivite.texte(r.minutesSeancesParSemaine)))"
+        if r.minutesMarcheParSemaine >= 1 {
+            texte += " + \(DureeActivite.texte(r.minutesMarcheParSemaine)) de marche"
+        }
+        return texte + " / sem."
     }
 
     /// « +30 % » / « −15 % » par rapport à la normale — jamais le nombre brut.
