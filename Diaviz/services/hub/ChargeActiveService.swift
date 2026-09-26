@@ -28,6 +28,10 @@ final class ChargeActiveService {
     /// Lecture à l'instant du dernier calcul.
     private(set) var synthese: SyntheseChargeActive?
     private(set) var enCalcul = false
+    /// FC max qui pondère les séances (charge active) et pré-remplit
+    /// l'intensité à l'import (`intensiteDepuisFC`) — une seule valeur pour
+    /// les deux. Théorique tant que le premier passage n'a pas abouti.
+    private(set) var fcMax: FCMaxRetenue = .theorique
 
     private let lecteur = HealthKitChargeActiveLecteur()
 
@@ -94,6 +98,56 @@ final class ChargeActiveService {
         UserDefaults.standard.set(data, forKey: cleCacheBouts)
     }
 
+    // MARK: - Cache des pics de FC
+
+    /// Pic soutenu de FC par séance Apple Santé (`nil` = pas de pic
+    /// mesurable). Un workout terminé ne change plus : sans ce cache, il
+    /// faudrait relire à chaque démarrage les échantillons FC d'une année de
+    /// séances. Même légitimité `UserDefaults` que les bouts de marche :
+    /// faits dérivés d'Apple Santé, propres à l'appareil, recalculés s'ils
+    /// sont perdus.
+    private struct PicFCSeance: Codable {
+        let uuid: UUID
+        let pic: Double?
+    }
+
+    /// Versionnée : changer `CalculFCMax.picSoutenu` impose de changer la clé.
+    private static let cleCachePicsFC = "chargeActive.picsFCSeances.v1"
+    /// Une séance plus récente reste relue : la montre peut synchroniser ses
+    /// échantillons FC en retard.
+    private static let delaiSeanceClose: TimeInterval = 24 * 3600
+
+    private static func lireCachePicsFC() -> [UUID: Double?] {
+        guard let data = UserDefaults.standard.data(forKey: cleCachePicsFC),
+              let pics = try? JSONDecoder().decode([PicFCSeance].self, from: data)
+        else { return [:] }
+        return Dictionary(pics.map { ($0.uuid, $0.pic) }, uniquingKeysWith: { premier, _ in premier })
+    }
+
+    private static func ecrireCachePicsFC(_ pics: [UUID: Double?]) {
+        guard let data = try? JSONEncoder().encode(pics.map { PicFCSeance(uuid: $0.key, pic: $0.value) }) else { return }
+        UserDefaults.standard.set(data, forKey: cleCachePicsFC)
+    }
+
+    /// FC max retenue sur les séances de la dernière année : pics en cache
+    /// pour les séances closes, échantillons relus pour les autres.
+    private func calculerFCMax(workouts: [WorkoutPourCharge], maintenant: Date) async -> FCMaxRetenue {
+        let debut = Calendar.current.date(byAdding: .day, value: -CalculFCMax.historiqueJours, to: maintenant) ?? maintenant
+        let seances = workouts.filter { $0.intervalle.start >= debut }
+        let cache = Self.lireCachePicsFC()
+        let aRelire = seances.filter { cache[$0.uuid] == nil }
+        let relus = await lecteur.picsSoutenus(seances: aRelire)
+        var pics: [UUID: Double?] = [:]
+        for seance in seances {
+            if let pic = cache[seance.uuid] ?? relus[seance.uuid] { pics[seance.uuid] = pic }
+        }
+        let closes = Set(seances.filter { maintenant.timeIntervalSince($0.intervalle.end) > Self.delaiSeanceClose }.map(\.uuid))
+        Self.ecrireCachePicsFC(pics.filter { closes.contains($0.key) })
+        let retenue = CalculFCMax.retenir(pics: Array(pics.values))
+        Logger.sante.info("FC max : \(Int(retenue.bpm), privacy: .public) bpm (\(retenue.origine == .observee ? "observée" : "théorique", privacy: .public)), \(retenue.seancesAvecFC, privacy: .public)/\(seances.count, privacy: .public) séances avec pic, \(aRelire.count, privacy: .public) relues")
+        return retenue
+    }
+
     private func passageComplet(modelContext: ModelContext) async {
         enCalcul = true
         defer { enCalcul = false }
@@ -112,13 +166,21 @@ final class ChargeActiveService {
 
         await lecteur.demanderAcces()
         // Lectures indépendantes lancées ensemble, chronométrées une à une.
-        async let workoutsLus = Self.chronometrer { await self.lecteur.workouts(sur: DateInterval(start: Self.borneHub(borne), end: maintenant)) }
+        // Workouts lus sur un an : la FC max en a besoin, la charge filtre.
+        let debutWorkouts = min(
+            Self.borneHub(borne),
+            Calendar.current.date(byAdding: .day, value: -CalculFCMax.historiqueJours, to: maintenant) ?? maintenant
+        )
+        async let workoutsLus = Self.chronometrer { await self.lecteur.workouts(sur: DateInterval(start: debutWorkouts, end: maintenant)) }
         async let premierPasLu = Self.chronometrer { await self.lecteur.premierPas(borne: borne) }
         async let blocsLus = Self.chronometrer { await self.lecteur.pasParBloc(sur: fenetre) }
         let (workoutsMesure, premierPasMesure, blocsMesure) = await (workoutsLus, premierPasLu, blocsLus)
-        let (workouts, premierPas, blocs) = (workoutsMesure.0, premierPasMesure.0, blocsMesure.0)
+        let (tousWorkouts, premierPas, blocs) = (workoutsMesure.0, premierPasMesure.0, blocsMesure.0)
+        let fcMaxMesure = await Self.chronometrer { await self.calculerFCMax(workouts: tousWorkouts, maintenant: maintenant) }
+        let borneHub = Self.borneHub(borne)
+        let workouts = tousWorkouts.filter { $0.intervalle.end >= borneHub }
         let tLectures = ContinuousClock.now
-        Logger.sante.info("Charge active chrono lectures : workouts \(Self.ms(workoutsMesure.1), privacy: .public), premier pas \(Self.ms(premierPasMesure.1), privacy: .public), blocs 10 min \(Self.ms(blocsMesure.1), privacy: .public)")
+        Logger.sante.info("Charge active chrono lectures : workouts \(Self.ms(workoutsMesure.1), privacy: .public), premier pas \(Self.ms(premierPasMesure.1), privacy: .public), blocs 10 min \(Self.ms(blocsMesure.1), privacy: .public), FC max \(Self.ms(fcMaxMesure.1), privacy: .public)")
         var bouts: [BoutMarche]?
         var nombrePlages = 0
         if premierPas != nil {
@@ -135,6 +197,7 @@ final class ChargeActiveService {
         }
         let tMinutes = ContinuousClock.now
         cacheSante = (workouts, bouts, premierPas)
+        fcMax = fcMaxMesure.0
         dernierPassageComplet = maintenant
         await assembler(modelContext: modelContext, maintenant: maintenant)
         let fin = ContinuousClock.now
@@ -212,9 +275,10 @@ final class ChargeActiveService {
 
         Logger.sante.info("Charge active : \(seances.count, privacy: .public) séances, \(bouts?.count ?? -1, privacy: .public) bouts de marche")
 
+        let fcMax = fcMax
         let resultat = await Task.detached(priority: .userInitiated) {
             let contexte = CalculChargeActive.contexte(
-                seances: seances, bouts: bouts, debutHistorique: debutHistorique, maintenant: maintenant
+                seances: seances, bouts: bouts, debutHistorique: debutHistorique, fcMax: fcMax, maintenant: maintenant
             )
             return (contexte, contexte.synthese(a: maintenant))
         }.value
@@ -246,7 +310,7 @@ extension ContexteChargeActive {
             )
         }
         return ContexteChargeActive(
-            contributions: [], debutHistorique: nil, marcheIncluse: true, jours: jours, calendrier: cal
+            contributions: [], debutHistorique: nil, marcheIncluse: true, fcMax: .theorique, jours: jours, calendrier: cal
         )
     }
 }

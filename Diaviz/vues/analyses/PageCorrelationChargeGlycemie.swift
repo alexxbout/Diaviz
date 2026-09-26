@@ -498,6 +498,21 @@ private struct CarteChargeActiveIndice: View {
         Text(texteSources(synthese))
             .font(.caption)
             .foregroundStyle(synthese.marcheIncluse ? Color.secondary : Color.orange)
+        Text(texteFCMax(synthese.fcMax))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+    }
+
+    /// Valeur de FC max qui pondère les séances, et son origine.
+    private func texteFCMax(_ fcMax: FCMaxRetenue) -> String {
+        let bpm = Int(fcMax.bpm.rounded())
+        let seances = "\(fcMax.seancesAvecFC) séance\(fcMax.seancesAvecFC >= 2 ? "s" : "")"
+        return switch fcMax.origine {
+        case .observee:
+            "Intensité des séances : FC moyenne rapportée à votre FC max observée, \(bpm) bpm (pic soutenu sur \(seances) des 12 derniers mois)."
+        case .theorique:
+            "Intensité des séances : FC moyenne rapportée à une FC max théorique de \(bpm) bpm. Valeur observée à partir de \(CalculFCMax.seancesMinimum) séances avec FC (\(seances) pour l'instant)."
+        }
     }
 
     private func texteIndice(_ indice: Double) -> String {
@@ -577,7 +592,8 @@ private struct BulleSemaine: View {
             synthese: .mock,
             chargeActive: SyntheseChargeActive(
                 etat: .disponible(indice: 1.32, niveau: .haute, depuisJours: 4),
-                marcheIncluse: true
+                marcheIncluse: true,
+                fcMax: FCMaxRetenue(bpm: 183, origine: .observee, seancesAvecFC: 42)
             )
         )
     }

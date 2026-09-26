@@ -90,13 +90,22 @@ struct CalculChargeActiveTests {
         func s(_ fc: Double?, _ intensite: IntensiteSport = .intense) -> SeancePourCharge {
             SeancePourCharge(debut: Fixtures.reference, dureeMin: 60, intensite: intensite, fcMoyenne: fc, typeActiviteHK: 37)
         }
-        #expect(CalculChargeActive.facteurIntensite(s(nil)) == 3)
-        #expect(CalculChargeActive.facteurIntensite(s(nil, .faible)) == 1)
-        #expect(abs(CalculChargeActive.facteurIntensite(s(95)) - 1) < 1e-9)    // 50 % FCmax
-        #expect(abs(CalculChargeActive.facteurIntensite(s(133)) - 2) < 1e-9)   // 70 %
-        #expect(abs(CalculChargeActive.facteurIntensite(s(171)) - 3) < 1e-9)   // 90 %
-        #expect(CalculChargeActive.facteurIntensite(s(60)) == 1)                // borné bas
-        #expect(CalculChargeActive.facteurIntensite(s(200)) == 3)               // borné haut
+        let f = { (seance: SeancePourCharge) in CalculChargeActive.facteurIntensite(seance, fcMax: 190) }
+        #expect(f(s(nil)) == 3)
+        #expect(f(s(nil, .faible)) == 1)
+        #expect(abs(f(s(95)) - 1) < 1e-9)    // 50 % FCmax
+        #expect(abs(f(s(133)) - 2) < 1e-9)   // 70 %
+        #expect(abs(f(s(171)) - 3) < 1e-9)   // 90 %
+        #expect(f(s(60)) == 1)                // borné bas
+        #expect(f(s(200)) == 3)               // borné haut
+    }
+
+    @Test("Intensité : la FC max personnelle remplace 190 — même FC, facteur plus élevé")
+    func facteurIntensiteFCMaxPersonnelle() {
+        let seance = SeancePourCharge(debut: Fixtures.reference, dureeMin: 60, intensite: .faible, fcMoyenne: 126, typeActiviteHK: 37)
+        #expect(abs(CalculChargeActive.facteurIntensite(seance, fcMax: 180) - 2) < 1e-9)   // 70 % de 180
+        #expect(CalculChargeActive.facteurIntensite(seance, fcMax: 190) < 2)
+        #expect(abs(CalculChargeActive.charge(seance, fcMax: 180) - 120) < 1e-9)
     }
 
     @Test("Le type d'activité est capté mais pèse 1 partout")
@@ -254,10 +263,10 @@ struct CalculChargeActiveTests {
         let maintenant = Fixtures.instant(plusHeures: 24 * 80)
         let seances = [seance(finAPlusHeures: 24 * 79)]
         let sansDebut = CalculChargeActive.analyser(
-            seances: seances, bouts: [], debutHistorique: nil, maintenant: maintenant, calendrier: utc)
+            seances: seances, bouts: [], debutHistorique: nil, fcMax: .theorique, maintenant: maintenant, calendrier: utc)
         #expect(sansDebut.etat == .pasAssezDeRecul)
         let recent = CalculChargeActive.analyser(
-            seances: seances, bouts: [], debutHistorique: Fixtures.instant(plusHeures: 24 * 50),
+            seances: seances, bouts: [], debutHistorique: Fixtures.instant(plusHeures: 24 * 50), fcMax: .theorique,
             maintenant: maintenant, calendrier: utc)
         #expect(recent.etat == .pasAssezDeRecul)
     }
@@ -265,7 +274,7 @@ struct CalculChargeActiveTests {
     @Test("Aucune activité sur la fenêtre de référence → pas de normale, pas de « charge basse »")
     func aucuneActivite() {
         let r = CalculChargeActive.analyser(
-            seances: [], bouts: [], debutHistorique: Fixtures.reference,
+            seances: [], bouts: [], debutHistorique: Fixtures.reference, fcMax: .theorique,
             maintenant: Fixtures.instant(plusHeures: 24 * 80), calendrier: utc)
         #expect(r.etat == .aucuneActiviteDeReference)
     }
@@ -273,11 +282,11 @@ struct CalculChargeActiveTests {
     @Test("Pas non lus → charge sur les séances seules, signalée partielle")
     func chargePartielle() {
         let r = CalculChargeActive.analyser(
-            seances: [], bouts: nil, debutHistorique: Fixtures.reference,
+            seances: [], bouts: nil, debutHistorique: Fixtures.reference, fcMax: .theorique,
             maintenant: Fixtures.instant(plusHeures: 24 * 80), calendrier: utc)
         #expect(r.marcheIncluse == false)
         let complet = CalculChargeActive.analyser(
-            seances: [], bouts: [], debutHistorique: Fixtures.reference,
+            seances: [], bouts: [], debutHistorique: Fixtures.reference, fcMax: .theorique,
             maintenant: Fixtures.instant(plusHeures: 24 * 80), calendrier: utc)
         #expect(complet.marcheIncluse)
     }
@@ -287,7 +296,7 @@ struct CalculChargeActiveTests {
         // Une séance d'1 h chaque jour à 18 h pendant 100 jours.
         let seances = (0..<100).map { seance(finAPlusHeures: Double($0) * 24 + 18) }
         let pendant = CalculChargeActive.analyser(
-            seances: seances, bouts: [], debutHistorique: Fixtures.reference,
+            seances: seances, bouts: [], debutHistorique: Fixtures.reference, fcMax: .theorique,
             maintenant: Fixtures.instant(plusHeures: 99 * 24 + 20), calendrier: utc)
         guard case let .disponible(_, niveau, _) = pendant.etat else {
             Issue.record("indice attendu"); return
@@ -296,7 +305,7 @@ struct CalculChargeActiveTests {
 
         // Arrêt : 6 jours sans séance après les 100 jours.
         let apres = CalculChargeActive.analyser(
-            seances: seances, bouts: [], debutHistorique: Fixtures.reference,
+            seances: seances, bouts: [], debutHistorique: Fixtures.reference, fcMax: .theorique,
             maintenant: Fixtures.instant(plusHeures: 105 * 24 + 20), calendrier: utc)
         guard case let .disponible(indice, niveauApres, _) = apres.etat else {
             Issue.record("indice attendu"); return
@@ -313,7 +322,7 @@ struct CalculChargeActiveTests {
         let bouts = [BoutMarche(debut: Fixtures.instant(plusHeures: 104 * 24 + 9), fin: Fixtures.instant(plusHeures: 104 * 24 + 9.5), pas: 3300)]
         let maintenant = Fixtures.instant(plusHeures: 105 * 24 + 20)
         return (CalculChargeActive.contexte(
-            seances: seances, bouts: bouts, debutHistorique: Fixtures.reference,
+            seances: seances, bouts: bouts, debutHistorique: Fixtures.reference, fcMax: .theorique,
             maintenant: maintenant, calendrier: utc
         ), maintenant)
     }

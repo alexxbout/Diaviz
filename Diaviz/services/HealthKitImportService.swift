@@ -293,8 +293,8 @@ final class HealthKitImportService {
 
 /// Dérive l'intensité ressentie depuis la fréquence cardiaque moyenne
 /// du workout. Heuristique simple basée sur le pourcentage de la FC
-/// max théorique (190 — à terme depuis le profil utilisateur, paramétré
-/// dans les réglages).
+/// max retenue (`CalculFCMax` : observée sur les séances, 190 en repli) —
+/// la même que celle de la charge active.
 ///
 /// Seuils calibrés sur les zones d'effort classiques :
 /// - **< 60 % FCmax** → faible (récupération)
@@ -303,9 +303,9 @@ final class HealthKitImportService {
 ///
 /// Retourne `.moderee` quand la FC n'est pas disponible — c'est la
 /// valeur médiane, la moins perturbante par rapport à un cas inconnu.
-func intensiteDepuisFC(_ fcMoyenne: Double?) -> IntensiteSport {
-    guard let fc = fcMoyenne else { return .moderee }
-    let pourcentage = fc / 190
+func intensiteDepuisFC(_ fcMoyenne: Double?, fcMax: FCMaxRetenue) -> IntensiteSport {
+    guard let fc = fcMoyenne, fcMax.bpm > 0 else { return .moderee }
+    let pourcentage = fc / fcMax.bpm
     if pourcentage < 0.6 { return .faible }
     if pourcentage < 0.8 { return .moderee }
     return .intense

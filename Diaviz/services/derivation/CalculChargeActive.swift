@@ -101,6 +101,8 @@ nonisolated struct SyntheseChargeActive: Sendable, Equatable {
     /// refusée ou aucun pas enregistré) : charge sur les séances seules,
     /// à signaler comme partielle.
     let marcheIncluse: Bool
+    /// FC max qui a pondéré les séances — affichée avec son origine.
+    var fcMax: FCMaxRetenue = .theorique
 
     var niveau: NiveauChargeActive? {
         if case let .disponible(_, niveau, _) = etat { return niveau }
@@ -142,12 +144,15 @@ nonisolated struct ContexteChargeActive: Sendable {
     let contributions: [ContributionCharge]
     let debutHistorique: Date?
     let marcheIncluse: Bool
+    /// FC max qui a pondéré les séances de `contributions`.
+    let fcMax: FCMaxRetenue
     /// Chronologique, `CalculChargeActive.horizonJours` jours jusqu'à aujourd'hui.
     let jours: [JourChargeActive]
     let calendrier: Calendar
 
     static let vide = ContexteChargeActive(
-        contributions: [], debutHistorique: nil, marcheIncluse: false, jours: [], calendrier: .current
+        contributions: [], debutHistorique: nil, marcheIncluse: false, fcMax: .theorique,
+        jours: [], calendrier: .current
     )
 
     func jour(contenant date: Date) -> JourChargeActive? {
@@ -171,9 +176,9 @@ nonisolated struct ContexteChargeActive: Sendable {
         let normale = CalculChargeActive.normale(a: instant, contributions: contributions, calendrier: calendrier)
         guard CalculChargeActive.reculSuffisant(a: instant, debutHistorique: debutHistorique, calendrier: calendrier),
               let normale
-        else { return SyntheseChargeActive(etat: .pasAssezDeRecul, marcheIncluse: marcheIncluse) }
+        else { return SyntheseChargeActive(etat: .pasAssezDeRecul, marcheIncluse: marcheIncluse, fcMax: fcMax) }
         guard normale > 0 else {
-            return SyntheseChargeActive(etat: .aucuneActiviteDeReference, marcheIncluse: marcheIncluse)
+            return SyntheseChargeActive(etat: .aucuneActiviteDeReference, marcheIncluse: marcheIncluse, fcMax: fcMax)
         }
         let jourConnu = jour(contenant: instant).flatMap { $0.niveau == nil ? nil : $0 }
         let jourLu = jourConnu ?? CalculChargeActive.jours(
@@ -181,13 +186,14 @@ nonisolated struct ContexteChargeActive: Sendable {
             jusqua: instant, horizonJours: 1, calendrier: calendrier
         ).last
         guard let niveau = jourLu?.niveau else {
-            return SyntheseChargeActive(etat: .pasAssezDeRecul, marcheIncluse: marcheIncluse)
+            return SyntheseChargeActive(etat: .pasAssezDeRecul, marcheIncluse: marcheIncluse, fcMax: fcMax)
         }
         let indice = jourLu?.indice
             ?? CalculChargeActive.chargeActive(a: instant, contributions: contributions) / normale
         return SyntheseChargeActive(
             etat: .disponible(indice: indice, niveau: niveau, depuisJours: jourLu?.depuisJours),
-            marcheIncluse: marcheIncluse
+            marcheIncluse: marcheIncluse,
+            fcMax: fcMax
         )
     }
 
@@ -288,9 +294,6 @@ nonisolated enum CalculChargeActive {
     /// à son existence, pas au nombre de minutes lues.
     static let ecartFusionPlagesMinutes = 180
 
-    /// FC max théorique — même valeur que `intensiteDepuisFC`.
-    static let fcMaxTheorique = 190.0
-
     /// Profondeur d'historique totale à charger pour construire le contexte.
     static var profondeurJours: Int {
         horizonJours + joursSerieNiveau + fenetreNormaleJours + exclusionRecenteJours + margeDecroissanceJours
@@ -306,15 +309,16 @@ nonisolated enum CalculChargeActive {
 
     /// Facteur d'intensité : FC moyenne si disponible, interpolée en continu
     /// sur les mêmes zones que `intensiteDepuisFC` (50 % FCmax → 1, 70 % → 2,
-    /// 90 % → 3, borné à [1, 3]) ; sinon l'intensité saisie.
-    static func facteurIntensite(_ seance: SeancePourCharge) -> Double {
-        guard let fc = seance.fcMoyenne, fc > 0 else { return facteur(seance.intensite) }
-        let pourcentage = fc / fcMaxTheorique
+    /// 90 % → 3, borné à [1, 3]) ; sinon l'intensité saisie. `fcMax` vient de
+    /// `CalculFCMax` (observée, ou théorique en repli).
+    static func facteurIntensite(_ seance: SeancePourCharge, fcMax: Double) -> Double {
+        guard let fc = seance.fcMoyenne, fc > 0, fcMax > 0 else { return facteur(seance.intensite) }
+        let pourcentage = fc / fcMax
         return min(3, max(1, 1 + (pourcentage - 0.5) / 0.2))
     }
 
-    static func charge(_ seance: SeancePourCharge) -> Double {
-        coefficientType(seance.typeActiviteHK) * facteurIntensite(seance) * Double(seance.dureeMin)
+    static func charge(_ seance: SeancePourCharge, fcMax: Double) -> Double {
+        coefficientType(seance.typeActiviteHK) * facteurIntensite(seance, fcMax: fcMax) * Double(seance.dureeMin)
     }
 
     /// Un bout de marche pèse comme une séance faible, réduite par
@@ -511,8 +515,8 @@ nonisolated enum CalculChargeActive {
 
     // MARK: Assemblage
 
-    static func contributions(seances: [SeancePourCharge], bouts: [BoutMarche]) -> [ContributionCharge] {
-        seances.map { ContributionCharge(instant: $0.fin, charge: charge($0)) }
+    static func contributions(seances: [SeancePourCharge], bouts: [BoutMarche], fcMax: Double) -> [ContributionCharge] {
+        seances.map { ContributionCharge(instant: $0.fin, charge: charge($0, fcMax: fcMax)) }
             + bouts.map { ContributionCharge(instant: $0.fin, charge: charge($0)) }
     }
 
@@ -524,19 +528,23 @@ nonisolated enum CalculChargeActive {
     ///     n'ont pas pu être lus (charge partielle).
     ///   - debutHistorique: plus ancienne donnée d'activité disponible
     ///     (premier pas enregistré, sinon première séance).
+    ///   - fcMax: FC max retenue (`CalculFCMax.retenir`) — elle pondère
+    ///     **toutes** les séances, passées comprises.
     static func contexte(
         seances: [SeancePourCharge],
         bouts: [BoutMarche]?,
         debutHistorique: Date?,
+        fcMax: FCMaxRetenue,
         maintenant: Date = Date(),
         horizonJours: Int = horizonJours,
         calendrier: Calendar = .current
     ) -> ContexteChargeActive {
-        let apports = contributions(seances: seances, bouts: bouts ?? [])
+        let apports = contributions(seances: seances, bouts: bouts ?? [], fcMax: fcMax.bpm)
         return ContexteChargeActive(
             contributions: apports,
             debutHistorique: debutHistorique,
             marcheIncluse: bouts != nil,
+            fcMax: fcMax,
             jours: jours(
                 contributions: apports, seances: seances, bouts: bouts ?? [],
                 debutHistorique: debutHistorique, jusqua: maintenant,
@@ -551,11 +559,12 @@ nonisolated enum CalculChargeActive {
         seances: [SeancePourCharge],
         bouts: [BoutMarche]?,
         debutHistorique: Date?,
+        fcMax: FCMaxRetenue,
         maintenant: Date = Date(),
         calendrier: Calendar = .current
     ) -> SyntheseChargeActive {
         contexte(
-            seances: seances, bouts: bouts, debutHistorique: debutHistorique,
+            seances: seances, bouts: bouts, debutHistorique: debutHistorique, fcMax: fcMax,
             maintenant: maintenant, horizonJours: 1, calendrier: calendrier
         ).synthese(a: maintenant)
     }
