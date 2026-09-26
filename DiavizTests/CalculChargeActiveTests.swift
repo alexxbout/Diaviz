@@ -148,16 +148,38 @@ struct CalculChargeActiveTests {
         #expect(CalculChargeActive.boutsMarche(pasParMinute: continu).count == 1)
     }
 
-    @Test("Préfiltrage : heures ≥ 500 pas, élargies d'une heure, fusionnées")
+    @Test("Préfiltrage : paires de blocs de 10 min à ≥ 1 000 pas, fusionnées")
     func plagesCandidates() {
-        let heures = [100.0, 600, 50, 20, 20, 20, 3000, 800].enumerated().map {
-            PasHeure(debut: Fixtures.instant(plusHeures: Double($0.offset)), pas: $0.element)
+        // Blocs : 300 | 700 | 200 | 100 | 0 | 900 | 150 (0 = bloc absent).
+        let valeurs: [Double] = [300, 700, 200, 100, 0, 900, 150]
+        let blocs = valeurs.enumerated().compactMap { i, pas -> PasBloc? in
+            pas > 0 ? PasBloc(debut: Fixtures.instant(plusMinutes: Double(i) * 10), pas: pas) : nil
         }
-        let plages = CalculChargeActive.plagesCandidates(pasParHeure: heures)
+        let plages = CalculChargeActive.plagesCandidates(pasParBloc: blocs)
+        // 300+700 = 1000 → [0, 20] ; 700+200 = 900 non ; 900+150 = 1050 → [50, 70],
+        // à moins de 3 h l'une de l'autre : relues en une seule plage.
         #expect(plages == [
-            DateInterval(start: Fixtures.instant(plusHeures: 0), end: Fixtures.instant(plusHeures: 3)),
-            DateInterval(start: Fixtures.instant(plusHeures: 5), end: Fixtures.instant(plusHeures: 9)),
+            DateInterval(start: Fixtures.instant(plusMinutes: 0), end: Fixtures.instant(plusMinutes: 70)),
         ])
+        // Au-delà de 3 h d'écart, deux plages distinctes.
+        let eloignes = [
+            PasBloc(debut: Fixtures.instant(plusMinutes: 0), pas: 1000),
+            PasBloc(debut: Fixtures.instant(plusMinutes: 300), pas: 1000),
+        ]
+        #expect(CalculChargeActive.plagesCandidates(pasParBloc: eloignes).count == 2)
+    }
+
+    @Test("Préfiltrage : un vrai bout de marche passe toujours le filtre")
+    func plagesCandidatesSansFauxNegatif() {
+        // Bout de 10 min à 100 pas/min à cheval sur deux blocs (6 + 4 min).
+        let blocs = [
+            PasBloc(debut: Fixtures.instant(plusMinutes: 0), pas: 600),
+            PasBloc(debut: Fixtures.instant(plusMinutes: 10), pas: 400),
+        ]
+        let plages = CalculChargeActive.plagesCandidates(pasParBloc: blocs)
+        let minutes = (4..<14).map { PasMinute(debut: Fixtures.instant(plusMinutes: Double($0)), pas: 100) }
+        let dansPlages = minutes.filter { m in plages.contains { $0.contains(m.debut) } }
+        #expect(CalculChargeActive.boutsMarche(pasParMinute: dansPlages).count == 1)
     }
 
     // MARK: - Dédoublonnage
@@ -367,5 +389,19 @@ struct CalculChargeActiveTests {
             Issue.record("indice attendu"); return
         }
         #expect(indiceMaintenant == contexte.jours.last?.indice)
+    }
+
+    @Test("Cache des bouts : anciens avant la coupure + relus après, sans doublon à cheval")
+    func fusionnerBouts() {
+        let coupure = Fixtures.instant(plusHeures: 48)
+        let ancien = BoutMarche(debut: Fixtures.instant(plusHeures: 10), fin: Fixtures.instant(plusHeures: 10.5), pas: 3300)
+        let aCheval = BoutMarche(debut: Fixtures.instant(plusMinutes: 48 * 60 - 10), fin: Fixtures.instant(plusMinutes: 48 * 60 + 15), pas: 2750)
+        let troncRelu = BoutMarche(debut: coupure, fin: Fixtures.instant(plusMinutes: 48 * 60 + 15), pas: 1650)
+        let nouveau = BoutMarche(debut: Fixtures.instant(plusHeures: 50), fin: Fixtures.instant(plusHeures: 50.25), pas: 1650)
+        let perime = BoutMarche(debut: Fixtures.instant(plusHeures: 60), fin: Fixtures.instant(plusHeures: 60.2), pas: 1300)
+        let fusion = CalculChargeActive.fusionnerBouts(
+            cache: [ancien, aCheval, perime], nouveaux: [troncRelu, nouveau], coupure: coupure
+        )
+        #expect(fusion == [ancien, aCheval, nouveau])
     }
 }

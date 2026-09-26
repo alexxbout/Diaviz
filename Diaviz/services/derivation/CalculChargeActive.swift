@@ -29,15 +29,16 @@ nonisolated struct PasMinute: Sendable, Equatable {
     let pas: Double
 }
 
-/// Nombre de pas d'une heure calendaire — sert uniquement au préfiltrage des
-/// plages à relire à la minute (`plagesCandidates`).
-nonisolated struct PasHeure: Sendable, Equatable {
+/// Nombre de pas d'un bloc de `CalculChargeActive.dureeBlocMinutes` minutes
+/// — sert uniquement au préfiltrage des plages à relire à la minute
+/// (`plagesCandidates`).
+nonisolated struct PasBloc: Sendable, Equatable {
     let debut: Date
     let pas: Double
 }
 
 /// Bout de marche soutenue détecté dans les pas (hors séance enregistrée).
-nonisolated struct BoutMarche: Sendable, Equatable {
+nonisolated struct BoutMarche: Sendable, Equatable, Codable {
     let debut: Date
     let fin: Date
     let pas: Double
@@ -253,6 +254,12 @@ nonisolated enum CalculChargeActive {
     static let cadenceMarcheMin = 100.0
     static let dureeMarcheMinMinutes = 10
     static let coefficientMarche = 0.75
+    /// Taille des blocs du préfiltrage — égale à la durée minimale d'un bout.
+    static let dureeBlocMinutes = 10
+    /// Deux plages candidates séparées de moins que ça sont relues en une
+    /// seule requête minute : le coût d'une requête HealthKit tient surtout
+    /// à son existence, pas au nombre de minutes lues.
+    static let ecartFusionPlagesMinutes = 180
 
     /// FC max théorique — même valeur que `intensiteDepuisFC`.
     static let fcMaxTheorique = 190.0
@@ -346,20 +353,26 @@ nonisolated enum CalculChargeActive {
 
     // MARK: Marche
 
-    /// Préfiltrage : heures contenant assez de pas pour porter au moins la
-    /// moitié d'un bout minimal (un bout de 10 min à 100 pas/min laisse
-    /// ≥ 500 pas dans au moins une des heures qu'il touche), élargies d'une
-    /// heure de part et d'autre puis fusionnées. Seules ces plages sont
-    /// relues à la minute — évite des centaines de milliers de buckets.
-    static func plagesCandidates(pasParHeure: [PasHeure]) -> [DateInterval] {
-        let seuil = cadenceMarcheMin * Double(dureeMarcheMinMinutes) / 2
-        let plages = pasParHeure
-            .filter { $0.pas >= seuil }
-            .map { DateInterval(start: $0.debut.addingTimeInterval(-3600), duration: 3 * 3600) }
+    /// Préfiltrage : paires de blocs de 10 min consécutifs totalisant au
+    /// moins un bout minimal (10 min × 100 pas = 1 000 pas). Condition
+    /// **nécessaire** : un bout de 10 min tient dans deux blocs voisins, et
+    /// chaque tranche de 10 min d'un bout plus long aussi — aucun bout ne
+    /// peut échapper au filtre. Seules ces plages sont relues à la minute.
+    ///
+    /// Remplace un filtre par heures ≥ 500 pas, trop lâche : sur l'iPhone de
+    /// l'utilisateur, 220 plages et 6 s de lecture pour 0 bout (2026-09-26).
+    static func plagesCandidates(pasParBloc: [PasBloc]) -> [DateInterval] {
+        let seuil = cadenceMarcheMin * Double(dureeMarcheMinMinutes)
+        let pas = TimeInterval(dureeBlocMinutes * 60)
+        let parDebut = Dictionary(pasParBloc.map { ($0.debut, $0.pas) }, uniquingKeysWith: +)
+        let plages = pasParBloc
+            .filter { $0.pas + (parDebut[$0.debut.addingTimeInterval(pas)] ?? 0) >= seuil }
+            .map { DateInterval(start: $0.debut, duration: 2 * pas) }
             .sorted { $0.start < $1.start }
         var fusion: [DateInterval] = []
         for plage in plages {
-            if let derniere = fusion.last, plage.start <= derniere.end {
+            if let derniere = fusion.last,
+               plage.start.timeIntervalSince(derniere.end) <= Double(ecartFusionPlagesMinutes * 60) {
                 fusion[fusion.count - 1] = DateInterval(start: derniere.start, end: max(derniere.end, plage.end))
             } else {
                 fusion.append(plage)
@@ -396,6 +409,15 @@ nonisolated enum CalculChargeActive {
         }
         clore()
         return bouts
+    }
+
+    /// Bouts en cache (jours clos, avant `coupure`) + bouts relus depuis
+    /// `coupure`. Un bout relu qui recoupe le dernier bout en cache (bout à
+    /// cheval sur la coupure, relu tronqué) est écarté.
+    static func fusionnerBouts(cache: [BoutMarche], nouveaux: [BoutMarche], coupure: Date) -> [BoutMarche] {
+        let anciens = cache.filter { $0.debut < coupure }
+        let finAnciens = anciens.map(\.fin).max() ?? .distantPast
+        return anciens + nouveaux.filter { $0.debut >= coupure && $0.debut >= finAnciens }
     }
 
     /// Dédoublonnage : un bout qui chevauche une séance enregistrée (hub ou

@@ -250,6 +250,10 @@ struct AppTabVues: View {
         }
         .task {
             await resoudreEtatDemarrage()
+            // Charge active lancée tout de suite, en parallèle du reste du
+            // démarrage, si l'autorisation Santé est déjà tranchée : la carte
+            // Activité de l'accueil n'attend plus B1, B2/B3 ni la synchro CGM.
+            let chargeAnticipee = Task { await ChargeActiveService.shared.demarrerSiAutorise(contexte: modelContext) }
             demarrerServicesPreferences()
             sessionActivitesService.demarrer(contexte: modelContext)
             repasService.demarrer(contexte: modelContext)
@@ -292,7 +296,10 @@ struct AppTabVues: View {
             // Charge active : contexte partagé (accueil, badges, B2/B3).
             // B2/B3 ont démarré sans lui plus haut — rechargés pour porter
             // le niveau de charge de chaque soir.
-            await ChargeActiveService.shared.recalculer(contexte: modelContext)
+            // Attend le passage anticipé ; sinon (premier lancement, sheet
+            // d'autorisation), le lance maintenant.
+            await chargeAnticipee.value
+            await ChargeActiveService.shared.recalculerSiNecessaire(contexte: modelContext)
             async let endoCharge: Void = analyseEndormissementService.recharger()
             async let corrCharge: Void = analyseCorrectionsService.recharger()
             _ = await (endoCharge, corrCharge)

@@ -36,33 +36,119 @@ final class ChargeActiveService {
     /// mois de pas à chaque mutation.
     private var cacheSante: (workouts: [WorkoutPourCharge], bouts: [BoutMarche]?, premierPas: Date?)?
     private var dernierPassageComplet: Date?
+    /// Passage complet en cours : un second appel l'attend au lieu de
+    /// relancer les mêmes lectures Santé en parallèle.
+    private var passageEnCours: Task<Void, Never>?
 
     /// Au-delà, un retour sur l'onglet Analyses relit Apple Santé.
     static let fraicheurSante: TimeInterval = 15 * 60
 
     /// Passage complet : Apple Santé (pas, workouts, FC) + hub.
     func recalculer(contexte modelContext: ModelContext) async {
+        if let passageEnCours {
+            await passageEnCours.value
+            return
+        }
+        let passage = Task { await passageComplet(modelContext: modelContext) }
+        passageEnCours = passage
+        await passage.value
+        passageEnCours = nil
+    }
+
+    /// Au démarrage, avant le préflight Santé : lance le passage complet
+    /// tout de suite si l'autorisation est déjà tranchée (cas courant, hors
+    /// premier lancement), pour que l'accueil n'attende pas la synchro CGM.
+    func demarrerSiAutorise(contexte modelContext: ModelContext) async {
+        guard await lecteur.autorisationTranchee() else { return }
+        await recalculer(contexte: modelContext)
+    }
+
+    // MARK: - Cache des bouts de marche
+
+    /// Bouts de marche des **jours clos** (jusqu'à `couvertJusqua`), gardés
+    /// d'un lancement à l'autre : les pas d'une journée passée ne changent
+    /// plus, les relire à la minute coûtait ~7 s à chaque démarrage.
+    ///
+    /// `UserDefaults` est légitime ici (règle du CLAUDE.md) : faits dérivés
+    /// d'Apple Santé, propres à l'appareil, jamais une saisie. Perdus, ils
+    /// sont simplement recalculés au passage suivant.
+    private struct CacheBoutsMarche: Codable {
+        let couvertJusqua: Date
+        let bouts: [BoutMarche]
+    }
+
+    /// Versionnée : changer la détection (cadence, durée, coefficient…)
+    /// impose de changer la clé, sinon les anciens bouts resteraient servis.
+    private static let cleCacheBouts = "chargeActive.cacheBoutsMarche.v1"
+    /// Les deux derniers jours restent relus : la montre synchronise parfois
+    /// ses pas avec plusieurs heures de retard.
+    private static let joursNonClos = 2
+
+    private static func lireCacheBouts() -> CacheBoutsMarche? {
+        guard let data = UserDefaults.standard.data(forKey: cleCacheBouts) else { return nil }
+        return try? JSONDecoder().decode(CacheBoutsMarche.self, from: data)
+    }
+
+    private static func ecrireCacheBouts(_ cache: CacheBoutsMarche) {
+        guard let data = try? JSONEncoder().encode(cache) else { return }
+        UserDefaults.standard.set(data, forKey: cleCacheBouts)
+    }
+
+    private func passageComplet(modelContext: ModelContext) async {
         enCalcul = true
         defer { enCalcul = false }
+        let chrono = ContinuousClock.now
 
         let maintenant = Date()
         let borne = Self.borne(maintenant)
-        let fenetre = DateInterval(start: borne, end: maintenant)
+        let coupure = Calendar.current.date(
+            byAdding: .day, value: -Self.joursNonClos, to: Calendar.current.startOfDay(for: maintenant)
+        ) ?? maintenant
+        // Cache utilisable s'il couvre bien toute la fenêtre jusqu'à sa
+        // coupure : on ne relit alors que depuis celle-ci.
+        let cache = Self.lireCacheBouts().flatMap { $0.couvertJusqua > borne ? $0 : nil }
+        let debutLecture = min(cache?.couvertJusqua ?? borne, coupure)
+        let fenetre = DateInterval(start: max(debutLecture, borne), end: maintenant)
 
         await lecteur.demanderAcces()
-        // Lectures indépendantes lancées ensemble.
-        async let workoutsLus = lecteur.workouts(sur: DateInterval(start: Self.borneHub(borne), end: maintenant))
-        async let premierPasLu = lecteur.premierPas()
-        async let heuresLues = lecteur.pasParHeure(sur: fenetre)
-        let (workouts, premierPas, heures) = await (workoutsLus, premierPasLu, heuresLues)
+        // Lectures indépendantes lancées ensemble, chronométrées une à une.
+        async let workoutsLus = Self.chronometrer { await self.lecteur.workouts(sur: DateInterval(start: Self.borneHub(borne), end: maintenant)) }
+        async let premierPasLu = Self.chronometrer { await self.lecteur.premierPas(borne: borne) }
+        async let blocsLus = Self.chronometrer { await self.lecteur.pasParBloc(sur: fenetre) }
+        let (workoutsMesure, premierPasMesure, blocsMesure) = await (workoutsLus, premierPasLu, blocsLus)
+        let (workouts, premierPas, blocs) = (workoutsMesure.0, premierPasMesure.0, blocsMesure.0)
+        let tLectures = ContinuousClock.now
+        Logger.sante.info("Charge active chrono lectures : workouts \(Self.ms(workoutsMesure.1), privacy: .public), premier pas \(Self.ms(premierPasMesure.1), privacy: .public), blocs 10 min \(Self.ms(blocsMesure.1), privacy: .public)")
         var bouts: [BoutMarche]?
+        var nombrePlages = 0
         if premierPas != nil {
-            let plages = CalculChargeActive.plagesCandidates(pasParHeure: heures)
-            bouts = CalculChargeActive.boutsMarche(pasParMinute: await lecteur.pasParMinute(plages: plages))
+            let plages = CalculChargeActive.plagesCandidates(pasParBloc: blocs)
+            nombrePlages = plages.count
+            let relus = CalculChargeActive.boutsMarche(pasParMinute: await lecteur.pasParMinute(plages: plages))
+            let tous = cache.map {
+                CalculChargeActive.fusionnerBouts(cache: $0.bouts, nouveaux: relus, coupure: $0.couvertJusqua)
+            } ?? relus
+            bouts = tous.filter { $0.fin >= borne }
+            Self.ecrireCacheBouts(CacheBoutsMarche(
+                couvertJusqua: coupure, bouts: tous.filter { $0.debut < coupure && $0.fin >= borne }
+            ))
         }
+        let tMinutes = ContinuousClock.now
         cacheSante = (workouts, bouts, premierPas)
         dernierPassageComplet = maintenant
         await assembler(modelContext: modelContext, maintenant: maintenant)
+        let fin = ContinuousClock.now
+        Logger.sante.info("Charge active chrono : lectures \(Self.ms(tLectures - chrono), privacy: .public), \(nombrePlages, privacy: .public) plages minute \(Self.ms(tMinutes - tLectures), privacy: .public), assemblage \(Self.ms(fin - tMinutes), privacy: .public)")
+    }
+
+    private static func chronometrer<T>(_ lecture: () async -> T) async -> (T, Duration) {
+        let debut = ContinuousClock.now
+        let valeur = await lecture()
+        return (valeur, ContinuousClock.now - debut)
+    }
+
+    private nonisolated static func ms(_ duree: Duration) -> String {
+        duree.formatted(.units(allowed: [.milliseconds]))
     }
 
     /// Retour sur un écran : relit Apple Santé seulement si le dernier

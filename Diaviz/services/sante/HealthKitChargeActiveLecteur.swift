@@ -44,38 +44,66 @@ nonisolated struct HealthKitChargeActiveLecteur: Sendable {
         }
     }
 
-    /// Date du plus ancien échantillon de pas — borne la profondeur réelle de
-    /// l'historique. `nil` = aucun pas lisible (refus ou absence).
-    func premierPas() async -> Date? {
+    /// `true` si la demande d'autorisation n'a plus rien à montrer (déjà
+    /// tranchée) : les lectures peuvent démarrer sans attendre le préflight
+    /// Santé du démarrage.
+    func autorisationTranchee() async -> Bool {
+        guard Self.disponible else { return false }
+        let statut = try? await store.statusForAuthorizationRequest(
+            toShare: [], read: [typePas, typeFC, HKObjectType.workoutType()]
+        )
+        return statut == .unnecessary
+    }
+
+    /// Premier pas utile pour borner l'historique. Seule compte la question
+    /// « l'historique remonte-t-il avant `borne` ? » : si oui, **n'importe
+    /// quel** échantillon antérieur suffit (requête sans tri, instantanée) —
+    /// trier des années de pas pour trouver le tout premier coûtait cher.
+    /// Sinon, plus ancien échantillon de la fenêtre. `nil` = aucun pas lisible.
+    func premierPas(borne: Date) async -> Date? {
         guard Self.disponible else { return nil }
-        let descripteur = HKSampleQueryDescriptor(
-            predicates: [.quantitySample(type: typePas)],
+        let avant = HKSampleQueryDescriptor(
+            predicates: [.quantitySample(type: typePas, predicate: HKQuery.predicateForSamples(withStart: nil, end: borne))],
+            sortDescriptors: [],
+            limit: 1
+        )
+        if let ancien = (try? await avant.result(for: store))?.first?.startDate { return ancien }
+        let dansFenetre = HKSampleQueryDescriptor(
+            predicates: [.quantitySample(type: typePas, predicate: HKQuery.predicateForSamples(withStart: borne, end: nil))],
             sortDescriptors: [SortDescriptor(\.startDate, order: .forward)],
             limit: 1
         )
-        return (try? await descripteur.result(for: store))?.first?.startDate
+        return (try? await dansFenetre.result(for: store))?.first?.startDate
     }
 
-    /// Pas par heure calendaire sur `intervalle` — premier passage, léger.
-    func pasParHeure(sur intervalle: DateInterval, calendrier: Calendar = .current) async -> [PasHeure] {
+    /// Pas par bloc de 10 min sur `intervalle` — premier passage du préfiltrage.
+    func pasParBloc(sur intervalle: DateInterval, calendrier: Calendar = .current) async -> [PasBloc] {
         let debut = calendrier.dateInterval(of: .hour, for: intervalle.start)?.start ?? intervalle.start
-        return await sommes(de: debut, a: intervalle.end, pas: DateComponents(hour: 1))
-            .map { PasHeure(debut: $0.debut, pas: $0.pas) }
+        return await sommes(de: debut, a: intervalle.end, pas: DateComponents(minute: CalculChargeActive.dureeBlocMinutes))
+            .map { PasBloc(debut: $0.debut, pas: $0.pas) }
     }
 
     /// Pas par minute sur chaque plage candidate. HealthKit fusionne les
     /// sources (iPhone + montre) et répartit les échantillons au prorata des
-    /// buckets : pas de double comptage. Plages lues en parallèle.
-    func pasParMinute(plages: [DateInterval]) async -> [PasMinute] {
+    /// buckets : pas de double comptage. Au plus `parallelisme` requêtes à
+    /// la fois : en lancer des centaines d'un coup les fait attendre les unes
+    /// derrière les autres côté HealthKit.
+    func pasParMinute(plages: [DateInterval], parallelisme: Int = 4) async -> [PasMinute] {
         await withTaskGroup(of: [PasMinute].self) { groupe in
-            for plage in plages {
+            var restantes = plages[...]
+            func lancer() {
+                guard let plage = restantes.popFirst() else { return }
                 groupe.addTask {
                     await sommes(de: plage.start, a: plage.end, pas: DateComponents(minute: 1))
                         .map { PasMinute(debut: $0.debut, pas: $0.pas) }
                 }
             }
+            for _ in 0..<parallelisme { lancer() }
             var minutes: [PasMinute] = []
-            for await lot in groupe { minutes += lot }
+            for await lot in groupe {
+                minutes += lot
+                lancer()
+            }
             return minutes
         }
     }

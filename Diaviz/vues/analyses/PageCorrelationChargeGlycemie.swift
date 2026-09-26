@@ -231,12 +231,6 @@ struct PageCorrelationChargeGlycemie: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button {
-                    self.semaineSelectionnee = nil
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.tertiary)
-                }
             }
         } else {
             Color.clear
