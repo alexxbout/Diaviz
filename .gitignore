@@ -27,3 +27,6 @@ Pods/
 
 # Fichiers de build
 DerivedData/
+
+# Graphe graphify (généré, reconstructible)
+graphify-out/
