@@ -40,6 +40,10 @@ nonisolated struct EvenementSoiree: Identifiable, Sendable {
 nonisolated enum ConstatB1Nuit: Sendable {
     /// Zone 3 analysée : dérive totale (mg/dL) + catégorie.
     case analysee(derive: Int, categorie: CategorieNuit)
+    /// Zone 3 exclue de la régression (resucrage, bolus...) mais un signal
+    /// indépendant (hypo/hyper profonde) donne quand même un verdict — pas
+    /// de dérive chiffrée fiable à afficher.
+    case signalSansDerive(categorie: CategorieNuit)
     /// Nuit exclue de B1 — motif brut (`RaisonExclusion.rawValue`).
     case exclue(motif: String)
     /// Pas de données B1 pour cette nuit.
@@ -173,6 +177,12 @@ nonisolated enum CalculDetailSoiree {
     private static func constat(_ nuit: NightChartData) -> ConstatB1Nuit {
         if let motif = nuit.motifExclusion {
             return .exclue(motif: motif)
+        }
+        // Zone exclue de la régression mais nuit tout de même verdictée
+        // (hypo/hyper profonde) — voir `categorieForcee` dans
+        // `CalculAnalyseBasale.analyserNuit`.
+        if nuit.slopeZone3 == nil, let categorie = nuit.categorieVerdict {
+            return .signalSansDerive(categorie: categorie)
         }
         guard let slope = nuit.slopeZone3,
               let z3 = nuit.zones.first(where: { $0.zone == .nuitProfonde }) else {

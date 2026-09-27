@@ -287,11 +287,16 @@ struct CalculAnalyseBasaleTests {
         #expect(analyse.nightChartData.first?.motifExclusion == RaisonExclusion.bolusCorrection.rawValue)
     }
 
-    @Test("Rapide non correctif dans la nuit profonde → zone conservée")
+    @Test("Rapide non correctif dans la nuit profonde → zone exclue (insuline hors basale)")
     func rapideNonCorrectifEnZone3() {
+        // Trou comblé le 27 sept : une petite collation bolusée (sous le
+        // seuil « repas copieux », pas une correction) faussait la pente
+        // sans jamais exclure la zone. Toute rapide non-correctif dans la
+        // zone exclut désormais la régression.
         let bolus = (heure: lente(1).addingTimeInterval(3 * 3600), dose: 2.0, correction: false)
         let analyse = analyser([SpecNuit(decalage: 1)], fenetre: 2, rapides: [bolus])
-        #expect(analyse.nuitsAnalysees == 1)
+        #expect(analyse.nuitsAnalysees == 0)
+        #expect(analyse.nightChartData.first?.motifExclusion == RaisonExclusion.bolusNonCorrectif.rawValue)
     }
 
     @Test("Repas copieux dans la nuit profonde → zone exclue ; au seuil exactement → conservée")
@@ -332,25 +337,97 @@ struct CalculAnalyseBasaleTests {
         #expect(analyse.nightChartData.first?.motifExclusion == RaisonExclusion.modePause.rawValue)
     }
 
-    @Test("Resucrage dans la nuit profonde → zone exclue, même sous le seuil copieux")
+    @Test("Resucrage dans la nuit profonde → pente exclue, mais nuit comptée via le signal hypo")
     func resucrageEnZone3() {
+        // Chantier 1 (27 sept) : une hypo resucrée dans la zone 3 excluait
+        // avant la nuit ENTIÈRE du verdict — le déclencheur « hypo profonde
+        // → tendance descendante immédiate » ne voyait jamais ces nuits,
+        // le cas le plus courant (hypo traitée normalement). La pente reste
+        // non fiable (motif de zone `resucrage`), mais la nuit compte
+        // désormais dans `valides`, avec la catégorie forcée par l'hypo.
         var spec = SpecNuit(decalage: 1)
         spec.creux = [Creux(debutMinutes: 180, dureeMinutes: 10)]   // en zone 3
         let prise = [resucrage(lente(1).addingTimeInterval(185 * 60), 15)]   // 15 g < seuil copieux
         let analyse = analyser([spec], fenetre: 2, resucrages: prise)
 
+        // Motif de zone toujours affiché (pente non fiable)...
+        let z3 = analyse.nightChartData.first?.zones.first { $0.zone == .nuitProfonde }
+        #expect(z3?.exclusionReason == RaisonExclusion.resucrage.rawValue)
+        // ...mais la nuit compte désormais dans le verdict, forcée « tendance
+        // basse » par l'hypo, sans chiffre de dérive affichable.
+        #expect(analyse.nuitsAnalysees == 1)
+        #expect(analyse.nightChartData.first?.categorieVerdict == .tendanceBasse)
+        #expect(analyse.nightChartData.first?.slopeZone3 == nil)
+        #expect(analyse.nightChartData.first?.motifExclusion == nil)
+        #expect(analyse.hyposNocturnes == 1)
+    }
+
+    @Test("Hyper corrigée en nuit profonde, sans explication → nuit comptée en tendance ascendante")
+    func hyperCorrigeeEnZone3() {
+        // Symétrique de `resucrageEnZone3` côté haut : une hyper non
+        // expliquée (pas de dîner copieux, pas de rebond post-hypo) qui
+        // reçoit une correction excluait avant la nuit entière — aucun
+        // mécanisme miroir de `aHypoProfonde` n'existait côté hyper. La
+        // pente reste non fiable (motif `bolusCorrection`), mais la nuit
+        // compte désormais, forcée « tendance haute ».
+        var spec = SpecNuit(decalage: 1, depart: 130)
+        spec.creux = [Creux(debutMinutes: 180, dureeMinutes: 30, valeur: 220)]   // pic hyper en z3
+        let correction = (heure: lente(1).addingTimeInterval(190 * 60), dose: 2.0, correction: true)
+        let analyse = analyser([spec], fenetre: 2, rapides: [correction])
+
+        let z3 = analyse.nightChartData.first?.zones.first { $0.zone == .nuitProfonde }
+        #expect(z3?.exclusionReason == RaisonExclusion.bolusCorrection.rawValue)
+        #expect(analyse.nuitsAnalysees == 1)
+        #expect(analyse.nightChartData.first?.categorieVerdict == .tendanceHaute)
+        #expect(analyse.nightChartData.first?.slopeZone3 == nil)
+        #expect(analyse.nightChartData.first?.motifExclusion == nil)
+    }
+
+    @Test("Hyper en nuit profonde expliquée par un dîner copieux → pas de signal indépendant")
+    func hyperExpliqueeParRepasCopieux() {
+        // Une hyper qui n'est QUE de la digestion ne doit pas se travestir en
+        // signal « basale trop faible » — sinon chaque dîner copieux
+        // produirait une fausse tendance ascendante.
+        var spec = SpecNuit(decalage: 1, depart: 130)
+        spec.creux = [Creux(debutMinutes: 180, dureeMinutes: 30, valeur: 220)]
+        let repasHeure = lente(1).addingTimeInterval(-1 * 3600)
+        let analyse = analyser([spec], fenetre: 2, repas: [(heure: repasHeure, glucides: 150)])
+
+        #expect(analyse.nightChartData.first?.motifExclusion == RaisonExclusion.repasCopieux.rawValue)
+        #expect(analyse.nuitsAnalysees == 0)
+    }
+
+    @Test("Resucrage préventif sans hypo → zone exclue proprement, aucun faux signal")
+    func resucragePreventifSansHypo() {
+        // Trou comblé le 27 sept : une prise préventive (jamais d'épisode
+        // hypo, glycémie toujours ≥ 90) échappait avant à toute exclusion —
+        // ni `repas` (sorti vers `resucrages`), ni `resucrageDans` (exigeait
+        // un épisode hypo). La pente tournait polluée, sans motif affiché.
+        let spec = SpecNuit(decalage: 1, depart: 90)
+        let prise = [resucrage(lente(1).addingTimeInterval(180 * 60), 15)]
+        let analyse = analyser([spec], fenetre: 2, resucrages: prise)
+
         #expect(analyse.nightChartData.first?.motifExclusion == RaisonExclusion.resucrage.rawValue)
         #expect(analyse.nuitsAnalysees == 0)
-        // Le signal hypo reste conservé malgré l'exclusion de la zone.
-        #expect(analyse.hyposNocturnes == 1)
     }
 
     @Test("Nuit chaotique (variabilité forte) → zone exclue")
     func nuitChaotique() {
-        // Départ haut et bruit large : CV ≈ 0,40 (> 0,36) sans jamais passer
-        // sous le seuil hypo — sinon c'est le rebond post-hypo qui exclut, et
-        // le test ne dirait plus rien de la détection de variabilité.
-        let analyse = analyser([SpecNuit(decalage: 1, depart: 230, bruit: 130)], fenetre: 2)
+        // Paliers bas (72, jamais sous le seuil hypo 70) dans un plateau haut
+        // (178, jamais au-dessus du seuil hyper 180), exactement 50/50 sur
+        // toute la fenêtre (étendue par la détection dawn jusqu'à 06h faute
+        // de vraie montée) → CV = 0,42 (> 0,36) pour une distribution à deux
+        // niveaux, sans jamais franchir hypo ni hyper — sinon c'est
+        // `aHypoProfonde`/`aHyperProfonde` (signal indépendant, chantier 1)
+        // qui forcerait quand même un verdict, et le test ne dirait plus
+        // rien de la détection de variabilité pure.
+        var spec = SpecNuit(decalage: 1, depart: 178)
+        spec.creux = [
+            Creux(debutMinutes: 125, dureeMinutes: 55, valeur: 72),
+            Creux(debutMinutes: 195, dureeMinutes: 55, valeur: 72),
+            Creux(debutMinutes: 265, dureeMinutes: 55, valeur: 72),
+        ]
+        let analyse = analyser([spec], fenetre: 2)
         #expect(analyse.nightChartData.first?.motifExclusion == RaisonExclusion.chaotique.rawValue)
     }
 

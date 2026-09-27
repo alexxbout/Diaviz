@@ -701,6 +701,12 @@ struct SheetDetailSoiree: View {
                         .foregroundStyle(couleurCategorie(categorie))
                     Text("Nuit profonde : dérive \(String(format: "%+d", derive)) mg/dL (\(libelleCategorie(categorie)))")
                         .font(.footnote)
+                case let .signalSansDerive(categorie):
+                    Image(systemName: symboleCategorie(categorie))
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(couleurCategorie(categorie))
+                    Text("\(libelleCategorie(categorie)) — dérive non mesurable, événement détecté")
+                        .font(.footnote)
                 case let .exclue(motif):
                     Image(systemName: "circle.dashed")
                         .font(.footnote.weight(.semibold))

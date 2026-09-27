@@ -336,6 +336,33 @@ nonisolated enum CalculAnalyseBasale {
         let aHypoZone3 = episodes.contains { z3.contains($0.bas) }
         let aHypoProfonde = bilan.episodesProfonds > 0
 
+        // Signal indépendant symétrique, côté haut : une excursion hyper dans
+        // la nuit profonde/dawn compte pour le verdict qu'elle ait été
+        // corrigée ou non — comme l'hypo, sauf si elle est déjà expliquée par
+        // une cause identifiée (dîner copieux en digestion, rebond post-hypo)
+        // qui chevauche temporellement l'épisode.
+        let episodesHaut = episodesHyperDetail(
+            cgmFenetre.filter { fenetreSommeil.contains($0.date) }, seuil: config.seuilHyper
+        )
+        func expliquee(_ instant: Date) -> Bool {
+            let parRepas = entrees.repas.contains {
+                $0.glucides > config.seuilRepasCopieux
+                    && instant >= $0.heure
+                    && instant <= $0.heure.addingTimeInterval(config.fenetreDigestionH * 3600)
+            }
+            let parRebond = episodes.contains {
+                let finRebond = $0.fin.addingTimeInterval(config.fenetreRebondMin * 60)
+                return $0.fin <= instant && finRebond > instant
+            }
+            return parRepas || parRebond
+        }
+        let aHyperProfonde = episodesHaut.contains { $0.haut > z2.upperBound && !expliquee($0.haut) }
+
+        // Priorité au danger bas si les deux surviennent la même nuit — même
+        // hiérarchie que la taxonomie hypo (rechute > série > ... > dérive).
+        let categorieForcee: CategorieNuit? = aHypoProfonde ? .tendanceBasse
+            : (aHyperProfonde ? .tendanceHaute : nil)
+
         // Évaluation de la zone 3 (cœur du calcul) — classification sur la dérive.
         let pointsZ3 = cgmFenetre.filter { z3.contains($0.date) }
         let evalZ3 = evaluerZone3(
@@ -364,34 +391,61 @@ nonisolated enum CalculAnalyseBasale {
         let etat: EtatNuit
         let categorie: CategorieNuit?
         let statut: NightStatus
+        // Pente fiable ? Pilote l'exposition de `slopeZone3`/`deriveZone3` —
+        // distinct de « la nuit a-t-elle un verdict » : une hypo/hyper
+        // profonde donne un verdict même quand la pente elle-même est exclue
+        // (resucrage, bolus...), mais son chiffre de dérive n'est pas fiable.
+        let deriveFiable: Bool
         if estCourante {
             etat = .enCours; categorie = nil
             statut = evalZ3.analysee ? .valid : .excluded
+            deriveFiable = evalZ3.categorie != nil
         } else if let cat = evalZ3.categorie {
-            // Hypo profonde (zones 3+4) → la nuit ne compte jamais « stable » :
-            // une courbe plate malgré une hypo doit sa stabilité au resucrage
-            // (ou à la contre-régulation), pas à la basale. Le danger bas prime.
-            let catEffective: CategorieNuit = aHypoProfonde ? .tendanceBasse : cat
+            // Hypo/hyper profonde → la nuit ne compte jamais « stable » sur la
+            // seule foi de la régression : une courbe qui redevient plate
+            // malgré l'épisode doit sa stabilité au resucrage/à la correction
+            // (ou à la contre-régulation), pas à la basale. Danger bas prime.
+            let catEffective = categorieForcee ?? cat
             etat = .valide(categorie: catEffective); categorie = catEffective
             statut = evalZ2.analysee ? .valid : .partiallyValid
+            deriveFiable = true
+        } else if let forcee = categorieForcee {
+            // Zone 3 exclue de la régression (resucrage, bolus...) mais signal
+            // indépendant présent : la nuit compte quand même dans le
+            // verdict — c'est exactement le cas qui disparaissait avant (une
+            // hypo resucrée, ou une hyper corrigée, sortait entièrement du
+            // calcul faute d'un chiffre de dérive fiable).
+            etat = .valide(categorie: forcee); categorie = forcee
+            statut = .partiallyValid
+            deriveFiable = false
         } else {
             etat = .exclue(raison: evalZ3.raison ?? .cgmIncomplet); categorie = nil
             statut = .excluded
+            deriveFiable = false
         }
+
+        // Motif affiché au niveau nuit : seulement si la nuit n'a **aucun**
+        // verdict (ni pente fiable, ni signal indépendant) — sinon le motif
+        // de zone (déjà porté par `zonesData`) suffit à expliquer l'absence
+        // de chiffre de dérive sans contredire le badge de verdict affiché.
+        let motif: String? = {
+            if case .exclue = etat { return evalZ3.raison?.rawValue }
+            return nil
+        }()
 
         let reveil = glycemieReveil(cgmFenetre, avant: reveilDate) ?? cgmFenetre.last?.valeur
         let chart = construireChart(
             dateNuit: dateSoir, lente: lente, doseLente: lente.dose,
             debutGrille: debutGrille, cgm: cgmFenetre,
             zones: zonesData, events: events, statut: statut,
-            slopeZone3: evalZ3.slope, bilan: bilan,
-            motif: evalZ3.categorie == nil ? (evalZ3.raison?.rawValue) : nil
+            slopeZone3: deriveFiable ? evalZ3.slope : nil, bilan: bilan,
+            motif: motif
         )
 
         return NuitAnalysee(
             dateNuit: dateSoir, etat: etat, categorie: categorie,
-            slopeZone3: evalZ3.categorie != nil ? evalZ3.slope : nil,
-            deriveZone3: evalZ3.categorie != nil ? evalZ3.derive : nil,
+            slopeZone3: deriveFiable ? evalZ3.slope : nil,
+            deriveZone3: deriveFiable ? evalZ3.derive : nil,
             bilan: bilan, aHypoProfonde: aHypoProfonde,
             reveil: reveil, chart: chart
         )
@@ -443,9 +497,11 @@ nonisolated enum CalculAnalyseBasale {
         )
         if iobDebut > config.seuilIOBResiduel { return exclue(.iobResiduel) }
         // Resucrage dans la zone → rebond glucidique qui fausse la pente,
-        // quelle que soit sa taille (contrairement au repas copieux ci-dessous,
-        // qui vise un repas ordinaire tardif).
-        if resucrageDans(plage, episodes: episodes, resucrages: resucrages, config: config) {
+        // quelle que soit sa taille et **qu'il y ait ou non un épisode hypo
+        // associé** : un resucrage préventif (pris avant de passer sous le
+        // seuil) fait entrer les mêmes glucides dans le sang que sa version
+        // correctrice — la pente n'y voit aucune différence.
+        if resucrages.contains(where: { plage.contains($0.heure) }) {
             return exclue(.resucrage)
         }
         // Repas copieux dans la zone **ou dans les heures qui la précèdent** :
@@ -458,6 +514,13 @@ nonisolated enum CalculAnalyseBasale {
                 && $0.glucides > config.seuilRepasCopieux
         }) {
             return exclue(.repasCopieux)
+        }
+        // Rapide non-correctif dans la zone (repas/collation) qui n'a pas
+        // atteint le seuil copieux ci-dessus : trop petit pour être exclu par
+        // `repasCopieux`, mais l'insuline injectée agit quand même sur la
+        // fenêtre, indépendamment de la basale.
+        if rapides.contains(where: { !$0.correction && plage.contains($0.heure) }) {
+            return exclue(.bolusNonCorrectif)
         }
         // Retombée d'un rebond post-hypo : après une remontée (resucrage ou
         // contre-régulation), la glycémie redescend de son dépassement. Pente
@@ -954,24 +1017,6 @@ private nonisolated extension CalculAnalyseBasale {
 
     // MARK: Petits outils
 
-    /// Un épisode hypo de la zone (bas dans la plage, ou chevauchant) suivi
-    /// d'un repas loggé — même fenêtre que le resucrage de `bilanHypos`.
-    /// Détecté indépendamment du bilan complet (fenêtre de sommeil entière)
-    /// car requis avant lui dans le pipeline, sur la seule plage de la zone.
-    static func resucrageDans(
-        _ plage: ClosedRange<Date>,
-        episodes: [EpisodeHypo],
-        resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)],
-        config: ConfigBasale
-    ) -> Bool {
-        // Toutes intentions confondues : des glucides faussent la pente, quelle
-        // que soit la raison de la prise (correctif comme préventif).
-        episodes.contains { episode in
-            guard plage.overlaps(episode.debut...episode.fin) else { return false }
-            return resucrages.contains { estDans($0.heure, episode: episode, config: config) }
-        }
-    }
-
     /// Points bas des épisodes hypo — pour les pills du graphique.
     static func episodesHypo(_ cgm: [(date: Date, valeur: Int)], seuil: Int) -> [(date: Date, valeur: Int)] {
         episodesHypoDetail(cgm, seuil: seuil).map { (date: $0.bas, valeur: $0.valeur) }
@@ -1041,6 +1086,29 @@ nonisolated extension CalculAnalyseBasale {
         }
         for p in cgm {
             if p.valeur < seuil { courant.append(p) }
+            else { cloturer() }
+        }
+        cloturer()
+        return resultat
+    }
+
+    /// Un épisode hyper contigu : bornes temporelles + point le plus haut.
+    /// Symétrique de `EpisodeHypo` — même mécanique de détection, seuil haut.
+    typealias EpisodeHyper = (debut: Date, fin: Date, haut: Date, valeur: Int)
+
+    /// Découpe les mesures en épisodes hyper contigus (points > seuil séparés
+    /// par un retour sous le seuil).
+    static func episodesHyperDetail(_ cgm: [(date: Date, valeur: Int)], seuil: Int) -> [EpisodeHyper] {
+        var resultat: [EpisodeHyper] = []
+        var courant: [(date: Date, valeur: Int)] = []
+        func cloturer() {
+            guard let pire = courant.max(by: { $0.valeur < $1.valeur }),
+                  let debut = courant.first?.date, let fin = courant.last?.date else { return }
+            resultat.append((debut: debut, fin: fin, haut: pire.date, valeur: pire.valeur))
+            courant.removeAll()
+        }
+        for p in cgm {
+            if p.valeur > seuil { courant.append(p) }
             else { cloturer() }
         }
         cloturer()

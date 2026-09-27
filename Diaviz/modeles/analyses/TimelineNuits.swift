@@ -22,6 +22,10 @@ nonisolated enum RaisonExclusion: String, Sendable, Equatable {
     case rebondPostHypo = "Rebond post-hypo"
     case cgmIncomplet = "Couverture CGM insuffisante"
     case bolusCorrection = "Correction au coucher"
+    /// Rapide non-correctif (repas, collation) dans la zone, sous le seuil
+    /// « repas copieux » — trop petit pour `repasCopieux`, mais l'insuline
+    /// et les glucides absorbés faussent quand même la pente basale.
+    case bolusNonCorrectif = "Insuline hors basale"
     case chaotique = "Glycémie instable"
     case modePause = "Mode pause"
     case pasDeLente = "Lente non renseignée"

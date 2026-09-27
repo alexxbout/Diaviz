@@ -1073,6 +1073,12 @@ private struct CarteVerdictNuit: View {
 
                 if z3.isAnalyzed, let s = z3.slope {
                     verdictAnalyse(z3, slope: s)
+                } else if let cat = nuit.categorieVerdict {
+                    // Zone 3 exclue de la régression (resucrage, bolus...)
+                    // mais un signal indépendant (hypo/hyper profonde) donne
+                    // quand même un verdict à cette nuit — voir
+                    // `CalculAnalyseBasale.analyserNuit`, `categorieForcee`.
+                    verdictSignalIndependant(cat, zone: z3)
                 } else {
                     verdictExclu(z3)
                 }
@@ -1146,6 +1152,35 @@ private struct CarteVerdictNuit: View {
         } else {
             blocRetenues(libelle: libelle(categorie).lowercased(), couleur: couleur(categorie))
         }
+    }
+
+    /// Variante « signal sans pente fiable » : la régression est exclue
+    /// (resucrage, bolus non-correctif...) mais une hypo ou une hyper
+    /// profonde donne quand même un verdict à la nuit. Pas de jauge — aucun
+    /// chiffre de dérive n'est fiable ici, l'afficher serait mentir sur la
+    /// précision de la mesure.
+    @ViewBuilder
+    private func verdictSignalIndependant(_ categorie: CategorieNuit, zone z: ZoneData) -> some View {
+        HStack(alignment: .top) {
+            badgePrincipal(categorieDerive: categorie)
+            Spacer()
+            if let raison = z.exclusionReason {
+                Text(raison)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.trailing)
+            }
+        }
+        .padding(.bottom, 10)
+
+        Text("Dérive non mesurable cette nuit-là — la zone est faussée par un événement, mais le signal reste retenu dans le verdict.")
+            .font(.system(size: 14))
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.bottom, 14)
+
+        blocRetenues(libelle: aSignalHypo ? "tendance basse" : libelle(categorie).lowercased(),
+                     couleur: aSignalHypo ? .red : couleur(categorie))
     }
 
     /// Variante exclue : badge + motif, pas de jauge (aucun signal retenu).
