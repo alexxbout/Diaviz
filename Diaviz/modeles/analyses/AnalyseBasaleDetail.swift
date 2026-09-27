@@ -284,10 +284,25 @@ extension AnalyseBasaleDetail {
         var sommeReveil = 0.0
         for night in nuitsFiltrees {
             for zd in night.zones where zd.zone == .endormissement || zd.zone == .nuitProfonde {
+                // Zone 3 : source unique = `categorieVerdict`, jamais un
+                // recalcul local — sinon cette carte peut afficher un compte
+                // différent du verdict principal pour les mêmes nuits (pas de
+                // garde-fou proximité hypo/hyper ici, et une nuit verdictée
+                // par le seul signal indépendant — chantier 1 — comptait à
+                // tort comme « exclue »).
+                if zd.zone == .nuitProfonde, let cat = night.categorieVerdict {
+                    switch cat {
+                    case .tendanceBasse:  descending += 1
+                    case .tendanceHaute:  ascending += 1
+                    case .stable:         stable += 1
+                    }
+                    continue
+                }
                 if !zd.isAnalyzed {
                     excluded += 1
                 } else if let s = zd.slope {
-                    // Classement sur la **dérive** (pente × durée), aligné sur le verdict.
+                    // Zone 2 (endormissement) : pas d'équivalent verdict à
+                    // consulter, on garde le classement local sur la dérive.
                     let heures = zd.timeRange.upperBound.timeIntervalSince(zd.timeRange.lowerBound) / 3600
                     switch CalculAnalyseBasale.categorie(deriveMgDl: s * heures) {
                     case .tendanceBasse:  descending += 1

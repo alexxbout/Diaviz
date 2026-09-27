@@ -112,11 +112,14 @@ struct CalculAnalyseBasaleTests {
                           rapides: [(heure: Date, dose: Double, correction: Bool)] = [],
                           repas: [(heure: Date, glucides: Int)] = [],
                           resucrages: [(heure: Date, glucides: Int, intention: IntentionResucrage)] = [],
-                          pauses: [(debut: Date, fin: Date?)] = []) -> AnalyseBasaleDetail {
-        CalculAnalyseBasale.analyser(
+                          pauses: [(debut: Date, fin: Date?)] = [],
+                          configure: ((inout ConfigBasale) -> Void)? = nil) -> AnalyseBasaleDetail {
+        var cfg = config(nuits: fenetre)
+        configure?(&cfg)
+        return CalculAnalyseBasale.analyser(
             entrees: entrees(specs, rapides: rapides, repas: repas,
                              resucrages: resucrages, pauses: pauses),
-            config: config(nuits: fenetre),
+            config: cfg,
             maintenant: maintenant
         )
     }
@@ -414,21 +417,35 @@ struct CalculAnalyseBasaleTests {
     @Test("Nuit chaotique (variabilité forte) → zone exclue")
     func nuitChaotique() {
         // Paliers bas (72, jamais sous le seuil hypo 70) dans un plateau haut
-        // (178, jamais au-dessus du seuil hyper 180), exactement 50/50 sur
-        // toute la fenêtre (étendue par la détection dawn jusqu'à 06h faute
-        // de vraie montée) → CV = 0,42 (> 0,36) pour une distribution à deux
-        // niveaux, sans jamais franchir hypo ni hyper — sinon c'est
-        // `aHypoProfonde`/`aHyperProfonde` (signal indépendant, chantier 1)
-        // qui forcerait quand même un verdict, et le test ne dirait plus
-        // rien de la détection de variabilité pure.
+        // (178, jamais au-dessus du seuil hyper 180), répartis symétriquement
+        // (~50/50) sur la fenêtre pour ne laisser aucune tendance linéaire
+        // nette à retirer — chantier 2 (27 sept) classe désormais sur le CV
+        // des **résidus** après retrait de la tendance, pas sur le CV brut :
+        // une fenêtre avec une vraie tendance (même bruitée) ne doit plus se
+        // faire jeter comme « chaotique » au même titre que du bruit pur.
+        // `extensionDawnMaxH: 0` fige la fenêtre exacte (pas d'extension dawn
+        // du 20 sept.) pour un calcul de CV reproductible à la main.
         var spec = SpecNuit(decalage: 1, depart: 178)
         spec.creux = [
-            Creux(debutMinutes: 125, dureeMinutes: 55, valeur: 72),
-            Creux(debutMinutes: 195, dureeMinutes: 55, valeur: 72),
-            Creux(debutMinutes: 265, dureeMinutes: 55, valeur: 72),
+            Creux(debutMinutes: 130, dureeMinutes: 52, valeur: 72),
+            Creux(debutMinutes: 225, dureeMinutes: 53, valeur: 72),
         ]
-        let analyse = analyser([spec], fenetre: 2)
+        let analyse = analyser([spec], fenetre: 2) { $0.extensionDawnMaxH = 0 }
         #expect(analyse.nightChartData.first?.motifExclusion == RaisonExclusion.chaotique.rawValue)
+    }
+
+    @Test("Dérive forte et propre sur fenêtre étendue → jamais confondue avec du bruit (chantier 2)")
+    func deriveForteNonChaotique() {
+        // Cas qui motivait le chantier 2 : avant le retrait de tendance, une
+        // dérive franche et propre pouvait dépasser le seuil de CV brut sur
+        // une fenêtre étendue par la détection dawn (20 sept.) au même titre
+        // que du vrai bruit — pire la basale, plus de chances d'être jetée
+        // comme « chaotique ». Le CV des résidus (après retrait de la pente)
+        // reste bas ici, quelle que soit l'amplitude de la dérive.
+        let spec = SpecNuit(decalage: 1, deriveParHeure: -12, depart: 150)
+        let analyse = analyser([spec], fenetre: 2)
+        #expect(analyse.nightChartData.first?.motifExclusion != RaisonExclusion.chaotique.rawValue)
+        #expect(analyse.nuitsAnalysees == 1)
     }
 
     // MARK: - Taxonomie des hypos

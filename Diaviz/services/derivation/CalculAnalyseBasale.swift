@@ -531,7 +531,7 @@ nonisolated enum CalculAnalyseBasale {
         }) {
             return exclue(.rebondPostHypo)
         }
-        if coefficientVariation(points.map(\.valeur)) > 0.36 { return exclue(.chaotique) }
+        if coefficientVariationResidus(points, depuis: plage.lowerBound) > 0.36 { return exclue(.chaotique) }
 
         guard let slope = penteRegression(points, depuis: plage.lowerBound) else {
             return exclue(.cgmIncomplet)
@@ -558,7 +558,7 @@ nonisolated enum CalculAnalyseBasale {
         config: ConfigBasale
     ) -> EvalZoneSecondaire {
         guard points.count >= 3 else { return EvalZoneSecondaire(analysee: false, slope: nil) }
-        let chaotique = coefficientVariation(points.map(\.valeur)) > 0.36
+        let chaotique = coefficientVariationResidus(points, depuis: points.first!.date) > 0.36
         let slope = penteRegression(points, depuis: points.first!.date)
         return EvalZoneSecondaire(analysee: !chaotique, slope: slope)
     }
@@ -761,6 +761,41 @@ nonisolated enum CalculAnalyseBasale {
         guard moyenne > 0 else { return 0 }
         let variance = xs.map { pow($0 - moyenne, 2) }.reduce(0, +) / Double(xs.count)
         return sqrt(variance) / moyenne
+    }
+
+    /// Variabilité **après retrait de la tendance linéaire** — écart-type des
+    /// résidus (mesure − droite de régression) rapporté à la moyenne des
+    /// valeurs. Le CV brut confondait deux signaux très différents : une
+    /// pente forte mais propre (basale vraiment trop forte/faible) et un
+    /// vrai bruit chaotique — les deux produisent le même CV élevé sur les
+    /// valeurs brutes. Plus la fenêtre est longue (extension dawn du
+    /// 20 sept.), plus une dérive forte et propre risquait de dépasser le
+    /// seuil au même titre que du bruit réel — pire la basale, plus de
+    /// chances d'être jetée comme « chaotique » au lieu d'être comptée.
+    /// Détrender sépare les deux : une pente propre laisse des résidus plats
+    /// (CV bas), du vrai bruit garde des résidus dispersés quelle que soit
+    /// la pente. Retombe sur le CV brut si la régression n'est pas calculable
+    /// (< 2 points ou fenêtre dégénérée).
+    private static func coefficientVariationResidus(
+        _ points: [(date: Date, valeur: Int)], depuis origine: Date
+    ) -> Double {
+        guard points.count >= 2 else { return coefficientVariation(points.map(\.valeur)) }
+        let xs = points.map { $0.date.timeIntervalSince(origine) / 3600 }
+        let ys = points.map { Double($0.valeur) }
+        let n = Double(points.count)
+        let sx = xs.reduce(0, +), sy = ys.reduce(0, +)
+        let sxx = zip(xs, xs).map(*).reduce(0, +)
+        let sxy = zip(xs, ys).map(*).reduce(0, +)
+        let denom = n * sxx - sx * sx
+        let moyenne = sy / n
+        guard moyenne > 0, abs(denom) > 1e-9 else {
+            return coefficientVariation(points.map(\.valeur))
+        }
+        let pente = (n * sxy - sx * sy) / denom
+        let intercept = (sy - pente * sx) / n
+        let residus = zip(xs, ys).map { x, y in y - (intercept + pente * x) }
+        let varianceResidus = residus.map { $0 * $0 }.reduce(0, +) / n
+        return sqrt(varianceResidus) / moyenne
     }
 
     private static func prochainDawn(apres date: Date, heure: Int, cal: Calendar) -> Date {
@@ -1040,8 +1075,8 @@ private nonisolated extension CalculAnalyseBasale {
     }
 
     static func caracteristique(_ points: [(date: Date, valeur: Int)], slope: Double?, hypo: Bool = false) -> CurveCharacteristic {
-        guard let slope, points.count >= 2 else { return .stable }
-        if coefficientVariation(points.map(\.valeur)) > 0.36 { return .chaotic }
+        guard let slope, points.count >= 2, let origine = points.first?.date else { return .stable }
+        if coefficientVariationResidus(points, depuis: origine) > 0.36 { return .chaotic }
         if hypo { return .hypoEvent }
         switch slope {
         case ..<(-3):  return .steepDrop
