@@ -507,20 +507,6 @@ private struct VueGraphiqueToutes: View {
 /// un `Chart` whole-night avec crosshair (long-press + drag), swipe gauche/
 /// droite pour naviguer entre nuits, et pills d'events tappables (popover
 /// détaillé).
-/// Mode d'affichage du fond du chart « Par nuit » — voir doc sur
-/// `VueGraphiqueParNuit.modeFond`.
-private enum ModeFondNuit: String, CaseIterable, Hashable {
-    case cible
-    case zonesNuit
-
-    var label: String {
-        switch self {
-        case .cible:      return "Cible"
-        case .zonesNuit:  return "Zones de la nuit"
-        }
-    }
-}
-
 private struct VueGraphiqueParNuit: View {
 
     let nights: [NightChartData]
@@ -555,25 +541,12 @@ private struct VueGraphiqueParNuit: View {
     /// pour déclencher le retour haptique via `.sensoryFeedback(trigger:)`.
     @State private var compteurNavigation: Int = 0
 
-    /// Mode d'affichage du fond du chart « Par nuit » — soit la zone cible
-    /// pleine hauteur (comportement historique), soit une bande fine des
-    /// zones B1 de la nuit, sur le modèle de la frise sommeil. Local à la
-    /// vue (pas un réglage persisté) : bascule d'exploration ponctuelle,
-    /// pas une préférence durable.
-    @State private var modeFond: ModeFondNuit = .cible
-
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             entete
                 .padding(.top, 10)
-            Picker("Fond du graphique", selection: $modeFond) {
-                ForEach(ModeFondNuit.allCases, id: \.self) { mode in
-                    Text(mode.label).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
             chartFullNight()
                 .frame(height: chartTotalHeight)
                 .padding(.top, 6)
@@ -775,9 +748,12 @@ private struct VueGraphiqueParNuit: View {
     private let ecartBandePx: CGFloat = 8
 
     /// Nombre de bandes réellement affichées cette nuit — détermine la
-    /// hauteur totale du chart et l'extension du domaine Y.
+    /// hauteur totale du chart et l'extension du domaine Y. Seule la bande
+    /// sommeil reste : la bande « zones B1 », activée par l'ancien toggle
+    /// Cible/Zones de la nuit, faisait doublon avec le détail zone par zone
+    /// déjà affiché sous le graphique (`DetailZonesNuit`).
     private var nombreBandesVisibles: Int {
-        (intervallesVisibles.isEmpty ? 0 : 1) + (modeFond == .zonesNuit && !nuit.zones.isEmpty ? 1 : 0)
+        intervallesVisibles.isEmpty ? 0 : 1
     }
 
     /// Hauteur totale de `chartFullNight` — la courbe garde toujours
@@ -815,16 +791,6 @@ private struct VueGraphiqueParNuit: View {
         let bande = Double(hauteurBandePx) * uniteParPixel
         let ecart = Double(ecartBandePx) * uniteParPixel
         let haut = plageY.lowerBound - ecart
-        return (haut - bande)...haut
-    }
-
-    /// Plage de valeurs Y occupée par la bande zones B1 — sous la bande
-    /// sommeil si les deux sont visibles, sinon juste sous la courbe.
-    private var bandeZonesRange: ClosedRange<Double>? {
-        guard modeFond == .zonesNuit, !nuit.zones.isEmpty else { return nil }
-        let bande = Double(hauteurBandePx) * uniteParPixel
-        let ecart = Double(ecartBandePx) * uniteParPixel
-        let haut = (bandeSommeilRange?.lowerBound ?? plageY.lowerBound) - ecart
         return (haut - bande)...haut
     }
 
@@ -994,12 +960,10 @@ private struct VueGraphiqueParNuit: View {
     /// Même peau que les graphiques repas et sport — voir `StyleGrapheGlycemie`.
     @ChartContentBuilder
     private var seuils: some ChartContent {
-        if modeFond == .cible {
-            StyleGrapheGlycemie.zoneCible(
-                de: totalNightRange.lowerBound, a: totalNightRange.upperBound,
-                seuils: seuilsProfil
-            )
-        }
+        StyleGrapheGlycemie.zoneCible(
+            de: totalNightRange.lowerBound, a: totalNightRange.upperBound,
+            seuils: seuilsProfil
+        )
         StyleGrapheGlycemie.lignesSeuils(seuilsProfil)
     }
 
@@ -1013,12 +977,17 @@ private struct VueGraphiqueParNuit: View {
         [.awake, .rem, .core, .deep, .asleepGenerique, .inBed]
     }
 
-    /// Contenu des bandes sommeil + zones — dans le **même** `Chart` que la
-    /// courbe (voir `domaineYEtendu`), positionnées dans la portion de
-    /// domaine réservée sous `plageY`. Un `RectangleMark` par intervalle,
-    /// une seule teinte pleine (pas de découpage par « rangée » façon
-    /// hypnogramme Santé — inutile ici, un aplat suffit à distinguer les
-    /// stades sur une bande de quelques pixels de haut).
+    /// Contenu de la bande sommeil — dans le **même** `Chart` que la courbe
+    /// (voir `domaineYEtendu`), positionnée dans la portion de domaine
+    /// réservée sous `plageY`. Un `RectangleMark` par intervalle, une seule
+    /// teinte pleine (pas de découpage par « rangée » façon hypnogramme
+    /// Santé — inutile ici, un aplat suffit à distinguer les stades sur une
+    /// bande de quelques pixels de haut).
+    ///
+    /// Portait aussi une bande « zones B1 », activée par l'ancien toggle
+    /// Cible/Zones de la nuit — retirée : elle faisait doublon avec le
+    /// détail zone par zone déjà affiché sous le graphique
+    /// (`DetailZonesNuit`).
     @ChartContentBuilder
     private var bandesInternes: some ChartContent {
         if let r = bandeSommeilRange {
@@ -1030,17 +999,6 @@ private struct VueGraphiqueParNuit: View {
                     yEnd: .value("Haut", r.upperBound)
                 )
                 .foregroundStyle(couleurStade(intervalle.stage))
-            }
-        }
-        if let r = bandeZonesRange {
-            ForEach(nuit.zones) { zone in
-                RectangleMark(
-                    xStart: .value("Début", max(zone.timeRange.lowerBound, totalNightRange.lowerBound)),
-                    xEnd: .value("Fin", min(zone.timeRange.upperBound, totalNightRange.upperBound)),
-                    yStart: .value("Bas", r.lowerBound),
-                    yEnd: .value("Haut", r.upperBound)
-                )
-                .foregroundStyle(zone.zone.couleur)
             }
         }
     }
