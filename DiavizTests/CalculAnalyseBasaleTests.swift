@@ -241,6 +241,25 @@ struct CalculAnalyseBasaleTests {
         #expect(analyse.nightChartData.first?.categorieVerdict == .tendanceBasse)
     }
 
+    @Test("Hypo expliquée par l'IOB d'une correction récente → pas de signal basale")
+    func hypoExpliqueeParIOB() {
+        // Chantier 4 (28 sept.) : `aHypoProfonde` forçait « tendance basse »
+        // même quand l'hypo n'était qu'une correction trop dosée — la
+        // basale n'y était pour rien. Correction 3u à 90 min avant le creux :
+        // IOB ≈ 1,6u au moment du creux (largement > seuil 0,5u), cette hypo
+        // est expliquée. Même creux que `hypoProfondeJamaisStable`, mais avec
+        // la correction le signal ne doit plus se déclencher.
+        var spec = SpecNuit(decalage: 1)
+        spec.creux = [Creux(debutMinutes: 180, dureeMinutes: 15)]
+        let correction = (heure: lente(1).addingTimeInterval(90 * 60), dose: 3.0, correction: true)
+        let analyse = analyser([spec], fenetre: 2, rapides: [correction])
+
+        #expect(analyse.nuitsAnalysees == 0)
+        #expect(analyse.nightChartData.first?.categorieVerdict == nil)
+        #expect(analyse.nightChartData.first?.motifExclusion == RaisonExclusion.iobResiduel.rawValue)
+        #expect(analyse.hyposNocturnes == 1)
+    }
+
     @Test("Hypo en zone 2 (endormissement) : comptée, mais ne bascule pas la nuit")
     func hypoZone2NeBasculePas() {
         var spec = SpecNuit(decalage: 1)

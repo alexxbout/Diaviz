@@ -334,7 +334,29 @@ nonisolated enum CalculAnalyseBasale {
             finEndormissement: z2.upperBound, config: config
         )
         let aHypoZone3 = episodes.contains { z3.contains($0.bas) }
-        let aHypoProfonde = bilan.episodesProfonds > 0
+
+        // IOB résiduel d'une rapide antérieure (correction ou repas) au
+        // moment précis du creux — distinct du check `iobResiduel` de zone
+        // (un seul instant fixe, le début de zone) : ici on regarde l'instant
+        // réel de l'hypo, quelle que soit la zone où elle tombe. Une hypo
+        // qu'une correction suffit à expliquer n'est pas un signal basale.
+        func iobResiduelA(_ instant: Date) -> Double {
+            IOBCalculateur.iob(
+                a: instant,
+                injections: entrees.rapides.filter { $0.heure <= instant }
+                    .map { InjectionPourIOB(heure: $0.heure, dose: $0.dose) },
+                diaHeures: config.diaHeures, picMinutes: config.picMinutes
+            )
+        }
+        // Signal indépendant : hypo en zone 3/4, quelle qu'en soit la cause,
+        // **sauf** si l'IOB au moment du creux suffit à l'expliquer — une
+        // correction trop dosée n'est pas un signal basale, même si elle
+        // finit en hypo. Chantier 4 (28 sept.) : avant, `aHypoProfonde`
+        // n'avait aucun filtre — contrairement à `aHyperProfonde` ci-dessous,
+        // qui exclut déjà les hypers expliquées par un repas ou un rebond.
+        let aHypoProfonde = episodes.contains {
+            $0.bas > z2.upperBound && iobResiduelA($0.bas) <= config.seuilIOBResiduel
+        }
 
         // Signal indépendant symétrique, côté haut : une excursion hyper dans
         // la nuit profonde/dawn compte pour le verdict qu'elle ait été
