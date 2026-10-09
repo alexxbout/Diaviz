@@ -6,17 +6,9 @@
 import SwiftUI
 
 /// Page de détail du ratio observé par R1 — poussée depuis la carte
-/// d'insight « Nouvelles tendances » (tap sur l'insight R1 uniquement) et
-/// depuis `CarteAnalyseRatio` sur l'accueil. Un bloc par groupe ayant au moins
-/// un repas exploitable (filtré par l'appelant) — transparence complète : un
-/// groupe bien calibré, ou encore peu fourni, est montré au même titre qu'un
-/// groupe en écart. Chaque bloc porte son `GraphiqueZonesRatio` et la légende
-/// chiffrée des 3 tranches, les tranches sous `effectifMinimalBucket` étant
-/// marquées « insuffisant » plutôt que masquées.
-///
-/// Poussée dans le `NavigationStack` de l'appelant (`navigationDestination`),
-/// pas une sheet : cohérent avec les autres pages de détail de l'accueil
-/// (glucides, charge d'activité, repas à revoir).
+/// d'insight et depuis `CarteAnalyseRatio`. Un moment à la fois (barre
+/// Liquid Glass en bas), un graphique en gélules (`GraphiqueGelulesRatio`) et
+/// un score en tête mis à jour au toucher. Voir doc R1 « Graphique en gélules ».
 struct PageEcartRatio: View {
 
     let sections: [ObservationRatioSection]
@@ -29,93 +21,213 @@ struct PageEcartRatio: View {
     /// été écartés et pourquoi. Vide = ligne de décompte masquée.
     var repartitions: [SectionRepas?: RepartitionRepasMoment] = [:]
 
+    /// Moment affiché — une seule carte à la fois, choisie dans la barre du bas.
+    @State private var groupeChoisi: SectionRepas??
+    /// Ratio touché sur le graphique ; `nil` = ratio configuré.
+    @State private var ratioChoisi: Int?
+
+    private var section: ObservationRatioSection? {
+        guard let groupeChoisi else { return sections.first }
+        return sections.first { $0.groupe == groupeChoisi } ?? sections.first
+    }
+
     var body: some View {
         Group {
-            if sections.isEmpty {
-                    ContentUnavailableView(
-                        "Pas encore de résultat",
-                        systemImage: "chart.dots.scatter",
-                        description: Text("Aucun moment n'a encore assez de repas analysés pour être comparé." + (decompteEcartesFenetre.map { " " + $0 } ?? ""))
-                    )
-                } else {
-                    Form {
-                        Section {
-                            EnTeteAnalyse(
-                                surtitre: "Analyse des repas",
-                                titre: "Écart de ratio",
-                                accroche: "Ce que donnent vos repas selon la dose posée, moment par moment.",
-                                ambiance: .ratio
-                            )
-                            .listRowInsets(EdgeInsets())
-                            .listRowBackground(Color.clear)
-                        }
-
-                        ForEach(sections, id: \.groupe) { section in
-                            Section {
-                                if let apercu = apercusChangementRatio[section.groupe] {
-                                    blocDepuisChangement(apercu)
-                                }
-
-                                GraphiqueZonesRatio(entrees: section.entrees)
-                                    .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
-
-                                // Une légende à 3 colonnes n'a de sens que si au
-                                // moins une zone est comparable — sinon elle
-                                // n'affiche que « insuffisant » trois fois.
-                                if comparaisonPossible(section) {
-                                    legende(section)
-                                } else {
-                                    Label(mentionRecul(section), systemImage: "hourglass")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            } header: {
-                                enTeteSection(section)
-                            }
-                        }
-
-                        // Constat placé **après** les graphiques : c'est une
-                        // clé de lecture, pas le contenu — la remonter en tête
-                        // repoussait les données réelles sous la ligne de
-                        // flottaison.
-                        Section("Constat") {
-                            ligneConstat("Un point = un repas, placé selon la dose donnée vs celle de votre ratio (zone grisée).", icone: "chart.dots.scatter")
-                            ligneConstat("Un côté qui bat le milieu = ratio trop fort à gauche, trop faible à droite.", icone: "arrow.left.arrow.right")
-                            ligneCouleur("Glycémie restée en cible", couleur: .green)
-                            ligneCouleur("Pic modéré", couleur: .orange)
-                            ligneCouleur(
-                                RaisonMauvaisVerdict.hyperglycemie.libelle,
-                                precision: RaisonMauvaisVerdict.hyperglycemie.precision(seuils: seuils),
-                                couleur: RaisonMauvaisVerdict.hyperglycemie.couleur
-                            )
-                            ligneCouleur(
-                                RaisonMauvaisVerdict.hypoglycemie.libelle,
-                                precision: RaisonMauvaisVerdict.hypoglycemie.precision(seuils: seuils),
-                                couleur: RaisonMauvaisVerdict.hypoglycemie.couleur
-                            )
-                        }
-
-                        Section {
-                            Label("45 derniers jours, \(CalculRatioObserve.effectifMinimalBucket) repas minimum par zone.", systemImage: "calendar")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                            Label("Repas ajusté (sport, hypo…) ou à contexte libre jamais compté.", systemImage: "minus.circle")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                            Label("Jamais compté non plus : repas dont la courbe ne mesure pas que lui — autre repas dans les 4 h, insuline encore active au début du repas, correction (même faite avec le repas), resucrage ou sport entre 1 h avant et 4 h après.", systemImage: "line.diagonal")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                            if let decompte = decompteEcartesFenetre {
-                                Label(decompte, systemImage: "number")
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
+            if let section {
+                contenu(section)
+            } else {
+                ContentUnavailableView(
+                    "Pas encore de résultat",
+                    systemImage: "chart.bar",
+                    description: Text("Aucun moment n'a encore assez de repas analysés pour être comparé." + (decompteEcartesFenetre.map { " " + $0 } ?? ""))
+                )
             }
+        }
         .navigationTitle("Écart de ratio")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func contenu(_ section: ObservationRatioSection) -> some View {
+        let ratio = ratioConfigure(section)
+        let colonnes = ColonneRatio.colonnes(entrees: section.entrees, ratioConfigure: ratio)
+        let cible = ratioChoisi ?? ratio
+        let colonne = colonnes.first { $0.grammesParUnite == cible }
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                score(colonne: colonne, grammes: cible, estActuel: cible == ratio)
+
+                VStack(alignment: .leading, spacing: 12) {
+                    GraphiqueGelulesRatio(
+                        colonnes: colonnes, ratioConfigure: ratio,
+                        selection: Binding(get: { cible }, set: { ratioChoisi = $0 })
+                    )
+                    HStack {
+                        Text("← moins d'insuline")
+                        Spacer()
+                        Text("plus d'insuline →")
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    legendeCouleurs
+                }
+                .padding(16)
+                .glassEffect(.regular, in: .rect(cornerRadius: Radius.large))
+
+                VStack(alignment: .leading, spacing: 10) {
+                    if comparaisonPossible(section) {
+                        legende(section)
+                    } else {
+                        Label(mentionRecul(section), systemImage: "hourglass")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .glassEffect(.regular, in: .rect(cornerRadius: Radius.large))
+
+                if let apercu = apercusChangementRatio[section.groupe] {
+                    VStack(alignment: .leading, spacing: 10) {
+                        let jour = apercu.dateChangement.formatted(.dateTime.day().month(.abbreviated))
+                        Text("Depuis le changement du \(jour)")
+                            .font(.subheadline.weight(.semibold))
+                        blocDepuisChangement(apercu)
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .glassEffect(.regular, in: .rect(cornerRadius: Radius.large))
+                }
+
+                carteEcartes(section)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Une gélule par ratio réellement appliqué. Sa hauteur suit le nombre de repas, ses couleurs leurs résultats. Le ratio actuel est entouré.", systemImage: "capsule.portrait")
+                    Label("45 derniers jours, \(CalculRatioObserve.effectifMinimalBucket) repas minimum par zone pour comparer.", systemImage: "calendar")
+                    Label("Jamais comptés : repas ajusté ou à contexte libre, ou dont la courbe ne mesure pas que lui — autre repas dans les 4 h, insuline encore active, correction (même faite avec le repas), resucrage ou sport entre 1 h avant et 4 h après.", systemImage: "line.diagonal")
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
+        }
+        .background(fond(colonne: colonnes.first { $0.grammesParUnite == ratio }))
+        .safeAreaInset(edge: .bottom) { barreMoments }
+        .onChange(of: groupeChoisi) { ratioChoisi = nil }
+    }
+
+    // MARK: - Score
+
+    private func score(colonne: ColonneRatio?, grammes: Int?, estActuel: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(grammes.map { estActuel ? "À ton ratio actuel, 1u/\($0)g" : "À 1u/\($0)g" } ?? "Ratio non configuré")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Text(colonne.flatMap { $0.total > 0 ? "\(Int((100 * Double($0.enCible) / Double($0.total)).rounded())) %" : nil } ?? "—")
+                .font(.system(size: 60, weight: .heavy, design: .rounded))
+                .monospacedDigit()
+                .contentTransition(.numericText())
+            Text(colonne.flatMap { $0.total > 0 ? "en cible · \($0.enCible) sur \($0.total) repas" : nil } ?? "aucun repas à ce ratio")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .animation(.snappy, value: grammes)
+        .padding(.top, 8)
+    }
+
+    private var legendeCouleurs: some View {
+        HStack(spacing: 12) {
+            pastille("en cible", .green)
+            pastille("pic modéré", .orange)
+            pastille("hyper", RaisonMauvaisVerdict.hyperglycemie.couleur)
+            pastille("hypo", RaisonMauvaisVerdict.hypoglycemie.couleur)
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+    }
+
+    private func pastille(_ texte: String, _ couleur: Color) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(couleur).frame(width: 8, height: 8)
+            Text(texte)
+        }
+    }
+
+    /// Fond teinté par la réussite au ratio actuel — vert, orange ou rouge
+    /// très diffus, gris sans repas. Le verre des cartes le laisse deviner.
+    private func fond(colonne: ColonneRatio?) -> some View {
+        let teinte: Color = {
+            guard let colonne, colonne.total > 0 else { return .gray }
+            let taux = Double(colonne.enCible) / Double(colonne.total)
+            return taux >= 0.65 ? .green : taux >= 0.4 ? .orange : .red
+        }()
+        return LinearGradient(colors: [teinte.opacity(0.22), .clear], startPoint: .top, endPoint: .center)
+            .background(Color(.systemGroupedBackground))
+            .ignoresSafeArea()
+    }
+
+    private func ratioConfigure(_ section: ObservationRatioSection) -> Int? {
+        guard let e = section.entrees.first(where: { $0.doseSuggeree > 0 }) else { return nil }
+        return Int((Double(e.glucides) / e.doseSuggeree).rounded())
+    }
+
+    // MARK: - Moments
+
+    private var barreMoments: some View {
+        GlassEffectContainer {
+            HStack(spacing: 4) {
+                ForEach(sections, id: \.groupe) { s in
+                    let actif = s.groupe == section?.groupe
+                    Button {
+                        groupeChoisi = .some(s.groupe)
+                    } label: {
+                        Text(CalculRatioObserve.libelleGroupe(s.groupe))
+                            .font(.footnote.weight(actif ? .bold : .medium))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(actif ? Color.primary.opacity(0.12) : .clear, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(4)
+            .glassEffect(.regular.interactive(), in: .capsule)
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 4)
+        .opacity(sections.count > 1 ? 1 : 0)
+    }
+
+    // MARK: - Repas écartés
+
+    @ViewBuilder
+    private func carteEcartes(_ section: ObservationRatioSection) -> some View {
+        if let r = repartitions[section.groupe], r.ecartes + r.ratioSportEnVigueur > 0 {
+            let ecartes = r.ecartes + r.ratioSportEnVigueur
+            let motifs: [(String, Int)] = RaisonExclusionFenetre.allCases.compactMap { raison in
+                    r.parRaisonFenetre[raison].map { (raison.libelle, $0) }
+                } + [("ajusté", r.ajustes), ("contexte libre", r.contexteLibre),
+                     ("ratio sport", r.ratioSportEnVigueur), ("exclu à la main", r.exclusManuellement)]
+                    .filter { $0.1 > 0 }
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("\(ecartes) repas écarté\(ecartes > 1 ? "s" : "")")
+                        .font(.subheadline.weight(.semibold))
+                    Spacer()
+                    Text("\(r.total) au total")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+                FlowChips(items: motifs.map { "\($0.0) ×\($0.1)" })
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassEffect(.regular, in: .rect(cornerRadius: Radius.large))
+        }
     }
 
 
@@ -133,28 +245,6 @@ struct PageEcartRatio: View {
     }
 
     // MARK: - Depuis le changement de ratio
-
-    /// Titre de section standard + badge date/effectif quand le ratio de
-    /// cette section a déjà changé. `.textCase(nil)` contre-carre
-    /// l'uppercase automatique des headers de `Form`, qui s'appliquerait
-    /// sinon aussi au badge.
-    @ViewBuilder
-    private func enTeteSection(_ section: ObservationRatioSection) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(CalculRatioObserve.libelleGroupe(section.groupe))
-            Spacer(minLength: 8)
-            if let apercu = apercusChangementRatio[section.groupe] {
-                let jour = apercu.dateChangement.formatted(.dateTime.day().month(.abbreviated))
-                Label("\(jour) · \(apercu.effectifDepuis) repas", systemImage: "calendar")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Color.accentColor)
-                    .textCase(nil)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(Color.accentColor.opacity(0.14), in: Capsule())
-            }
-        }
-    }
 
     /// Dose moyenne + taux en cible (3h post-injection) avant/après le
     /// changement, ou un état « pas encore comparable » sous le seuil
@@ -291,48 +381,6 @@ struct PageEcartRatio: View {
     /// sans ça il n'y a rien à confronter, et conclure « ratio confirmé »
     /// serait faux (c'était le cas avant : un groupe à 1 repas affichait un
     /// badge vert sur une colonne marquée « insuffisant »).
-    /// Ligne d'explication du Constat — icône légèrement réduite par rapport
-    /// au `Label` standard, le bloc en empile plusieurs.
-    private func ligneConstat(_ texte: String, icone: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: icone)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(width: 16)
-            Text(texte)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    /// Ligne de légende des couleurs — pastille plutôt qu'icône SF, c'est
-    /// exactement la forme des points du graphique. `precision` porte le
-    /// seuil et la fenêtre quand le libellé seul serait vague.
-    private func ligneCouleur(_ texte: String, precision: String? = nil, couleur: Color) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Circle()
-                .fill(couleur)
-                .frame(width: 9, height: 9)
-                .frame(width: 16)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(texte)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                if let precision {
-                    Text(precision)
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
-            }
-        }
-    }
-
-    /// Seuils du profil — le seuil d'hypo est réglable, la légende doit
-    /// afficher celui de l'utilisateur et pas une valeur en dur.
-    private var seuils: SeuilsGlycemiques {
-        ProfilService.shared.profil.seuilsGlycemiques
-    }
-
     private func comparaisonPossible(_ section: ObservationRatioSection) -> Bool {
         let aCentre = section.buckets.contains { $0.tranche == .doseProche }
         let aLateral = section.buckets.contains { $0.tranche != .doseProche }
@@ -531,3 +579,43 @@ private func _mockApercusChangementRatio() -> [SectionRepas?: ApercuChangementRa
         .preferredColorScheme(.dark)
 }
 #endif
+
+
+/// Puces qui passent à la ligne — motifs d'exclusion.
+private struct FlowChips: View {
+    let items: [String]
+    var body: some View {
+        FlowLayoutChips(spacing: 6) {
+            ForEach(items, id: \.self) { item in
+                Text(item)
+                    .font(.caption2)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color.secondary.opacity(0.15), in: Capsule())
+            }
+        }
+    }
+}
+
+private struct FlowLayoutChips: Layout {
+    var spacing: CGFloat
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let largeur = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, ligne: CGFloat = 0
+        for v in subviews {
+            let t = v.sizeThatFits(.unspecified)
+            if x + t.width > largeur, x > 0 { x = 0; y += ligne + spacing; ligne = 0 }
+            x += t.width + spacing; ligne = max(ligne, t.height)
+        }
+        return CGSize(width: largeur.isFinite ? largeur : x, height: y + ligne)
+    }
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX, y = bounds.minY, ligne: CGFloat = 0
+        for v in subviews {
+            let t = v.sizeThatFits(.unspecified)
+            if x + t.width > bounds.maxX, x > bounds.minX { x = bounds.minX; y += ligne + spacing; ligne = 0 }
+            v.place(at: CGPoint(x: x, y: y), proposal: .unspecified)
+            x += t.width + spacing; ligne = max(ligne, t.height)
+        }
+    }
+}
