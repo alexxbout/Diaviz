@@ -58,6 +58,13 @@ nonisolated struct RepartitionRepasMoment: Sendable, Equatable {
     /// jugée sur **ce** ratio à la saisie, la comparer au ratio du moment
     /// mesurerait un écart qui n'existe pas.
     var ratioSportEnVigueur = 0
+    /// Courbe polluée par un autre fait dans la fenêtre (autre repas,
+    /// insuline active, correction, resucrage, sport) — compté **une fois**
+    /// ici, quelle que soit le nombre de raisons.
+    var pollues = 0
+    /// Décompte **par raison** : un repas pollué pour deux raisons apparaît
+    /// dans les deux. La somme peut donc dépasser `pollues`.
+    var parRaisonFenetre: [RaisonExclusionFenetre: Int] = [:]
     /// Toggle « Exclure des analyses » posé à la main sur le repas.
     var exclusManuellement = 0
     /// Antérieurs au dernier changement de ratio de ce moment : plus
@@ -77,13 +84,13 @@ nonisolated struct RepartitionRepasMoment: Sendable, Equatable {
     var total: Int {
         analyses + enAttente + donneesManquantes + sansInjection
             + ajustes + contexteLibre + exclusManuellement + avantChangementRatio
-            + ratioSportEnVigueur
+            + ratioSportEnVigueur + pollues
     }
 
     /// Repas mis de côté sur décision de l'utilisateur (ajustement, contexte
     /// libre, exclusion manuelle) — par opposition aux repas simplement pas
     /// encore analysables.
-    var ecartes: Int { ajustes + contexteLibre + exclusManuellement }
+    var ecartes: Int { ajustes + contexteLibre + exclusManuellement + pollues }
 
     /// Classe un repas sans verdict exploitable d'après son `EtatAnalyse`
     /// (dérivation `@Transient` posée par `RepasService` sur les repas
@@ -131,15 +138,23 @@ final class AnalyseRatioService {
         let activites = contexte.flatMap {
             try? $0.fetch(FetchDescriptor<ActiviteSportive>())
         } ?? []
-        recalculer(depuis: repas, activites: activites)
+        let faits = Self.faitsFenetre(repas: repas, contexte: contexte, activites: activites)
+        recalculer(depuis: repas, activites: activites, faits: faits)
     }
 
-    func recalculer(depuis repas: [Repas], activites: [ActiviteSportive] = []) {
+    /// - Parameter faits: `nil` = déduits des seuls repas (autre repas,
+    ///   correction saisie avec le repas) — previews et tests sans hub.
+    func recalculer(
+        depuis repas: [Repas], activites: [ActiviteSportive] = [], faits: FaitsFenetreRepas? = nil
+    ) {
         let profil = ProfilService.shared.profil
+        let faits = faits ?? Self.faitsFenetre(repas: repas, contexte: nil, activites: activites)
         var ventilation: [SectionRepas?: RepartitionRepasMoment] = [:]
-        let entrees = mapperEntrees(repas, activites: activites, profil: profil, repartitions: &ventilation)
+        let entrees = mapperEntrees(
+            repas, activites: activites, faits: faits, profil: profil, repartitions: &ventilation
+        )
         analyse = CalculRatioObserve.analyser(entrees: entrees)
-        apercusChangementRatio = construireApercusChangementRatio(repas, profil: profil)
+        apercusChangementRatio = construireApercusChangementRatio(repas, faits: faits, profil: profil)
         repartitions = ventilation
     }
 
@@ -152,8 +167,8 @@ final class AnalyseRatioService {
     /// l'oubliait simplement. C'est ce qui permet à la carte de saisie de dire
     /// « 4 dîners en attente des glycémies » plutôt que « aucun repas analysé ».
     private func mapperEntrees(
-        _ repas: [Repas], activites: [ActiviteSportive], profil: ProfilUtilisateur,
-        repartitions: inout [SectionRepas?: RepartitionRepasMoment]
+        _ repas: [Repas], activites: [ActiviteSportive], faits: FaitsFenetreRepas,
+        profil: ProfilUtilisateur, repartitions: inout [SectionRepas?: RepartitionRepasMoment]
     ) -> [EntreeRatioRepas] {
         var entrees: [EntreeRatioRepas] = []
 
@@ -180,6 +195,16 @@ final class AnalyseRatioService {
             // classerait un repas correctement dosé comme un écart.
             guard !ratioSportEnVigueur(a: r.heure, activites: activites, profil: profil) else {
                 repartition.ratioSportEnVigueur += 1
+                continue
+            }
+            // Courbe qui ne mesure pas que ce repas — voir doc R1 « Repas
+            // pollués par leur fenêtre ». Toutes les raisons sont comptées.
+            let raisons = CalculExclusionsFenetre.raisons(
+                repasId: r.id, heure: r.heure, doseCorrection: r.doseCorrection, faits: faits
+            )
+            guard raisons.isEmpty else {
+                repartition.pollues += 1
+                for raison in raisons { repartition.parRaisonFenetre[raison, default: 0] += 1 }
                 continue
             }
 
@@ -245,11 +270,14 @@ final class AnalyseRatioService {
     /// dose suggérée à calculer), les faire dépendre l'un de l'autre
     /// couplerait deux usages qui doivent pouvoir diverger séparément.
     private func mapperEntreesDoseChangement(
-        _ repas: [Repas], profil: ProfilUtilisateur
+        _ repas: [Repas], faits: FaitsFenetreRepas, profil: ProfilUtilisateur
     ) -> [SectionRepas?: [EntreeDoseChangement]] {
         var parGroupe: [SectionRepas?: [EntreeDoseChangement]] = [:]
         for r in repas {
             guard !r.exclureDesAnalyses, !r.aUnEvenement, r.ajustements.isEmpty else { continue }
+            guard CalculExclusionsFenetre.raisons(
+                repasId: r.id, heure: r.heure, doseCorrection: r.doseCorrection, faits: faits
+            ).isEmpty else { continue }
             guard let verdict = r.verdictPersiste, verdict != .indetermine, r.totalGlucides > 0 else { continue }
             let doseCouvrante = r.totalInsuline - (r.doseCorrection ?? 0)
             guard doseCouvrante > 0 else { continue }
@@ -267,9 +295,9 @@ final class AnalyseRatioService {
     /// absente du dictionnaire pour une section jamais modifiée (rien à
     /// comparer, pas d'entrée « nulle » à filtrer côté vue).
     private func construireApercusChangementRatio(
-        _ repas: [Repas], profil: ProfilUtilisateur
+        _ repas: [Repas], faits: FaitsFenetreRepas, profil: ProfilUtilisateur
     ) -> [SectionRepas?: ApercuChangementRatio] {
-        let entreesParGroupe = mapperEntreesDoseChangement(repas, profil: profil)
+        let entreesParGroupe = mapperEntreesDoseChangement(repas, faits: faits, profil: profil)
         var resultat: [SectionRepas?: ApercuChangementRatio] = [:]
         for (groupe, entrees) in entreesParGroupe {
             guard let date = dateChangementEffective(groupe: groupe, profil: profil) else { continue }
@@ -288,6 +316,34 @@ final class AnalyseRatioService {
     private func dateChangementEffective(groupe: SectionRepas?, profil: ProfilUtilisateur) -> Date? {
         guard let groupe else { return profil.datesChangementRatioEffectives.unique }
         return dateChangement(section: groupe, profil: profil)
+    }
+
+    // MARK: - Faits de la fenêtre d'un repas
+
+    /// Rassemble les faits du hub utiles à `CalculExclusionsFenetre`. Sans
+    /// contexte, seuls les repas eux-mêmes sont connus. Partagé avec
+    /// l'accueil (« Repas à revoir ») : mêmes exclusions des deux côtés.
+    static func faitsFenetre(
+        repas: [Repas], contexte: ModelContext?, activites: [ActiviteSportive]
+    ) -> FaitsFenetreRepas {
+        let profil = ProfilService.shared.profil
+        let injections = contexte.flatMap { try? $0.fetch(FetchDescriptor<Injection>()) } ?? []
+        let resucrages = contexte.flatMap { try? $0.fetch(FetchDescriptor<Resucrage>()) } ?? []
+        return FaitsFenetreRepas(
+            repas: repas.map { .init(id: $0.id, heure: $0.heure) },
+            injections: injections.map {
+                .init(
+                    heure: $0.heure, dose: $0.dose,
+                    estRapide: $0.type != .lente,
+                    estCorrection: $0.type == .rapideCorrection || $0.motif == .correction,
+                    repasAssocieId: $0.repasAssocieId
+                )
+            },
+            resucrages: resucrages.map(\.date),
+            seances: activites.map { .init(debut: $0.dateDebut, fin: $0.dateFin) },
+            diaHeures: profil.dureeActionInsulineHeures,
+            picMinutes: profil.insulineRapide.picActionMinutes
+        )
     }
 
     /// `true` si une séance s'est terminée dans la fenêtre d'effet configurée

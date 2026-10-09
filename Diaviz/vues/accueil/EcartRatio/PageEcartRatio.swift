@@ -25,6 +25,9 @@ struct PageEcartRatio: View {
     /// masqués, section inchangée). Défaut vide pour ne pas casser les
     /// appelants existants.
     var apercusChangementRatio: [SectionRepas?: ApercuChangementRatio] = [:]
+    /// Ventilation par moment — sert seulement à dire combien de repas ont
+    /// été écartés et pourquoi. Vide = ligne de décompte masquée.
+    var repartitions: [SectionRepas?: RepartitionRepasMoment] = [:]
 
     var body: some View {
         Group {
@@ -32,7 +35,7 @@ struct PageEcartRatio: View {
                     ContentUnavailableView(
                         "Pas encore de résultat",
                         systemImage: "chart.dots.scatter",
-                        description: Text("Aucun moment n'a encore assez de repas analysés pour être comparé.")
+                        description: Text("Aucun moment n'a encore assez de repas analysés pour être comparé." + (decompteEcartesFenetre.map { " " + $0 } ?? ""))
                     )
                 } else {
                     Form {
@@ -99,6 +102,14 @@ struct PageEcartRatio: View {
                             Label("Repas ajusté (sport, hypo…) ou à contexte libre jamais compté.", systemImage: "minus.circle")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
+                            Label("Jamais compté non plus : repas dont la courbe ne mesure pas que lui — autre repas dans les 4 h, insuline encore active au début du repas, correction (même faite avec le repas), resucrage ou sport entre 1 h avant et 4 h après.", systemImage: "line.diagonal")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                            if let decompte = decompteEcartesFenetre {
+                                Label(decompte, systemImage: "number")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                 }
@@ -107,6 +118,19 @@ struct PageEcartRatio: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
+
+    /// « 7 repas écartés pour ces raisons : autre repas ×4, … » — une raison
+    /// par repas et par cause, donc la somme peut dépasser le total.
+    private var decompteEcartesFenetre: String? {
+        let total = repartitions.values.reduce(0) { $0 + $1.pollues }
+        guard total > 0 else { return nil }
+        let parRaison = RaisonExclusionFenetre.allCases.compactMap { raison -> String? in
+            let n = repartitions.values.reduce(0) { $0 + ($1.parRaisonFenetre[raison] ?? 0) }
+            return n > 0 ? "\(raison.libelle) ×\(n)" : nil
+        }
+        let repas = total > 1 ? "repas écartés" : "repas écarté"
+        return "\(total) \(repas) pour ces raisons : " + parRaison.joined(separator: ", ") + "."
+    }
 
     // MARK: - Depuis le changement de ratio
 
