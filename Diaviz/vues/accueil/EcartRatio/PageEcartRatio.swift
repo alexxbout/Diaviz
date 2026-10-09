@@ -57,10 +57,13 @@ struct PageEcartRatio: View {
                 score(colonne: colonne, grammes: cible, estActuel: cible == ratio)
 
                 VStack(alignment: .leading, spacing: 12) {
+                    // `.id` : un changement de moment reconstruit le graphique
+                    // au lieu d'animer les gélules d'un moment vers l'autre.
                     GraphiqueGelulesRatio(
                         colonnes: colonnes, ratioConfigure: ratio,
                         selection: Binding(get: { cible }, set: { ratioChoisi = $0 })
                     )
+                    .id(section.groupe)
                     HStack {
                         Text("← moins d'insuline")
                         Spacer()
@@ -73,18 +76,11 @@ struct PageEcartRatio: View {
                 .padding(16)
                 .glassEffect(.regular, in: .rect(cornerRadius: Radius.large))
 
-                VStack(alignment: .leading, spacing: 10) {
-                    if comparaisonPossible(section) {
-                        legende(section)
-                    } else {
-                        Label(mentionRecul(section), systemImage: "hourglass")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
+                if comparaisonPossible(section) {
+                    legende(section)
+                        .padding(16)
+                        .glassEffect(.regular, in: .rect(cornerRadius: Radius.large))
                 }
-                .padding(16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .glassEffect(.regular, in: .rect(cornerRadius: Radius.large))
 
                 if let apercu = apercusChangementRatio[section.groupe] {
                     VStack(alignment: .leading, spacing: 10) {
@@ -114,7 +110,6 @@ struct PageEcartRatio: View {
         }
         .background(fond(colonne: colonnes.first { $0.grammesParUnite == ratio }))
         .safeAreaInset(edge: .bottom) { barreMoments }
-        .onChange(of: groupeChoisi) { ratioChoisi = nil }
     }
 
     // MARK: - Score
@@ -132,7 +127,6 @@ struct PageEcartRatio: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
-        .animation(.snappy, value: grammes)
         .padding(.top, 8)
     }
 
@@ -180,7 +174,13 @@ struct PageEcartRatio: View {
                 ForEach(sections, id: \.groupe) { s in
                     let actif = s.groupe == section?.groupe
                     Button {
-                        groupeChoisi = .some(s.groupe)
+                        // Sans animation : le score et les gélules du nouveau
+                        // moment apparaissent d'un coup, sans glisser.
+                        var t = Transaction(); t.disablesAnimations = true
+                        withTransaction(t) {
+                            groupeChoisi = .some(s.groupe)
+                            ratioChoisi = nil
+                        }
                     } label: {
                         Text(CalculRatioObserve.libelleGroupe(s.groupe))
                             .font(.footnote.weight(actif ? .bold : .medium))
@@ -393,43 +393,6 @@ struct PageEcartRatio: View {
         }
         guard comparaisonPossible(section) else { return nil }
         return tranche == .doseProche ? ("ratio confirmé", .green) : nil
-    }
-
-    /// Phrase de repli quand aucune comparaison n'est possible — nomme ce qui
-    /// bloque **réellement**, zone par zone.
-    ///
-    /// Le seuil porte sur une **zone**, pas sur le groupe : cinq repas
-    /// éparpillés sur les trois zones ne débloquent rien. L'ancien libellé
-    /// (« 5 repas — 5 minimum par zone ») laissait croire au contraire que le
-    /// total suffisait, et se contredisait visiblement à l'écran.
-    private func mentionRecul(_ section: ObservationRatioSection) -> String {
-        let minimum = CalculRatioObserve.effectifMinimalBucket
-        guard section.effectif > 0 else { return "Aucun repas analysé" }
-
-        let aCentre = section.buckets.contains { $0.tranche == .doseProche }
-        let aLateral = section.buckets.contains { $0.tranche != .doseProche }
-
-        // Le centre est prêt, il manque un point de comparaison hors zone.
-        if aCentre && !aLateral {
-            return "Il faut aussi \(minimum) repas hors de votre ratio pour comparer"
-        }
-        // À l'inverse : des repas hors zone, mais rien à quoi les comparer.
-        if aLateral && !aCentre {
-            return "Il faut aussi \(minimum) repas faits à votre ratio pour comparer"
-        }
-
-        let plusGrandeZone = repartition(section).map(\.value).max() ?? 0
-        return "\(section.effectif) repas, \(plusGrandeZone) au plus dans une même zone — il en faut \(minimum)"
-    }
-
-    /// Nombre de repas par zone, recompté depuis les points eux-mêmes : les
-    /// `buckets` ne contiennent que les zones ayant franchi le seuil, donc ils
-    /// ne peuvent pas servir à dire où on en est en dessous.
-    private func repartition(_ section: ObservationRatioSection) -> [TrancheRatio: Int] {
-        Dictionary(grouping: section.entrees) {
-            CalculRatioObserve.tranche(glucides: $0.glucides, doseAppliquee: $0.doseAppliquee, doseSuggeree: $0.doseSuggeree)
-        }
-        .mapValues(\.count)
     }
 
     private func libelleCourt(_ tranche: TrancheRatio) -> String {

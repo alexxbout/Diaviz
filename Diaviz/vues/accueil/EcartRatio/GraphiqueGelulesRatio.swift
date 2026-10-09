@@ -64,11 +64,13 @@ struct GraphiqueGelulesRatio: View {
         let maxi = max(1, colonnes.map(\.total).max() ?? 1)
         GeometryReader { geo in
             let pas = geo.size.width / CGFloat(max(1, colonnes.count))
+            GlassEffectContainer {
             HStack(alignment: .bottom, spacing: 0) {
                 ForEach(colonnes) { colonne in
                     colonneVue(colonne, maxi: maxi, largeur: min(22, pas * 0.6))
                         .frame(width: pas)
                 }
+            }
             }
             .frame(maxHeight: .infinity, alignment: .bottom)
             .contentShape(Rectangle())
@@ -91,26 +93,28 @@ struct GraphiqueGelulesRatio: View {
         let estActuel = c.grammesParUnite == ratioConfigure
         let estChoisi = c.grammesParUnite == selection
         return VStack(spacing: 6) {
+            // Couleurs posées sur une gélule de verre : le verre fait le
+            // contour et le reflet, les résultats remplissent de bas en haut.
             VStack(spacing: 0) {
                 ForEach(Array(c.couches.reversed().enumerated()), id: \.offset) { _, couche in
                     if couche.0 > 0 {
-                        couche.1.frame(height: hauteur * CGFloat(couche.0) / CGFloat(c.total))
+                        couche.1.opacity(0.85)
+                            .frame(height: hauteur * CGFloat(couche.0) / CGFloat(c.total))
                     }
                 }
             }
             .frame(width: largeur, height: hauteur, alignment: .bottom)
-            .background(Color.secondary.opacity(c.total == 0 ? 0.25 : 0.15))
             .clipShape(Capsule())
-            .padding(4)
+            .padding(3)
+            .glassEffect(estChoisi ? .regular.interactive() : .regular, in: .capsule)
             .overlay {
-                if estActuel { Capsule().strokeBorder(.primary, lineWidth: 1.5) }
+                if estActuel { Capsule().strokeBorder(.primary.opacity(0.7), lineWidth: 1.5) }
             }
-            .scaleEffect(estChoisi && !estActuel ? 1.08 : 1, anchor: .bottom)
-            .animation(.spring(duration: 0.25), value: estChoisi)
 
+            // Gras = gélule dont le score est affiché en haut, et elle seule.
             Text("\(c.grammesParUnite)g")
-                .font(.caption2.weight(estActuel || estChoisi ? .bold : .regular))
-                .foregroundStyle(estActuel || estChoisi ? .primary : .secondary)
+                .font(.caption2.weight(estChoisi ? .bold : .regular))
+                .foregroundStyle(estChoisi ? .primary : .secondary)
                 .monospacedDigit()
         }
     }
