@@ -20,6 +20,22 @@ struct PageEcartRatio: View {
     /// Ventilation par moment — sert seulement à dire combien de repas ont
     /// été écartés et pourquoi. Vide = ligne de décompte masquée.
     var repartitions: [SectionRepas?: RepartitionRepasMoment] = [:]
+    /// Même analyse sans filtre de changement de ratio — vue « Tout ».
+    var sectionsCompletes: [ObservationRatioSection] = []
+    var repartitionsCompletes: [SectionRepas?: RepartitionRepasMoment] = [:]
+
+    /// Vue « Tout » : repas d'avant le dernier changement de ratio inclus.
+    @State private var toutHistorique = false
+
+    /// Bascule d'office sur « Tout » quand rien n'a encore été fait depuis
+    /// le changement — plutôt qu'une page vide alors que des repas existent.
+    private var vueComplete: Bool {
+        !sectionsCompletes.isEmpty && (toutHistorique || sections.isEmpty)
+    }
+    private var sectionsActives: [ObservationRatioSection] { vueComplete ? sectionsCompletes : sections }
+    private var repartitionsActives: [SectionRepas?: RepartitionRepasMoment] {
+        vueComplete ? repartitionsCompletes : repartitions
+    }
 
     /// Moment affiché — une seule carte à la fois, choisie dans la barre du bas.
     @State private var groupeChoisi: SectionRepas??
@@ -27,8 +43,8 @@ struct PageEcartRatio: View {
     @State private var ratioChoisi: Int?
 
     private var section: ObservationRatioSection? {
-        guard let groupeChoisi else { return sections.first }
-        return sections.first { $0.groupe == groupeChoisi } ?? sections.first
+        guard let groupeChoisi else { return sectionsActives.first }
+        return sectionsActives.first { $0.groupe == groupeChoisi } ?? sectionsActives.first
     }
 
     var body: some View {
@@ -54,6 +70,7 @@ struct PageEcartRatio: View {
         let colonne = colonnes.first { $0.grammesParUnite == cible }
         return ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                selecteurPeriode(section)
                 score(colonne: colonne, grammes: cible, estActuel: cible == ratio)
 
                 VStack(alignment: .leading, spacing: 12) {
@@ -77,9 +94,16 @@ struct PageEcartRatio: View {
                 .glassEffect(.regular, in: .rect(cornerRadius: Radius.large))
 
                 if comparaisonPossible(section) {
-                    legende(section)
-                        .padding(16)
-                        .glassEffect(.regular, in: .rect(cornerRadius: Radius.large))
+                    VStack(alignment: .leading, spacing: 10) {
+                        legende(section)
+                        if vueComplete && apercusChangementRatio[section.groupe] != nil {
+                            Label("Inclut des repas faits avec un autre réglage de ratio.", systemImage: "info.circle")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(16)
+                    .glassEffect(.regular, in: .rect(cornerRadius: Radius.large))
                 }
 
                 if let apercu = apercusChangementRatio[section.groupe] {
@@ -98,7 +122,7 @@ struct PageEcartRatio: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     Label("Une gélule par ratio réellement appliqué. Sa hauteur suit le nombre de repas, ses couleurs leurs résultats. Le ratio actuel est entouré.", systemImage: "capsule.portrait")
-                    Label("45 derniers jours, \(CalculRatioObserve.effectifMinimalBucket) repas minimum par zone pour comparer.", systemImage: "calendar")
+                    Label("\(CalculRatioObserve.effectifMinimalBucket) repas minimum par zone pour comparer.", systemImage: "calendar")
                     Label("Jamais comptés : repas ajusté ou à contexte libre, ou dont la courbe ne mesure pas que lui — autre repas dans les 4 h, insuline encore active, correction (même faite avec le repas), resucrage ou sport entre 1 h avant et 4 h après.", systemImage: "line.diagonal")
                 }
                 .font(.footnote)
@@ -110,6 +134,24 @@ struct PageEcartRatio: View {
         }
         .background(fond(colonne: colonnes.first { $0.grammesParUnite == ratio }))
         .safeAreaInset(edge: .bottom) { barreMoments }
+    }
+
+    // MARK: - Période
+
+    /// « Depuis le 3 oct. | Tout » — seulement si le ratio de ce moment a
+    /// déjà changé : sinon les deux vues sont identiques.
+    @ViewBuilder
+    private func selecteurPeriode(_ section: ObservationRatioSection) -> some View {
+        if let apercu = apercusChangementRatio[section.groupe], !sectionsCompletes.isEmpty {
+            let jour = apercu.dateChangement.formatted(.dateTime.day().month(.abbreviated))
+            Picker("Période", selection: Binding(get: { vueComplete }, set: { toutHistorique = $0 })) {
+                Text("Depuis le \(jour)").tag(false)
+                Text("Tout").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .disabled(sections.isEmpty)
+            .padding(.top, 8)
+        }
     }
 
     // MARK: - Score
@@ -171,7 +213,7 @@ struct PageEcartRatio: View {
     private var barreMoments: some View {
         GlassEffectContainer {
             HStack(spacing: 4) {
-                ForEach(sections, id: \.groupe) { s in
+                ForEach(sectionsActives, id: \.groupe) { s in
                     let actif = s.groupe == section?.groupe
                     Button {
                         // Sans animation : le score et les gélules du nouveau
@@ -198,14 +240,14 @@ struct PageEcartRatio: View {
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 4)
-        .opacity(sections.count > 1 ? 1 : 0)
+        .opacity(sectionsActives.count > 1 ? 1 : 0)
     }
 
     // MARK: - Repas écartés
 
     @ViewBuilder
     private func carteEcartes(_ section: ObservationRatioSection) -> some View {
-        if let r = repartitions[section.groupe], r.ecartes + r.ratioSportEnVigueur > 0 {
+        if let r = repartitionsActives[section.groupe], r.ecartes + r.ratioSportEnVigueur > 0 {
             let ecartes = r.ecartes + r.ratioSportEnVigueur
             let motifs: [(String, Int)] = RaisonExclusionFenetre.allCases.compactMap { raison in
                     r.parRaisonFenetre[raison].map { (raison.libelle, $0) }

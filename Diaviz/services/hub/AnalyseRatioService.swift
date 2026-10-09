@@ -122,6 +122,12 @@ final class AnalyseRatioService {
     /// un moment n'a pas (encore) de repas analysé.
     private(set) var repartitions: [SectionRepas?: RepartitionRepasMoment] = [:]
 
+    /// Même analyse **sans** filtre de date de changement de ratio — vue
+    /// « Tout » de la page de détail. Jamais lue par l'accueil : un verdict
+    /// ne se confirme pas avec des repas faits sous un autre réglage.
+    private(set) var analyseComplete: AnalyseRatioObserve = .vide
+    private(set) var repartitionsCompletes: [SectionRepas?: RepartitionRepasMoment] = [:]
+
     /// Recalcule depuis les repas déjà chargés/annotés par `RepasService` —
     /// aucun fetch CGM ni régression ici, juste un mapping en value types et
     /// un comptage : volume trivial (quelques milliers de repas au grand
@@ -154,6 +160,13 @@ final class AnalyseRatioService {
             repas, activites: activites, faits: faits, profil: profil, repartitions: &ventilation
         )
         analyse = CalculRatioObserve.analyser(entrees: entrees)
+        var ventilationComplete: [SectionRepas?: RepartitionRepasMoment] = [:]
+        let entreesCompletes = mapperEntrees(
+            repas, activites: activites, faits: faits, profil: profil,
+            repartitions: &ventilationComplete, ignorerChangementRatio: true
+        )
+        analyseComplete = CalculRatioObserve.analyser(entrees: entreesCompletes)
+        repartitionsCompletes = ventilationComplete
         apercusChangementRatio = construireApercusChangementRatio(repas, faits: faits, profil: profil)
         repartitions = ventilation
     }
@@ -168,7 +181,8 @@ final class AnalyseRatioService {
     /// « 4 dîners en attente des glycémies » plutôt que « aucun repas analysé ».
     private func mapperEntrees(
         _ repas: [Repas], activites: [ActiviteSportive], faits: FaitsFenetreRepas,
-        profil: ProfilUtilisateur, repartitions: inout [SectionRepas?: RepartitionRepasMoment]
+        profil: ProfilUtilisateur, repartitions: inout [SectionRepas?: RepartitionRepasMoment],
+        ignorerChangementRatio: Bool = false
     ) -> [EntreeRatioRepas] {
         var entrees: [EntreeRatioRepas] = []
 
@@ -221,7 +235,7 @@ final class AnalyseRatioService {
             // `dateChangement`.
             let changement = dateChangement(section: sectionReelle, profil: profil)
             repartition.dateChangementRatio = changement
-            guard r.heure >= (changement ?? .distantPast) else {
+            guard ignorerChangementRatio || r.heure >= (changement ?? .distantPast) else {
                 repartition.avantChangementRatio += 1
                 continue
             }

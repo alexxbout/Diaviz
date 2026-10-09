@@ -485,7 +485,9 @@ struct AccueilVue: View {
                 PageEcartRatio(
                     sections: analyseRatioService.analyse.sections.filter { !$0.entrees.isEmpty },
                     apercusChangementRatio: analyseRatioService.apercusChangementRatio,
-                    repartitions: analyseRatioService.repartitions
+                    repartitions: analyseRatioService.repartitions,
+                    sectionsCompletes: analyseRatioService.analyseComplete.sections.filter { !$0.entrees.isEmpty },
+                    repartitionsCompletes: analyseRatioService.repartitionsCompletes
                 )
             }
             .sheet(isPresented: $sheetLenteOuverte) {
