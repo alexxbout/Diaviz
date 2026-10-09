@@ -138,7 +138,7 @@ struct CarteAnalyseRatio: View {
 
     /// Hauteur maximale de la zone de barres — une barre à 100 % l'atteint
     /// exactement, le reste est proportionnel.
-    private static let hauteurGraphe: CGFloat = 160
+    private static let hauteurGraphe: CGFloat = 80
 
     /// Largeur d'une colonne (barre + légende dessous) — fixe, pour que les
     /// colonnes restent alignées quel que soit le nombre de moments.
@@ -196,7 +196,7 @@ struct CarteAnalyseRatio: View {
     /// pleines à côté, comme si l'absence de donnée pesait plus que les
     /// vrais taux mesurés. Une barre basse dit « rien à montrer » sans
     /// écraser le reste du graphique.
-    private static let hauteurHachuree: CGFloat = 40
+    private static let hauteurHachuree: CGFloat = 20
 
     /// Barre pleine, teintée, hauteur proportionnelle au taux — sauf quand
     /// aucune comparaison n'est possible (changement de ratio récent, ou
