@@ -258,12 +258,20 @@ struct AccueilVue: View {
                             }
                         )
 
-                        // Score du jour, rappel lente, resucrage, glucides,
-                        // charge d'activité — plus de titre externe « Aujourd'hui » :
-                        // ni « Repas à revoir » (carte résumé) ni « Analyse
-                        // des ratios » n'en portent un désormais (titre
-                        // déplacé dans la carte elle-même), un titre externe
-                        // ici cassait le rythme vertical entre sections.
+                        // Score du jour, rappel lente, resucrage, charge
+                        // d'activité, glucides, repas à revoir — sous un titre
+                        // de section « Résumé » qui les sépare de la pile de
+                        // tendances au-dessus (même patron que « Aperçu du
+                        // jour » plus bas : spacing 8 titre → contenu pour que
+                        // le titre appartienne au bloc).
+                        VStack(alignment: .leading, spacing: 8) {
+                        Text("Résumé")
+                            .font(.title2.bold())
+                            .foregroundStyle(.primary)
+                            .padding(.leading, 4)
+                            .accessibilityAddTraits(.isHeader)
+
+                        VStack(spacing: 16) {
                         VStack(spacing: 16) {
                             CarteScoreQuotidien(
                                     contenu: contenuScore,
@@ -387,6 +395,8 @@ struct AccueilVue: View {
                             onTap: { afficherDetailEcartRatio = true },
                             onOuvrirProfil: { afficherProfil = true }
                         )
+                        }
+                        }
 
                         // Grille de 4 cartes métriques — aperçu
                         // instantané de l'état courant. Le service

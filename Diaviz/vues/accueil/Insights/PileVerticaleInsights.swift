@@ -46,6 +46,12 @@ struct PileVerticaleInsights: View {
     /// doigt peut continuer à bouger pendant que la carte file).
     @State private var enCoursDeDismiss: Bool = false
 
+    /// Vrai le temps qu'un doigt est posé sur la pile. Repasse tout seul à
+    /// faux à la fin **ou à l'annulation** du geste — y compris quand la
+    /// carte qui le portait a déjà quitté la pile, cas où `.onEnded` n'est
+    /// jamais appelé. Sert à libérer `enCoursDeDismiss` (voir `body`).
+    @GestureState private var gesteEnCours: Bool = false
+
     // MARK: Paramètres visuels de la pile
 
     /// Nombre de cartes empilées rendues simultanément (top inclus).
@@ -79,7 +85,18 @@ struct PileVerticaleInsights: View {
             }
         }
         .frame(height: hauteurTotale)
+        // Libère le verrou dès que le doigt est levé, quoi qu'il arrive à la
+        // carte. Avant : le verrou n'était libéré que par `.onEnded`, jamais
+        // appelé si le doigt se levait après que la carte écartée avait quitté
+        // la pile — le glissement suivant était alors ignoré, il fallait
+        // toucher la carte une première fois « pour rien » avant de pouvoir
+        // la tirer.
+        .onChange(of: gesteEnCours) { _, enCours in
+            if !enCours { enCoursDeDismiss = false }
+        }
     }
+
+    private var plusieursCartes: Bool { insights.count > 1 }
 
     /// Hauteur totale réservée à la pile : carte top + décalages
     /// cumulés des cartes derrière (pour que la dernière carte
@@ -131,7 +148,10 @@ struct PileVerticaleInsights: View {
             // une translation qui empêche le long-press natif de se valider,
             // et inversement un doigt immobile ne produit pas de translation
             // significative.
-            .gesture(estTop ? swipeGesture.simultaneously(with: longPressGesture).simultaneously(with: tapGesture) : nil)
+            .gesture(estTop && plusieursCartes ? swipeGesture.simultaneously(with: longPressGesture).simultaneously(with: tapGesture) : nil)
+            // Une seule carte : rien à faire défiler, donc pas de glissement
+            // (il aurait capté le doigt pour rien) — appui long et tap seuls.
+            .gesture(estTop && !plusieursCartes ? longPressGesture.simultaneously(with: tapGesture) : nil)
             .accessibilityHidden(!estTop)
             .transition(transitionCarte)
     }
@@ -176,6 +196,7 @@ struct PileVerticaleInsights: View {
 
     private var swipeGesture: some Gesture {
         DragGesture()
+            .updating($gesteEnCours) { _, etat, _ in etat = true }
             .onChanged { value in
                 // Pendant qu'un dismiss est en cours (doigt toujours
                 // posé sur l'écran), on ignore les updates pour que
@@ -232,6 +253,14 @@ struct PileVerticaleInsights: View {
         withAnimation(.spring(response: 0.4, dampingFraction: 0.82)) {
             indexActif = (indexActif + 1) % insights.count
             glissementY = 0
+        }
+        // Filet de sécurité si le relâchement n'est pas détecté : la carte
+        // écartée a quitté la pile (≈ 0,4 s), plus aucun mouvement du doigt ne
+        // peut la re-déclencher en chaîne — le verrou n'a plus de raison de
+        // durer.
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1))
+            enCoursDeDismiss = false
         }
     }
 }

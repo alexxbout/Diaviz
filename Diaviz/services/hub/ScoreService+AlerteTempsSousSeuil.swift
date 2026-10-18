@@ -44,9 +44,11 @@ extension ScoreService {
             id: Self.identifiantStable("tempsSousSeuil|\(moyenne)"),
             categorie: .alerte,
             titre: "Temps sous 70 mg/dL",
-            message: "Moyenne sur \(joursExploitables) jours, au-dessus du seuil de \(seuil) %.",
+            // Espace insécable avant « % » : sans elle, le pourcentage pouvait
+            // passer seul à la ligne.
+            message: "Moyenne sur \(joursExploitables) jours, seuil de \(seuil)\u{00A0}%",
             microVisuel: .grandNombreEtJours(
-                valeur: "\(moyenne) %",
+                valeur: "\(moyenne)\u{00A0}%",
                 jours: resultat.parJour,
                 seuil: CalculAlerteTempsSousSeuil.seuilPourcent
             ),
