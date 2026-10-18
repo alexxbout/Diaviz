@@ -52,7 +52,7 @@ nonisolated enum ReglageSuivi: Hashable, Sendable {
 }
 
 /// Ce qu'un événement (une nuit, un repas) dit du réglage en vigueur.
-nonisolated enum IssueEvenement: Sendable, Equatable {
+nonisolated enum IssueEvenement: Sendable, Hashable {
     case concluant
     /// Raté sans hypo (dérive, pic hors cible).
     case rate
@@ -135,7 +135,7 @@ nonisolated struct UsageValeur: Sendable, Equatable {
     /// Date du dernier événement — départage les égalités.
     let dernier: Date
     /// Moins d'événements évaluables que le minimum du réglage.
-    var tropCourt: Bool
+    let tropCourt: Bool
 }
 
 /// Ce qu'un épisode retient d'un réglage (C1 § 8).
@@ -285,7 +285,10 @@ nonisolated enum CalculEpisodesCharge {
                 faits: faits(plage.jours),
                 chargeMoyenne: CalculChargeActive.moyenneChargeActive(de: debut, a: fin, contributions: charge.contributions),
                 reglages: reglages,
-                resultats: resultats(debut: debut, fin: fin, jours: plage.jours.count, glycemies: glycemies, resucrages: resucrages)
+                resultats: resultats(
+                    debut: debut, fin: fin, jours: plage.jours.count,
+                    glycemies: glycemies, resucrages: resucrages, calendrier: cal
+                )
             )
         }
 
@@ -351,10 +354,10 @@ nonisolated enum CalculEpisodesCharge {
 
     static func resultats(
         debut: Date, fin: Date, jours: Int,
-        glycemies: [MesureGlycemie], resucrages: [Date]
+        glycemies: [MesureGlycemie], resucrages: [Date], calendrier: Calendar
     ) -> ResultatsEpisode {
         let mesures = glycemies.filter { $0.date >= debut && $0.date < fin }
-        let joursCouverts = Set(mesures.map { Calendar.current.startOfDay(for: $0.date) }).count
+        let joursCouverts = Set(mesures.map { calendrier.startOfDay(for: $0.date) }).count
         let attendues = max(fin.timeIntervalSince(debut) / 300, 1)
         let couverture = jours > 0 ? min(100, Double(mesures.count) / attendues * 100) : nil
         let lisible = joursCouverts >= joursMinimumNiveauGlycemie

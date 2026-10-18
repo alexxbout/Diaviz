@@ -140,7 +140,7 @@ struct AnalysesVue: View {
                 _ = await (endoR, corrR, bilanCorrR)
             }
             // Charge active d'abord : la page Charge et glycémie lit son
-            // contexte (tranches par niveau du jour).
+            // contexte (chronologie, épisodes).
             Task {
                 await ChargeActiveService.shared.recalculerSiNecessaire(contexte: modelContext)
                 await correlationService.recalculer(contexte: modelContext)

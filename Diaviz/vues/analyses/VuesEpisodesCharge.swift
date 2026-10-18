@@ -164,8 +164,6 @@ struct LigneEpisode: View {
     var sousTitre: String? = nil
     var valeur: String? = nil
     var legende: String? = nil
-    /// Ne remplit pas les critères : grisé, fond plus sombre.
-    var attenue = false
     var chevron = false
 
     var body: some View {
@@ -178,11 +176,9 @@ struct LigneEpisode: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(titre)
-                    .foregroundStyle(attenue ? .secondary : .primary)
                 if let ligneValeur {
                     Text(ligneValeur)
                         .font(.subheadline)
-                        .foregroundStyle(attenue ? .secondary : .primary)
                         .monospacedDigit()
                 }
                 if let sousTitre {
@@ -214,7 +210,6 @@ struct LigneEpisode: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 11)
         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-        .background(attenue ? Color(.systemGroupedBackground).opacity(0.7) : Color.clear)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
     }
@@ -515,14 +510,14 @@ struct PageEpisodeCharge: View {
                 legende: aujourdhui
             )
         case .concluante:
-            return LigneEpisode(icone: ("circle.dashed", .secondary), titre: titre, ligneValeur: "Valeur non enregistrée", legende: aujourdhui, attenue: true)
+            return LigneEpisode(icone: ("circle.dashed", .secondary), titre: titre, ligneValeur: "Valeur non enregistrée", legende: aujourdhui)
         case .aucune(let derniere):
             return LigneEpisode(
                 icone: ("circle.dashed", .secondary), titre: titre, ligneValeur: "Aucune valeur concluante",
-                legende: "Dernière \(FormatEpisode.valeur(derniere, r.reglage))\n\(aujourdhui)", attenue: true
+                legende: "Dernière \(FormatEpisode.valeur(derniere, r.reglage))\n\(aujourdhui)"
             )
         case .pasAssezDeRecul:
-            return LigneEpisode(icone: ("circle.dashed", .secondary), titre: titre, ligneValeur: "Pas assez de recul", legende: aujourdhui, attenue: true)
+            return LigneEpisode(icone: ("circle.dashed", .secondary), titre: titre, ligneValeur: "Pas assez de recul", legende: aujourdhui)
         }
     }
 
@@ -639,13 +634,13 @@ struct PageReglageEpisodes: View {
     }
 
     private func legende(_ evenements: [EvenementAffiche]) -> some View {
-        let issues = Set(evenements.filter { !$0.enObservation }.map { "\($0.issue)" })
+        let issues = Set(evenements.filter { !$0.enObservation }.map(\.issue))
         let observation = evenements.contains(where: \.enObservation)
         return HStack(spacing: 12) {
-            if issues.contains("concluant") { cle(Color.green, estLente ? "Concluante" : "Concluant") }
-            if issues.contains("rate") { cle(Color.orange, estLente ? "Dérive" : "Hors cible") }
-            if issues.contains("hypo") { cle(Color.red, "Hypo") }
-            if issues.contains("nonEvaluable") { cle(nil, "Non évaluable") }
+            if issues.contains(.concluant) { cle(Color.green, estLente ? "Concluante" : "Concluant") }
+            if issues.contains(.rate) { cle(Color.orange, estLente ? "Dérive" : "Hors cible") }
+            if issues.contains(.hypo) { cle(Color.red, "Hypo") }
+            if issues.contains(.nonEvaluable) { cle(nil, "Non évaluable") }
             if observation { cle(Color.cyan, "Observation") }
         }
         .font(.caption)
@@ -697,7 +692,6 @@ struct PageReglageEpisodes: View {
                             sousTitre: "\(FormatEpisode.niveau(ligne.episode.niveau)) · \(FormatEpisode.moisPeriode(ligne.episode))",
                             valeur: ligne.usage.tropCourt ? "—" : "\(ligne.usage.concluants)/\(ligne.usage.evaluables)",
                             legende: ligne.usage.tropCourt ? "trop court" : FormatEpisode.evenements(reglage, ligne.usage.evaluables),
-                            attenue: ligne.usage.tropCourt || !ligne.usage.aEteConcluante,
                             chevron: true
                         )
                     }

@@ -6,16 +6,11 @@
 import Charts
 import SwiftUI
 
-/// Page d'analyse « Charge et glycémie » — indice et niveau de charge
-/// active, chronologie de la charge (vs référence) face au score GRI sur
-/// `CalculCorrelationChargeTIR.nombreSemaines` semaines, puis TIR et dérive
-/// basale (B1, nuit profonde) regroupés par niveau de charge active du jour.
-///
-/// **Co-occurrence affichée, jamais une cause affirmée** — même garde-fou
-/// que partout ailleurs dans l'app (B2/B3 pour sport/glucides, etc.).
-/// Aucun seuil minimal n'empêche l'affichage d'une tranche : le nombre de
-/// jours/nuits (`n=`) reste toujours visible à côté du chiffre, c'est lui
-/// qui porte l'honnêteté de la mesure.
+/// Page d'analyse « Charge et glycémie » — épisode de charge en cours,
+/// chronologie de la charge (vs référence) face au score GRI sur
+/// `CalculCorrelationChargeTIR.nombreSemaines` semaines, état des réglages
+/// et épisodes passés comparables (C1). Co-occurrence affichée, jamais une
+/// cause affirmée.
 struct PageCorrelationChargeGlycemie: View {
 
     let synthese: SyntheseCorrelationChargeTIR
@@ -47,14 +42,6 @@ struct PageCorrelationChargeGlycemie: View {
                     TitreSectionEpisode(texte: "Les fois précédentes")
                     SectionFoisPrecedentes(synthese: episodes)
                 }
-                // Sections antérieures à C1, laissées de côté (C1 § 9).
-                VStack(alignment: .leading, spacing: 20) {
-                    tranches
-                    if synthese.tranchesDerive.contains(where: { $0.deriveMoyenne != nil }) {
-                        tranchesDerive
-                    }
-                }
-                .padding(.top, 20)
             }
             .padding(16)
         }
@@ -297,141 +284,6 @@ struct PageCorrelationChargeGlycemie: View {
         let pct = Int(((indice - 1) * 100).rounded())
         if pct == 0 { return "comme la référence" }
         return "\(pct > 0 ? "+" : "\u{2212}")\(abs(pct)) %"
-    }
-
-
-    // MARK: - TIR par tranche de charge
-
-    private var tranches: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Temps dans la cible selon la charge active du jour")
-                .font(.subheadline.bold())
-                .foregroundStyle(.secondary)
-
-            VStack(spacing: 12) {
-                ForEach(synthese.tranches) { tranche in
-                    ligneTranche(tranche)
-                }
-            }
-        }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground), in: NiveauCarte.carte.forme)
-    }
-
-    private func ligneTranche(_ tranche: TrancheChargeTIR) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(tranche.niveau.libelle)
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
-                Spacer()
-                if let tir = tranche.tirMoyen {
-                    HStack(alignment: .firstTextBaseline, spacing: 3) {
-                        Text("\(Int(tir.rounded()))%")
-                            .font(.subheadline.bold())
-                            .monospacedDigit()
-                        Text("(n=\(tranche.nombreJours) j)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                } else {
-                    Text("aucune donnée")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4).fill(Color(.tertiarySystemFill))
-                    if let tir = tranche.tirMoyen {
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(couleurNiveau(tranche.niveau))
-                            .frame(width: geo.size.width * max(0.02, tir / 100))
-                    }
-                }
-            }
-            .frame(height: 8)
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    // MARK: - Dérive basale par tranche de charge (bloc 3)
-
-    private var tranchesDerive: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Dérive basale selon la charge active du jour")
-                .font(.subheadline.bold())
-                .foregroundStyle(.secondary)
-            Text("Dérive moyenne de la nuit profonde (B1), nuits groupées par charge active du jour")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            VStack(spacing: 14) {
-                ForEach(synthese.tranchesDerive) { tranche in
-                    ligneDerive(tranche)
-                }
-            }
-
-            Text("Barres centrées sur 0 : à droite, basale trop faible ; à gauche, trop forte.")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground), in: NiveauCarte.carte.forme)
-    }
-
-    private var maxDeriveAbsolue: Double {
-        max(synthese.tranchesDerive.compactMap { $0.deriveMoyenne.map(abs) }.max() ?? 0, 1)
-    }
-
-    private func ligneDerive(_ tranche: TrancheDeriveBasale) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(tranche.niveau.libelle)
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
-                Spacer()
-                if let derive = tranche.deriveMoyenne {
-                    HStack(alignment: .firstTextBaseline, spacing: 3) {
-                        Text(deriveFormatee(derive))
-                            .font(.subheadline.bold())
-                            .monospacedDigit()
-                        Text("(n=\(tranche.nombreNuits) nuits)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                } else {
-                    Text("aucune donnée")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            GeometryReader { geo in
-                let centre = geo.size.width / 2
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4).fill(Color(.tertiarySystemFill))
-                    Rectangle().fill(Color(.separator)).frame(width: 1).position(x: centre, y: 4)
-                    if let derive = tranche.deriveMoyenne {
-                        let largeur = min(centre, centre * abs(derive) / maxDeriveAbsolue)
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(couleurNiveau(tranche.niveau))
-                            .frame(width: max(2, largeur))
-                            .position(x: derive >= 0 ? centre + largeur / 2 : centre - largeur / 2, y: 4)
-                    }
-                }
-            }
-            .frame(height: 8)
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    private func deriveFormatee(_ derive: Double) -> String {
-        let signe = derive > 0 ? "+" : (derive < 0 ? "\u{2212}" : "")
-        return "\(signe)\(Int(abs(derive).rounded())) mg/dL"
-    }
-
-    private func couleurNiveau(_ niveau: NiveauChargeActive) -> Color {
-        niveau.couleur
     }
 }
 
