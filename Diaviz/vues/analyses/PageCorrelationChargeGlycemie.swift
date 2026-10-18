@@ -22,6 +22,8 @@ struct PageCorrelationChargeGlycemie: View {
     /// Charge active (`CalculChargeActive`) — `nil` tant que le premier
     /// calcul n'a pas abouti (lecture Apple Santé en cours).
     var chargeActive: SyntheseChargeActive? = nil
+    /// Épisodes de charge (C1) — `nil` avant le premier calcul.
+    var episodes: SyntheseEpisodesCharge? = nil
 
     private let teinteCharge = Color.orange
     private let teinteScore = Color.blue
@@ -32,25 +34,27 @@ struct PageCorrelationChargeGlycemie: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                EnTeteAnalyse(
-                    surtitre: "Sport",
-                    titre: "Charge et glycémie",
-                    accroche: "Votre charge d'activité comparée à votre référence, et votre score glycémique, semaine après semaine.",
-                    ambiance: .chargeActivite
-                )
-                CarteChargeActiveIndice(synthese: chargeActive)
+            VStack(alignment: .leading, spacing: 8) {
+                TitreSectionEpisode(texte: "En ce moment")
+                CarteEpisodeEnCours(episode: episodes?.enCours, precedent: episodes?.precedent, charge: chargeActive)
+                TitreSectionEpisode(texte: "Chronologie")
                 chronologie
-                tranches
-                if synthese.tranchesDerive.contains(where: { $0.deriveMoyenne != nil }) {
-                    tranchesDerive
+                if let episodes, !episodes.etatsActuels.isEmpty {
+                    TitreSectionEpisode(texte: "Vos réglages")
+                    SectionReglagesActuels(synthese: episodes)
                 }
-                Label(
-                    "Co-occurrence affichée, jamais une cause. \(CalculCorrelationChargeTIR.nombreSemaines) dernières semaines glissantes.",
-                    systemImage: "info.circle"
-                )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                if let episodes, episodes.enCours != nil {
+                    TitreSectionEpisode(texte: "Les fois précédentes")
+                    SectionFoisPrecedentes(synthese: episodes)
+                }
+                // Sections antérieures à C1, laissées de côté (C1 § 9).
+                VStack(alignment: .leading, spacing: 20) {
+                    tranches
+                    if synthese.tranchesDerive.contains(where: { $0.deriveMoyenne != nil }) {
+                        tranchesDerive
+                    }
+                }
+                .padding(.top, 20)
             }
             .padding(16)
         }
@@ -74,10 +78,6 @@ struct PageCorrelationChargeGlycemie: View {
 
     private var chronologie: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Chronologie")
-                .font(.subheadline.bold())
-                .foregroundStyle(.secondary)
-
             // Une seule ligne ; si elle ne tient pas (grande police), repli
             // sur deux lignes plutôt qu'un texte tronqué.
             ViewThatFits(in: .horizontal) {
@@ -247,6 +247,10 @@ struct PageCorrelationChargeGlycemie: View {
             ligneAide("Référence : votre moyenne des 4 semaines précédentes, hors semaine juste avant. Chaque semaine a donc la sienne : glissez le doigt sur le graphique pour la voir.")
             ligneAide("Pas de barre : moins de 5 semaines d'historique avant cette semaine, pas encore de comparaison possible.")
             ligneAide("Courbe bleue : score GRI moyen de la semaine, sur 100, échelle de droite.")
+            if let chargeActive {
+                ligneAide(TextesChargeActive.sources(chargeActive))
+                ligneAide(TextesChargeActive.fcMax(chargeActive.fcMax))
+            }
         }
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -433,78 +437,13 @@ struct PageCorrelationChargeGlycemie: View {
 
 // MARK: - Charge active
 
-/// Indice de charge active et niveau (bande d'hystérésis) — **jamais le
-/// nombre brut**, toujours relatif à la référence personnelle. Affichage
-/// volontairement minimal : phase de confrontation au ressenti avant la
-/// frise des périodes (C1).
-private struct CarteChargeActiveIndice: View {
-
-    let synthese: SyntheseChargeActive?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Charge active")
-                .font(.subheadline.bold())
-                .foregroundStyle(.secondary)
-
-            if let synthese {
-                contenu(synthese)
-            } else {
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text("Lecture d'Apple Santé…")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: NiveauCarte.carte.forme)
-        .accessibilityElement(children: .combine)
-    }
-
-    @ViewBuilder
-    private func contenu(_ synthese: SyntheseChargeActive) -> some View {
-        switch synthese.etat {
-        case .pasAssezDeRecul:
-            Text("Pas assez de recul")
-                .font(.title3.bold())
-            Text("Il faut au moins 5 semaines d'historique d'activité pour établir votre référence.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-        case .aucuneActiviteDeReference:
-            Text("Pas de référence")
-                .font(.title3.bold())
-            Text("Aucune séance ni marche soutenue sur les 4 semaines de référence : pas d'indice à calculer.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-        case let .disponible(indice, niveau, depuisJours):
-            HStack(alignment: .firstTextBaseline) {
-                Text(niveau.libelle)
-                    .font(.title3.bold())
-                    .foregroundStyle(couleur(niveau))
-                Spacer(minLength: 8)
-                if let depuisJours {
-                    Text("depuis \(depuisJours) j")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Text(texteIndice(indice))
-                .font(.subheadline)
-                .monospacedDigit()
-        }
-        Text(texteSources(synthese))
-            .font(.caption)
-            .foregroundStyle(synthese.marcheIncluse ? Color.secondary : Color.orange)
-        Text(texteFCMax(synthese.fcMax))
-            .font(.caption)
-            .foregroundStyle(.secondary)
-    }
+/// Provenance de la charge active, affichée dans le mode d'emploi du
+/// graphique (l'ancienne carte « Charge active » est remplacée par la carte
+/// de l'épisode en cours, C1 § 9).
+private enum TextesChargeActive {
 
     /// Valeur de FC max qui pondère les séances, et son origine.
-    private func texteFCMax(_ fcMax: FCMaxRetenue) -> String {
+    static func fcMax(_ fcMax: FCMaxRetenue) -> String {
         let bpm = Int(fcMax.bpm.rounded())
         let seances = "\(fcMax.seancesAvecFC) séance\(fcMax.seancesAvecFC >= 2 ? "s" : "")"
         return switch fcMax.origine {
@@ -515,25 +454,10 @@ private struct CarteChargeActiveIndice: View {
         }
     }
 
-    private func texteIndice(_ indice: Double) -> String {
-        let ecart = Int(((indice - 1) * 100).rounded())
-        if ecart == 0 { return "Au niveau de votre référence aujourd'hui" }
-        let signe = ecart > 0 ? "+" : "\u{2212}"
-        return "\(signe)\(abs(ecart)) % par rapport à votre référence aujourd'hui"
-    }
-
-    private func texteSources(_ synthese: SyntheseChargeActive) -> String {
+    static func sources(_ synthese: SyntheseChargeActive) -> String {
         synthese.marcheIncluse
-            ? "Moyenne de la journée. Séances et marche soutenue, décroissance sur 24 h. Référence : 4 semaines, hors semaine en cours."
-            : "Partiel : séances seules, pas non lus depuis Apple Santé."
-    }
-
-    private func couleur(_ niveau: NiveauChargeActive) -> Color {
-        switch niveau {
-        case .basse:   .red
-        case .haute:   .blue
-        case .normale: .primary
-        }
+            ? "Charge : séances et marche soutenue, décroissance sur 24 h. Référence : 4 semaines, hors semaine en cours."
+            : "Charge partielle : séances seules, pas non lus depuis Apple Santé."
     }
 }
 

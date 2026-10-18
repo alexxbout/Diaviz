@@ -99,6 +99,7 @@ struct AnalysesVue: View {
                     CarteAnalyseChargeGlycemie(
                         synthese: correlationService.synthese,
                         chargeActive: ChargeActiveService.shared.synthese,
+                        episodes: correlationService.episodes,
                         chargement: correlationService.enCalcul
                     )
                 }
@@ -167,11 +168,12 @@ private struct CarteAnalyseChargeGlycemie: View {
     /// page) sur l'apparition de l'onglet Analyses.
     let synthese: SyntheseCorrelationChargeTIR?
     var chargeActive: SyntheseChargeActive? = nil
+    var episodes: SyntheseEpisodesCharge? = nil
     var chargement: Bool = false
 
     var body: some View {
         NavigationLink {
-            PageCorrelationChargeGlycemie(synthese: synthese ?? .vide, chargeActive: chargeActive)
+            PageCorrelationChargeGlycemie(synthese: synthese ?? .vide, chargeActive: chargeActive, episodes: episodes)
         } label: {
             contenu
         }

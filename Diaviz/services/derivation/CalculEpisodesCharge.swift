@@ -201,13 +201,15 @@ nonisolated struct EtatReglageActuel: Sendable, Equatable, Identifiable {
     let changement: (date: Date, ancienne: Double?)?
     /// Événements de l'épisode en cours à la valeur actuelle.
     let evenements: [EvenementAffiche]
+    /// Premier événement à la valeur actuelle, `nil` sans événement.
+    var depuis: Date? = nil
 
     var id: Int { reglage.hashValue }
 
     static func == (a: EtatReglageActuel, b: EtatReglageActuel) -> Bool {
         a.reglage == b.reglage && a.valeur == b.valeur && a.etat == b.etat
             && a.changement?.date == b.changement?.date && a.changement?.ancienne == b.changement?.ancienne
-            && a.evenements == b.evenements
+            && a.evenements == b.evenements && a.depuis == b.depuis
     }
 }
 
@@ -516,7 +518,8 @@ nonisolated enum CalculEpisodesCharge {
             changement: changement,
             evenements: dansEpisode.map {
                 EvenementAffiche(date: $0.evenement.date, issue: $0.evenement.issue, enObservation: $0.enObservation)
-            }
+            },
+            depuis: dernier.debut
         )
     }
 }
