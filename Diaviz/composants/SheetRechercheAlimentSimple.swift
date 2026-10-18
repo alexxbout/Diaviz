@@ -20,6 +20,11 @@ import SwiftUI
 struct SheetRechercheAlimentSimple: View {
 
     let titre: String
+    /// Aliments proposés dans « Récents ». `nil` (défaut) : l'historique
+    /// global des récents (alimenté par la saisie repas). Fourni par
+    /// l'appelant quand ses récents lui sont propres — le resucrage ne doit
+    /// pas proposer les aliments de repas.
+    var recents: [ResultatRechercheAliment]? = nil
     let onValider: (Aliment) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -71,12 +76,12 @@ struct SheetRechercheAlimentSimple: View {
         // CIQUAL uniquement — même limite que la recherche elle-même (pas de
         // scan OFF ici), sinon un produit OFF récent (via la saisie repas)
         // apparaîtrait alors qu'il n'est pas cherchable dans cette sheet.
-        let recents = AlimentsRecentsService.shared.alimentsRecents
+        let proposes = (recents ?? AlimentsRecentsService.shared.alimentsRecents)
             .filter { if case .ciqual = $0 { return true }; return false }
             .prefix(10)
-        if !recents.isEmpty {
+        if !proposes.isEmpty {
             Section("Récents") {
-                ForEach(recents) { aliment in
+                ForEach(proposes) { aliment in
                     LigneResultatRecherche(aliment: aliment)
                         .contentShape(Rectangle())
                         .onTapGesture { resultatChoisi = aliment }

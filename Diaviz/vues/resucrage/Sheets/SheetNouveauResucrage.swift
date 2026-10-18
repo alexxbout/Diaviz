@@ -3,6 +3,7 @@
 //  diaviz
 //
 
+import SwiftData
 import SwiftUI
 
 /// Sheet de création d'un resucrage — intention obligatoire, quantité de
@@ -15,6 +16,11 @@ struct SheetNouveauResucrage: View {
     let onValider: (Resucrage) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+
+    /// « Récents » de la recherche d'aliment, propres au resucrage — chargés
+    /// à l'ouverture de la recherche (voir `chargerRecentsResucrage`).
+    @State private var recentsResucrage: [ResultatRechercheAliment] = []
 
     @State private var intention: IntentionResucrage?
     @State private var date = Date()
@@ -46,7 +52,10 @@ struct SheetNouveauResucrage: View {
                     titreSection: "Aliments",
                     footer: "Aliments pris pour ce resucrage.",
                     aliments: $aliments,
-                    onAjouter: { afficherRechercheAliment = true }
+                    onAjouter: {
+                        chargerRecentsResucrage()
+                        afficherRechercheAliment = true
+                    }
                 )
                 SectionDateHeure(date: $date)
                 sectionCible
@@ -70,7 +79,7 @@ struct SheetNouveauResucrage: View {
         .presentationDragIndicator(.visible)
         .presentationBackground(Color(.systemGroupedBackground))
         .sheet(isPresented: $afficherRechercheAliment) {
-            SheetRechercheAlimentSimple(titre: "Resucrage") { aliment in
+            SheetRechercheAlimentSimple(titre: "Resucrage", recents: recentsResucrage) { aliment in
                 aliments.append(aliment)
             }
         }
@@ -159,6 +168,32 @@ struct SheetNouveauResucrage: View {
         } footer: {
             Text("À renseigner si vous visez une valeur précise plutôt qu'un resucrage standard.")
         }
+    }
+
+    // MARK: - Récents propres au resucrage
+
+    /// Aliments déjà pris lors de **resucrages passés**, du plus récent au
+    /// plus ancien, sans doublon — pas ceux des repas (le jus d'orange d'un
+    /// petit-déjeuner n'est pas un resucrage). Déduits des resucrages
+    /// enregistrés plutôt que d'un historique séparé : rien de plus à
+    /// persister ni à synchroniser.
+    ///
+    /// Seuls les aliments CIQUAL rejoignent la liste (la recherche de cette
+    /// sheet est CIQUAL uniquement) ; le générique « Glucides rapides », sans
+    /// id CIQUAL, en est exclu — le curseur le couvre déjà.
+    private func chargerRecentsResucrage() {
+        var descripteur = FetchDescriptor<Resucrage>(sortBy: [SortDescriptor(\.date, order: .reverse)])
+        descripteur.fetchLimit = 50
+        let passes = (try? modelContext.fetch(descripteur)) ?? []
+
+        var vus = Set<Int>()
+        recentsResucrage = passes
+            .flatMap(\.aliments)
+            .compactMap(\.idCiqualSource)
+            .filter { vus.insert($0).inserted }
+            .compactMap { CiqualService.shared.aliment(id: $0) }
+            .filter { !AlimentsCachesService.shared.estCache($0.id) }
+            .map { .ciqual($0) }
     }
 
     // MARK: - Actions
