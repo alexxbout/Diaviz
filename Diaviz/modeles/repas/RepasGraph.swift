@@ -7,10 +7,12 @@
 
 import SwiftUI
 
+/// Règle « excursion + retour », calculée par `AssembleurReponseRepas.verdict`.
+/// Seuils hypo / hyper issus du profil (`SeuilsGlycemiques`, défaut 70 / 180).
 enum VerdictGlycemique: Hashable, Codable, Sendable {
-    case bon          // pic resté < 180 mg/dL
-    case moyen        // pic entre 180-240 mg/dL
-    case mauvais      // pic > 240 mg/dL ou hypo détectée
+    case bon          // aucune hypo ET (pic ≤ 180, ou retour ≤ 180 sous 2 h avec pic < 220)
+    case moyen        // le reste : pic > 180 revenu en cible, mais lentement ou avec pic ≥ 220
+    case mauvais      // hypo (< 70) OU pic ≥ 250 OU excursion jamais revenue ≤ 180
     case indetermine  // données pas encore disponibles
 
     var couleur: Color {
@@ -24,9 +26,11 @@ enum VerdictGlycemique: Hashable, Codable, Sendable {
 
     var libelle: String {
         switch self {
-        case .bon: "Pic resté en cible"
-        case .moyen: "Pic modéré"
-        case .mauvais: "Pic élevé"
+        case .bon: "En cible"
+        case .moyen: "Pic revenu en cible"
+        // Repli quand la raison est inconnue (voir `RepasGraph.libelleVerdict`) :
+        // un `.mauvais` peut venir d'une hypo, pas seulement d'un pic.
+        case .mauvais: "Hors cible"
         case .indetermine: "En attente d'analyse"
         }
     }
@@ -49,7 +53,7 @@ enum RaisonMauvaisVerdict: String, Hashable, Codable, Sendable {
     /// Rouge réservé à l'hypoglycémie — convention des lecteurs CGM (Dexcom,
     /// Libre) où le rouge signale toujours le bas. Le pic élevé prend un brun
     /// qui prolonge l'axe « trop haut » déjà porté par l'orange du verdict
-    /// `.moyen` : orange = pic modéré, brun = pic élevé.
+    /// `.moyen` : orange = pic revenu en cible, brun = pic élevé.
     var couleur: Color {
         switch self {
         case .hypoglycemie: .red
@@ -83,6 +87,8 @@ struct RepasGraph: Identifiable, Hashable {
     let glucides: Double
     let aInjection: Bool
     let verdict: VerdictGlycemique
+    /// Cause d'un verdict `.mauvais` — `nil` pour tout autre verdict.
+    let raisonMauvais: RaisonMauvaisVerdict?
     let label: String
     let emoji: String
 
@@ -92,6 +98,7 @@ struct RepasGraph: Identifiable, Hashable {
         glucides: Double,
         aInjection: Bool,
         verdict: VerdictGlycemique,
+        raisonMauvais: RaisonMauvaisVerdict? = nil,
         label: String,
         emoji: String
     ) {
@@ -100,8 +107,18 @@ struct RepasGraph: Identifiable, Hashable {
         self.glucides = glucides
         self.aInjection = aInjection
         self.verdict = verdict
+        self.raisonMauvais = raisonMauvais
         self.label = label
         self.emoji = emoji
+    }
+
+    /// Libellé affiché : un `.mauvais` nomme sa cause (hypo ou pic élevé)
+    /// quand elle est connue, plutôt qu'un « hors cible » générique.
+    var libelleVerdict: String {
+        if verdict == .mauvais, let raisonMauvais {
+            return raisonMauvais.libelle
+        }
+        return verdict.libelle
     }
 }
 
@@ -122,6 +139,7 @@ extension RepasGraph {
             // repas saisis en dose globale, quelle que soit la dose réelle.
             aInjection: repas.aUneInjection,
             verdict: Self.verdictDepuisEtat(pour: repas),
+            raisonMauvais: Self.raisonMauvaisDepuisEtat(pour: repas),
             label: label,
             emoji: repas.aliments.first?.emojiAffiche ?? "🍽️"
         )
@@ -136,5 +154,12 @@ extension RepasGraph {
             return reponse.verdict
         }
         return .indetermine
+    }
+
+    private static func raisonMauvaisDepuisEtat(pour repas: Repas) -> RaisonMauvaisVerdict? {
+        if case .disponible(let reponse) = repas.etatAnalyse {
+            return reponse.raisonMauvais
+        }
+        return nil
     }
 }

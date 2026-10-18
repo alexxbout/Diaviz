@@ -476,7 +476,7 @@ struct GrapheJourneeRepas: View {
                 Circle()
                     .fill(r.verdict.couleur)
                     .frame(width: 6, height: 6)
-                Text(r.verdict.libelle)
+                Text(r.libelleVerdict)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
