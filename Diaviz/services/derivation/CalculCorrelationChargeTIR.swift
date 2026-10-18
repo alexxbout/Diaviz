@@ -142,7 +142,7 @@ nonisolated enum CalculCorrelationChargeTIR {
         )
     }
 
-    private static func tir(_ mesures: [(date: Date, valeur: Int)]) -> Double? {
+    static func tir(_ mesures: [(date: Date, valeur: Int)]) -> Double? {
         guard !mesures.isEmpty else { return nil }
         return Double(mesures.filter { (70...180).contains($0.valeur) }.count) / Double(mesures.count) * 100
     }
@@ -151,7 +151,7 @@ nonisolated enum CalculCorrelationChargeTIR {
     /// que la carte accueil (`CalculScoreJournalier`) — dupliqués ici plutôt
     /// que réutilisés car ce calculateur-ci l'applique sur une semaine entière
     /// de lectures d'un coup, pas jour par jour avec un seuil de couverture.
-    private static func scoreGRI(mesures: [(date: Date, valeur: Int)]) -> Double? {
+    static func scoreGRI(mesures: [(date: Date, valeur: Int)]) -> Double? {
         guard !mesures.isEmpty else { return nil }
         let total = Double(mesures.count)
         let pct = { (plage: (Int) -> Bool) in
