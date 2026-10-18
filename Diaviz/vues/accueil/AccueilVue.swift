@@ -61,6 +61,16 @@ struct AccueilVue: View {
     /// dans la pile d'insights (voir `insightsAffiches`).
     @Environment(AnalyseRatioService.self) private var analyseRatioService
 
+    /// Analyses du coucher — nécessaires pour ouvrir la page « Analyse du
+    /// coucher » depuis la carte de tendance nocturne (mêmes instances que
+    /// l'onglet Analyses).
+    @Environment(AnalyseEndormissementService.self) private var endormissementService
+    @Environment(AnalyseCorrectionsService.self) private var correctionsService
+
+    /// Pilote l'ouverture de la page « Analyse du coucher » au tap sur la
+    /// carte de tendance nocturne.
+    @State private var afficherDetailBasale = false
+
     /// Tendance hebdomadaire de glucides — alimente `CarteGlucidesSemaine`.
     @Environment(GlucidesHebdoService.self) private var glucidesHebdoService
 
@@ -249,10 +259,12 @@ struct AccueilVue: View {
                             insights: insightsAffiches,
                             onDemandeSuppression: { insightASupprimer = $0 },
                             onTap: { insight in
-                                // Seul l'insight R1 a une destination pour
-                                // l'instant — B1 reste sans effet au tap,
-                                // cohérent avec le doc « Ce qui reste à faire ».
-                                if insight.id == analyseRatioService.insightEcartDetecte?.id {
+                                // Tendance nocturne → page « Analyse du
+                                // coucher » ; écart de ratio → sa page. L'alerte
+                                // temps sous 70 n'a pas de destination.
+                                if insight.id == analyseBasaleService.insightNouvelleTendance?.id {
+                                    afficherDetailBasale = true
+                                } else if insight.id == analyseRatioService.insightEcartDetecte?.id {
                                     afficherDetailEcartRatio = true
                                 }
                             }
@@ -469,6 +481,16 @@ struct AccueilVue: View {
                 Button("Annuler", role: .cancel) { insightASupprimer = nil }
             } message: {
                 Text("« \(insightASupprimer?.titre ?? "") » disparaîtra de l'accueil.")
+            }
+            .navigationDestination(isPresented: $afficherDetailBasale) {
+                DetailAnalyseBasaleVue(
+                    analyse: analyseBasaleService.analyse,
+                    endormissement: endormissementService.analyse,
+                    corrections: correctionsService.analyse,
+                    // Même effet que depuis l'onglet Analyses : le verdict
+                    // ouvert est marqué vu (pastille de l'onglet).
+                    onApparition: { analyseBasaleService.marquerVerdictCommeVu(pour: $0) }
+                )
             }
             .navigationDestination(isPresented: $afficherDetailEcartRatio) {
                 // Tout groupe ayant au moins un repas exploitable — c'est le
