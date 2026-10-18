@@ -227,6 +227,12 @@ nonisolated struct NightChartData: Identifiable, Sendable {
     /// Catégorie effective de la nuit dans le verdict (hypo profonde déjà
     /// forcée en tendance basse). `nil` si la nuit n'est pas valide.
     var categorieVerdict: CategorieNuit? = nil
+    /// Épisodes hypo de la fenêtre de sommeil que l'insuline rapide active
+    /// au creux n'explique pas — ce que la frise C1 compte comme une hypo de
+    /// lente (garde-fou hypo). Renseigné par le calculateur.
+    var hyposNonExpliquees: Int = 0
+    /// Nuit du jour métabolique en cours, pas encore terminée.
+    var enCours: Bool = false
 }
 
 extension Array where Element == NightChartData {

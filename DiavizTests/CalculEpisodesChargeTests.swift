@@ -154,6 +154,25 @@ struct CalculEpisodesChargeTests {
         #expect(C.retenir(usages) == .pasAssezDeRecul)
     }
 
+    // MARK: - Historique des valeurs
+
+    @Test func valeurReconstitueeDepuisLesChangements() {
+        let midi = CleParametre(parametre: .ratioDejeuner)
+        let changements = [
+            (date: jour(10), cle: midi, ancienne: Optional(12.0)),
+            (date: jour(20), cle: midi, ancienne: Optional(11.0)),
+        ]
+        let v = { (n: Int) in
+            ChargeurEpisodesCharge.valeur(a: jour(n), cle: midi, courante: 10, changements: changements, inconnueAvant: nil)
+        }
+        #expect(v(5) == 12)
+        #expect(v(15) == 11)
+        #expect(v(25) == 10)
+        #expect(ChargeurEpisodesCharge.valeur(
+            a: jour(5), cle: midi, courante: 10, changements: changements, inconnueAvant: jour(8)
+        ) == nil)
+    }
+
     // MARK: - Épisodes
 
     private func jours(_ niveaux: [NiveauChargeActive?]) -> [JourChargeActive] {

@@ -26,6 +26,10 @@ final class CorrelationChargeTIRService {
 
     private(set) var synthese: SyntheseCorrelationChargeTIR?
 
+    /// Épisodes de charge et état des réglages (C1) — `nil` avant le premier
+    /// calcul.
+    private(set) var episodes: SyntheseEpisodesCharge?
+
     /// `true` pendant le recalcul — pilote le spinner de la carte sommaire,
     /// qui reste affichée (jamais cachée) pendant ce temps.
     private(set) var enCalcul = false
@@ -42,28 +46,54 @@ final class CorrelationChargeTIRService {
     /// pour le lag perçu au changement d'onglet.
     func recalculer(contexte: ModelContext) async {
         enCalcul = true
-        let borne = Calendar.current.date(
-            byAdding: .day, value: -7 * CalculCorrelationChargeTIR.nombreSemaines, to: Date()
-        ) ?? Date()
+        let maintenant = Date()
+        let cal = Calendar.current
+        let borne = cal.date(
+            byAdding: .day, value: -7 * CalculCorrelationChargeTIR.nombreSemaines, to: maintenant
+        ) ?? maintenant
+        // Les épisodes couvrent tout l'horizon du contexte de charge.
+        let borneEpisodes = cal.date(
+            byAdding: .day, value: -CalculChargeActive.horizonJours, to: cal.startOfDay(for: maintenant)
+        ) ?? borne
 
-        let glucoses = (try? contexte.fetch(
-            FetchDescriptor<GlucoseReading>(predicate: #Predicate { $0.date >= borne })
-        )) ?? []
+        var descripteurCGM = FetchDescriptor<GlucoseReading>(predicate: #Predicate { $0.date >= borneEpisodes })
+        descripteurCGM.propertiesToFetch = [\.date, \.valeur]
+        let glycemies = ((try? contexte.fetch(descripteurCGM)) ?? []).map { MesureGlycemie(date: $0.date, valeur: $0.valeur) }
 
-        let (entrees, config) = chargerEntreesB1(contexte: contexte, borne: borne)
+        let (entrees, config) = chargerEntreesB1(contexte: contexte, borne: borneEpisodes)
 
         let charge = ChargeActiveService.shared.contexte ?? .vide
-        let glucosesMappes = glucoses.map { (date: $0.date, valeur: $0.valeur) }
+        let glucosesMappes = glycemies.filter { $0.date >= borne }.map { (date: $0.date, valeur: $0.valeur) }
 
-        synthese = await Task.detached(priority: .userInitiated) {
-            let detail = CalculAnalyseBasale.analyser(entrees: entrees, config: config)
-            let nuitsDerive = Self.deriveNuits(depuis: detail)
-            return CalculCorrelationChargeTIR.analyser(
+        let profil = ProfilService.shared.profil
+        let evenementsRepas = ChargeurEpisodesCharge.evenementsRepas(contexte, depuis: borneEpisodes, profil: profil)
+        var valeursActuelles = ChargeurEpisodesCharge.valeursActuelles(profil: profil)
+        if let lente = entrees.lentes.max(by: { $0.heure < $1.heure }) {
+            valeursActuelles[.lente] = lente.dose
+        }
+        let resucrages = ChargeurFaitsCoucher.resucrages(contexte, depuis: borneEpisodes).map(\.heure)
+
+        let (correlation, episodes) = await Task.detached(priority: .userInitiated) {
+            let detail = CalculAnalyseBasale.analyser(entrees: entrees, config: config, maintenant: maintenant)
+            let nuitsDerive = Self.deriveNuits(depuis: detail).filter { $0.date >= borne }
+            let correlation = CalculCorrelationChargeTIR.analyser(
                 charge: charge,
                 glucoses: glucosesMappes,
-                nuitsDerive: nuitsDerive
+                nuitsDerive: nuitsDerive,
+                maintenant: maintenant
             )
+            let episodes = CalculEpisodesCharge.analyser(
+                charge: charge,
+                evenements: ChargeurEpisodesCharge.evenementsNuits(detail.nightChartData) + evenementsRepas,
+                valeursActuelles: valeursActuelles,
+                glycemies: glycemies,
+                resucrages: resucrages,
+                maintenant: maintenant
+            )
+            return (correlation, episodes)
         }.value
+        synthese = correlation
+        self.episodes = episodes
         enCalcul = false
     }
 
@@ -83,7 +113,7 @@ final class CorrelationChargeTIRService {
 
     private func chargerEntreesB1(contexte: ModelContext, borne: Date) -> (EntreesBasale, ConfigBasale) {
         let cal = Calendar.current
-        let nombreNuits = CalculCorrelationChargeTIR.nombreSemaines * 7
+        let nombreNuits = cal.dateComponents([.day], from: cal.startOfDay(for: borne), to: cal.startOfDay(for: Date())).day.map { $0 + 1 } ?? CalculChargeActive.horizonJours
         // Marge zone 1 (pré-endormissement) + historique de dose, même esprit
         // que `AnalyseBasaleService.chargerEntrees` mais sur l'horizon élargi.
         let borneFaits = cal.date(byAdding: .day, value: -1, to: borne) ?? borne
