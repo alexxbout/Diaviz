@@ -56,9 +56,13 @@ struct CarteInsight: View {
 
                 Spacer(minLength: 8)
 
-                Text("Voir l'analyse →")
-                    .font(.subheadline.bold())
-                    .foregroundStyle(insight.categorie.couleur)
+                // Une alerte ne mène nulle part : tout est déjà dans la
+                // carte (chiffre, jours, seuil) — pas de lien trompeur.
+                if insight.categorie != .alerte {
+                    Text("Voir l'analyse →")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(insight.categorie.couleur)
+                }
             }
 
             // Pousse la donnée clé au centre vertical de la carte.
@@ -93,7 +97,7 @@ struct CarteInsight: View {
         .glassEffect(.regular.interactive(), in: NiveauCarte.carte.forme)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(insight.titre). \(insight.message)")
-        .accessibilityHint("Voir l'analyse détaillée")
+        .accessibilityHint(insight.categorie == .alerte ? "" : "Voir l'analyse détaillée")
     }
 }
 

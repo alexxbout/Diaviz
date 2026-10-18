@@ -12,8 +12,9 @@ import SwiftUI
 /// Catégorie visuelle d'une observation ML affichée sur l'accueil.
 /// Pilote la couleur d'accent et l'icône SF Symbol associée à la carte.
 ///
-/// Quatre catégories — chacune répond à un type d'observation
+/// Cinq catégories — chacune répond à un type d'observation
 /// différent que la couche ML pourra produire :
+///   - `alerte` : un seuil chiffré franchi, à voir en premier (rouge)
 ///   - `positif` : un pattern qui marche bien (ratio cohérent, TIR stable)
 ///   - `attention` : une dérive ou un signal à surveiller
 ///   - `informatif` : un constat factuel sans charge émotionnelle
@@ -22,6 +23,7 @@ import SwiftUI
 /// Aucune catégorie ne **prescrit** d'action de soin — toutes restent
 /// descriptives, conformément aux principes de l'app.
 enum CategorieInsight: String, CaseIterable, Sendable {
+    case alerte
     case positif
     case attention
     case informatif
@@ -31,6 +33,7 @@ enum CategorieInsight: String, CaseIterable, Sendable {
     /// au lien « Voir l'analyse → ».
     var couleur: Color {
         switch self {
+        case .alerte: return .red
         case .positif: return .green
         case .attention: return .orange
         case .informatif: return .blue
@@ -41,6 +44,7 @@ enum CategorieInsight: String, CaseIterable, Sendable {
     /// Icône SF Symbol affichée à gauche du titre dans le header.
     var icone: String {
         switch self {
+        case .alerte: return "exclamationmark.triangle.fill"
         case .positif: return "checkmark.circle.fill"
         case .attention: return "exclamationmark.triangle.fill"
         case .informatif: return "info.circle.fill"
@@ -75,6 +79,11 @@ enum MicroVisuelType: Sendable {
     /// Pour les insights sans donnée chiffrée (ex : nouvelle analyse
     /// disponible) où l'icône résume à elle seule le sujet.
     case grandeIcone(systemName: String)
+    /// Grand chiffre + une barre par jour, face à un seuil. `jours` : valeur
+    /// de chaque jour (du plus ancien au plus récent), `nil` = jour sans
+    /// donnée exploitable. Les jours au-dessus du seuil prennent la couleur
+    /// de la catégorie, les autres restent neutres.
+    case grandNombreEtJours(valeur: String, jours: [Double?], seuil: Double)
 }
 
 // MARK: - Modèle

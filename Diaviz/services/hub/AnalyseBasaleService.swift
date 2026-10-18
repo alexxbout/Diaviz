@@ -176,15 +176,19 @@ final class AnalyseBasaleService {
 
     private var signatureVerdict: String { Self.signature(pour: analyse) }
 
-    /// Observation « nouvelle tendance basale » pour la pile d'insights de
-    /// l'accueil — `nil` tant qu'il n'y a rien de nouveau à montrer (verdict
-    /// déjà vu, ou données insuffisantes). L'`id` est **dérivé de la
-    /// signature** (pas aléatoire) : un verdict identique retombe sur le même
-    /// identifiant, donc une suppression par l'utilisateur reste valable tant
-    /// que le verdict ne change pas, et l'insight réapparaît naturellement dès
-    /// que la tendance évolue.
+    /// Observation « tendance basale » pour la pile d'insights de l'accueil —
+    /// `nil` seulement faute de verdict (données insuffisantes). **Ne dépend
+    /// plus du « vu »** : ouvrir le détail de l'analyse faisait disparaître la
+    /// carte de l'accueil, alors qu'on veut pouvoir la retrouver. Le « vu »
+    /// ne pilote plus que la pastille de l'onglet Analyses. La carte part
+    /// seulement par suppression volontaire, ou quand le verdict n'existe plus.
+    ///
+    /// L'`id` est **dérivé de la signature** (pas aléatoire) : un verdict
+    /// identique retombe sur le même identifiant, donc une suppression par
+    /// l'utilisateur reste valable tant que le verdict ne change pas, et
+    /// l'insight réapparaît naturellement dès que la tendance évolue.
     var insightNouvelleTendance: Insight? {
-        guard estNouvelleTendance else { return nil }
+        guard analyse.verdict != .donneesInsuffisantes else { return nil }
 
         let categorie: CategorieInsight
         let message: String

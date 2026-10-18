@@ -58,6 +58,12 @@ struct SectionInsights: View {
                     .frame(maxWidth: .infinity)
             }
             .padding(.bottom, -14)
+            // Une nouvelle carte en tête (typiquement l'alerte) doit être
+            // celle qu'on voit : sans ça, un index resté sur la 2ᵉ carte la
+            // laisserait cachée derrière.
+            .onChange(of: insights.first?.id) { _, _ in
+                pageActive = 0
+            }
         }
     }
 

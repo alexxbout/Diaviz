@@ -83,8 +83,9 @@ struct AccueilVue: View {
     /// points d'entrée (carte insight R1 et `CarteAnalyseRatio`), même sheet.
     @State private var afficherDetailEcartRatio = false
 
-    /// Pile affichée : uniquement des observations **réelles** (B1 basale +
-    /// R1 écart de ratio), moins celles déjà supprimées par l'utilisateur.
+    /// Pile affichée : uniquement des observations **réelles** (temps sous
+    /// 70 mg/dL, B1 basale, R1 écart de ratio), moins celles déjà supprimées
+    /// par l'utilisateur. L'alerte temps sous 70 passe **toujours en premier**.
     ///
     /// Les insights mockés (`InsightsAccueilServiceMock`) ne sont
     /// volontairement plus branchés ici — voir de vraies fausses données sur
@@ -93,6 +94,7 @@ struct AccueilVue: View {
     /// lu par l'accueil réel.
     private var insightsAffiches: [Insight] {
         let reels = [
+            scoreService.insightTempsSousSeuil,
             analyseBasaleService.insightNouvelleTendance,
             analyseRatioService.insightEcartDetecte,
         ].compactMap { $0 }
