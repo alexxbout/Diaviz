@@ -5,11 +5,11 @@
 
 import SwiftUI
 
-/// Sheet de création d'un resucrage — intention obligatoire, aliments
-/// (recherche, même moteur que glucides pré-sport), glycémie cible
-/// optionnelle. Pas d'édition en V1 (créer/supprimer seulement) : un
-/// resucrage se corrige en le supprimant et le re-créant, pas de flux
-/// d'édition dédié pour l'instant.
+/// Sheet de création d'un resucrage — intention obligatoire, quantité de
+/// glucides rapides au curseur, aliments (recherche, même moteur que
+/// glucides pré-sport), glycémie cible optionnelle. Pas d'édition en V1
+/// (créer/supprimer seulement) : un resucrage se corrige en le supprimant et
+/// le re-créant, pas de flux d'édition dédié pour l'instant.
 struct SheetNouveauResucrage: View {
 
     let onValider: (Resucrage) -> Void
@@ -21,6 +21,17 @@ struct SheetNouveauResucrage: View {
     @State private var aliments: [Aliment] = []
     @State private var glycemieCibleTexte = ""
     @State private var afficherRechercheAliment = false
+    /// Quantité de glucides rapides — `Double` pour le `Slider`, toujours un
+    /// multiple de `pasGlucides` (donc entier une fois converti).
+    @State private var glucidesRapides: Double
+
+    init(onValider: @escaping (Resucrage) -> Void) {
+        self.onValider = onValider
+        let reglage = ProfilService.shared.profil.preferencesAvancees.glucidesResucrageRapideParDefaut
+            ?? Self.glucidesRapidesParDefaut
+        let borne = min(max(reglage, Self.glucidesMin), Self.glucidesMax)
+        _glucidesRapides = State(initialValue: Double(borne))
+    }
 
     /// Intention obligatoire — pas de valeur par défaut implicite, seul
     /// l'utilisateur sait pourquoi (voir doc Eraser S1).
@@ -30,16 +41,15 @@ struct SheetNouveauResucrage: View {
         NavigationStack {
             Form {
                 sectionIntention
-                sectionCible
-                SectionDateHeure(date: $date)
+                sectionGlucidesRapides
                 SectionAlimentsAjoutes(
                     titreSection: "Aliments",
                     footer: "Aliments pris pour ce resucrage.",
                     aliments: $aliments,
                     onAjouter: { afficherRechercheAliment = true }
                 )
-
-                sectionAjoutRapide
+                SectionDateHeure(date: $date)
+                sectionCible
             }
             .formStyle(.grouped)
             .scrollDismissesKeyboard(.immediately)
@@ -91,33 +101,48 @@ struct SheetNouveauResucrage: View {
         }
     }
 
-    // MARK: - Section ajout rapide
+    // MARK: - Section glucides rapides
     //
-    // Enregistre directement un aliment générique « Glucides rapides » — sans
-    // passer par la recherche, pour le cas fréquent d'un resucrage standard
-    // (jus de fruits, tablettes de glucose…) où le détail de l'aliment
-    // n'apporte rien. Quantité réglable au profil (Réglages → Resucrage).
-    private var sectionAjoutRapide: some View {
-        Section {
-            Button {
-                aliments.append(Aliment(
-                    emoji: "🍬",
-                    nom: "Glucides rapides",
-                    quantite: 1,
-                    glucides: glucidesRapidesParDefaut,
-                    insuline: 0
-                ))
-            } label: {
-                Label("Ajouter \(glucidesRapidesParDefaut) g rapidement", systemImage: "bolt.fill")
+    // Curseur de quantité pour le cas fréquent d'un resucrage standard (jus
+    // de fruits, tablettes de glucose…) où le détail de l'aliment n'apporte
+    // rien. Valeur de départ = réglage du profil (Réglages → Resucrage), 15 g
+    // sans réglage. Enregistré comme un aliment générique « Glucides rapides ».
+    //
+    // **Exclusif des aliments détaillés** : dès qu'un aliment est ajouté, le
+    // curseur est grisé et ne compte plus — sinon une quantité par défaut
+    // serait enregistrée en plus de l'aliment réellement pris (glucides
+    // comptés en double).
+    private var sectionGlucidesRapides: some View {
+        let remplace = !aliments.isEmpty
+        return Section {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Glucides rapides")
+                    Spacer()
+                    Text("\(Int(glucidesRapides)) g")
+                        .font(.title3.weight(.semibold))
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                }
+                Slider(
+                    value: $glucidesRapides,
+                    in: Double(Self.glucidesMin)...Double(Self.glucidesMax),
+                    step: Double(Self.pasGlucides)
+                ) {
+                    Text("Glucides rapides")
+                }
+                .accessibilityValue("\(Int(glucidesRapides)) grammes")
             }
+            .opacity(remplace ? 0.4 : 1)
+            .disabled(remplace)
+            .sensoryFeedback(.selection, trigger: Int(glucidesRapides))
+        } header: {
+            Text("Glucides")
         } footer: {
-            Text("Ajoute directement \(glucidesRapidesParDefaut) g sans détailler l'aliment. Réglable dans Profil → Resucrage.")
+            Text(remplace
+                 ? "Remplacés par les aliments ajoutés ci-dessous."
+                 : "Enregistrés tels quels, sans détailler l'aliment. Pour préciser, ajoutez-le ci-dessous : il remplace cette quantité.")
         }
-    }
-
-    private var glucidesRapidesParDefaut: Int {
-        ProfilService.shared.profil.preferencesAvancees.glucidesResucrageRapideParDefaut
-            ?? Self.glucidesRapidesParDefaut
     }
 
     // MARK: - Section glycémie cible
@@ -145,10 +170,22 @@ struct SheetNouveauResucrage: View {
 
     private func confirmer() {
         guard let intention else { return }
+        // Aucun aliment détaillé → la quantité du curseur devient l'aliment
+        // générique. Avec des aliments, le curseur est ignoré (voir
+        // `sectionGlucidesRapides`).
+        let enregistres = aliments.isEmpty
+            ? [Aliment(
+                emoji: "🍬",
+                nom: "Glucides rapides",
+                quantite: 1,
+                glucides: Int(glucidesRapides),
+                insuline: 0
+            )]
+            : aliments
         let resucrage = Resucrage(
             date: date,
             intention: intention,
-            aliments: aliments,
+            aliments: enregistres,
             glycemieCible: glycemieCibleDouble
         )
         onValider(resucrage)
@@ -160,6 +197,10 @@ extension SheetNouveauResucrage {
     /// Valeur de repli si le profil n'a rien réglé — 15g, dose standard
     /// d'un resucrage correctif (3 morceaux de sucre / un petit jus de fruits).
     static let glucidesRapidesParDefaut = 15
+    /// Bornes et pas du curseur de glucides rapides.
+    static let glucidesMin = 5
+    static let glucidesMax = 50
+    static let pasGlucides = 5
 }
 
 // MARK: - Aperçu

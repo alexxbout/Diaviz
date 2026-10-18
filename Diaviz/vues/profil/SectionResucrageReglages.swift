@@ -34,16 +34,16 @@ struct SectionResucrageReglages: View {
             Stepper(
                 "\(glucidesRapides) g par défaut",
                 value: bindingGlucidesRapides,
-                in: 5...60,
-                step: 5
+                in: SheetNouveauResucrage.glucidesMin...SheetNouveauResucrage.glucidesMax,
+                step: SheetNouveauResucrage.pasGlucides
             )
         } header: {
-            Text("Ajout rapide")
+            Text("Glucides rapides")
         } footer: {
             Text("""
-            Quantité pré-remplie par le bouton d'ajout rapide dans la sheet \
-            resucrage — enregistre directement un aliment générique « \
-            Glucides rapides » sans passer par la recherche.
+            Position de départ du curseur de glucides dans la sheet \
+            resucrage — enregistre un aliment générique « Glucides \
+            rapides » sans passer par la recherche.
             """)
         }
     }
@@ -64,9 +64,12 @@ struct SectionResucrageReglages: View {
         )
     }
 
+    /// Borné à la plage du curseur : un ancien réglage (jusqu'à 60 g) peut
+    /// dépasser le nouveau maximum.
     private var glucidesRapides: Int {
-        service.profil.preferencesAvancees.glucidesResucrageRapideParDefaut
+        let reglage = service.profil.preferencesAvancees.glucidesResucrageRapideParDefaut
             ?? SheetNouveauResucrage.glucidesRapidesParDefaut
+        return min(max(reglage, SheetNouveauResucrage.glucidesMin), SheetNouveauResucrage.glucidesMax)
     }
 
     private var bindingGlucidesRapides: Binding<Int> {
