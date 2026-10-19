@@ -225,7 +225,7 @@ struct PageEcartRatio: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Mode avancé · \(apres - avant) repas réintégré\(apres - avant > 1 ? "s" : "")")
                         .font(.subheadline.weight(.semibold))
-                    Text("Inclus malgré : \(liste). Le verdict de l'accueil reste strict.")
+                    Text("Inclus malgré : \(liste).")
                         .font(.footnote)
                 }
                 Spacer(minLength: 0)
@@ -320,7 +320,8 @@ struct PageEcartRatio: View {
 
     private func score(colonne: ColonneRatio?, grammes: Int?, estActuel: Bool, moment: SectionRepas?) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            let ratio = grammes.map { estActuel ? "Ratio actuel 1u/\($0)g" : "1u/\($0)g" } ?? "Ratio non configuré"
+            let libelle = colonne?.libelleRatio ?? grammes.map { "1u/\($0)g" }
+            let ratio = libelle.map { estActuel ? "Ratio actuel \($0)" : $0 } ?? "Ratio non configuré"
             Text(moment.map { "\(CalculRatioObserve.libelleGroupe($0)) · \(ratio)" } ?? ratio)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)

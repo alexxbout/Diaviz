@@ -12,8 +12,35 @@ struct ColonneRatio: Identifiable, Equatable {
     var picModere = 0
     var hyper = 0
     var hypo = 0
+    /// Colonne d'extrémité qui regroupe tout ce qui dépasse la plage :
+    /// `.plus` = ce ratio et au-delà (moins d'insuline), `.moins` = ce ratio
+    /// et en deçà. `nil` = un seul g/u.
+    var extremite: Extremite? = nil
+
+    enum Extremite { case plus, moins }
 
     var id: Int { grammesParUnite }
+
+    /// Étiquette sous la gélule.
+    var libelleCourt: String {
+        switch extremite {
+        case .plus:  "≥\(grammesParUnite)g"
+        case .moins: "≤\(grammesParUnite)g"
+        case nil:    "\(grammesParUnite)g"
+        }
+    }
+
+    /// Libellé du score en tête de carte.
+    var libelleRatio: String {
+        switch extremite {
+        case .plus:  "1u/\(grammesParUnite)g et plus"
+        case .moins: "1u/\(grammesParUnite)g et moins"
+        case nil:    "1u/\(grammesParUnite)g"
+        }
+    }
+
+    /// Demi-largeur de la plage détaillée autour du ratio configuré.
+    static let demiPlage = 3
     var total: Int { enCible + picModere + hyper + hypo }
 
     /// Couches de bas en haut — même ordre que la légende.
@@ -43,9 +70,37 @@ struct ColonneRatio: Identifiable, Equatable {
         }
         let bornes = Array(parRatio.keys) + (ratioConfigure.map { [$0] } ?? [])
         guard let bas = bornes.min(), let haut = bornes.max() else { return [] }
-        return stride(from: haut + 1, through: max(1, bas - 1), by: -1).map {
+        var hautDetail = haut + 1, basDetail = max(1, bas - 1)
+        // Plage détaillée bornée autour du ratio configuré : au-delà, les
+        // repas tombent dans deux gélules d'extrémité. Sinon des ratios
+        // extrêmes (corrections, mode avancé) donnaient 20 gélules et plus.
+        var extremeHaut: ColonneRatio?, extremeBas: ColonneRatio?
+        if let r0 = ratioConfigure {
+            if hautDetail > r0 + demiPlage {
+                hautDetail = r0 + demiPlage
+                extremeHaut = fusion(parRatio.filter { $0.key > hautDetail }.map(\.value),
+                                     ratio: hautDetail + 1, extremite: .plus)
+            }
+            if basDetail < max(1, r0 - demiPlage) {
+                basDetail = max(1, r0 - demiPlage)
+                extremeBas = fusion(parRatio.filter { $0.key < basDetail }.map(\.value),
+                                    ratio: basDetail - 1, extremite: .moins)
+            }
+        }
+        let detail = stride(from: hautDetail, through: basDetail, by: -1).map {
             parRatio[$0] ?? ColonneRatio(grammesParUnite: $0)
         }
+        // Une extrémité vide (seule la marge de ± 1 dépassait) n'est pas montrée.
+        return [extremeHaut].compactMap { $0 }.filter { $0.total > 0 } + detail
+            + [extremeBas].compactMap { $0 }.filter { $0.total > 0 }
+    }
+
+    private static func fusion(_ colonnes: [ColonneRatio], ratio: Int, extremite: Extremite) -> ColonneRatio {
+        var c = ColonneRatio(grammesParUnite: ratio, extremite: extremite)
+        for x in colonnes {
+            c.enCible += x.enCible; c.picModere += x.picModere; c.hyper += x.hyper; c.hypo += x.hypo
+        }
+        return c
     }
 }
 
@@ -69,7 +124,7 @@ struct GraphiqueGelulesRatio: View {
     /// Largeur minimale d'une colonne : en dessous, les gélules et leurs
     /// libellés se chevauchent. Au-delà de ce que l'écran contient, le
     /// graphique défile horizontalement.
-    private let pasMinimal: CGFloat = 40
+    private let pasMinimal: CGFloat = 34
 
     var body: some View {
         let maxi = max(1, colonnes.map(\.total).max() ?? 1)
@@ -114,7 +169,9 @@ struct GraphiqueGelulesRatio: View {
                         .frame(width: pas)
                         .frame(maxHeight: .infinity, alignment: .bottom)
                         .contentShape(Rectangle())
-                        .onTapGesture { if toucher { choisir(index: i) } }
+                        // Toujours actif : un `onTapGesture` inerte captait le
+                        // toucher avant le glisser du conteneur.
+                        .onTapGesture { choisir(index: i) }
                         .id(colonne.grammesParUnite)
                 }
             }
@@ -178,7 +235,7 @@ struct GraphiqueGelulesRatio: View {
             .padding(4)
 
             // Gras = gélule dont le score est affiché en haut, et elle seule.
-            Text("\(c.grammesParUnite)g")
+            Text(c.libelleCourt)
                 .font(.caption2.weight(estChoisi ? .bold : .regular))
                 .foregroundStyle(estChoisi ? .primary : .secondary)
                 .monospacedDigit()
