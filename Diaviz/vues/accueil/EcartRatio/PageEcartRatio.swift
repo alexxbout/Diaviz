@@ -26,6 +26,7 @@ struct PageEcartRatio: View {
 
     /// Vue « Tout » : repas d'avant le dernier changement de ratio inclus.
     @State private var toutHistorique = false
+    @Environment(\.accessibilityReduceMotion) private var reduireAnimations
 
     /// Bascule d'office sur « Tout » quand rien n'a encore été fait depuis
     /// le changement — plutôt qu'une page vide alors que des repas existent.
@@ -87,6 +88,10 @@ struct PageEcartRatio: View {
         let ratio = ratioConfigure(section) ?? InsightsService
             .ratioConfigure(section: section.groupe ?? .dejeuner, profil: ProfilService.shared.profil)
             .map { Int($0.rounded()) }
+        // Les ratios des seuls repas écartés n'élargissent pas l'axe : une
+        // correction ou un repas ajusté donne des ratios extrêmes (40 g/u…)
+        // qui étiraient le graphique jusqu'à le rendre illisible. Leur détail
+        // reste lisible en touchant une gélule de la plage.
         let colonnes = ColonneRatio.colonnes(entrees: section.entrees, ratioConfigure: ratio)
         let cible = ratioChoisi ?? ratio
         let colonne = colonnes.first { $0.grammesParUnite == cible }
@@ -104,12 +109,15 @@ struct PageEcartRatio: View {
 
                 titreSection("Résultat")
                 VStack(alignment: .leading, spacing: 16) {
-                    score(colonne: colonne, grammes: cible, estActuel: cible == ratio, moment: section.groupe)
                     if section.entrees.isEmpty {
+                        Text(section.groupe.map { CalculRatioObserve.libelleGroupe($0) } ?? "Tous les repas")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                         Text(messageVide(section))
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     } else {
+                    score(colonne: colonne, grammes: cible, estActuel: cible == ratio, moment: section.groupe)
                     // `.id` : un changement de moment reconstruit le graphique
                     // au lieu d'animer les gélules d'un moment vers l'autre.
                     GraphiqueGelulesRatio(
@@ -157,7 +165,7 @@ struct PageEcartRatio: View {
                     .surfaceCarte()
                 }
 
-                carteEcartes(section)
+                carteEcartes(section, ratio: cible)
 
                 Text("\(CalculRatioObserve.effectifMinimalBucket) repas minimum par zone pour comparer.")
                     .font(.footnote)
@@ -187,9 +195,11 @@ struct PageEcartRatio: View {
             // Fige le moment affiché avant de basculer : sinon les deux vues
             // n'ont pas forcément le même premier moment, et la bascule
             // changeait de moment (donc de date) en douce.
-            Picker("Période", selection: Binding(get: { vueComplete }, set: {
+            Picker("Période", selection: Binding(get: { vueComplete }, set: { tout in
                 groupeChoisi = .some(section.groupe)
-                toutHistorique = $0
+                // Animé : les gélules grandissent sur place, on voit ce que
+                // l'historique ajoute.
+                withAnimation(reduireAnimations ? nil : .spring(duration: 0.45)) { toutHistorique = tout }
             })) {
                 // Libellé fixe : la date varie d'un moment à l'autre, elle
                 // est donnée par le titre de section « Depuis le … ».
@@ -217,10 +227,14 @@ struct PageEcartRatio: View {
             Text(moment.map { "\(CalculRatioObserve.libelleGroupe($0)) · \(ratio)" } ?? ratio)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Text(colonne.flatMap { $0.total > 0 ? "\(Int((100 * Double($0.enCible) / Double($0.total)).rounded())) %" : nil } ?? "—")
+            let taux = colonne.flatMap { $0.total > 0 ? Double($0.enCible) / Double($0.total) : nil }
+            Text(taux.map { "\(Int(($0 * 100).rounded())) %" } ?? "—")
                 .font(.system(size: 48, weight: .heavy, design: .rounded))
                 .monospacedDigit()
-                .contentTransition(.numericText())
+                .foregroundStyle(taux == nil ? Color.secondary : Color.primary)
+                // Le chiffre roule vers sa nouvelle valeur au toucher d'une gélule.
+                .contentTransition(.numericText(value: taux ?? 0))
+                .animation(reduireAnimations ? nil : .snappy, value: taux)
             Text(colonne.flatMap { $0.total > 0 ? "en cible · \($0.enCible) sur \($0.total) repas" : nil } ?? "aucun repas à ce ratio")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -320,20 +334,62 @@ struct PageEcartRatio: View {
     // MARK: - Repas écartés
 
     @ViewBuilder
-    private func carteEcartes(_ section: ObservationRatioSection) -> some View {
+    private func carteEcartes(_ section: ObservationRatioSection, ratio: Int?) -> some View {
         if let r = repartitionsActives[section.groupe], r.ecartes + r.ratioSportEnVigueur > 0 {
             let ecartes = r.ecartes + r.ratioSportEnVigueur
+            // Repas de la période affichée : en vue « Ratios actuels », ceux
+            // d'avant le changement ne comptent ni au numérateur ni ici.
+            let total = r.total - (vueComplete ? 0 : r.avantChangementRatio)
             let motifs: [(String, Int)] = RaisonExclusionFenetre.allCases.compactMap { raison in
                     r.parRaisonFenetre[raison].map { (raison.libelle, $0) }
                 } + [("ajusté", r.ajustes), ("contexte libre", r.contexteLibre),
                      ("ratio sport", r.ratioSportEnVigueur), ("exclu à la main", r.exclusManuellement)]
                     .filter { $0.1 > 0 }
+            let parRatio = r.repasEcartesParRatio.sorted { $0.key > $1.key }
             titreSection("Repas écartés")
-            VStack(alignment: .leading, spacing: 8) {
-                Text("\(ecartes) sur \(r.total) repas")
-                    .font(.subheadline.weight(.semibold))
-                    .monospacedDigit()
-                FlowChips(items: motifs.map { "\($0.0) ×\($0.1)" })
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("\(ecartes) sur \(total) repas")
+                        .font(.headline)
+                        .monospacedDigit()
+                    FlowChips(items: motifs.map { "\($0.0) ×\($0.1)" })
+                    if motifs.map(\.1).reduce(0, +) > ecartes {
+                        Text("Un repas peut cumuler plusieurs raisons.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                // Une ligne par ratio appliqué : on voit où sont les repas
+                // écartés, même quand aucune gélule n'existe encore.
+                if !parRatio.isEmpty {
+                    Divider()
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Par ratio appliqué")
+                            .font(.subheadline.weight(.semibold))
+                        ForEach(parRatio, id: \.key) { g, n in
+                            let raisons = (r.ecartesParRatio[g] ?? [:]).sorted { $0.value > $1.value }
+                                .map { $0.value > 1 ? "\($0.key) ×\($0.value)" : $0.key }
+                            HStack(alignment: .firstTextBaseline) {
+                                Text("1u/\(g)g")
+                                    .font(.subheadline.weight(g == ratio ? .bold : .medium))
+                                    .monospacedDigit()
+                                    .frame(width: 64, alignment: .leading)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("\(n) repas")
+                                        .font(.subheadline)
+                                    Text(raisons.joined(separator: ", "))
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.vertical, 4)
+                            .padding(.horizontal, 8)
+                            .background(g == ratio ? Color.accentColor.opacity(0.12) : .clear,
+                                        in: RoundedRectangle(cornerRadius: Radius.small, style: .continuous))
+                        }
+                    }
+                }
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -659,12 +715,12 @@ private func _mockApercusChangementRatio() -> [SectionRepas?: ApercuChangementRa
 private struct FlowChips: View {
     let items: [String]
     var body: some View {
-        FlowLayoutChips(spacing: 6) {
+        FlowLayoutChips(spacing: 8) {
             ForEach(items, id: \.self) { item in
                 Text(item)
-                    .font(.caption2)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
+                    .font(.subheadline)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
                     .background(Color.secondary.opacity(0.15), in: Capsule())
             }
         }

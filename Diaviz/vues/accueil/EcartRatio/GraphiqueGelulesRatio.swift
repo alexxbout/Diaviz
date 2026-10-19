@@ -60,17 +60,26 @@ struct GraphiqueGelulesRatio: View {
     private let hauteurMax: CGFloat = 120
     private let hauteurMin: CGFloat = 18
 
+    @Environment(\.accessibilityReduceMotion) private var reduireAnimations
+    /// Passe à `true` à l'apparition : les gélules poussent de bas en haut,
+    /// en cascade. Le graphique est reconstruit à chaque changement de
+    /// moment (`.id` côté page), donc l'animation rejoue à ce moment-là.
+    @State private var apparu = false
+
     var body: some View {
         let maxi = max(1, colonnes.map(\.total).max() ?? 1)
         GeometryReader { geo in
             let pas = geo.size.width / CGFloat(max(1, colonnes.count))
-            HStack(alignment: .bottom, spacing: 0) {
-                ForEach(colonnes) { colonne in
-                    colonneVue(colonne, maxi: maxi, largeur: min(22, pas * 0.6))
-                        .frame(width: pas)
+            ZStack(alignment: .bottomLeading) {
+                zoneRatio(pas: pas, hauteur: geo.size.height)
+                HStack(alignment: .bottom, spacing: 0) {
+                    ForEach(Array(colonnes.enumerated()), id: \.element.id) { i, colonne in
+                        colonneVue(colonne, maxi: maxi, largeur: min(22, pas * 0.6), rang: i)
+                            .frame(width: pas)
+                    }
                 }
+                .frame(maxHeight: .infinity, alignment: .bottom)
             }
-            .frame(maxHeight: .infinity, alignment: .bottom)
             .contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 0).onChanged { valeur in
                 let i = Int(valeur.location.x / pas)
@@ -81,14 +90,34 @@ struct GraphiqueGelulesRatio: View {
             })
             .sensoryFeedback(.selection, trigger: selection)
         }
-        .frame(height: hauteurMax + 34)
+        // Marge haute pour « actuel » : même la plus haute gélule, agrandie
+        // par la sélection, reste sous le libellé.
+        .frame(height: hauteurMax + 60)
+        .onAppear { apparu = true }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilite)
     }
 
-    private func colonneVue(_ c: ColonneRatio, maxi: Int, largeur: CGFloat) -> some View {
+    /// Bande teintée derrière la colonne du ratio configuré : c'est la zone
+    /// « ratio » de la comparaison (± 1 g/u). À gauche, moins d'insuline ;
+    /// à droite, plus — rappelé sous le graphique.
+    @ViewBuilder
+    private func zoneRatio(pas: CGFloat, hauteur: CGFloat) -> some View {
+        if let i = colonnes.firstIndex(where: { $0.grammesParUnite == ratioConfigure }) {
+            VStack(spacing: 2) {
+                Text("actuel")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(Color.accentColor)
+                RoundedRectangle(cornerRadius: Radius.small, style: .continuous)
+                    .fill(Color.accentColor.opacity(0.10))
+            }
+            .frame(width: pas, height: hauteur)
+            .offset(x: pas * CGFloat(i))
+        }
+    }
+
+    private func colonneVue(_ c: ColonneRatio, maxi: Int, largeur: CGFloat, rang: Int) -> some View {
         let hauteur = c.total == 0 ? 8 : hauteurMin + CGFloat(c.total) / CGFloat(maxi) * (hauteurMax - hauteurMin)
-        let estActuel = c.grammesParUnite == ratioConfigure
         let estChoisi = c.grammesParUnite == selection
         return VStack(spacing: 6) {
             // Les résultats remplissent la gélule de bas en haut.
@@ -110,11 +139,12 @@ struct GraphiqueGelulesRatio: View {
             }
             .shadow(color: .black.opacity(estChoisi ? 0.3 : 0), radius: 4, y: 1)
             .scaleEffect(estChoisi ? 1.08 : 1, anchor: .bottom)
+            .scaleEffect(x: 1, y: apparu || reduireAnimations ? 1 : 0.02, anchor: .bottom)
+            .animation(
+                reduireAnimations ? nil : .spring(duration: 0.5, bounce: 0.25).delay(Double(rang) * 0.04),
+                value: apparu
+            )
             .padding(4)
-            // Ratio actuel : fin contour extérieur, distinct de la sélection.
-            .overlay {
-                if estActuel { Capsule().strokeBorder(.secondary, style: StrokeStyle(lineWidth: 1, dash: [3, 2])) }
-            }
 
             // Gras = gélule dont le score est affiché en haut, et elle seule.
             Text("\(c.grammesParUnite)g")

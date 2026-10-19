@@ -65,6 +65,31 @@ nonisolated struct RepartitionRepasMoment: Sendable, Equatable {
     /// Décompte **par raison** : un repas pollué pour deux raisons apparaît
     /// dans les deux. La somme peut donc dépasser `pollues`.
     var parRaisonFenetre: [RaisonExclusionFenetre: Int] = [:]
+    /// Repas écartés rangés par **ratio appliqué** (g/u arrondi) puis par
+    /// raison — la page de détail dit, gélule par gélule, ce qui a été
+    /// écarté à ce ratio. Repas sans dose ou sans glucides : absents.
+    var ecartesParRatio: [Int: [String: Int]] = [:]
+    /// Nombre de **repas** écartés par ratio — un repas à deux raisons
+    /// compte une fois ici, deux fois dans `ecartesParRatio`.
+    var repasEcartesParRatio: [Int: Int] = [:]
+
+    /// Range un repas écarté sous son ratio appliqué, une entrée par raison.
+    mutating func noterEcarte(_ repas: Repas, raisons: [String]) {
+        noterEcarte(
+            glucides: repas.totalGlucides,
+            dose: repas.totalInsuline - (repas.doseCorrection ?? 0),
+            raisons: raisons
+        )
+    }
+
+    /// Variante pure (testable sans `Repas`). `dose` = dose couvrant les
+    /// glucides, correction déduite. Ratio = g/u arrondi, comme les gélules.
+    mutating func noterEcarte(glucides: Int, dose: Double, raisons: [String]) {
+        guard dose > 0, glucides > 0, !raisons.isEmpty else { return }
+        let g = Int((Double(glucides) / dose).rounded())
+        repasEcartesParRatio[g, default: 0] += 1
+        for raison in raisons { ecartesParRatio[g, default: [:]][raison, default: 0] += 1 }
+    }
     /// Toggle « Exclure des analyses » posé à la main sur le repas.
     var exclusManuellement = 0
     /// Antérieurs au dernier changement de ratio de ce moment : plus
@@ -194,21 +219,40 @@ final class AnalyseRatioService {
             var repartition = repartitions[groupe] ?? Self.repartitionVierge(groupe: groupe)
             defer { repartitions[groupe] = repartition }
 
+            // Un repas antérieur au dernier changement du ratio de cette
+            // section n'est plus comparable au ratio actuel — voir
+            // `dateChangement`. Testé **avant** les exclusions : sinon un
+            // repas écarté d'avant le changement restait compté dans les
+            // « repas écartés » de la vue filtrée, identique à la vue « Tout ».
+            let changement = dateChangement(section: sectionReelle, profil: profil)
+            repartition.dateChangementRatio = changement
+            guard ignorerChangementRatio || r.heure >= (changement ?? .distantPast) else {
+                repartition.avantChangementRatio += 1
+                continue
+            }
+
             // Exclusions du mining, toutes au même niveau :
             // - toggle « Exclure des analyses » ;
             // - événement / contexte libre non structuré (jamais interprété) ;
             // - ajustement intentionnel (sport, hypo…) : la dose appliquée
             //   dévie *volontairement* du ratio de base, comparer les deux
             //   ne mesure rien — voir doc R1 « Ajustements exclus du mining ».
-            guard !r.exclureDesAnalyses else { repartition.exclusManuellement += 1; continue }
-            guard !r.aUnEvenement else { repartition.contexteLibre += 1; continue }
-            guard r.ajustements.isEmpty else { repartition.ajustes += 1; continue }
+            guard !r.exclureDesAnalyses else {
+                repartition.exclusManuellement += 1; repartition.noterEcarte(r, raisons: ["exclu à la main"]); continue
+            }
+            guard !r.aUnEvenement else {
+                repartition.contexteLibre += 1; repartition.noterEcarte(r, raisons: ["contexte libre"]); continue
+            }
+            guard r.ajustements.isEmpty else {
+                repartition.ajustes += 1; repartition.noterEcarte(r, raisons: ["ajusté"]); continue
+            }
             // Un ratio post-sport en vigueur écarte le repas au même titre
             // qu'un ajustement manuel : `InsightsService` a jugé la dose sur
             // ce ratio-là à la saisie, la comparer ici au ratio du moment
             // classerait un repas correctement dosé comme un écart.
             guard !ratioSportEnVigueur(a: r.heure, activites: activites, profil: profil) else {
                 repartition.ratioSportEnVigueur += 1
+                repartition.noterEcarte(r, raisons: ["ratio sport"])
                 continue
             }
             // Courbe qui ne mesure pas que ce repas — voir doc R1 « Repas
@@ -219,6 +263,7 @@ final class AnalyseRatioService {
             guard raisons.isEmpty else {
                 repartition.pollues += 1
                 for raison in raisons { repartition.parRaisonFenetre[raison, default: 0] += 1 }
+                repartition.noterEcarte(r, raisons: RaisonExclusionFenetre.allCases.filter(raisons.contains).map(\.libelle))
                 continue
             }
 
@@ -229,16 +274,6 @@ final class AnalyseRatioService {
             }
             let doseCouvrante = r.totalInsuline - (r.doseCorrection ?? 0)
             guard doseCouvrante > 0 else { repartition.sansInjection += 1; continue }
-
-            // Un repas antérieur au dernier changement du ratio de cette
-            // section n'est plus comparable au ratio actuel — voir
-            // `dateChangement`.
-            let changement = dateChangement(section: sectionReelle, profil: profil)
-            repartition.dateChangementRatio = changement
-            guard ignorerChangementRatio || r.heure >= (changement ?? .distantPast) else {
-                repartition.avantChangementRatio += 1
-                continue
-            }
 
             guard let ratioConfigure = InsightsService.ratioConfigure(section: sectionReelle, profil: profil),
                   ratioConfigure > 0 else {
