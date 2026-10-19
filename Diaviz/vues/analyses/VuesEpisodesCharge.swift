@@ -454,6 +454,7 @@ struct PageEpisodeCharge: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle(FormatEpisode.periode(episode))
         .navigationBarTitleDisplayMode(.inline)
+        .boutonCriteresEpisodes()
     }
 
     private var entete: some View {
@@ -557,6 +558,7 @@ struct PageReglageEpisodes: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle(FormatEpisode.titre(reglage))
         .navigationBarTitleDisplayMode(.inline)
+        .boutonCriteresEpisodes()
     }
 
     private var valeurActuelle: some View {
@@ -700,4 +702,92 @@ struct PageReglageEpisodes: View {
             }
         }
     }
+}
+
+// MARK: - Critères (feuille « i »)
+
+/// Seuils et critères des épisodes, lus dans les constantes du calcul
+/// (source unique, C1 § 6-8). Ouverte par le bouton « i » des écrans.
+struct FeuilleCriteresEpisodes: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    TitreSectionEpisode(texte: "Épisode")
+                    ListeEpisode {
+                        LigneEpisode(titre: "Même niveau de charge", sousTitre: "Un changement de réglage ne coupe jamais un épisode.")
+                        LigneEpisode(titre: "Comparable", sousTitre: "Charge moyenne à ±\(Int(CalculEpisodesCharge.ecartChargeComparable * 100)) % de l'épisode en cours.")
+                        LigneEpisode(titre: "Historique", sousTitre: "\(CalculChargeActive.horizonJours / 30) derniers mois.")
+                    }
+
+                    TitreSectionEpisode(texte: "Concluant, c'est")
+                    ListeEpisode {
+                        LigneEpisode(titre: "Une nuit", sousTitre: "Nuit profonde stable, aucune hypo.")
+                        LigneEpisode(titre: "Un repas", sousTitre: "Aucune hypo, pic sous 180 ou vite revenu.")
+                        LigneEpisode(titre: "Non compté", sousTitre: "Repas revenu lentement en cible, nuit ou repas non analysable.")
+                    }
+
+                    TitreSectionEpisode(texte: "Seuils")
+                    ListeEpisode {
+                        seuil("Lente", .lente, "dernières nuits")
+                        seuil("Ratio de repas", .ratioRepas, "derniers repas")
+                        seuil("Ratio sport, par type", .ratioSport, "derniers repas")
+                    }
+
+                    TitreSectionEpisode(texte: "Toujours")
+                    ListeEpisode {
+                        LigneEpisode(titre: "\(RegleEtatReglage.hyposBloquantes) hypos", sousTitre: "Jamais concluant, quel que soit le compte.")
+                        LigneEpisode(titre: "Nouvelle dose de lente", sousTitre: "\(RegleEtatReglage.lente.transition) nuits en observation, non comptées.")
+                        LigneEpisode(titre: "Nouvel épisode", sousTitre: "Les compteurs repartent de zéro.")
+                    }
+
+                    TitreSectionEpisode(texte: "Résultats d'un épisode")
+                    ListeEpisode {
+                        LigneEpisode(titre: "Temps dans la cible, score", valeur: "dès \(CalculEpisodesCharge.joursMinimumNiveauGlycemie) jours")
+                        LigneEpisode(titre: "Resucrages par jour", valeur: "dès \(CalculEpisodesCharge.joursMinimumResucrages) jours")
+                    }
+                }
+                .padding(16)
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("Critères")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("OK") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func seuil(_ titre: String, _ regle: RegleEtatReglage, _ unite: String) -> LigneEpisode {
+        LigneEpisode(
+            titre: titre,
+            ligneValeur: "Concluant à \(regle.entree) sur les \(regle.fenetre) \(unite)",
+            sousTitre: "Minimum \(regle.minimum) · repasse en ajustement à \(regle.sortie) ou moins"
+        )
+    }
+}
+
+/// Bouton « i » de barre de navigation qui ouvre `FeuilleCriteresEpisodes`.
+struct BoutonCriteresEpisodes: ViewModifier {
+    @State private var ouverte = false
+
+    func body(content: Content) -> some View {
+        content
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Critères", systemImage: "info.circle") { ouverte = true }
+                }
+            }
+            .sheet(isPresented: $ouverte) {
+                FeuilleCriteresEpisodes()
+            }
+    }
+}
+
+extension View {
+    func boutonCriteresEpisodes() -> some View { modifier(BoutonCriteresEpisodes()) }
 }

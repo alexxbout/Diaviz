@@ -48,6 +48,7 @@ struct PageCorrelationChargeGlycemie: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Charge et glycémie")
         .navigationBarTitleDisplayMode(.inline)
+        .boutonCriteresEpisodes()
     }
 
     // MARK: - Chronologie
