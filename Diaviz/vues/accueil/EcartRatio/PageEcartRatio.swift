@@ -23,6 +23,14 @@ struct PageEcartRatio: View {
     /// Même analyse sans filtre de changement de ratio — vue « Tout ».
     var sectionsCompletes: [ObservationRatioSection] = []
     var repartitionsCompletes: [SectionRepas?: RepartitionRepasMoment] = [:]
+    /// Mode avancé : recalcul avec des raisons de fenêtre désactivées
+    /// (raisons ignorées, vue « Tout »). `nil` = section masquée.
+    var analyserAvance: ((Set<RaisonExclusionFenetre>, Bool) -> (sections: [ObservationRatioSection], repartitions: [SectionRepas?: RepartitionRepasMoment]))?
+
+    /// Raisons désactivées par l'utilisateur — jamais mémorisé : la page
+    /// se rouvre toujours en mode strict.
+    @State private var raisonsIgnorees: Set<RaisonExclusionFenetre> = []
+    @State private var resultatAvance: (sections: [ObservationRatioSection], repartitions: [SectionRepas?: RepartitionRepasMoment])?
 
     /// Vue « Tout » : repas d'avant le dernier changement de ratio inclus.
     @State private var toutHistorique = false
@@ -33,9 +41,16 @@ struct PageEcartRatio: View {
     private var vueComplete: Bool {
         !sectionsCompletes.isEmpty && (toutHistorique || sections.isEmpty)
     }
-    private var sectionsActives: [ObservationRatioSection] { vueComplete ? sectionsCompletes : sections }
-    private var repartitionsActives: [SectionRepas?: RepartitionRepasMoment] {
+    private var sectionsActives: [ObservationRatioSection] {
+        resultatAvance?.sections ?? (vueComplete ? sectionsCompletes : sections)
+    }
+    /// Repartition stricte de la vue courante — référence pour compter les
+    /// repas réintégrés par le mode avancé.
+    private var repartitionsStrictes: [SectionRepas?: RepartitionRepasMoment] {
         vueComplete ? repartitionsCompletes : repartitions
+    }
+    private var repartitionsActives: [SectionRepas?: RepartitionRepasMoment] {
+        resultatAvance?.repartitions ?? repartitionsStrictes
     }
 
     /// Moment affiché — une seule carte à la fois, choisie dans la barre du bas.
@@ -106,6 +121,7 @@ struct PageEcartRatio: View {
                 if moments.count > 1 { titreSection("Moment de la journée") }
                 pastillesMoments
                 selecteurPeriode(section)
+                bandeauModeAvance(section)
 
                 titreSection("Résultat")
                 VStack(alignment: .leading, spacing: 16) {
@@ -143,6 +159,11 @@ struct PageEcartRatio: View {
                     titreSection("Comparaison")
                     VStack(alignment: .leading, spacing: 10) {
                         legende(section)
+                        if !raisonsIgnorees.isEmpty {
+                            Label("Mode avancé : inclut des repas normalement écartés.", systemImage: "slider.horizontal.3")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        }
                         if vueComplete && apercusChangementRatio[section.groupe] != nil {
                             Label("Inclut des repas faits avec un autre réglage de ratio.", systemImage: "info.circle")
                                 .font(.caption)
@@ -166,6 +187,7 @@ struct PageEcartRatio: View {
                 }
 
                 carteEcartes(section, ratio: cible)
+                sectionModeAvance
 
                 Text("\(CalculRatioObserve.effectifMinimalBucket) repas minimum par zone pour comparer.")
                     .font(.footnote)
@@ -176,6 +198,81 @@ struct PageEcartRatio: View {
             .padding(.bottom, 16)
         }
         .background(Color(.systemGroupedBackground))
+    }
+
+    // MARK: - Mode avancé
+
+    /// Raisons qu'on peut désactiver : celles qui polluent la courbe. Les
+    /// exclusions de dose volontairement déviée (ajusté, contexte libre,
+    /// ratio sport, exclu à la main) ne le sont jamais.
+    private static let raisonsModifiables: [RaisonExclusionFenetre] =
+        [.correction, .autreRepas, .insulineActive, .resucrage, .sport]
+
+    private func recalculerAvance() {
+        guard !raisonsIgnorees.isEmpty, let analyserAvance else { resultatAvance = nil; return }
+        let r = analyserAvance(raisonsIgnorees, vueComplete)
+        resultatAvance = (r.sections.filter { !$0.entrees.isEmpty }, r.repartitions)
+    }
+
+    @ViewBuilder
+    private func bandeauModeAvance(_ section: ObservationRatioSection) -> some View {
+        if !raisonsIgnorees.isEmpty {
+            let avant = repartitionsStrictes[section.groupe]?.analyses ?? 0
+            let apres = repartitionsActives[section.groupe]?.analyses ?? 0
+            let liste = Self.raisonsModifiables.filter(raisonsIgnorees.contains).map(\.libelle).joined(separator: ", ")
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "slider.horizontal.3")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Mode avancé · \(apres - avant) repas réintégré\(apres - avant > 1 ? "s" : "")")
+                        .font(.subheadline.weight(.semibold))
+                    Text("Inclus malgré : \(liste). Le verdict de l'accueil reste strict.")
+                        .font(.footnote)
+                }
+                Spacer(minLength: 0)
+                Button("Réinitialiser") { raisonsIgnorees = [] }
+                    .font(.footnote.weight(.semibold))
+            }
+            .foregroundStyle(.white)
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .surfaceCarte(fond: Color.orange)
+        }
+    }
+
+    @ViewBuilder
+    private var sectionModeAvance: some View {
+        if analyserAvance != nil {
+            titreSection("Raisons d'exclusion")
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Une raison allumée écarte ses repas. Éteignez-la pour voir ce qu'ils changent.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                FlowLayoutChips(spacing: 8) {
+                    ForEach(Self.raisonsModifiables, id: \.self) { raison in
+                        let appliquee = !raisonsIgnorees.contains(raison)
+                        Button {
+                            if appliquee { raisonsIgnorees.insert(raison) } else { raisonsIgnorees.remove(raison) }
+                        } label: {
+                            Label(raison.libelle, systemImage: appliquee ? "checkmark.circle.fill" : "circle")
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(appliquee ? Color.white : Color.primary)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(appliquee ? Color.accentColor : Color.secondary.opacity(0.15), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .sensoryFeedback(.selection, trigger: appliquee)
+                    }
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .surfaceCarte()
+            .onChange(of: raisonsIgnorees) {
+                withAnimation(reduireAnimations ? nil : .spring(duration: 0.45)) { recalculerAvance() }
+            }
+            .onChange(of: vueComplete) { recalculerAvance() }
+        }
     }
 
     private func titreSection(_ texte: String) -> some View {

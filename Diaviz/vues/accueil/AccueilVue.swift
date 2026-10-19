@@ -487,7 +487,8 @@ struct AccueilVue: View {
                     apercusChangementRatio: analyseRatioService.apercusChangementRatio,
                     repartitions: analyseRatioService.repartitions,
                     sectionsCompletes: analyseRatioService.analyseComplete.sections.filter { !$0.entrees.isEmpty },
-                    repartitionsCompletes: analyseRatioService.repartitionsCompletes
+                    repartitionsCompletes: analyseRatioService.repartitionsCompletes,
+                    analyserAvance: { analyseRatioService.analyser(raisonsIgnorees: $0, toutHistorique: $1) }
                 )
             }
             .sheet(isPresented: $sheetLenteOuverte) {

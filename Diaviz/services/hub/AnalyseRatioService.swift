@@ -153,6 +153,27 @@ final class AnalyseRatioService {
     private(set) var analyseComplete: AnalyseRatioObserve = .vide
     private(set) var repartitionsCompletes: [SectionRepas?: RepartitionRepasMoment] = [:]
 
+    /// Entrées du dernier calcul, gardées pour le mode avancé de la page de
+    /// détail (`analyser(raisonsIgnorees:toutHistorique:)`).
+    private var derniersRepas: [Repas] = []
+    private var dernieresActivites: [ActiviteSportive] = []
+    private var derniersFaits = FaitsFenetreRepas()
+
+    /// **Mode avancé de la page de détail uniquement** : même calcul, avec
+    /// certaines raisons de fenêtre désactivées (les repas concernés
+    /// reviennent). Jamais lu par l'accueil, qui reste strict.
+    func analyser(
+        raisonsIgnorees: Set<RaisonExclusionFenetre>, toutHistorique: Bool
+    ) -> (sections: [ObservationRatioSection], repartitions: [SectionRepas?: RepartitionRepasMoment]) {
+        var ventilation: [SectionRepas?: RepartitionRepasMoment] = [:]
+        let entrees = mapperEntrees(
+            derniersRepas, activites: dernieresActivites, faits: derniersFaits,
+            profil: ProfilService.shared.profil, repartitions: &ventilation,
+            ignorerChangementRatio: toutHistorique, raisonsIgnorees: raisonsIgnorees
+        )
+        return (CalculRatioObserve.analyser(entrees: entrees).sections, ventilation)
+    }
+
     /// Recalcule depuis les repas déjà chargés/annotés par `RepasService` —
     /// aucun fetch CGM ni régression ici, juste un mapping en value types et
     /// un comptage : volume trivial (quelques milliers de repas au grand
@@ -180,6 +201,9 @@ final class AnalyseRatioService {
     ) {
         let profil = ProfilService.shared.profil
         let faits = faits ?? Self.faitsFenetre(repas: repas, contexte: nil, activites: activites)
+        derniersRepas = repas
+        dernieresActivites = activites
+        derniersFaits = faits
         var ventilation: [SectionRepas?: RepartitionRepasMoment] = [:]
         let entrees = mapperEntrees(
             repas, activites: activites, faits: faits, profil: profil, repartitions: &ventilation
@@ -207,7 +231,8 @@ final class AnalyseRatioService {
     private func mapperEntrees(
         _ repas: [Repas], activites: [ActiviteSportive], faits: FaitsFenetreRepas,
         profil: ProfilUtilisateur, repartitions: inout [SectionRepas?: RepartitionRepasMoment],
-        ignorerChangementRatio: Bool = false
+        ignorerChangementRatio: Bool = false,
+        raisonsIgnorees: Set<RaisonExclusionFenetre> = []
     ) -> [EntreeRatioRepas] {
         var entrees: [EntreeRatioRepas] = []
 
@@ -259,7 +284,7 @@ final class AnalyseRatioService {
             // pollués par leur fenêtre ». Toutes les raisons sont comptées.
             let raisons = CalculExclusionsFenetre.raisons(
                 repasId: r.id, heure: r.heure, doseCorrection: r.doseCorrection, faits: faits
-            )
+            ).subtracting(raisonsIgnorees)
             guard raisons.isEmpty else {
                 repartition.pollues += 1
                 for raison in raisons { repartition.parRaisonFenetre[raison, default: 0] += 1 }
