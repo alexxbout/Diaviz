@@ -186,7 +186,7 @@ struct PageEcartRatio: View {
                     .surfaceCarte()
                 }
 
-                carteEcartes(section, ratio: cible)
+                carteEcartes(section, ratio: cible, ratioActuel: ratio)
                 sectionModeAvance
 
                 Text("\(CalculRatioObserve.effectifMinimalBucket) repas minimum par zone pour comparer.")
@@ -198,6 +198,29 @@ struct PageEcartRatio: View {
             .padding(.bottom, 16)
         }
         .background(Color(.systemGroupedBackground))
+    }
+
+    /// Lignes « Par ratio appliqué », regroupées **comme les gélules** :
+    /// au-delà de ratio ± `ColonneRatio.demiPlage`, une ligne « ≥ Xg » /
+    /// « ≤ Xg » dont la clé est celle de la gélule d'extrémité — toucher
+    /// cette gélule surligne donc la bonne ligne.
+    private static func regrouperEcartes(
+        _ r: RepartitionRepasMoment, ratioActuel: Int?
+    ) -> [(cle: Int, libelle: String, repas: Int, raisons: [String: Int])] {
+        var lignes: [Int: (libelle: String, repas: Int, raisons: [String: Int])] = [:]
+        for (g, n) in r.repasEcartesParRatio {
+            var cle = g, libelle = "1u/\(g)g"
+            if let r0 = ratioActuel {
+                let d = ColonneRatio.demiPlage
+                if g > r0 + d { cle = r0 + d + 1; libelle = "≥\(cle)g" }
+                else if g < max(1, r0 - d) { cle = max(1, r0 - d) - 1; libelle = "≤\(cle)g" }
+            }
+            var ligne = lignes[cle] ?? (libelle, 0, [:])
+            ligne.repas += n
+            ligne.raisons.merge(r.ecartesParRatio[g] ?? [:], uniquingKeysWith: +)
+            lignes[cle] = ligne
+        }
+        return lignes.sorted { $0.key > $1.key }.map { ($0.key, $0.value.libelle, $0.value.repas, $0.value.raisons) }
     }
 
     // MARK: - Mode avancé
@@ -432,7 +455,7 @@ struct PageEcartRatio: View {
     // MARK: - Repas écartés
 
     @ViewBuilder
-    private func carteEcartes(_ section: ObservationRatioSection, ratio: Int?) -> some View {
+    private func carteEcartes(_ section: ObservationRatioSection, ratio: Int?, ratioActuel: Int?) -> some View {
         if let r = repartitionsActives[section.groupe], r.ecartes + r.ratioSportEnVigueur > 0 {
             let ecartes = r.ecartes + r.ratioSportEnVigueur
             // Repas de la période affichée : en vue « Ratios actuels », ceux
@@ -443,7 +466,7 @@ struct PageEcartRatio: View {
                 } + [("ajusté", r.ajustes), ("contexte libre", r.contexteLibre),
                      ("ratio sport", r.ratioSportEnVigueur), ("exclu à la main", r.exclusManuellement)]
                     .filter { $0.1 > 0 }
-            let parRatio = r.repasEcartesParRatio.sorted { $0.key > $1.key }
+            let parRatio = Self.regrouperEcartes(r, ratioActuel: ratioActuel)
             titreSection("Repas écartés")
             VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 8) {
@@ -464,11 +487,12 @@ struct PageEcartRatio: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Par ratio appliqué")
                             .font(.subheadline.weight(.semibold))
-                        ForEach(parRatio, id: \.key) { g, n in
-                            let raisons = (r.ecartesParRatio[g] ?? [:]).sorted { $0.value > $1.value }
+                        ForEach(parRatio, id: \.cle) { ligne in
+                            let g = ligne.cle, n = ligne.repas
+                            let raisons = ligne.raisons.sorted { $0.value > $1.value }
                                 .map { $0.value > 1 ? "\($0.key) ×\($0.value)" : $0.key }
                             HStack(alignment: .firstTextBaseline) {
-                                Text("1u/\(g)g")
+                                Text(ligne.libelle)
                                     .font(.subheadline.weight(g == ratio ? .bold : .medium))
                                     .monospacedDigit()
                                     .frame(width: 64, alignment: .leading)
