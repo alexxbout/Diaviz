@@ -42,14 +42,34 @@ struct PageEcartRatio: View {
     /// Ratio touché sur le graphique ; `nil` = ratio configuré.
     @State private var ratioChoisi: Int?
 
-    private var section: ObservationRatioSection? {
-        guard let groupeChoisi else { return sectionsActives.first }
-        return sectionsActives.first { $0.groupe == groupeChoisi } ?? sectionsActives.first
+    /// Les 4 moments, toujours, dans l'ordre de la journée — un moment sans
+    /// repas reste dans la barre (grisé) pour qu'on sache toujours ce qu'on
+    /// regarde. Mode ratio unique : un seul groupe `nil`, barre masquée.
+    private var moments: [SectionRepas?] {
+        let presents = (sections + sectionsCompletes).map(\.groupe)
+        if presents.contains(where: { $0 == nil }) { return [nil] }
+        let base: [SectionRepas] = [.petitDejeuner, .dejeuner, .enCas, .diner]
+        let extras = SectionRepas.allCases.filter { g in !base.contains(g) && presents.contains(g) }
+        return (base + extras).sorted {
+            (SectionRepas.allCases.firstIndex(of: $0) ?? 0) < (SectionRepas.allCases.firstIndex(of: $1) ?? 0)
+        }
+    }
+
+    private var groupeAffiche: SectionRepas? {
+        if let groupeChoisi { return groupeChoisi }
+        return sectionsActives.first?.groupe ?? moments.first ?? nil
+    }
+
+    /// Section du moment affiché — vide (aucun repas) si ce moment n'a rien
+    /// dans la vue active.
+    private var section: ObservationRatioSection {
+        sectionsActives.first { $0.groupe == groupeAffiche }
+            ?? ObservationRatioSection(groupe: groupeAffiche, effectif: 0, buckets: [], ecart: nil, entrees: [])
     }
 
     var body: some View {
         Group {
-            if let section {
+            if !sections.isEmpty || !sectionsCompletes.isEmpty {
                 contenu(section)
             } else {
                 ContentUnavailableView(
@@ -64,16 +84,32 @@ struct PageEcartRatio: View {
     }
 
     private func contenu(_ section: ObservationRatioSection) -> some View {
-        let ratio = ratioConfigure(section)
+        let ratio = ratioConfigure(section) ?? InsightsService
+            .ratioConfigure(section: section.groupe ?? .dejeuner, profil: ProfilService.shared.profil)
+            .map { Int($0.rounded()) }
         let colonnes = ColonneRatio.colonnes(entrees: section.entrees, ratioConfigure: ratio)
         let cible = ratioChoisi ?? ratio
         let colonne = colonnes.first { $0.grammesParUnite == cible }
         return ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
+                EnTeteAnalyse(
+                    surtitre: "Analyse des repas",
+                    titre: "Écart de ratio",
+                    accroche: "Vos résultats selon le ratio appliqué.",
+                    ambiance: .ratio
+                )
+                if moments.count > 1 { titreSection("Moment de la journée") }
+                pastillesMoments
                 selecteurPeriode(section)
-                score(colonne: colonne, grammes: cible, estActuel: cible == ratio)
 
-                VStack(alignment: .leading, spacing: 12) {
+                titreSection("Résultat")
+                VStack(alignment: .leading, spacing: 16) {
+                    score(colonne: colonne, grammes: cible, estActuel: cible == ratio, moment: section.groupe)
+                    if section.entrees.isEmpty {
+                        Text(messageVide(section))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    } else {
                     // `.id` : un changement de moment reconstruit le graphique
                     // au lieu d'animer les gélules d'un moment vers l'autre.
                     GraphiqueGelulesRatio(
@@ -89,11 +125,14 @@ struct PageEcartRatio: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     legendeCouleurs
+                    }
                 }
                 .padding(16)
-                .glassEffect(.regular, in: .rect(cornerRadius: Radius.large))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .surfaceCarte()
 
                 if comparaisonPossible(section) {
+                    titreSection("Comparaison")
                     VStack(alignment: .leading, spacing: 10) {
                         legende(section)
                         if vueComplete && apercusChangementRatio[section.groupe] != nil {
@@ -103,73 +142,89 @@ struct PageEcartRatio: View {
                         }
                     }
                     .padding(16)
-                    .glassEffect(.regular, in: .rect(cornerRadius: Radius.large))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .surfaceCarte()
                 }
 
                 if let apercu = apercusChangementRatio[section.groupe] {
+                    let jour = apercu.dateChangement.formatted(.dateTime.day().month(.abbreviated))
+                    titreSection("Depuis le \(jour)")
                     VStack(alignment: .leading, spacing: 10) {
-                        let jour = apercu.dateChangement.formatted(.dateTime.day().month(.abbreviated))
-                        Text("Depuis le changement du \(jour)")
-                            .font(.subheadline.weight(.semibold))
                         blocDepuisChangement(apercu)
                     }
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .glassEffect(.regular, in: .rect(cornerRadius: Radius.large))
+                    .surfaceCarte()
                 }
 
                 carteEcartes(section)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Une gélule par ratio réellement appliqué. Sa hauteur suit le nombre de repas, ses couleurs leurs résultats. Le ratio actuel est entouré.", systemImage: "capsule.portrait")
-                    Label("\(CalculRatioObserve.effectifMinimalBucket) repas minimum par zone pour comparer.", systemImage: "calendar")
-                    Label("Jamais comptés : repas ajusté ou à contexte libre, ou dont la courbe ne mesure pas que lui — autre repas dans les 4 h, insuline encore active, correction (même faite avec le repas), resucrage ou sport entre 1 h avant et 4 h après.", systemImage: "line.diagonal")
-                }
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 4)
+                Text("\(CalculRatioObserve.effectifMinimalBucket) repas minimum par zone pour comparer.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 4)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 16)
         }
-        .background(fond(colonne: colonnes.first { $0.grammesParUnite == ratio }))
-        .safeAreaInset(edge: .bottom) { barreMoments }
+        .background(Color(.systemGroupedBackground))
+    }
+
+    private func titreSection(_ texte: String) -> some View {
+        Text(texte)
+            .font(.title3.bold())
+            .padding(.top, 12)
+            .padding(.horizontal, 4)
     }
 
     // MARK: - Période
 
-    /// « Depuis le 3 oct. | Tout » — seulement si le ratio de ce moment a
+    /// « Ratios actuels | Tout » — seulement si le ratio de ce moment a
     /// déjà changé : sinon les deux vues sont identiques.
     @ViewBuilder
     private func selecteurPeriode(_ section: ObservationRatioSection) -> some View {
-        if let apercu = apercusChangementRatio[section.groupe], !sectionsCompletes.isEmpty {
-            let jour = apercu.dateChangement.formatted(.dateTime.day().month(.abbreviated))
-            Picker("Période", selection: Binding(get: { vueComplete }, set: { toutHistorique = $0 })) {
-                Text("Depuis le \(jour)").tag(false)
+        if apercusChangementRatio[section.groupe] != nil, !sectionsCompletes.isEmpty {
+            // Fige le moment affiché avant de basculer : sinon les deux vues
+            // n'ont pas forcément le même premier moment, et la bascule
+            // changeait de moment (donc de date) en douce.
+            Picker("Période", selection: Binding(get: { vueComplete }, set: {
+                groupeChoisi = .some(section.groupe)
+                toutHistorique = $0
+            })) {
+                // Libellé fixe : la date varie d'un moment à l'autre, elle
+                // est donnée par le titre de section « Depuis le … ».
+                Text("Ratios actuels").tag(false)
                 Text("Tout").tag(true)
             }
             .pickerStyle(.segmented)
-            .disabled(sections.isEmpty)
+            .controlSize(.large)
             .padding(.top, 8)
         }
     }
 
     // MARK: - Score
 
-    private func score(colonne: ColonneRatio?, grammes: Int?, estActuel: Bool) -> some View {
+    private func messageVide(_ section: ObservationRatioSection) -> String {
+        if !vueComplete && apercusChangementRatio[section.groupe] != nil {
+            return "Aucun repas depuis le changement de ratio. Touchez « Tout » pour voir l'historique."
+        }
+        return "Aucun repas analysé pour ce moment."
+    }
+
+    private func score(colonne: ColonneRatio?, grammes: Int?, estActuel: Bool, moment: SectionRepas?) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(grammes.map { estActuel ? "À ton ratio actuel, 1u/\($0)g" : "À 1u/\($0)g" } ?? "Ratio non configuré")
+            let ratio = grammes.map { estActuel ? "Ratio actuel 1u/\($0)g" : "1u/\($0)g" } ?? "Ratio non configuré"
+            Text(moment.map { "\(CalculRatioObserve.libelleGroupe($0)) · \(ratio)" } ?? ratio)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Text(colonne.flatMap { $0.total > 0 ? "\(Int((100 * Double($0.enCible) / Double($0.total)).rounded())) %" : nil } ?? "—")
-                .font(.system(size: 60, weight: .heavy, design: .rounded))
+                .font(.system(size: 48, weight: .heavy, design: .rounded))
                 .monospacedDigit()
                 .contentTransition(.numericText())
             Text(colonne.flatMap { $0.total > 0 ? "en cible · \($0.enCible) sur \($0.total) repas" : nil } ?? "aucun repas à ce ratio")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
-        .padding(.top, 8)
     }
 
     private var legendeCouleurs: some View {
@@ -190,19 +245,6 @@ struct PageEcartRatio: View {
         }
     }
 
-    /// Fond teinté par la réussite au ratio actuel — vert, orange ou rouge
-    /// très diffus, gris sans repas. Le verre des cartes le laisse deviner.
-    private func fond(colonne: ColonneRatio?) -> some View {
-        let teinte: Color = {
-            guard let colonne, colonne.total > 0 else { return .gray }
-            let taux = Double(colonne.enCible) / Double(colonne.total)
-            return taux >= 0.65 ? .green : taux >= 0.4 ? .orange : .red
-        }()
-        return LinearGradient(colors: [teinte.opacity(0.22), .clear], startPoint: .top, endPoint: .center)
-            .background(Color(.systemGroupedBackground))
-            .ignoresSafeArea()
-    }
-
     private func ratioConfigure(_ section: ObservationRatioSection) -> Int? {
         guard let e = section.entrees.first(where: { $0.doseSuggeree > 0 }) else { return nil }
         return Int((Double(e.glucides) / e.doseSuggeree).rounded())
@@ -210,37 +252,69 @@ struct PageEcartRatio: View {
 
     // MARK: - Moments
 
-    private var barreMoments: some View {
-        GlassEffectContainer {
-            HStack(spacing: 4) {
-                ForEach(sectionsActives, id: \.groupe) { s in
-                    let actif = s.groupe == section?.groupe
-                    Button {
-                        // Sans animation : le score et les gélules du nouveau
-                        // moment apparaissent d'un coup, sans glisser.
-                        var t = Transaction(); t.disablesAnimations = true
-                        withTransaction(t) {
-                            groupeChoisi = .some(s.groupe)
-                            ratioChoisi = nil
+    /// Pastilles des moments, sous l'en-tête — défilement horizontal pour
+    /// laisser respirer le texte. Icônes et teintes de la carte d'accueil.
+    @ViewBuilder
+    private var pastillesMoments: some View {
+        if moments.count > 1 {
+            ScrollViewReader { proxy in
+            ScrollView(.horizontal) {
+                HStack(spacing: 8) {
+                    ForEach(moments, id: \.self) { g in
+                        let actif = g == section.groupe
+                        let vide = !sectionsActives.contains { $0.groupe == g }
+                        let style = Self.styleMoment(g)
+                        Button {
+                            // Sans animation : le score et les gélules du nouveau
+                            // moment apparaissent d'un coup, sans glisser.
+                            var t = Transaction(); t.disablesAnimations = true
+                            withTransaction(t) {
+                                groupeChoisi = .some(g)
+                                ratioChoisi = nil
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: style.icone)
+                                    .foregroundStyle(actif ? Color.white : style.teinte.opacity(vide ? 0.5 : 1))
+                                Text(CalculRatioObserve.libelleGroupe(g))
+                                    .foregroundStyle(actif ? Color.white : vide ? Color.secondary : Color.primary)
+                            }
+                            .font(.subheadline.weight(actif ? .bold : .medium))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 11)
+                            .background(actif ? Color.accentColor : Color(.secondarySystemGroupedBackground), in: Capsule())
                         }
-                    } label: {
-                        Text(CalculRatioObserve.libelleGroupe(s.groupe))
-                            .font(.footnote.weight(actif ? .bold : .medium))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(actif ? Color.primary.opacity(0.12) : .clear, in: Capsule())
+                        .buttonStyle(.plain)
+                        .id(g)
                     }
-                    .buttonStyle(.plain)
                 }
             }
-            .padding(4)
-            .glassEffect(.regular.interactive(), in: .capsule)
+            .scrollIndicators(.hidden)
+            .contentMargins(.horizontal, 16, for: .scrollContent)
+            .padding(.horizontal, -16)
+            // Centre la pastille sélectionnée à l'arrivée, puis à chaque choix.
+            // Différé : au premier passage la mise en page n'est pas finie
+            // et `scrollTo` n'a encore aucune position à atteindre.
+            .task {
+                try? await Task.sleep(for: .milliseconds(150))
+                withAnimation(.snappy) { proxy.scrollTo(section.groupe, anchor: .center) }
+            }
+            .onChange(of: section.groupe) { _, g in
+                withAnimation(.snappy) { proxy.scrollTo(g, anchor: .center) }
+            }
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 4)
-        .opacity(sectionsActives.count > 1 ? 1 : 0)
+    }
+
+    private static func styleMoment(_ g: SectionRepas?) -> (icone: String, teinte: Color) {
+        switch g {
+        case .petitDejeuner: ("sunrise.fill", .orange)
+        case .dejeuner:      ("sun.max.fill", .blue)
+        case .enCas:         ("cup.and.saucer.fill", .pink)
+        case .diner:         ("moon.stars.fill", .indigo)
+        case .nuit:          ("moon.zzz.fill", .purple)
+        case nil:            ("fork.knife", .accentColor)
+        }
     }
 
     // MARK: - Repas écartés
@@ -254,21 +328,16 @@ struct PageEcartRatio: View {
                 } + [("ajusté", r.ajustes), ("contexte libre", r.contexteLibre),
                      ("ratio sport", r.ratioSportEnVigueur), ("exclu à la main", r.exclusManuellement)]
                     .filter { $0.1 > 0 }
+            titreSection("Repas écartés")
             VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("\(ecartes) repas écarté\(ecartes > 1 ? "s" : "")")
-                        .font(.subheadline.weight(.semibold))
-                    Spacer()
-                    Text("\(r.total) au total")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
+                Text("\(ecartes) sur \(r.total) repas")
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
                 FlowChips(items: motifs.map { "\($0.0) ×\($0.1)" })
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular, in: .rect(cornerRadius: Radius.large))
+            .surfaceCarte()
         }
     }
 

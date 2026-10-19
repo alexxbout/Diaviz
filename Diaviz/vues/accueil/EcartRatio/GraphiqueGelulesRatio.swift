@@ -64,13 +64,11 @@ struct GraphiqueGelulesRatio: View {
         let maxi = max(1, colonnes.map(\.total).max() ?? 1)
         GeometryReader { geo in
             let pas = geo.size.width / CGFloat(max(1, colonnes.count))
-            GlassEffectContainer {
             HStack(alignment: .bottom, spacing: 0) {
                 ForEach(colonnes) { colonne in
                     colonneVue(colonne, maxi: maxi, largeur: min(22, pas * 0.6))
                         .frame(width: pas)
                 }
-            }
             }
             .frame(maxHeight: .infinity, alignment: .bottom)
             .contentShape(Rectangle())
@@ -93,8 +91,7 @@ struct GraphiqueGelulesRatio: View {
         let estActuel = c.grammesParUnite == ratioConfigure
         let estChoisi = c.grammesParUnite == selection
         return VStack(spacing: 6) {
-            // Couleurs posées sur une gélule de verre : le verre fait le
-            // contour et le reflet, les résultats remplissent de bas en haut.
+            // Les résultats remplissent la gélule de bas en haut.
             VStack(spacing: 0) {
                 ForEach(Array(c.couches.reversed().enumerated()), id: \.offset) { _, couche in
                     if couche.0 > 0 {
@@ -104,11 +101,19 @@ struct GraphiqueGelulesRatio: View {
                 }
             }
             .frame(width: largeur, height: hauteur, alignment: .bottom)
+            .background(Color.secondary.opacity(0.15))
             .clipShape(Capsule())
-            .padding(3)
-            .glassEffect(estChoisi ? .regular.interactive() : .regular, in: .capsule)
+            // Sélection : liseré blanc épais posé sur les couleurs + ombre,
+            // lisible sur n'importe quel remplissage.
             .overlay {
-                if estActuel { Capsule().strokeBorder(.primary.opacity(0.7), lineWidth: 1.5) }
+                if estChoisi { Capsule().strokeBorder(.white, lineWidth: 3) }
+            }
+            .shadow(color: .black.opacity(estChoisi ? 0.3 : 0), radius: 4, y: 1)
+            .scaleEffect(estChoisi ? 1.08 : 1, anchor: .bottom)
+            .padding(4)
+            // Ratio actuel : fin contour extérieur, distinct de la sélection.
+            .overlay {
+                if estActuel { Capsule().strokeBorder(.secondary, style: StrokeStyle(lineWidth: 1, dash: [3, 2])) }
             }
 
             // Gras = gélule dont le score est affiché en haut, et elle seule.
