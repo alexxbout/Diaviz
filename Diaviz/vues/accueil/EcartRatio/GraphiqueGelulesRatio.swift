@@ -66,36 +66,67 @@ struct GraphiqueGelulesRatio: View {
     /// moment (`.id` côté page), donc l'animation rejoue à ce moment-là.
     @State private var apparu = false
 
+    /// Largeur minimale d'une colonne : en dessous, les gélules et leurs
+    /// libellés se chevauchent. Au-delà de ce que l'écran contient, le
+    /// graphique défile horizontalement.
+    private let pasMinimal: CGFloat = 40
+
     var body: some View {
         let maxi = max(1, colonnes.map(\.total).max() ?? 1)
         GeometryReader { geo in
-            let pas = geo.size.width / CGFloat(max(1, colonnes.count))
-            ZStack(alignment: .bottomLeading) {
-                zoneRatio(pas: pas, hauteur: geo.size.height)
-                HStack(alignment: .bottom, spacing: 0) {
-                    ForEach(Array(colonnes.enumerated()), id: \.element.id) { i, colonne in
-                        colonneVue(colonne, maxi: maxi, largeur: min(22, pas * 0.6), rang: i)
-                            .frame(width: pas)
+            let pasAjuste = geo.size.width / CGFloat(max(1, colonnes.count))
+            if pasAjuste >= pasMinimal {
+                contenu(pas: pasAjuste, hauteur: geo.size.height, maxi: maxi)
+                    .contentShape(Rectangle())
+                    .gesture(DragGesture(minimumDistance: 0).onChanged { valeur in
+                        choisir(index: Int(valeur.location.x / pasAjuste))
+                    })
+            } else {
+                // Défilement : le glisser sert à faire défiler, la sélection
+                // passe au toucher. Centré sur le ratio actuel à l'arrivée.
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal) {
+                        contenu(pas: pasMinimal, hauteur: geo.size.height, maxi: maxi, toucher: true)
+                    }
+                    .scrollIndicators(.hidden)
+                    .task {
+                        try? await Task.sleep(for: .milliseconds(150))
+                        if let ratioConfigure { proxy.scrollTo(ratioConfigure, anchor: .center) }
                     }
                 }
-                .frame(maxHeight: .infinity, alignment: .bottom)
             }
-            .contentShape(Rectangle())
-            .gesture(DragGesture(minimumDistance: 0).onChanged { valeur in
-                let i = Int(valeur.location.x / pas)
-                guard colonnes.indices.contains(i) else { return }
-                if selection != colonnes[i].grammesParUnite {
-                    selection = colonnes[i].grammesParUnite
-                }
-            })
-            .sensoryFeedback(.selection, trigger: selection)
         }
+        .sensoryFeedback(.selection, trigger: selection)
         // Marge haute pour « actuel » : même la plus haute gélule, agrandie
         // par la sélection, reste sous le libellé.
         .frame(height: hauteurMax + 60)
         .onAppear { apparu = true }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilite)
+    }
+
+    private func contenu(pas: CGFloat, hauteur: CGFloat, maxi: Int, toucher: Bool = false) -> some View {
+        ZStack(alignment: .bottomLeading) {
+            zoneRatio(pas: pas, hauteur: hauteur)
+            HStack(alignment: .bottom, spacing: 0) {
+                ForEach(Array(colonnes.enumerated()), id: \.element.id) { i, colonne in
+                    colonneVue(colonne, maxi: maxi, largeur: min(22, pas * 0.6), rang: i)
+                        .frame(width: pas)
+                        .frame(maxHeight: .infinity, alignment: .bottom)
+                        .contentShape(Rectangle())
+                        .onTapGesture { if toucher { choisir(index: i) } }
+                        .id(colonne.grammesParUnite)
+                }
+            }
+        }
+        .frame(width: pas * CGFloat(colonnes.count), height: hauteur)
+    }
+
+    private func choisir(index i: Int) {
+        guard colonnes.indices.contains(i) else { return }
+        if selection != colonnes[i].grammesParUnite {
+            selection = colonnes[i].grammesParUnite
+        }
     }
 
     /// Bande teintée derrière la colonne du ratio configuré : c'est la zone
