@@ -47,13 +47,13 @@ enum RaisonMauvaisVerdict: String, Hashable, Codable, Sendable {
     case hyperglycemie
 
     /// Rouge réservé à l'hypoglycémie — convention des lecteurs CGM (Dexcom,
-    /// Libre) où le rouge signale toujours le bas. Le pic élevé prend un violet
+    /// Libre) où le rouge signale toujours le bas. Le pic élevé prend un orange
     /// qui prolonge l'axe « trop haut » déjà porté par l'orange du verdict
-    /// `.moyen` : orange = pic modéré, violet = pic élevé (le brun se confondait avec l’orange).
+    /// `.moyen` : sur la page Écart de ratio, pic modéré en jaune et pic élevé en orange (convention des capteurs : jaune/orange en haut, rouge en bas).
     var couleur: Color {
         switch self {
         case .hypoglycemie: .red
-        case .hyperglycemie: .purple
+        case .hyperglycemie: .orange
         }
     }
 

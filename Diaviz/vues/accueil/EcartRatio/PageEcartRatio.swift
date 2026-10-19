@@ -365,7 +365,7 @@ struct PageEcartRatio: View {
     private var legendeCouleurs: some View {
         HStack(spacing: 12) {
             pastille("en cible", .green)
-            pastille("pic modéré", .orange)
+            pastille("pic modéré", .yellow)
             pastille("hyper", RaisonMauvaisVerdict.hyperglycemie.couleur)
             pastille("hypo", RaisonMauvaisVerdict.hypoglycemie.couleur)
         }

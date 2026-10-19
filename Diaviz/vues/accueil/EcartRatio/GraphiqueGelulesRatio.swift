@@ -45,7 +45,7 @@ struct ColonneRatio: Identifiable, Equatable {
 
     /// Couches de bas en haut — même ordre que la légende.
     var couches: [(Int, Color)] {
-        [(enCible, .green), (picModere, .orange),
+        [(enCible, .green), (picModere, .yellow),
          (hyper, RaisonMauvaisVerdict.hyperglycemie.couleur),
          (hypo, RaisonMauvaisVerdict.hypoglycemie.couleur)]
     }
