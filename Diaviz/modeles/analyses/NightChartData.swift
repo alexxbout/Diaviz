@@ -233,6 +233,9 @@ nonisolated struct NightChartData: Identifiable, Sendable {
     var hyposNonExpliquees: Int = 0
     /// Nuit du jour métabolique en cours, pas encore terminée.
     var enCours: Bool = false
+    /// Une des premières nuits à la nouvelle dose après un changement : elle
+    /// ne compte pas encore dans le verdict.
+    var enObservation: Bool = false
     /// L'hypo qui tranche le verdict de la nuit (zones 3+4, ≥ 15 min, non
     /// expliquée par l'insuline rapide active) — la plus longue. `nil` sinon.
     var hypoRetenue: HypoRetenue? = nil

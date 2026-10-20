@@ -118,9 +118,15 @@ private struct PastilleNuitVerdict: View {
     @ViewBuilder
     private var rond: some View {
         switch pastille.etat {
-        case .aVenir:
+        // Même codage que la frise C1 : observation en pointillé bleu, place
+        // à venir en pointillé gris.
+        case .observation:
             Circle()
                 .strokeBorder(Color.cyan, style: StrokeStyle(lineWidth: 2.5, dash: [4, 3]))
+                .frame(width: 32, height: 32)
+        case .aVenir:
+            Circle()
+                .strokeBorder(Color.secondary.opacity(0.6), style: StrokeStyle(lineWidth: 2.5, dash: [4, 3]))
                 .frame(width: 32, height: 32)
         default:
             Circle()
@@ -139,7 +145,7 @@ private struct PastilleNuitVerdict: View {
         case .concluante:                         return .green
         case .deriveMontante, .deriveDescendante: return .orange
         case .hypo:                               return .red
-        case .aVenir:                             return .clear
+        case .observation, .aVenir:               return .clear
         }
     }
 
@@ -148,7 +154,7 @@ private struct PastilleNuitVerdict: View {
         case .concluante:                    return "checkmark"
         case .deriveMontante:                return "arrow.up.right"
         case .deriveDescendante, .hypo:      return "arrow.down.right"
-        case .aVenir:                        return ""
+        case .observation, .aVenir:          return ""
         }
     }
 

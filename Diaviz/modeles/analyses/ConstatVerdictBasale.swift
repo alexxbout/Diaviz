@@ -18,6 +18,8 @@ nonisolated struct ConstatVerdictBasale: Sendable, Equatable {
         case deriveMontante
         case deriveDescendante
         case hypo
+        /// Une des premières nuits à la nouvelle dose : ne compte pas encore.
+        case observation
         /// Place encore à remplir avant un premier verdict — pas une nuit.
         case aVenir
     }
@@ -41,20 +43,27 @@ nonisolated struct ConstatVerdictBasale: Sendable, Equatable {
     let pastilles: [Pastille]
 
     static let nuitsMinimales = 3
+    static let nuitsObservation = ConfigBasale().nuitsObservationApresChangement
 
     init(analyse: AnalyseBasaleDetail, calendrier cal: Calendar = .current) {
+        let verdictBasal = analyse.basalVerdict
         let retenues = analyse.nightChartData
             .filter(\.retenueDansVerdict)
             .sorted { $0.date < $1.date }
+        // Tant qu'il n'y a pas de verdict, les nuits d'observation qui suivent
+        // un changement de dose s'affichent aussi : elles disent où on en est.
+        let observees = verdictBasal.state == .sufficient ? [] : analyse.nightChartData
+            .filter { $0.enObservation && !$0.retenueDansVerdict }
+        let affichees = (observees + retenues).sorted { $0.date < $1.date }
 
         var pastilles: [Pastille] = []
         var precedente: Date?
-        for (i, nuit) in retenues.enumerated() {
+        for (i, nuit) in affichees.enumerated() {
             let saut = precedente.map {
                 (cal.dateComponents([.day], from: cal.startOfDay(for: $0),
                                     to: cal.startOfDay(for: nuit.date)).day ?? 1) > 1
             } ?? false
-            let etat = Self.etat(de: nuit)
+            let etat = nuit.enObservation ? .observation : Self.etat(de: nuit)
             pastilles.append(Pastille(
                 id: i, date: nuit.date, etat: etat,
                 titre: "Nuit du \(Self.jour(nuit.date)) · \(Self.libelle(etat))",
@@ -64,14 +73,15 @@ nonisolated struct ConstatVerdictBasale: Sendable, Equatable {
             precedente = nuit.date
         }
 
-        let verdictBasal = analyse.basalVerdict
         if verdictBasal.state != .sufficient {
-            let manquant = max(0, Self.nuitsMinimales - retenues.count)
+            let observationRestante = verdictBasal.doseChangedDate == nil ? 0
+                : max(0, Self.nuitsObservation - observees.count)
+            let manquant = observationRestante + max(0, Self.nuitsMinimales - retenues.count)
             for k in 0..<manquant {
                 pastilles.append(Pastille(
-                    id: retenues.count + k, date: nil, etat: .aVenir,
+                    id: affichees.count + k, date: nil, etat: .aVenir,
                     titre: "Nuit à venir",
-                    detail: "Encore \(Self.nuits(manquant)) exploitable\(manquant > 1 ? "s" : "") avant un verdict.",
+                    detail: "Encore \(Self.nuits(manquant)) avant un verdict.",
                     sautAvant: false
                 ))
             }
@@ -147,7 +157,7 @@ nonisolated struct ConstatVerdictBasale: Sendable, Equatable {
         let precedente = historique.filter { !$0.isCurrent }.max(by: { $0.startDate < $1.startDate })?.dose
         let changement = precedente.map { "Lente passée de \(dose($0)) à \(dose(actuelle)) u le \(jour(date))." }
             ?? "Lente à \(dose(actuelle)) u depuis le \(jour(date))."
-        return "\(changement) Verdict après \(nuitsMinimales) nuits exploitables."
+        return "\(changement) Les \(nuitsObservation) premières nuits sont en observation, puis \(nuitsMinimales) nuits exploitables donnent un verdict."
     }
 
     // MARK: - Une nuit
@@ -166,11 +176,15 @@ nonisolated struct ConstatVerdictBasale: Sendable, Equatable {
         case .concluante:                         return "concluante"
         case .deriveMontante, .deriveDescendante: return "dérive"
         case .hypo:                               return "hypo"
+        case .observation:                        return "observation"
         case .aVenir:                             return "à venir"
         }
     }
 
     private static func detail(de nuit: NightChartData, etat: EtatNuit) -> String {
+        if etat == .observation {
+            return "Ne compte pas encore : le temps que la nouvelle dose s'installe."
+        }
         if etat == .hypo {
             guard let h = nuit.hypoRetenue else { return "Hypo avec rechute après resucrage." }
             let suite = h.resucree ? "resucrée" : "remontée sans resucrage"

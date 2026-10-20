@@ -1350,6 +1350,9 @@ private struct CarteVerdictNuit: View {
         }
         guard nuit.retenueDansVerdict,
               let rang = retenues.firstIndex(where: { $0.id == nuit.id }).map({ $0 + 1 }) else {
+            if nuit.enObservation {
+                return AttributedString("Nuit d'observation après le changement de dose — ne compte pas encore")
+            }
             return AttributedString("Hors de la fenêtre — \(retenues.count) nuits retenues sur \(nuitsRecence)")
         }
         var phrase = AttributedString("Nuit ")

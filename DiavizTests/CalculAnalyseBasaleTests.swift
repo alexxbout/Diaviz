@@ -539,7 +539,7 @@ struct CalculAnalyseBasaleTests {
         #expect(constat.verdict == "Pas encore de verdict")
         #expect(constat.raison == "2 nuits exploitables sur les 3 nécessaires.")
         #expect(constat.pastilles.map(\.etat) == [.concluante, .concluante, .aVenir])
-        #expect(constat.pastilles.last?.detail == "Encore 1 nuit exploitable avant un verdict.")
+        #expect(constat.pastilles.last?.detail == "Encore 1 nuit avant un verdict.")
     }
 
     @Test("Constat : juste après un changement de dose → dose en observation")
@@ -550,8 +550,9 @@ struct CalculAnalyseBasaleTests {
         let jour = ConstatVerdictBasale.jour(lente(1))
 
         #expect(constat.verdict == "Nouvelle dose en observation")
-        #expect(constat.raison == "Lente passée de 18 à 20 u le \(jour). Verdict après 3 nuits exploitables.")
-        #expect(constat.pastilles.map(\.etat) == [.concluante, .aVenir, .aVenir])
+        #expect(constat.raison == "Lente passée de 18 à 20 u le \(jour). Les 2 premières nuits sont en observation, puis 3 nuits exploitables donnent un verdict.")
+        // 1 nuit d'observation faite, 1 restante + 3 exploitables à venir.
+        #expect(constat.pastilles.map(\.etat) == [.observation, .aVenir, .aVenir, .aVenir, .aVenir])
     }
 
     // MARK: - Taxonomie des hypos
@@ -670,9 +671,11 @@ struct CalculAnalyseBasaleTests {
         #expect(analyse.doseActuelle == 18)
         #expect(analyse.changementDoseRecent != nil)
         #expect(analyse.doseHistoriqueReel?.count == 2)
-        // Seules les nuits depuis le changement entrent dans les compteurs ;
-        // les 4 nuits antérieures de la fenêtre sont marquées.
-        #expect(analyse.nuitsAnalysees == 3)
+        // Seules les nuits depuis le changement entrent dans les compteurs, et
+        // les 2 premières sont en observation (même règle que la lente C1) :
+        // il n'en reste qu'une. Les 4 nuits antérieures sont marquées.
+        #expect(analyse.nuitsAnalysees == 1)
+        #expect(analyse.nightChartData.filter(\.enObservation).count == 2)
         #expect(analyse.timeline.filter(\.avantChangementDose).count == 4)
     }
 

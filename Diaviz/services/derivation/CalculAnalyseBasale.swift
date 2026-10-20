@@ -85,6 +85,10 @@ nonisolated struct ConfigBasale: Sendable {
     var dureeMinEpisodeHypoMin: Double = 15
     /// Pas des relevés CGM (min) — un épisode de k relevés couvre k × ce pas.
     var pasCGMMin: Double = 5
+    /// Nuits d'observation après un changement de dose : les premières nuits
+    /// à la nouvelle dose ne comptent pas, le temps qu'elle s'installe. Même
+    /// valeur que la lente de C1 (source unique : sa règle d'état).
+    var nuitsObservationApresChangement: Int = RegleEtatReglage.lente.transition
     /// Nombre de dernières nuits valides qui pilotent le verdict de tendance
     /// (récence — évite qu'une alerte reste figée quand la situation s'améliore).
     var nuitsRecence: Int = 5
@@ -635,10 +639,25 @@ nonisolated enum CalculAnalyseBasale {
             return cal.startOfDay(for: date) < cal.startOfDay(for: chg)
         }
 
-        // Nuits valides (post-changement, hors nuit en cours), de l'ancienne à
-        // la plus récente — `nuits` est déjà ordonné ainsi.
+        // Nuits d'observation : les premières nuits à la nouvelle dose qui ont
+        // une courbe, qu'elles soient exploitables ou non — même règle que la
+        // lente de C1, pour que les deux analyses jugent la même dose sur les
+        // mêmes nuits.
+        let observees: Set<Date> = {
+            guard changementDose != nil else { return [] }
+            let apres = nuits.filter { n in
+                if case .enCours = n.etat { return false }
+                return n.chart != nil && !avantChangement(n.dateNuit)
+            }
+            return Set(apres.prefix(config.nuitsObservationApresChangement).map(\.dateNuit))
+        }()
+
+        // Nuits valides (post-changement, hors observation et nuit en cours),
+        // de l'ancienne à la plus récente — `nuits` est déjà ordonné ainsi.
         let valides = nuits.filter {
-            if case .valide = $0.etat { return !avantChangement($0.dateNuit) }
+            if case .valide = $0.etat {
+                return !avantChangement($0.dateNuit) && !observees.contains($0.dateNuit)
+            }
             return false
         }
         // Récence : le verdict + la pente moyenne portent sur les K dernières
@@ -681,6 +700,7 @@ nonisolated enum CalculAnalyseBasale {
             chart.retenueDansVerdict = datesRetenues.contains(n.dateNuit)
             chart.hyposNonExpliquees = n.hyposNonExpliquees
             chart.enCours = { if case .enCours = n.etat { return true }; return false }()
+            chart.enObservation = observees.contains(n.dateNuit)
             return chart
         }.sorted { $0.date > $1.date }
 
