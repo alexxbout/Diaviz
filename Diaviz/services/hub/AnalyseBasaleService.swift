@@ -190,30 +190,35 @@ final class AnalyseBasaleService {
     var insightNouvelleTendance: Insight? {
         guard analyse.verdict != .donneesInsuffisantes else { return nil }
 
-        // Même phrase de verdict que la carte de la page d'analyse : jamais un
-        // nombre de nuits seul (« 6 nuits ↘ » se lisait « 6 nuits
-        // descendantes »), jamais une interprétation de dose.
-        let message = ConstatVerdictBasale(analyse: analyse).verdict
+        // Même verdict que la carte de la page d'analyse, écrit à côté de son
+        // icône : jamais un nombre
+        // de nuits seul (« 6 nuits ↘ » se lisait « 6 nuits descendantes »),
+        // jamais une interprétation de dose.
+        let constat = ConstatVerdictBasale(analyse: analyse)
+        // Pas de phrase dessous : la conclusion à côté de l'icône suffit,
+        // l'explication vit sur la page d'analyse.
+        let message = ""
         let categorie: CategorieInsight
-        let microVisuel: MicroVisuelType
+        let icone: String
         if analyse.enAmelioration {
             categorie = .positif
-            microVisuel = .grandeIcone(systemName: "arrow.up.forward.circle.fill")
+            icone = "arrow.up.forward.circle.fill"
         } else {
             switch analyse.verdict {
             case .tropHaute:
                 categorie = .attention
-                microVisuel = .grandeIcone(systemName: "arrow.down.right.circle.fill")
+                icone = "arrow.down.right.circle.fill"
             case .tropBasse:
                 categorie = .attention
-                microVisuel = .grandeIcone(systemName: "arrow.up.right.circle.fill")
+                icone = "arrow.up.right.circle.fill"
             case .adaptee:
                 categorie = .positif
-                microVisuel = .grandeIcone(systemName: "checkmark.circle.fill")
+                icone = "checkmark.circle.fill"
             case .donneesInsuffisantes:
                 return nil
             }
         }
+        let microVisuel = MicroVisuelType.iconeEtTexte(systemName: icone, texte: constat.verdict)
 
         return Insight(
             id: Self.idDeterministe(signatureVerdict),

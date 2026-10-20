@@ -81,10 +81,12 @@ struct CarteInsight: View {
             Spacer(minLength: 0)
 
             // MARK: 3. Message — explication courte, 2 lignes max
-            Text(insight.message)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
+            if !insight.message.isEmpty {
+                Text(insight.message)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -96,8 +98,16 @@ struct CarteInsight: View {
         // le drag/tap de la pile).
         .glassEffect(.regular.interactive(), in: NiveauCarte.carte.forme)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(insight.titre). \(insight.message)")
+        .accessibilityLabel("\(insight.titre). \(texteAccessible)")
         .accessibilityHint(insight.categorie == .alerte ? "" : "Voir l'analyse détaillée")
+    }
+}
+
+private extension CarteInsight {
+    /// Sans message, c'est la conclusion du micro-visuel qui se lit.
+    var texteAccessible: String {
+        if insight.message.isEmpty, case let .iconeEtTexte(_, texte) = insight.microVisuel { return texte }
+        return insight.message
     }
 }
 

@@ -84,6 +84,9 @@ enum MicroVisuelType: Sendable {
     /// donnée exploitable. Les jours au-dessus du seuil prennent la couleur
     /// de la catégorie, les autres restent neutres.
     case grandNombreEtJours(valeur: String, jours: [Double?], seuil: Double)
+    /// Icône SF Symbol + conclusion en toutes lettres, côte à côte, à la
+    /// couleur de la catégorie — quand la donnée clé est un verdict (« Stable »).
+    case iconeEtTexte(systemName: String, texte: String)
 }
 
 // MARK: - Modèle

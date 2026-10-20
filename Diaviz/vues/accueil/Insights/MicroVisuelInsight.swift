@@ -80,6 +80,19 @@ struct MicroVisuelInsight: View {
                     .foregroundStyle(couleur)
                     .accessibilityHidden(true)
 
+            // MARK: Icône + conclusion en toutes lettres — ex : « ✓ Stable »
+            case .iconeEtTexte(let systemName, let texte):
+                HStack(spacing: 10) {
+                    Image(systemName: systemName)
+                        .font(.system(size: 30))
+                        .accessibilityHidden(true)
+                    Text(texte)
+                        .font(.system(size: 26, weight: .bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+                .foregroundStyle(couleur)
+
             // MARK: Grand chiffre + une barre par jour face à un seuil —
             // ex : « 4,2 % » et trois jours dont deux au-dessus de 3 %.
             case .grandNombreEtJours(let valeur, let jours, let seuil):
