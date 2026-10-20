@@ -24,38 +24,10 @@ nonisolated struct PointSemaineCorrelation: Sendable, Equatable, Identifiable {
     var id: Date { debutSemaine }
 }
 
-/// Niveau de charge active et TIR moyen des **jours** qui y tombent — même
-/// niveau (hystérésis comprise) que partout ailleurs dans l'app. **Pas de
-/// seuil minimal d'affichage** — `n` est toujours montré à côté du chiffre,
-/// c'est lui qui porte l'honnêteté de la mesure.
-nonisolated struct TrancheChargeTIR: Sendable, Equatable, Identifiable {
-    let niveau: NiveauChargeActive
-    /// `nil` si aucun jour de cette tranche n'a de TIR mesurable.
-    let tirMoyen: Double?
-    /// Jours du niveau ayant au moins une mesure CGM.
-    let nombreJours: Int
-    var id: NiveauChargeActive { niveau }
-}
-
-/// Dérive basale moyenne (nuit profonde, B1) des nuits dont le **jour**
-/// tombe dans ce niveau de charge active. Même garde-fou que
-/// `TrancheChargeTIR` : pas de seuil minimal, `n` porte l'honnêteté.
-nonisolated struct TrancheDeriveBasale: Sendable, Equatable, Identifiable {
-    let niveau: NiveauChargeActive
-    /// `nil` si aucune nuit valide (zone 3 analysée) dans cette tranche.
-    let deriveMoyenne: Double?
-    let nombreNuits: Int
-    var id: NiveauChargeActive { niveau }
-}
-
 /// Synthèse complète affichée par `PageCorrelationChargeGlycemie`.
 nonisolated struct SyntheseCorrelationChargeTIR: Sendable, Equatable {
     /// Chronologique, plus ancienne en premier.
     let semaines: [PointSemaineCorrelation]
-    /// Une entrée par niveau, toujours les 3 — `nombreJours` peut être 0.
-    let tranches: [TrancheChargeTIR]
-    /// Une entrée par niveau — vide si aucune nuit B1 fournie à `analyser`.
-    let tranchesDerive: [TrancheDeriveBasale]
 }
 
 extension SyntheseCorrelationChargeTIR {
@@ -64,31 +36,23 @@ extension SyntheseCorrelationChargeTIR {
     /// `vide` ne sert qu'à donner un `SyntheseCorrelationChargeTIR` non
     /// optionnel à la page poussée si jamais la navigation était forcée.
     static var vide: SyntheseCorrelationChargeTIR {
-        SyntheseCorrelationChargeTIR(semaines: [], tranches: [], tranchesDerive: [])
+        SyntheseCorrelationChargeTIR(semaines: [])
     }
 }
 
 // MARK: - Calculateur
 
-/// Corrèle, semaine par semaine, la charge active (`ContexteChargeActive`),
-/// le score GRI et le temps dans la cible (TIR), puis regroupe TIR et
-/// dérive basale (B1, nuit profonde) par niveau de charge active du jour.
-/// Purement descriptif — **co-occurrence affichée, jamais une cause
-/// affirmée**.
-///
-/// Les tranches sont faites **par jour**, avec le niveau de charge active de
-/// chaque jour : le même que celui des badges et de B2/B3, jamais une
-/// deuxième classification propre à cette page.
+/// Chronologie de la page « Charge et glycémie » : semaine par semaine, la
+/// charge active (`ContexteChargeActive`) rapportée à la référence, le
+/// score GRI et le temps dans la cible. Purement descriptif —
+/// **co-occurrence affichée, jamais une cause affirmée**.
 nonisolated enum CalculCorrelationChargeTIR {
 
     static let nombreSemaines = 10
 
-    /// - Parameter nuitsDerive: dérive de la nuit profonde `(date de la
-    ///   nuit, Δ mg/dL)` — une entrée par nuit **valide** de B1.
     static func analyser(
         charge: ContexteChargeActive,
         glucoses: [(date: Date, valeur: Int)],
-        nuitsDerive: [(date: Date, derive: Double)] = [],
         maintenant: Date = Date(),
         calendrier: Calendar = .current
     ) -> SyntheseCorrelationChargeTIR {
@@ -107,42 +71,10 @@ nonisolated enum CalculCorrelationChargeTIR {
                 score: scoreGRI(mesures: mesures)
             )
         }
-
-        let debutFenetre = debutsSemaines.first ?? debutSemaineCourante
-
-        // TIR par jour, regroupé selon le niveau de charge active du jour.
-        var mesuresParJour: [Date: [(date: Date, valeur: Int)]] = [:]
-        for g in glucoses where g.date >= debutFenetre && g.date <= maintenant {
-            mesuresParJour[calendrier.startOfDay(for: g.date), default: []].append(g)
-        }
-        let tirsParNiveau: [NiveauChargeActive: [Double]] = mesuresParJour.reduce(into: [:]) { acc, entree in
-            guard let niveau = charge.niveau(le: entree.key), let t = tir(entree.value) else { return }
-            acc[niveau, default: []].append(t)
-        }
-        let tranches = NiveauChargeActive.allCases.map { niveau in
-            let tirs = tirsParNiveau[niveau] ?? []
-            return TrancheChargeTIR(
-                niveau: niveau,
-                tirMoyen: tirs.isEmpty ? nil : tirs.reduce(0, +) / Double(tirs.count),
-                nombreJours: tirs.count
-            )
-        }
-
-        let tranchesDerive = NiveauChargeActive.allCases.map { niveau in
-            let nuits = nuitsDerive.filter { charge.niveau(le: $0.date) == niveau }
-            return TrancheDeriveBasale(
-                niveau: niveau,
-                deriveMoyenne: nuits.isEmpty ? nil : nuits.map(\.derive).reduce(0, +) / Double(nuits.count),
-                nombreNuits: nuits.count
-            )
-        }
-
-        return SyntheseCorrelationChargeTIR(
-            semaines: semaines, tranches: tranches, tranchesDerive: tranchesDerive
-        )
+        return SyntheseCorrelationChargeTIR(semaines: semaines)
     }
 
-    private static func tir(_ mesures: [(date: Date, valeur: Int)]) -> Double? {
+    static func tir(_ mesures: [(date: Date, valeur: Int)]) -> Double? {
         guard !mesures.isEmpty else { return nil }
         return Double(mesures.filter { (70...180).contains($0.valeur) }.count) / Double(mesures.count) * 100
     }
@@ -151,7 +83,7 @@ nonisolated enum CalculCorrelationChargeTIR {
     /// que la carte accueil (`CalculScoreJournalier`) — dupliqués ici plutôt
     /// que réutilisés car ce calculateur-ci l'applique sur une semaine entière
     /// de lectures d'un coup, pas jour par jour avec un seuil de couverture.
-    private static func scoreGRI(mesures: [(date: Date, valeur: Int)]) -> Double? {
+    static func scoreGRI(mesures: [(date: Date, valeur: Int)]) -> Double? {
         guard !mesures.isEmpty else { return nil }
         let total = Double(mesures.count)
         let pct = { (plage: (Int) -> Bool) in

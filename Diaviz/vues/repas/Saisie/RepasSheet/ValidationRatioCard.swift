@@ -227,7 +227,7 @@ struct ValidationRatioCard: View {
             return "Ratio changé le \(jour) : les \(r.avantChangementRatio) \(plusieurs) d'avant ne sont plus comparables."
         }
         if r.ecartes > 0 {
-            return "\(r.ecartes) \(r.ecartes > 1 ? plusieurs : un) écarté\(r.ecartes > 1 ? "s" : "") de l'analyse : ajustement ou contexte particulier."
+            return "\(r.ecartes) \(r.ecartes > 1 ? plusieurs : un) écarté\(r.ecartes > 1 ? "s" : "") de l'analyse : ajustement, contexte particulier, ou courbe gênée par un autre fait."
         }
         if r.donneesManquantes + r.sansInjection > 0 {
             let n = r.donneesManquantes + r.sansInjection

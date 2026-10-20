@@ -99,6 +99,7 @@ struct AnalysesVue: View {
                     CarteAnalyseChargeGlycemie(
                         synthese: correlationService.synthese,
                         chargeActive: ChargeActiveService.shared.synthese,
+                        episodes: correlationService.episodes,
                         chargement: correlationService.enCalcul
                     )
                 }
@@ -139,7 +140,7 @@ struct AnalysesVue: View {
                 _ = await (endoR, corrR, bilanCorrR)
             }
             // Charge active d'abord : la page Charge et glycémie lit son
-            // contexte (tranches par niveau du jour).
+            // contexte (chronologie, épisodes).
             Task {
                 await ChargeActiveService.shared.recalculerSiNecessaire(contexte: modelContext)
                 await correlationService.recalculer(contexte: modelContext)
@@ -167,11 +168,12 @@ private struct CarteAnalyseChargeGlycemie: View {
     /// page) sur l'apparition de l'onglet Analyses.
     let synthese: SyntheseCorrelationChargeTIR?
     var chargeActive: SyntheseChargeActive? = nil
+    var episodes: SyntheseEpisodesCharge? = nil
     var chargement: Bool = false
 
     var body: some View {
         NavigationLink {
-            PageCorrelationChargeGlycemie(synthese: synthese ?? .vide, chargeActive: chargeActive)
+            PageCorrelationChargeGlycemie(synthese: synthese ?? .vide, chargeActive: chargeActive, episodes: episodes)
         } label: {
             contenu
         }

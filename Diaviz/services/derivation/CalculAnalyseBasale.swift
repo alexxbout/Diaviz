@@ -232,6 +232,7 @@ nonisolated enum CalculAnalyseBasale {
         let deriveZone3: Double?      // dérive Δ mg/dL retenue (nil si zone 3 exclue)
         let bilan: BilanHyposNuit     // taxonomie hypos, fenêtre de sommeil complète
         let aHypoProfonde: Bool       // hypo zones 3+4 → trigger « tendance descendante »
+        var hyposNonExpliquees = 0    // épisodes hypo de la fenêtre de sommeil hors IOB (C1)
         let reveil: Int?              // glycémie au réveil (mg/dL)
         let chart: NightChartData?    // nil si pas de CGM exploitable
     }
@@ -357,6 +358,9 @@ nonisolated enum CalculAnalyseBasale {
         let aHypoProfonde = episodes.contains {
             $0.bas > z2.upperBound && iobResiduelA($0.bas) <= config.seuilIOBResiduel
         }
+        // Même filtre IOB, sur toute la fenêtre de sommeil : ce que la frise
+        // C1 compte comme une hypo de lente (garde-fou hypo).
+        let hyposNonExpliquees = episodes.filter { iobResiduelA($0.bas) <= config.seuilIOBResiduel }.count
 
         // Signal indépendant symétrique, côté haut : une excursion hyper dans
         // la nuit profonde/dawn compte pour le verdict qu'elle ait été
@@ -464,13 +468,15 @@ nonisolated enum CalculAnalyseBasale {
             motif: motif
         )
 
-        return NuitAnalysee(
+        var nuit = NuitAnalysee(
             dateNuit: dateSoir, etat: etat, categorie: categorie,
             slopeZone3: deriveFiable ? evalZ3.slope : nil,
             deriveZone3: deriveFiable ? evalZ3.derive : nil,
             bilan: bilan, aHypoProfonde: aHypoProfonde,
             reveil: reveil, chart: chart
         )
+        nuit.hyposNonExpliquees = hyposNonExpliquees
+        return nuit
     }
 
     // MARK: - Évaluation zone 3 (pente basale)
@@ -647,6 +653,8 @@ nonisolated enum CalculAnalyseBasale {
             guard var chart = n.chart else { return nil }
             chart.categorieVerdict = n.categorie
             chart.retenueDansVerdict = datesRetenues.contains(n.dateNuit)
+            chart.hyposNonExpliquees = n.hyposNonExpliquees
+            chart.enCours = { if case .enCours = n.etat { return true }; return false }()
             return chart
         }.sorted { $0.date > $1.date }
 
