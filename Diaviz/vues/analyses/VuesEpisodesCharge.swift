@@ -59,6 +59,25 @@ enum FormatEpisode {
         }
     }
 
+    /// Le niveau dit avec les mots de l'utilisateur (carte « En ce moment »).
+    static func phrase(_ n: NiveauChargeActive?) -> String {
+        switch n {
+        case .haute:   "Plus d'activité que d'habitude"
+        case .normale: "Activité habituelle"
+        case .basse:   "Moins d'activité que d'habitude"
+        case nil:      "Référence en cours de calcul"
+        }
+    }
+
+    static func symbole(_ n: NiveauChargeActive?) -> String {
+        switch n {
+        case .haute:   "arrow.up"
+        case .normale: "equal"
+        case .basse:   "arrow.down"
+        case nil:      "hourglass"
+        }
+    }
+
     static func couleur(_ n: NiveauChargeActive?) -> Color {
         switch n {
         case .haute:   .blue
@@ -135,13 +154,27 @@ enum FormatEpisode {
 
 struct TitreSectionEpisode: View {
     let texte: String
+    /// Pastille à droite du titre (« Nouvel épisode »).
+    var badge: String? = nil
+
     var body: some View {
-        Text(texte)
-            .font(.title3.bold())
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 12)
-            .padding(.horizontal, 4)
-            .accessibilityAddTraits(.isHeader)
+        HStack(alignment: .firstTextBaseline) {
+            Text(texte)
+                .font(.title3.bold())
+                .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: 8)
+            if let badge {
+                Text(badge)
+                    .font(.caption.bold())
+                    .foregroundStyle(.cyan)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(Color.cyan.opacity(0.15), in: Capsule())
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 12)
+        .padding(.horizontal, 4)
     }
 }
 
@@ -239,10 +272,14 @@ struct CarteEpisodeEnCours: View {
     let precedent: EpisodeCharge?
     let charge: SyntheseChargeActive?
 
-    private var estNouveau: Bool {
+    /// Épisode ouvert depuis moins de `joursNouvelEpisode` jours, après un
+    /// autre — badge « Nouvel épisode » à côté du titre de section.
+    static func estNouveau(_ episode: EpisodeCharge?, precedent: EpisodeCharge?) -> Bool {
         guard let episode, precedent != nil else { return false }
         return episode.faits.jours <= CalculEpisodesCharge.joursNouvelEpisode
     }
+
+    private var estNouveau: Bool { Self.estNouveau(episode, precedent: precedent) }
 
     private var ecart: String {
         guard case let .disponible(indice, _, _) = charge?.etat else { return "—" }
@@ -268,22 +305,28 @@ struct CarteEpisodeEnCours: View {
 
     private func contenu(_ episode: EpisodeCharge) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top) {
+            HStack(spacing: 12) {
+                Image(systemName: FormatEpisode.symbole(episode.niveau))
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(teinte(episode.niveau))
+                    .frame(width: 40, height: 40)
+                    .background(teinte(episode.niveau).opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(FormatEpisode.niveau(episode.niveau))
-                        .font(.title2.bold())
-                        .foregroundStyle(FormatEpisode.couleur(episode.niveau))
-                    Text("Depuis le \(FormatEpisode.date(episode.debut)) · \(FormatEpisode.duree(jours: episode.faits.jours))")
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                if estNouveau {
-                    Text("Nouvel épisode")
-                        .font(.caption.bold())
-                        .foregroundStyle(.cyan)
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 4)
-                        .background(Color.cyan.opacity(0.15), in: Capsule())
+                    Text(FormatEpisode.phrase(episode.niveau))
+                        .font(.headline)
+                    // Une ligne si elle tient ; sinon niveau et date sur deux
+                    // lignes entières, jamais un bout de date seul en dessous.
+                    ViewThatFits(in: .horizontal) {
+                        Text("\(FormatEpisode.niveau(episode.niveau)) · \(depuis(episode))")
+                            .lineLimit(1)
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(FormatEpisode.niveau(episode.niveau))
+                            Text("D" + depuis(episode).dropFirst())
+                        }
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                 }
             }
             Divider()
@@ -315,6 +358,19 @@ struct CarteEpisodeEnCours: View {
             Text(legende).font(.caption).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func depuis(_ episode: EpisodeCharge) -> String {
+        "depuis le \(FormatEpisode.date(episode.debut)) · \(FormatEpisode.duree(jours: episode.faits.jours))"
+    }
+
+    /// Couleur de l'icône : celle du niveau, gris pour la référence et
+    /// l'absence de référence (le neutre `.primary` ne se teinte pas).
+    private func teinte(_ n: NiveauChargeActive?) -> Color {
+        switch n {
+        case .haute, .basse: FormatEpisode.couleur(n)
+        case .normale, nil:  .gray
+        }
     }
 }
 

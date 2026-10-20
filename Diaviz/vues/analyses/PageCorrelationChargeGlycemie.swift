@@ -36,7 +36,10 @@ struct PageCorrelationChargeGlycemie: View {
                     accroche: "Ce qui marchait pour vous les fois précédentes, à charge d'activité comparable.",
                     ambiance: .chargeActivite
                 )
-                TitreSectionEpisode(texte: "En ce moment")
+                TitreSectionEpisode(
+                    texte: "En ce moment",
+                    badge: CarteEpisodeEnCours.estNouveau(episodes?.enCours, precedent: episodes?.precedent) ? "Nouvel épisode" : nil
+                )
                 CarteEpisodeEnCours(episode: episodes?.enCours, precedent: episodes?.precedent, charge: chargeActive)
                 TitreSectionEpisode(texte: "Chronologie")
                 chronologie
