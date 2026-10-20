@@ -44,23 +44,31 @@ enum ChargeurEpisodesCharge {
     // MARK: Ratios — un repas
 
     /// Un repas jugé par R1 → un événement de ratio : le ratio du moment, ou
-    /// le ratio sport du type de séance quand il était en vigueur. Mêmes
-    /// exclusions que le mining R1 (analyses désactivées, contexte libre,
-    /// ajustement, verdict indisponible, dose nulle) ; le verdict `moyen`
-    /// est non évaluable (C1 § 7).
+    /// le ratio sport du type de séance quand il était en vigueur. Repas
+    /// retenus par la règle commune `CalculEligibiliteRepas` (la même que
+    /// l'analyse des ratios), puis verdict disponible et dose non nulle ; le
+    /// verdict `moyen` est non évaluable (C1 § 7).
     @MainActor
     static func evenementsRepas(_ contexte: ModelContext, depuis: Date, profil: ProfilUtilisateur) -> [EvenementReglage] {
-        let repas = (try? contexte.fetch(FetchDescriptor<Repas>(predicate: #Predicate { $0.heure >= depuis }))) ?? []
+        // Un jour de marge : un repas de la veille peut polluer la fenêtre
+        // d'un repas du premier jour.
+        let borneFaits = depuis.addingTimeInterval(-86_400)
+        let repas = (try? contexte.fetch(FetchDescriptor<Repas>(predicate: #Predicate { $0.heure >= borneFaits }))) ?? []
         let activites = (try? contexte.fetch(FetchDescriptor<ActiviteSportive>())) ?? []
+        let faits = AnalyseRatioService.faitsFenetre(repas: repas, contexte: contexte, activites: activites)
+        let seancesSport = AnalyseRatioService.seancesRatioSport(activites, profil: profil)
+        let fenetreSport = profil.ratiosSportEffectifs.fenetreEffetHeures * 3600
         let changements = ((try? contexte.fetch(FetchDescriptor<ChangementParametre>())) ?? [])
             .compactMap { c in c.cle.map { (date: c.date, cle: $0, ancienne: c.ancienneValeur) } }
         let courantes = HistoriqueParametres.Instantane(profil: profil).valeurs
-        let ratiosSport = profil.ratiosSportEffectifs
-        let fenetreSport = ratiosSport.fenetreEffetHeures * 3600
 
         return repas.compactMap { r -> EvenementReglage? in
-            guard !r.aliments.isEmpty, !r.aliments.allSatisfy(\.resucrage) else { return nil }
-            guard !r.exclureDesAnalyses, !r.aUnEvenement, r.ajustements.isEmpty else { return nil }
+            guard r.heure >= depuis else { return nil }
+            let eligibilite = CalculEligibiliteRepas.evaluer(
+                AnalyseRatioService.repasAJuger(r), faits: faits,
+                seancesRatioSport: seancesSport, fenetreEffetSport: fenetreSport
+            )
+            guard eligibilite.estEligible else { return nil }
             guard let verdict = r.verdictPersiste, verdict != .indetermine, r.totalGlucides > 0 else { return nil }
             guard r.totalInsuline - (r.doseCorrection ?? 0) > 0 else { return nil }
 
@@ -72,33 +80,27 @@ enum ChargeurEpisodesCharge {
             case .indetermine:  return nil
             }
 
-            // Ratio sport en vigueur : même règle que `AnalyseRatioService`.
-            let seance = activites
-                .filter { a in
-                    a.dateDebut <= r.heure && r.heure.timeIntervalSince(a.dateFin) <= fenetreSport
-                        && (ratiosSport.ratio(pour: a.type) ?? 0) > 0
-                }
-                .max { $0.dateFin < $1.dateFin }
-            if let seance {
-                let cle = CleParametre(parametre: .ratioSport, typeSport: seance.type.rawValue)
+            switch eligibilite.ratio {
+            case .sport(let type):
+                let cle = CleParametre(parametre: .ratioSport, typeSport: type)
                 return EvenementReglage(
-                    date: r.heure, reglage: .ratioSport(seance.type.rawValue),
+                    date: r.heure, reglage: .ratioSport(type),
                     valeur: valeur(a: r.heure, cle: cle, courante: courantes[cle], changements: changements, inconnueAvant: nil),
                     issue: issue
                 )
+            case .moment:
+                let section = SectionRepas(heure: r.heure, horaires: profil.horairesRepas)
+                let moment = moment(section: section, profil: profil)
+                let cle = CleParametre(parametre: parametre(moment))
+                return EvenementReglage(
+                    date: r.heure, reglage: .ratio(moment),
+                    valeur: valeur(
+                        a: r.heure, cle: cle, courante: courantes[cle], changements: changements,
+                        inconnueAvant: inconnueAvant(moment, profil: profil)
+                    ),
+                    issue: issue
+                )
             }
-
-            let section = SectionRepas(heure: r.heure, horaires: profil.horairesRepas)
-            let moment = moment(section: section, profil: profil)
-            let cle = CleParametre(parametre: parametre(moment))
-            return EvenementReglage(
-                date: r.heure, reglage: .ratio(moment),
-                valeur: valeur(
-                    a: r.heure, cle: cle, courante: courantes[cle], changements: changements,
-                    inconnueAvant: inconnueAvant(moment, profil: profil)
-                ),
-                issue: issue
-            )
         }
     }
 
