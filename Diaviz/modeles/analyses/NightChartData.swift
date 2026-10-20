@@ -233,6 +233,20 @@ nonisolated struct NightChartData: Identifiable, Sendable {
     var hyposNonExpliquees: Int = 0
     /// Nuit du jour métabolique en cours, pas encore terminée.
     var enCours: Bool = false
+    /// L'hypo qui tranche le verdict de la nuit (zones 3+4, ≥ 15 min, non
+    /// expliquée par l'insuline rapide active) — la plus longue. `nil` sinon.
+    var hypoRetenue: HypoRetenue? = nil
+    /// Instant du pic de la première hyper non expliquée (zones 3+4), si
+    /// c'est elle qui tranche. `nil` sinon.
+    var hyperRetenue: Date? = nil
+}
+
+/// Une hypo retenue pour le verdict d'une nuit, telle que la carte la raconte.
+nonisolated struct HypoRetenue: Sendable, Equatable {
+    let heure: Date
+    let dureeMin: Int
+    /// Un resucrage a été pris pendant l'épisode.
+    let resucree: Bool
 }
 
 extension Array where Element == NightChartData {

@@ -77,6 +77,14 @@ nonisolated struct ConfigBasale: Sendable {
     /// Durée (min) continue sous le seuil au-delà de laquelle une hypo est
     /// dite **prolongée** (ne remonte pas).
     var dureeProlongeeMin: Double = 30
+    /// Durée (min) sous le seuil à partir de laquelle un passage compte comme
+    /// un **épisode** d'hypo — consensus international CGM (Battelino 2019) :
+    /// ≥ 15 min consécutives. Un passage plus bref (un ou deux relevés juste
+    /// sous 70) reste du bruit capteur : affiché sur la courbe, jamais compté.
+    /// Sous `seuilSevere`, l'épisode compte dès le premier relevé.
+    var dureeMinEpisodeHypoMin: Double = 15
+    /// Pas des relevés CGM (min) — un épisode de k relevés couvre k × ce pas.
+    var pasCGMMin: Double = 5
     /// Nombre de dernières nuits valides qui pilotent le verdict de tendance
     /// (récence — évite qu'une alerte reste figée quand la situation s'améliore).
     var nuitsRecence: Int = 5
@@ -327,9 +335,13 @@ nonisolated enum CalculAnalyseBasale {
         // nuit, zone 4 incluse : une hypo à 4h45 reste une hypo, seule la
         // *dérive* de la zone dawn est exclue du calcul) — source unique.
         let fenetreSommeil = z2.lowerBound...z4.upperBound
+        // Seuls les vrais épisodes (≥ 15 min, ou sous le seuil sévère)
+        // comptent — dans le bilan, le verdict, les exclusions et la frise
+        // C1. Les passages brefs restent visibles sur la courbe (événements
+        // construits à part, sur le CGM brut).
         let episodes = episodesHypoDetail(
             cgmFenetre.filter { fenetreSommeil.contains($0.date) }, seuil: config.seuilHypo
-        )
+        ).filter { estEpisodeHypo($0, config: config) }
         let bilan = bilanHypos(
             episodes: episodes, resucrages: entrees.resucrages,
             finEndormissement: z2.upperBound, config: config
@@ -355,9 +367,10 @@ nonisolated enum CalculAnalyseBasale {
         // finit en hypo. Chantier 4 (28 sept.) : avant, `aHypoProfonde`
         // n'avait aucun filtre — contrairement à `aHyperProfonde` ci-dessous,
         // qui exclut déjà les hypers expliquées par un repas ou un rebond.
-        let aHypoProfonde = episodes.contains {
+        let hyposRetenues = episodes.filter {
             $0.bas > z2.upperBound && iobResiduelA($0.bas) <= config.seuilIOBResiduel
         }
+        let aHypoProfonde = !hyposRetenues.isEmpty
         // Même filtre IOB, sur toute la fenêtre de sommeil : ce que la frise
         // C1 compte comme une hypo de lente (garde-fou hypo).
         let hyposNonExpliquees = episodes.filter { iobResiduelA($0.bas) <= config.seuilIOBResiduel }.count
@@ -382,7 +395,8 @@ nonisolated enum CalculAnalyseBasale {
             }
             return parRepas || parRebond
         }
-        let aHyperProfonde = episodesHaut.contains { $0.haut > z2.upperBound && !expliquee($0.haut) }
+        let hypersRetenues = episodesHaut.filter { $0.haut > z2.upperBound && !expliquee($0.haut) }
+        let aHyperProfonde = !hypersRetenues.isEmpty
 
         // Priorité au danger bas si les deux surviennent la même nuit — même
         // hiérarchie que la taxonomie hypo (rechute > série > ... > dérive).
@@ -460,13 +474,25 @@ nonisolated enum CalculAnalyseBasale {
         }()
 
         let reveil = glycemieReveil(cgmFenetre, avant: reveilDate) ?? cgmFenetre.last?.valeur
-        let chart = construireChart(
+        var chart = construireChart(
             dateNuit: dateSoir, lente: lente, doseLente: lente.dose,
             debutGrille: debutGrille, cgm: cgmFenetre,
             zones: zonesData, events: events, statut: statut,
             slopeZone3: deriveFiable ? evalZ3.slope : nil, bilan: bilan,
             motif: motif
         )
+        // Ce qui tranche la nuit, pour la phrase de la carte verdict : la plus
+        // longue hypo retenue, sinon la première hyper non expliquée.
+        if let h = hyposRetenues.max(by: {
+            $0.fin.timeIntervalSince($0.debut) < $1.fin.timeIntervalSince($1.debut)
+        }) {
+            chart.hypoRetenue = HypoRetenue(
+                heure: h.debut,
+                dureeMin: Int((h.fin.timeIntervalSince(h.debut) / 60 + config.pasCGMMin).rounded()),
+                resucree: entrees.resucrages.contains { estDans($0.heure, episode: h, config: config) }
+            )
+        }
+        chart.hyperRetenue = hypersRetenues.first?.haut
 
         var nuit = NuitAnalysee(
             dateNuit: dateSoir, etat: etat, categorie: categorie,
@@ -1155,6 +1181,15 @@ nonisolated extension CalculAnalyseBasale {
         }
         cloturer()
         return resultat
+    }
+
+    /// Un passage sous le seuil est-il un vrai épisode d'hypo ? Oui s'il dure
+    /// au moins `dureeMinEpisodeHypoMin` (chaque relevé couvre `pasCGMMin`),
+    /// ou s'il descend sous `seuilSevere` — là on ne filtre jamais.
+    static func estEpisodeHypo(_ e: EpisodeHypo, config: ConfigBasale) -> Bool {
+        if e.valeur < config.seuilSevere { return true }
+        let dureeMin = e.fin.timeIntervalSince(e.debut) / 60 + config.pasCGMMin
+        return dureeMin >= config.dureeMinEpisodeHypoMin
     }
 
     /// Un épisode hyper contigu : bornes temporelles + point le plus haut.

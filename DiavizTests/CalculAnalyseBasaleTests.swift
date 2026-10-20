@@ -260,6 +260,42 @@ struct CalculAnalyseBasaleTests {
         #expect(analyse.hyposNocturnes == 1)
     }
 
+    @Test("Passage bref sous 70 (2 relevés) → bruit capteur : nuit stable, aucune hypo comptée")
+    func passageBrefNonCompte() {
+        // Cas type : deux relevés à 68-69 sur une nuit plate
+        // basculaient la nuit en « tendance basse » puis tout le verdict.
+        var spec = SpecNuit(decalage: 1)
+        spec.creux = [Creux(debutMinutes: 180, dureeMinutes: 5, valeur: 68)]
+        let analyse = analyser([spec], fenetre: 2)
+
+        #expect(analyse.nightChartData.first?.categorieVerdict == .stable)
+        #expect(analyse.hyposNocturnes == 0)
+        #expect(analyse.nightChartData.first?.hypoRetenue == nil)
+    }
+
+    @Test("Passage bref sous le seuil sévère (54) → compté quand même")
+    func passageBrefSevereCompte() {
+        var spec = SpecNuit(decalage: 1)
+        spec.creux = [Creux(debutMinutes: 180, dureeMinutes: 0, valeur: 50)]
+        let analyse = analyser([spec], fenetre: 2)
+
+        #expect(analyse.nightChartData.first?.categorieVerdict == .tendanceBasse)
+        #expect(analyse.hyposNocturnes == 1)
+    }
+
+    @Test("Épisode de 15 min sous 70 → hypo retenue, avec sa durée et son heure")
+    func episodeQuinzeMinutesCompte() {
+        var spec = SpecNuit(decalage: 1)
+        spec.creux = [Creux(debutMinutes: 180, dureeMinutes: 10, valeur: 65)]
+        let analyse = analyser([spec], fenetre: 2)
+        let nuit = analyse.nightChartData.first
+
+        #expect(nuit?.categorieVerdict == .tendanceBasse)
+        #expect(nuit?.hypoRetenue?.dureeMin == 15)
+        #expect(nuit?.hypoRetenue?.heure == lente(1).addingTimeInterval(180 * 60))
+        #expect(nuit?.hypoRetenue?.resucree == false)
+    }
+
     @Test("Hypo en zone 2 (endormissement) : comptée, mais ne bascule pas la nuit")
     func hypoZone2NeBasculePas() {
         var spec = SpecNuit(decalage: 1)
@@ -541,8 +577,12 @@ struct CalculAnalyseBasaleTests {
 
     @Test("Resucrage compté jusqu'à 20 min après le début de l'épisode")
     func fenetreDeResucrage() {
+        // Épisode le plus court qui compte encore (3 relevés = 15 min, règle
+        // du consensus CGM) : il finit avant les 20 min, c'est l'élargissement
+        // de la fenêtre que le test vérifie. Un creux de 2 relevés serait un
+        // simple passage bref, plus compté du tout.
         var spec = SpecNuit(decalage: 1)
-        spec.creux = [Creux(debutMinutes: 180, dureeMinutes: 5)]
+        spec.creux = [Creux(debutMinutes: 180, dureeMinutes: 10)]
 
         let dansLaFenetre = [resucrage(lente(1).addingTimeInterval(195 * 60), 15)]
         #expect(nuitUnique(spec, resucrages: dansLaFenetre)?.bilanHypos.resucrees == 1)
