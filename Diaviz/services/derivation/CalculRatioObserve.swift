@@ -17,7 +17,7 @@ import Foundation
 /// `AnalyseRatioService`, jamais représentés ici.
 nonisolated struct EntreeRatioRepas: Sendable, Equatable {
     /// Identité du repas source (`Repas.id`) — sert de graine stable pour
-    /// le jitter du graphique de dispersion (`GraphiqueZonesRatio`), pas
+    /// le jitter du graphique en gélules (`GraphiqueGelulesRatio`), pas
     /// de recalcul aléatoire à chaque rendu.
     let id: UUID
     let groupe: SectionRepas?
@@ -89,7 +89,7 @@ nonisolated struct ObservationRatioSection: Sendable, Equatable {
     let buckets: [BucketRatioObserve]
     let ecart: EcartRatioObserve?
     /// Tous les repas du groupe, **toujours peuplé** — alimente le
-    /// graphique de dispersion (`GraphiqueZonesRatio`) qui a besoin des
+    /// graphique en gélules (`GraphiqueGelulesRatio`) qui a besoin des
     /// points individuels, pas seulement des agrégats de `buckets`.
     let entrees: [EntreeRatioRepas]
 }

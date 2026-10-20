@@ -53,6 +53,7 @@ nonisolated enum CalculRepasARevoir {
         seuils: SeuilsGlycemiques = SeuilsGlycemiques(),
         occurrencesMinimales: Int = occurrencesMinimalesParDefaut,
         idsMasques: Set<UUID> = [],
+        idsPollues: Set<UUID> = [],
         maintenant: Date = Date()
     ) -> [RepasARevoir] {
         let borne = maintenant.addingTimeInterval(-Double(fenetreJours) * 86_400)
@@ -61,6 +62,11 @@ nonisolated enum CalculRepasARevoir {
         var groupes: [Set<String>: [Repas]] = [:]
         for r in recents {
             guard case .disponible = r.etatAnalyse else { continue }
+            // Mêmes exclusions que l'analyse des ratios : un repas dont la
+            // courbe ne mesure pas que lui (`CalculExclusionsFenetre`) ne
+            // compte ni comme occurrence ni comme dernier résultat. Il reste
+            // dans `tousRepas` pour la superposition des faits sur les courbes.
+            guard !idsPollues.contains(r.id) else { continue }
             groupes[signature(r), default: []].append(r)
         }
 

@@ -117,6 +117,22 @@ struct AccueilVue: View {
     /// chaque recalcul de la propriété dérivée.
     @State private var injectionsRecentes: [Injection] = []
     @State private var activitesRecentes: [ActiviteSportive] = []
+    /// Repas dont la courbe ne mesure pas que lui — exclus des récurrences
+    /// « Repas à revoir », comme de l'analyse des ratios.
+    /// Faits chargés avec les courbes ; la liste des repas y est remplacée
+    /// à chaque calcul par celle, à jour, de `repasService`.
+    @State private var faitsFenetre = FaitsFenetreRepas()
+
+    private var idsRepasPollues: Set<UUID> {
+        let tousRepas = repasService.repas
+        var faits = faitsFenetre
+        faits.repas = tousRepas.map { .init(id: $0.id, heure: $0.heure) }
+        return Set(tousRepas.filter {
+            !CalculExclusionsFenetre.raisons(
+                repasId: $0.id, heure: $0.heure, doseCorrection: $0.doseCorrection, faits: faits
+            ).isEmpty
+        }.map(\.id))
+    }
 
     /// Faits d'activité (séances + marche soutenue) — contexte partagé de
     /// charge active, lu tel quel : l'accueil n'interprète pas.
@@ -144,7 +160,8 @@ struct AccueilVue: View {
             horairesRepas: horaires,
             seuils: seuils,
             occurrencesMinimales: occurrencesMinimales,
-            idsMasques: idsMasques
+            idsMasques: idsMasques,
+            idsPollues: idsRepasPollues
         )
         let isoles = CalculRepasIsoles.analyser(
             repas: repasService.repas,
@@ -186,6 +203,9 @@ struct AccueilVue: View {
         )
         injectionsRecentes = (try? modelContext.fetch(descripteurInjections)) ?? []
         activitesRecentes = (try? modelContext.fetch(descripteurActivites)) ?? []
+        faitsFenetre = AnalyseRatioService.faitsFenetre(
+            repas: [], contexte: modelContext, activites: activitesRecentes
+        )
         Task { await ChargeActiveService.shared.actualiserSeances(contexte: modelContext) }
     }
 
@@ -498,7 +518,11 @@ struct AccueilVue: View {
                 // de ce qui est comparable, la page montre le reste tel quel.
                 PageEcartRatio(
                     sections: analyseRatioService.analyse.sections.filter { !$0.entrees.isEmpty },
-                    apercusChangementRatio: analyseRatioService.apercusChangementRatio
+                    apercusChangementRatio: analyseRatioService.apercusChangementRatio,
+                    repartitions: analyseRatioService.repartitions,
+                    sectionsCompletes: analyseRatioService.analyseComplete.sections.filter { !$0.entrees.isEmpty },
+                    repartitionsCompletes: analyseRatioService.repartitionsCompletes,
+                    analyserAvance: { analyseRatioService.analyser(raisonsIgnorees: $0, toutHistorique: $1) }
                 )
             }
             .sheet(isPresented: $sheetLenteOuverte) {
