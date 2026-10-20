@@ -212,18 +212,18 @@ private struct CasVerdict: Identifiable {
             explication: "La glycémie bouge de moins de 30 mg/dL sur la nuit profonde. Rien à signaler du côté de la basale."
         ),
         CasVerdict(
-            titre: "Descendante",
+            titre: "Tendance basse",
             icone: "arrow.down.right",
             couleur: .red,
             points: CourbeGuide.descendante,
-            explication: "La glycémie perd plus de 30 mg/dL sans que rien ne l'explique. Une nuit avec hypo bascule ici d'office, même si la courbe paraît plate : la stabilité venait alors du resucrage."
+            explication: "La glycémie perd plus de 30 mg/dL en approchant de l'hypo, sans que rien ne l'explique. Une hypo d'au moins 15 minutes suffit aussi, même si la courbe paraît plate : la stabilité venait alors du resucrage. Un passage plus bref sous 70 ne compte pas."
         ),
         CasVerdict(
-            titre: "Ascendante",
+            titre: "Tendance haute",
             icone: "arrow.up.right",
             couleur: .orange,
             points: CourbeGuide.ascendante,
-            explication: "La glycémie gagne plus de 30 mg/dL alors que la digestion est finie et qu'aucune insuline rapide n'agit encore."
+            explication: "La glycémie gagne plus de 30 mg/dL en approchant de l'hyper, alors que la digestion est finie et qu'aucune insuline rapide n'agit encore. Une hyper sans repas pour l'expliquer suffit aussi, même corrigée."
         ),
         CasVerdict(
             titre: "En amélioration",

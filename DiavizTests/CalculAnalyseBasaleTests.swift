@@ -503,6 +503,57 @@ struct CalculAnalyseBasaleTests {
         #expect(analyse.nuitsAnalysees == 1)
     }
 
+    // MARK: - Constat de la carte verdict
+
+    @Test("Constat : une hypo de 25 min tranche le verdict, la phrase le dit")
+    func constatHypoUnique() {
+        var specs = (1...5).map { SpecNuit(decalage: $0) }
+        specs[0].creux = [Creux(debutMinutes: 180, dureeMinutes: 20)]   // nuit la plus récente
+        let constat = ConstatVerdictBasale(analyse: analyser(specs, fenetre: 6))
+        let jour = ConstatVerdictBasale.jour(cal.startOfDay(for: soir(1)))
+
+        #expect(constat.verdict == "Tendance basse observée")
+        #expect(constat.raison == "Une hypo de 25 min la nuit du \(jour) suffit à ce verdict. Vos 4 autres nuits n'en montrent pas.")
+        #expect(constat.pastilles.count == 5)
+        #expect(constat.pastilles.last?.etat == .hypo)
+        #expect(constat.pastilles.last?.detail == "Hypo de 25 min à 01h30, remontée sans resucrage.")
+        #expect(constat.pastilles.dropLast().allSatisfy { $0.etat == .concluante })
+        #expect(!constat.pastilles.contains { $0.sautAvant })
+    }
+
+    @Test("Constat : un saut de dates entre deux nuits retenues est signalé")
+    func constatSautDeDates() {
+        let specs = [1, 3, 4].map { SpecNuit(decalage: $0) }
+        let constat = ConstatVerdictBasale(analyse: analyser(specs, fenetre: 5))
+
+        #expect(constat.verdict == "Stable")
+        #expect(constat.raison == "Vos 3 dernières nuits sont concluantes, sans hypo.")
+        #expect(constat.pastilles.map(\.sautAvant) == [false, false, true])
+    }
+
+    @Test("Constat : peu de nuits → pas de verdict, places à venir")
+    func constatPeuDeNuits() {
+        let specs = [1, 2].map { SpecNuit(decalage: $0) }
+        let constat = ConstatVerdictBasale(analyse: analyser(specs, fenetre: 3))
+
+        #expect(constat.verdict == "Pas encore de verdict")
+        #expect(constat.raison == "2 nuits exploitables sur les 3 nécessaires.")
+        #expect(constat.pastilles.map(\.etat) == [.concluante, .concluante, .aVenir])
+        #expect(constat.pastilles.last?.detail == "Encore 1 nuit exploitable avant un verdict.")
+    }
+
+    @Test("Constat : juste après un changement de dose → dose en observation")
+    func constatChangementDeDose() {
+        var specs = (1...3).map { SpecNuit(decalage: $0) }
+        specs[0].dose = 20   // nuit la plus récente, nouvelle dose
+        let constat = ConstatVerdictBasale(analyse: analyser(specs, fenetre: 4))
+        let jour = ConstatVerdictBasale.jour(lente(1))
+
+        #expect(constat.verdict == "Nouvelle dose en observation")
+        #expect(constat.raison == "Lente passée de 18 à 20 u le \(jour). Verdict après 3 nuits exploitables.")
+        #expect(constat.pastilles.map(\.etat) == [.concluante, .aVenir, .aVenir])
+    }
+
     // MARK: - Taxonomie des hypos
 
     @Test("Épisode court isolé → hypo simple, remontée spontanée")

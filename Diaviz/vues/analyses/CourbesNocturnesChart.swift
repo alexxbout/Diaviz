@@ -1148,7 +1148,7 @@ private struct CarteVerdictNuit: View {
         }
 
         if aSignalHypo {
-            blocRetenues(libelle: "tendance basse", couleur: .red)
+            blocRetenues(libelle: "hypo", couleur: .red)
         } else {
             blocRetenues(libelle: libelle(categorie).lowercased(), couleur: couleur(categorie))
         }
@@ -1179,7 +1179,7 @@ private struct CarteVerdictNuit: View {
             .fixedSize(horizontal: false, vertical: true)
             .padding(.bottom, 14)
 
-        blocRetenues(libelle: aSignalHypo ? "tendance basse" : libelle(categorie).lowercased(),
+        blocRetenues(libelle: aSignalHypo ? "hypo" : libelle(categorie).lowercased(),
                      couleur: aSignalHypo ? .red : couleur(categorie))
     }
 
@@ -1385,7 +1385,7 @@ private struct CarteVerdictNuit: View {
     private func segment(_ n: NightChartData?) -> some View {
         let estCourante = n?.id == nuit.id
         return Capsule()
-            .fill(n?.categorieVerdict.map(couleur) ?? Color(.systemFill))
+            .fill(n.flatMap(couleurNuit) ?? Color(.systemFill))
             .frame(height: 9)
             .frame(maxWidth: .infinity)
             .overlay {
@@ -1476,15 +1476,23 @@ private struct CarteVerdictNuit: View {
         switch c {
         case .stable:        return .green
         case .tendanceHaute: return .orange
-        case .tendanceBasse: return .red
+        case .tendanceBasse: return .orange
         }
     }
 
+    /// Couleur d'une nuit dans les segments : rouge si une hypo la tranche,
+    /// sinon celle de sa catégorie — même codage que la frise de la carte verdict.
+    private func couleurNuit(_ n: NightChartData) -> Color? {
+        if n.hypoRetenue != nil || (n.categorieVerdict == .tendanceBasse && n.bilanHypos.rechutes > 0) { return .red }
+        return n.categorieVerdict.map(couleur)
+    }
+
+    /// Vocabulaire commun à la frise C1 et à la carte verdict.
     private func libelle(_ c: CategorieNuit) -> String {
         switch c {
-        case .stable:        return "Stable"
-        case .tendanceHaute: return "Ascendante"
-        case .tendanceBasse: return "Descendante"
+        case .stable:        return "Concluante"
+        case .tendanceHaute: return "Dérive"
+        case .tendanceBasse: return "Dérive"
         }
     }
 

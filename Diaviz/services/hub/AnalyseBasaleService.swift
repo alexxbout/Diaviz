@@ -190,26 +190,25 @@ final class AnalyseBasaleService {
     var insightNouvelleTendance: Insight? {
         guard analyse.verdict != .donneesInsuffisantes else { return nil }
 
+        // Même phrase de verdict que la carte de la page d'analyse : jamais un
+        // nombre de nuits seul (« 6 nuits ↘ » se lisait « 6 nuits
+        // descendantes »), jamais une interprétation de dose.
+        let message = ConstatVerdictBasale(analyse: analyse).verdict
         let categorie: CategorieInsight
-        let message: String
         let microVisuel: MicroVisuelType
         if analyse.enAmelioration {
             categorie = .positif
-            message = "Amélioration observée sur les dernières nuits"
             microVisuel = .grandeIcone(systemName: "arrow.up.forward.circle.fill")
         } else {
             switch analyse.verdict {
             case .tropHaute:
                 categorie = .attention
-                message = "Basale potentiellement trop élevée"
-                microVisuel = .grandNombreAvecFleche(valeur: "\(analyse.nuitsAnalysees) nuits", direction: "arrow.down.right")
+                microVisuel = .grandeIcone(systemName: "arrow.down.right.circle.fill")
             case .tropBasse:
                 categorie = .attention
-                message = "Basale potentiellement trop faible"
-                microVisuel = .grandNombreAvecFleche(valeur: "\(analyse.nuitsAnalysees) nuits", direction: "arrow.up.right")
+                microVisuel = .grandeIcone(systemName: "arrow.up.right.circle.fill")
             case .adaptee:
                 categorie = .positif
-                message = "Basale stable sur la période"
                 microVisuel = .grandeIcone(systemName: "checkmark.circle.fill")
             case .donneesInsuffisantes:
                 return nil

@@ -705,7 +705,9 @@ struct SheetDetailSoiree: View {
                     Image(systemName: symboleCategorie(categorie))
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(couleurCategorie(categorie))
-                    Text("\(libelleCategorie(categorie)) — dérive non mesurable, événement détecté")
+                    Text(categorie == .tendanceHaute
+                         ? "Hyper en nuit profonde, dérive non mesurable"
+                         : "Hypo en nuit profonde, dérive non mesurable")
                         .font(.footnote)
                 case let .exclue(motif):
                     Image(systemName: "circle.dashed")
@@ -748,9 +750,9 @@ struct SheetDetailSoiree: View {
 
     private func libelleCategorie(_ categorie: CategorieNuit) -> String {
         switch categorie {
-        case .stable:         return "stable"
-        case .tendanceBasse:  return "descendante"
-        case .tendanceHaute:  return "ascendante"
+        case .stable:         return "concluante"
+        case .tendanceBasse:  return "dérive"
+        case .tendanceHaute:  return "dérive"
         }
     }
 

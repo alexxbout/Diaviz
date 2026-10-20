@@ -57,8 +57,8 @@ extension Insight {
         id: UUID(),
         categorie: .attention,
         titre: "Tendance nocturne",
-        message: "Basale potentiellement trop élevée",
-        microVisuel: .grandNombreAvecFleche(valeur: "3 nuits", direction: "arrow.down.right"),
+        message: "Tendance basse observée",
+        microVisuel: .grandeIcone(systemName: "arrow.down.right.circle.fill"),
         lienAnalyse: "tendance-nocturne"
     )
 }
