@@ -782,7 +782,7 @@ struct FeuilleCriteresEpisodes: View {
                     TitreSectionEpisode(texte: "Concluant, c'est")
                     ListeEpisode {
                         LigneEpisode(titre: "Une nuit", sousTitre: "Nuit profonde stable, aucune hypo.")
-                        LigneEpisode(titre: "Un repas", sousTitre: "Aucune hypo, pic sous 180 ou vite revenu.")
+                        LigneEpisode(titre: "Un repas", sousTitre: "Aucune hypo, pic sous \(Int(ProfilService.shared.profil.seuilsGlycemiques.hyperglycemie)) ou vite revenu.")
                         LigneEpisode(titre: "Non compté", sousTitre: "Repas revenu lentement en cible, nuit ou repas non analysable.")
                     }
 
@@ -792,6 +792,9 @@ struct FeuilleCriteresEpisodes: View {
                         seuil("Ratio de repas", .ratioRepas, "derniers repas")
                         seuil("Ratio sport, par type", .ratioSport, "derniers repas")
                     }
+                    // B1 et C1 jugent la même dose avec des seuils différents,
+                    // volontairement (C1 § 7, « Lente — une nuit »).
+                    SousTitreSectionEpisode(texte: "La tendance basale juge la même dose dès \(ConstatVerdictBasale.nuitsMinimales) nuits pour suivre vos nuits au jour le jour ; ici, la dose doit faire ses preuves dans l'épisode de charge en cours, d'où plus de nuits.")
 
                     TitreSectionEpisode(texte: "Toujours")
                     ListeEpisode {
