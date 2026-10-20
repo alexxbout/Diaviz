@@ -30,6 +30,12 @@ struct PageCorrelationChargeGlycemie: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
+                EnTeteAnalyse(
+                    surtitre: "Sport",
+                    titre: "Charge et glycémie",
+                    accroche: "Ce qui marchait pour vous les fois précédentes, à charge d'activité comparable.",
+                    ambiance: .chargeActivite
+                )
                 TitreSectionEpisode(texte: "En ce moment")
                 CarteEpisodeEnCours(episode: episodes?.enCours, precedent: episodes?.precedent, charge: chargeActive)
                 TitreSectionEpisode(texte: "Chronologie")

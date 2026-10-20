@@ -137,9 +137,10 @@ struct TitreSectionEpisode: View {
     let texte: String
     var body: some View {
         Text(texte)
-            .font(.title2.bold())
+            .font(.title3.bold())
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 10)
+            .padding(.top, 12)
+            .padding(.horizontal, 4)
             .accessibilityAddTraits(.isHeader)
     }
 }
