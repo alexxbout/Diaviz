@@ -190,31 +190,35 @@ final class AnalyseBasaleService {
     var insightNouvelleTendance: Insight? {
         guard analyse.verdict != .donneesInsuffisantes else { return nil }
 
+        // Même verdict que la carte de la page d'analyse, écrit à côté de son
+        // icône : jamais un nombre
+        // de nuits seul (« 6 nuits ↘ » se lisait « 6 nuits descendantes »),
+        // jamais une interprétation de dose.
+        let constat = ConstatVerdictBasale(analyse: analyse)
+        // Pas de phrase dessous : la conclusion à côté de l'icône suffit,
+        // l'explication vit sur la page d'analyse.
+        let message = ""
         let categorie: CategorieInsight
-        let message: String
-        let microVisuel: MicroVisuelType
+        let icone: String
         if analyse.enAmelioration {
             categorie = .positif
-            message = "Amélioration observée sur les dernières nuits"
-            microVisuel = .grandeIcone(systemName: "arrow.up.forward.circle.fill")
+            icone = "arrow.up.forward.circle.fill"
         } else {
             switch analyse.verdict {
             case .tropHaute:
                 categorie = .attention
-                message = "Basale potentiellement trop élevée"
-                microVisuel = .grandNombreAvecFleche(valeur: "\(analyse.nuitsAnalysees) nuits", direction: "arrow.down.right")
+                icone = "arrow.down.right.circle.fill"
             case .tropBasse:
                 categorie = .attention
-                message = "Basale potentiellement trop faible"
-                microVisuel = .grandNombreAvecFleche(valeur: "\(analyse.nuitsAnalysees) nuits", direction: "arrow.up.right")
+                icone = "arrow.up.right.circle.fill"
             case .adaptee:
                 categorie = .positif
-                message = "Basale stable sur la période"
-                microVisuel = .grandeIcone(systemName: "checkmark.circle.fill")
+                icone = "checkmark.circle.fill"
             case .donneesInsuffisantes:
                 return nil
             }
         }
+        let microVisuel = MicroVisuelType.iconeEtTexte(systemName: icone, texte: constat.verdict)
 
         return Insight(
             id: Self.idDeterministe(signatureVerdict),

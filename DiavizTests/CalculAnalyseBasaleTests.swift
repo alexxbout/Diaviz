@@ -260,6 +260,42 @@ struct CalculAnalyseBasaleTests {
         #expect(analyse.hyposNocturnes == 1)
     }
 
+    @Test("Passage bref sous 70 (2 relevés) → bruit capteur : nuit stable, aucune hypo comptée")
+    func passageBrefNonCompte() {
+        // Cas type : deux relevés à 68-69 sur une nuit plate
+        // basculaient la nuit en « tendance basse » puis tout le verdict.
+        var spec = SpecNuit(decalage: 1)
+        spec.creux = [Creux(debutMinutes: 180, dureeMinutes: 5, valeur: 68)]
+        let analyse = analyser([spec], fenetre: 2)
+
+        #expect(analyse.nightChartData.first?.categorieVerdict == .stable)
+        #expect(analyse.hyposNocturnes == 0)
+        #expect(analyse.nightChartData.first?.hypoRetenue == nil)
+    }
+
+    @Test("Passage bref sous le seuil sévère (54) → compté quand même")
+    func passageBrefSevereCompte() {
+        var spec = SpecNuit(decalage: 1)
+        spec.creux = [Creux(debutMinutes: 180, dureeMinutes: 0, valeur: 50)]
+        let analyse = analyser([spec], fenetre: 2)
+
+        #expect(analyse.nightChartData.first?.categorieVerdict == .tendanceBasse)
+        #expect(analyse.hyposNocturnes == 1)
+    }
+
+    @Test("Épisode de 15 min sous 70 → hypo retenue, avec sa durée et son heure")
+    func episodeQuinzeMinutesCompte() {
+        var spec = SpecNuit(decalage: 1)
+        spec.creux = [Creux(debutMinutes: 180, dureeMinutes: 10, valeur: 65)]
+        let analyse = analyser([spec], fenetre: 2)
+        let nuit = analyse.nightChartData.first
+
+        #expect(nuit?.categorieVerdict == .tendanceBasse)
+        #expect(nuit?.hypoRetenue?.dureeMin == 15)
+        #expect(nuit?.hypoRetenue?.heure == lente(1).addingTimeInterval(180 * 60))
+        #expect(nuit?.hypoRetenue?.resucree == false)
+    }
+
     @Test("Hypo en zone 2 (endormissement) : comptée, mais ne bascule pas la nuit")
     func hypoZone2NeBasculePas() {
         var spec = SpecNuit(decalage: 1)
@@ -467,6 +503,58 @@ struct CalculAnalyseBasaleTests {
         #expect(analyse.nuitsAnalysees == 1)
     }
 
+    // MARK: - Constat de la carte verdict
+
+    @Test("Constat : une hypo de 25 min tranche le verdict, la phrase le dit")
+    func constatHypoUnique() {
+        var specs = (1...5).map { SpecNuit(decalage: $0) }
+        specs[0].creux = [Creux(debutMinutes: 180, dureeMinutes: 20)]   // nuit la plus récente
+        let constat = ConstatVerdictBasale(analyse: analyser(specs, fenetre: 6))
+        let jour = ConstatVerdictBasale.jour(cal.startOfDay(for: soir(1)))
+
+        #expect(constat.verdict == "Tendance basse observée")
+        #expect(constat.raison == "Une hypo de 25 min la nuit du \(jour) suffit à ce verdict. Vos 4 autres nuits n'en montrent pas.")
+        #expect(constat.pastilles.count == 5)
+        #expect(constat.pastilles.last?.etat == .hypo)
+        #expect(constat.pastilles.last?.detail == "Hypo de 25 min à 01h30, remontée sans resucrage.")
+        #expect(constat.pastilles.dropLast().allSatisfy { $0.etat == .concluante })
+        #expect(!constat.pastilles.contains { $0.sautAvant })
+    }
+
+    @Test("Constat : un saut de dates entre deux nuits retenues est signalé")
+    func constatSautDeDates() {
+        let specs = [1, 3, 4].map { SpecNuit(decalage: $0) }
+        let constat = ConstatVerdictBasale(analyse: analyser(specs, fenetre: 5))
+
+        #expect(constat.verdict == "Stable")
+        #expect(constat.raison == "Vos 3 dernières nuits sont concluantes, sans hypo.")
+        #expect(constat.pastilles.map(\.sautAvant) == [false, false, true])
+    }
+
+    @Test("Constat : peu de nuits → pas de verdict, places à venir")
+    func constatPeuDeNuits() {
+        let specs = [1, 2].map { SpecNuit(decalage: $0) }
+        let constat = ConstatVerdictBasale(analyse: analyser(specs, fenetre: 3))
+
+        #expect(constat.verdict == "Pas encore de verdict")
+        #expect(constat.raison == "2 nuits exploitables sur les 3 nécessaires.")
+        #expect(constat.pastilles.map(\.etat) == [.concluante, .concluante, .aVenir])
+        #expect(constat.pastilles.last?.detail == "Encore 1 nuit avant un verdict.")
+    }
+
+    @Test("Constat : juste après un changement de dose → dose en observation")
+    func constatChangementDeDose() {
+        var specs = (1...3).map { SpecNuit(decalage: $0) }
+        specs[0].dose = 20   // nuit la plus récente, nouvelle dose
+        let constat = ConstatVerdictBasale(analyse: analyser(specs, fenetre: 4))
+        let jour = ConstatVerdictBasale.jour(lente(1))
+
+        #expect(constat.verdict == "Nouvelle dose en observation")
+        #expect(constat.raison == "Lente passée de 18 à 20 u le \(jour). Les 2 premières nuits sont en observation, puis 3 nuits exploitables donnent un verdict.")
+        // 1 nuit d'observation faite, 1 restante + 3 exploitables à venir.
+        #expect(constat.pastilles.map(\.etat) == [.observation, .aVenir, .aVenir, .aVenir, .aVenir])
+    }
+
     // MARK: - Taxonomie des hypos
 
     @Test("Épisode court isolé → hypo simple, remontée spontanée")
@@ -541,8 +629,12 @@ struct CalculAnalyseBasaleTests {
 
     @Test("Resucrage compté jusqu'à 20 min après le début de l'épisode")
     func fenetreDeResucrage() {
+        // Épisode le plus court qui compte encore (3 relevés = 15 min, règle
+        // du consensus CGM) : il finit avant les 20 min, c'est l'élargissement
+        // de la fenêtre que le test vérifie. Un creux de 2 relevés serait un
+        // simple passage bref, plus compté du tout.
         var spec = SpecNuit(decalage: 1)
-        spec.creux = [Creux(debutMinutes: 180, dureeMinutes: 5)]
+        spec.creux = [Creux(debutMinutes: 180, dureeMinutes: 10)]
 
         let dansLaFenetre = [resucrage(lente(1).addingTimeInterval(195 * 60), 15)]
         #expect(nuitUnique(spec, resucrages: dansLaFenetre)?.bilanHypos.resucrees == 1)
@@ -579,9 +671,11 @@ struct CalculAnalyseBasaleTests {
         #expect(analyse.doseActuelle == 18)
         #expect(analyse.changementDoseRecent != nil)
         #expect(analyse.doseHistoriqueReel?.count == 2)
-        // Seules les nuits depuis le changement entrent dans les compteurs ;
-        // les 4 nuits antérieures de la fenêtre sont marquées.
-        #expect(analyse.nuitsAnalysees == 3)
+        // Seules les nuits depuis le changement entrent dans les compteurs, et
+        // les 2 premières sont en observation (même règle que la lente C1) :
+        // il n'en reste qu'une. Les 4 nuits antérieures sont marquées.
+        #expect(analyse.nuitsAnalysees == 1)
+        #expect(analyse.nightChartData.filter(\.enObservation).count == 2)
         #expect(analyse.timeline.filter(\.avantChangementDose).count == 4)
     }
 

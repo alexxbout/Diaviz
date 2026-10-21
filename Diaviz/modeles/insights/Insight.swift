@@ -89,6 +89,9 @@ enum MicroVisuelType: Sendable {
     /// donnée exploitable. Les jours au-dessus du seuil prennent la couleur
     /// de la catégorie, les autres restent neutres.
     case grandNombreEtJours(valeur: String, jours: [Double?], seuil: Double)
+    /// Icône SF Symbol + conclusion en toutes lettres, côte à côte, à la
+    /// couleur de la catégorie — quand la donnée clé est un verdict (« Stable »).
+    case iconeEtTexte(systemName: String, texte: String)
     /// Courbe glycémique, entre les lignes d'hypo et d'hyper du profil.
     /// Aucun texte autour : le repère (repas, séance) et le pic suffisent.
     case courbe(CourbeInsight)
