@@ -24,6 +24,10 @@ nonisolated struct ApercuChangementRatio: Sendable, Equatable {
     let dateChangement: Date
     let effectifDepuis: Int
     let comparaison: ComparaisonChangementRatio?
+    /// Heure du repas qui a rendu la comparaison calculable (le
+    /// `effectifMinimalComparaison`-ième depuis le changement). `nil` tant
+    /// qu'elle ne l'est pas. Sert de date à la carte d'accueil.
+    var dateComparaisonDisponible: Date? = nil
 }
 
 /// Ventilation des repas d'un moment de la journée entre ce qui alimente
@@ -373,11 +377,13 @@ final class AnalyseRatioService {
         var resultat: [SectionRepas?: ApercuChangementRatio] = [:]
         for (groupe, entrees) in entreesParGroupe {
             guard let date = dateChangementEffective(groupe: groupe, profil: profil) else { continue }
-            let effectifDepuis = entrees.filter { $0.heure >= date }.count
+            let depuis = entrees.filter { $0.heure >= date }.sorted { $0.heure < $1.heure }
+            let minimum = CalculDoseRatioChangement.effectifMinimalComparaison
             resultat[groupe] = ApercuChangementRatio(
                 dateChangement: date,
-                effectifDepuis: effectifDepuis,
-                comparaison: CalculDoseRatioChangement.comparer(entrees: entrees, dateChangement: date)
+                effectifDepuis: depuis.count,
+                comparaison: CalculDoseRatioChangement.comparer(entrees: entrees, dateChangement: date),
+                dateComparaisonDisponible: depuis.count >= minimum ? depuis[minimum - 1].heure : nil
             )
         }
         return resultat
@@ -495,7 +501,8 @@ final class AnalyseRatioService {
             message: "Vos repas à \(ecart.trancheOptimale.libelle) ont \(optimal) % de bons résultats, "
                 + "contre \(configure) % à votre ratio actuel.",
             microVisuel: .grandNombre(valeur: "\(optimal) %"),
-            lienAnalyse: nil
+            lienAnalyse: nil,
+            destination: .ecartRatio
         )
     }
 

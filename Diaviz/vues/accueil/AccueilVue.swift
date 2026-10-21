@@ -71,6 +71,27 @@ struct AccueilVue: View {
     /// carte de tendance nocturne.
     @State private var afficherDetailBasale = false
 
+    /// Activités Apple Santé en attente d'import — carte « Activité à importer ».
+    @Environment(HealthKitImportService.self) private var importService
+
+    /// Épisodes de charge (C1) — carte « Nouvel épisode de charge ». Instance
+    /// partagée avec l'onglet Analyses.
+    @Environment(CorrelationChargeTIRService.self) private var correlationChargeService
+
+    /// Séances du hub — courbe d'une séance et import. Instance propre à cette
+    /// vue, comme les autres services d'accueil.
+    @State private var activitesService = ActivitesSportService()
+
+    /// Cartes « réponse de la séance » : leur courbe vient d'une lecture du
+    /// hub, calculée au chargement de la page et non à chaque rendu.
+    @State private var insightsSeances: [Insight] = []
+
+    /// Destinations des cartes d'événement.
+    @State private var repasOuvert: Repas?
+    @State private var activiteOuverte: ActiviteSportive?
+    @State private var afficherImportSport = false
+    @State private var afficherChargeEtGlycemie = false
+
     /// Tendance hebdomadaire de glucides — alimente `CarteGlucidesSemaine`.
     @Environment(GlucidesHebdoService.self) private var glucidesHebdoService
 
@@ -93,22 +114,92 @@ struct AccueilVue: View {
     /// points d'entrée (carte insight R1 et `CarteAnalyseRatio`), même sheet.
     @State private var afficherDetailEcartRatio = false
 
-    /// Pile affichée : uniquement des observations **réelles** (temps sous
-    /// 70 mg/dL, B1 basale, R1 écart de ratio), moins celles déjà supprimées
-    /// par l'utilisateur. L'alerte temps sous 70 passe **toujours en premier**.
+    /// Pile affichée : uniquement des observations **réelles**, moins celles
+    /// déjà supprimées par l'utilisateur, sans plafond. Ordre :
+    /// 1. l'alerte temps sous 70 mg/dL, toujours en premier ;
+    /// 2. les événements (réponse d'un repas ou d'une séance, activité à
+    ///    importer, épisode de charge, repas à revoir, données de ratio), du
+    ///    plus récent au plus ancien — chacun a une durée de vie
+    ///    (`CalculInsightsEvenements`) ;
+    /// 3. les cartes d'état (tendance nocturne, écart de ratio).
     ///
     /// Les insights mockés (`InsightsAccueilServiceMock`) ne sont
     /// volontairement plus branchés ici — voir de vraies fausses données sur
-    /// un écran de suivi de santé était trompeur. Le fichier reste en place
-    /// (mocks réutilisables pour des previews/tests futurs), simplement plus
-    /// lu par l'accueil réel.
+    /// un écran de suivi de santé était trompeur.
     private var insightsAffiches: [Insight] {
-        let reels = [
-            scoreService.insightTempsSousSeuil,
+        let etats = [
             analyseBasaleService.insightNouvelleTendance,
             analyseRatioService.insightEcartDetecte,
         ].compactMap { $0 }
-        return reels.filter { !idsInsightsSupprimes.contains($0.id) }
+        return CalculInsightsEvenements.ordonner(
+            alerte: scoreService.insightTempsSousSeuil,
+            evenements: insightsEvenements(maintenant: Date()),
+            etats: etats
+        ).filter { !idsInsightsSupprimes.contains($0.id) }
+    }
+
+    /// Événements du moment. Chaque carte n'existe que dans sa durée de vie.
+    private func insightsEvenements(maintenant: Date) -> [Insight] {
+        let seuils = ProfilService.shared.profil.seuilsGlycemiques
+        var cartes: [Insight] = []
+
+        for repas in repasService.repas where maintenant.timeIntervalSince(repas.heure) < 36 * 3600 {
+            guard case .disponible(let reponse)? = repas.etatAnalyse,
+                  let carte = CalculInsightsEvenements.reponseRepas(
+                      id: repas.id, heure: repas.heure, reponse: reponse, seuils: seuils, maintenant: maintenant
+                  ) else { continue }
+            cartes.append(carte)
+        }
+        cartes += insightsSeances
+
+        let candidats = importService.workoutsEnAttente.map {
+            CalculInsightsEvenements.CandidatImport(
+                id: $0.id, libelleType: $0.typeSport.rawValue, icone: $0.typeSport.icone,
+                debut: $0.dateDebut, fin: $0.dateDebut.addingTimeInterval(Double($0.dureeMinutes) * 60)
+            )
+        }
+        cartes += [CalculInsightsEvenements.activitesAImporter(candidats)].compactMap { $0 }
+
+        cartes += [CalculInsightsEvenements.nouveauxRepasARevoir(
+            repasARevoir.map { .init(idRepasSource: $0.idRepasSource, heure: $0.heureDerniereOccurrence) },
+            maintenant: maintenant
+        )].compactMap { $0 }
+
+        cartes += CalculInsightsEvenements.donneesRatio(
+            analyseRatioService.apercusChangementRatio, maintenant: maintenant
+        )
+        cartes += [CalculInsightsEvenements.episodeCharge(correlationChargeService.episodes)].compactMap { $0 }
+        return cartes
+    }
+
+    /// Recalcule les cartes de séance (une lecture du hub par séance récente).
+    private func rafraichirInsightsSeances() {
+        let maintenant = Date()
+        let seuils = ProfilService.shared.profil.seuilsGlycemiques
+        insightsSeances = activitesRecentes
+            .filter { maintenant.timeIntervalSince($0.dateFin) < 36 * 3600 }
+            .compactMap { activite in
+                guard let reponse = activitesService.reponse(pour: activite) else { return nil }
+                return CalculInsightsEvenements.reponseSeance(
+                    id: activite.id, libelleType: activite.type.rawValue,
+                    debut: activite.dateDebut, fin: activite.dateFin, dureeMinutes: activite.dureeMinutes,
+                    reponse: reponse, seuils: seuils, maintenant: maintenant
+                )
+            }
+    }
+
+    /// Ouvre la destination d'une carte de la pile.
+    private func ouvrir(_ destination: DestinationInsight?) {
+        switch destination {
+        case .basale:            afficherDetailBasale = true
+        case .ecartRatio:        afficherDetailEcartRatio = true
+        case .detailRepas(let id): repasOuvert = repasService.repas.first { $0.id == id }
+        case .detailSeance(let id): activiteOuverte = activitesRecentes.first { $0.id == id }
+        case .importSport:       afficherImportSport = true
+        case .repasARevoir:      afficherTousRepasARevoir = true
+        case .chargeEtGlycemie:  afficherChargeEtGlycemie = true
+        case nil:                break
+        }
     }
 
     /// Injections et activités du hub — servent uniquement à superposer les
@@ -207,6 +298,7 @@ struct AccueilVue: View {
             repas: [], contexte: modelContext, activites: activitesRecentes
         )
         Task { await ChargeActiveService.shared.actualiserSeances(contexte: modelContext) }
+        rafraichirInsightsSeances()
     }
 
     /// Contexte de la carte « Insuline lente » — **réel**, construit depuis la
@@ -278,16 +370,9 @@ struct AccueilVue: View {
                         SectionInsights(
                             insights: insightsAffiches,
                             onDemandeSuppression: { insightASupprimer = $0 },
-                            onTap: { insight in
-                                // Tendance nocturne → page « Analyse du
-                                // coucher » ; écart de ratio → sa page. L'alerte
-                                // temps sous 70 n'a pas de destination.
-                                if insight.id == analyseBasaleService.insightNouvelleTendance?.id {
-                                    afficherDetailBasale = true
-                                } else if insight.id == analyseRatioService.insightEcartDetecte?.id {
-                                    afficherDetailEcartRatio = true
-                                }
-                            }
+                            // Chaque carte porte sa destination ; l'alerte
+                            // temps sous 70 n'en a pas.
+                            onTap: { ouvrir($0.destination) }
                         )
 
                         // Score du jour, rappel lente, resucrage, charge
@@ -464,6 +549,47 @@ struct AccueilVue: View {
                 // derniers jours de glycémies pour le calcul du score.
                 scoreService.demarrer(contexte: modelContext)
             }
+            .task {
+                // Épisodes de charge pour la pile d'insights : calculés une
+                // seule fois ici, l'onglet Analyses les rafraîchit ensuite.
+                await ChargeActiveService.shared.recalculerSiNecessaire(contexte: modelContext)
+                if correlationChargeService.episodes == nil {
+                    await correlationChargeService.recalculer(contexte: modelContext)
+                }
+            }
+            .navigationDestination(item: $repasOuvert) { repas in
+                DetailRepasVue(
+                    repas: repas,
+                    titreSection: SectionRepas(
+                        heure: repas.heure, horaires: ProfilService.shared.profil.horairesRepas
+                    ).titre,
+                    onSupprimer: { repasService.supprimer(repas) }
+                )
+            }
+            .navigationDestination(item: $activiteOuverte) { activite in
+                DetailActiviteVue(
+                    activite: activite,
+                    reponse: activitesService.reponse(pour: activite),
+                    onEnregistrer: { activitesService.enregistrer($0) },
+                    onSupprimer: { activitesService.supprimer(activite) },
+                    evenements: activitesService.evenements(pour: activite)
+                )
+            }
+            .navigationDestination(isPresented: $afficherChargeEtGlycemie) {
+                PageCorrelationChargeGlycemie(
+                    synthese: correlationChargeService.synthese ?? .vide,
+                    chargeActive: chargeActive.synthese,
+                    episodes: correlationChargeService.episodes
+                )
+            }
+            .sheet(isPresented: $afficherImportSport) {
+                SheetImportAppleHealth(
+                    service: importService,
+                    onImporter: { activitesService.enregistrer($0, notifier: false) }
+                )
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+            }
             .navigationDestination(item: $jourDetailScore) { jour in
                 DetailScoreVue(jourInitial: jour)
             }
@@ -550,6 +676,7 @@ struct AccueilVue: View {
                 iobService.demarrer(contexte: modelContext)
                 metriquesService.demarrer(contexte: modelContext)
                 resucragesService.demarrer(contexte: modelContext)
+                activitesService.demarrer(contexte: modelContext)
                 contexteLente = construireContexteLente()
                 chargerFaitsPourCourbes()
             }
@@ -649,6 +776,8 @@ struct AccueilVue: View {
         .environment(AnalyseBasaleService())
         .environment(RepasService.apercu())
         .environment(AnalyseRatioService())
+        .environment(HealthKitImportService.mockVide())
+        .environment(CorrelationChargeTIRService())
         .environment(GlucidesHebdoService.apercu())
         .modelContainer(ScoreService.conteneurApercu())
 }
@@ -660,6 +789,8 @@ struct AccueilVue: View {
         .environment(AnalyseBasaleService())
         .environment(RepasService.apercu())
         .environment(AnalyseRatioService())
+        .environment(HealthKitImportService.mockVide())
+        .environment(CorrelationChargeTIRService())
         .environment(GlucidesHebdoService.apercu())
         .modelContainer(ScoreService.conteneurApercu())
 }
@@ -672,6 +803,8 @@ struct AccueilVue: View {
         .environment(AnalyseBasaleService())
         .environment(RepasService())
         .environment(AnalyseRatioService())
+        .environment(HealthKitImportService.mockVide())
+        .environment(CorrelationChargeTIRService())
         .environment(GlucidesHebdoService.apercu(synthese: nil, joursAvecRepasCetteSemaine: 0))
         .modelContainer(ScoreService.conteneurApercu())
 }
@@ -684,6 +817,8 @@ struct AccueilVue: View {
         .environment(AnalyseBasaleService())
         .environment(RepasService())
         .environment(AnalyseRatioService())
+        .environment(HealthKitImportService.mockVide())
+        .environment(CorrelationChargeTIRService())
         .environment(GlucidesHebdoService.apercu(synthese: nil, joursAvecRepasCetteSemaine: 2))
         .modelContainer(ScoreService.conteneurApercu())
 }

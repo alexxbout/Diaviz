@@ -246,6 +246,14 @@ nonisolated enum CalculEpisodesCharge {
     static let joursMinimumNiveauGlycemie = 3
     static let joursMinimumResucrages = 7
 
+    /// Épisode ouvert depuis moins de `joursNouvelEpisode` jours, après un
+    /// autre. Règle unique : badge de la page « Charge et glycémie » et carte
+    /// d'accueil.
+    static func estNouvelEpisode(_ episode: EpisodeCharge?, precedent: EpisodeCharge?) -> Bool {
+        guard let episode, precedent != nil else { return false }
+        return episode.faits.jours <= joursNouvelEpisode
+    }
+
     static func analyser(
         charge: ContexteChargeActive,
         evenements: [EvenementReglage],

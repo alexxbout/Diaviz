@@ -275,8 +275,7 @@ struct CarteEpisodeEnCours: View {
     /// Épisode ouvert depuis moins de `joursNouvelEpisode` jours, après un
     /// autre — badge « Nouvel épisode » à côté du titre de section.
     static func estNouveau(_ episode: EpisodeCharge?, precedent: EpisodeCharge?) -> Bool {
-        guard let episode, precedent != nil else { return false }
-        return episode.faits.jours <= CalculEpisodesCharge.joursNouvelEpisode
+        CalculEpisodesCharge.estNouvelEpisode(episode, precedent: precedent)
     }
 
     private var estNouveau: Bool { Self.estNouveau(episode, precedent: precedent) }

@@ -93,6 +93,10 @@ struct MicroVisuelInsight: View {
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(valeur)
                 .accessibilityValue(Self.descriptionJours(jours, seuil: seuil))
+
+            // MARK: Courbe glycémique — réponse d'un repas ou d'une séance
+            case .courbe(let courbe):
+                CourbeInsightVue(courbe: courbe, couleur: couleur)
             }
         }
         // Centrage horizontal de la donnée clé dans la carte — le

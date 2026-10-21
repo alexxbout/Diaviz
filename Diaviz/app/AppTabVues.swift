@@ -74,6 +74,10 @@ struct AppTabVues: View {
     /// `analyseRatioService` (cache mémoire, recalculé sur mutation du hub).
     @State private var glucidesHebdoService = GlucidesHebdoService()
 
+    /// Charge et glycémie (C1) — partagé entre l'onglet Analyses et la pile
+    /// d'insights de l'accueil (carte « Nouvel épisode de charge »).
+    @State private var correlationChargeService = CorrelationChargeTIRService()
+
     /// File des confirmations éphémères (repas, insuline, sport, resucrage) —
     /// singleton, les services du hub y écrivent sans passer par une vue.
     @State private var toastsService = ToastsService.shared
@@ -185,6 +189,7 @@ struct AppTabVues: View {
         .environment(bilanCorrectionsService)
         .environment(analyseRatioService)
         .environment(glucidesHebdoService)
+        .environment(correlationChargeService)
         .fullScreenCover(isPresented: Binding(
             get: { etatDemarrage == .onboarding || etatDemarrage == .choixRestauration },
             set: { presente in

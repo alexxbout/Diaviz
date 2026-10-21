@@ -46,9 +46,9 @@ struct CarteInsight: View {
             // pour reprendre le pattern « chevron / action » de la
             // carte de score (icône + titre à gauche, action à droite).
             HStack(spacing: 6) {
-                Image(systemName: insight.categorie.icone)
+                Image(systemName: insight.icone ?? insight.categorie.icone)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(insight.categorie.couleur)
+                    .foregroundStyle(insight.couleur)
                     .accessibilityHidden(true)
                 Text(insight.titre)
                     .font(.system(size: 15, weight: .semibold))
@@ -56,12 +56,12 @@ struct CarteInsight: View {
 
                 Spacer(minLength: 8)
 
-                // Une alerte ne mène nulle part : tout est déjà dans la
-                // carte (chiffre, jours, seuil) — pas de lien trompeur.
-                if insight.categorie != .alerte {
-                    Text("Voir l'analyse →")
+                // Pas de destination = pas de lien trompeur (l'alerte
+                // porte déjà tout : chiffre, jours, seuil).
+                if insight.destination != nil {
+                    Text(insight.libelleLien ?? "Voir l'analyse →")
                         .font(.subheadline.bold())
-                        .foregroundStyle(insight.categorie.couleur)
+                        .foregroundStyle(insight.couleur)
                 }
             }
 
@@ -73,7 +73,7 @@ struct CarteInsight: View {
             // sa propre `frame(maxWidth: .infinity)`.
             MicroVisuelInsight(
                 type: insight.microVisuel,
-                couleur: insight.categorie.couleur
+                couleur: insight.couleur
             )
 
             // Espace symétrique sous la donnée clé — la pousse au
@@ -81,10 +81,13 @@ struct CarteInsight: View {
             Spacer(minLength: 0)
 
             // MARK: 3. Message — explication courte, 2 lignes max
-            Text(insight.message)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
+            // Absent sur les cartes de courbe : rien sous le graphique.
+            if !insight.message.isEmpty {
+                Text(insight.message)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -96,8 +99,8 @@ struct CarteInsight: View {
         // le drag/tap de la pile).
         .glassEffect(.regular.interactive(), in: NiveauCarte.carte.forme)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(insight.titre). \(insight.message)")
-        .accessibilityHint(insight.categorie == .alerte ? "" : "Voir l'analyse détaillée")
+        .accessibilityLabel(insight.message.isEmpty ? insight.titre : "\(insight.titre). \(insight.message)")
+        .accessibilityHint(insight.destination == nil ? "" : "Voir le détail")
     }
 }
 

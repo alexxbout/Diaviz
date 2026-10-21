@@ -222,7 +222,8 @@ final class AnalyseBasaleService {
             titre: "Tendance nocturne",
             message: message,
             microVisuel: microVisuel,
-            lienAnalyse: "tendance-nocturne"
+            lienAnalyse: "tendance-nocturne",
+            destination: .basale
         )
     }
 

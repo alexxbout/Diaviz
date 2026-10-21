@@ -28,6 +28,9 @@ enum CategorieInsight: String, CaseIterable, Sendable {
     case attention
     case informatif
     case action
+    /// Réponse glycémique d'un repas ou d'une séance, disponible à consulter.
+    /// Teinte neutre : la courbe expose le fait, sans le classer.
+    case reponse
 
     /// Couleur d'accent appliquée à l'icône, au tint du glassEffect et
     /// au lien « Voir l'analyse → ».
@@ -38,6 +41,7 @@ enum CategorieInsight: String, CaseIterable, Sendable {
         case .attention: return .orange
         case .informatif: return .blue
         case .action: return .purple
+        case .reponse: return .primary
         }
     }
 
@@ -49,6 +53,7 @@ enum CategorieInsight: String, CaseIterable, Sendable {
         case .attention: return "exclamationmark.triangle.fill"
         case .informatif: return "info.circle.fill"
         case .action: return "sparkles"
+        case .reponse: return "waveform.path.ecg"
         }
     }
 }
@@ -84,6 +89,44 @@ enum MicroVisuelType: Sendable {
     /// donnée exploitable. Les jours au-dessus du seuil prennent la couleur
     /// de la catégorie, les autres restent neutres.
     case grandNombreEtJours(valeur: String, jours: [Double?], seuil: Double)
+    /// Courbe glycémique, entre les lignes d'hypo et d'hyper du profil.
+    /// Aucun texte autour : le repère (repas, séance) et le pic suffisent.
+    case courbe(CourbeInsight)
+}
+
+// MARK: - Courbe
+
+/// Courbe d'une carte de réponse glycémique. Abscisse en **minutes** depuis
+/// l'événement : l'instant du repas pour un repas, le début de la séance pour
+/// une séance.
+struct CourbeInsight: Sendable, Equatable {
+    struct Point: Sendable, Equatable {
+        let minutes: Double
+        let valeur: Double
+    }
+
+    let points: [Point]
+    /// Repas : trait vertical à l'instant du repas (`0...0`).
+    /// Séance : bande de la durée de l'effort.
+    let repere: ClosedRange<Double>
+    let repereEstUneBande: Bool
+    /// Plus haute valeur de la fenêtre, annotée sur la courbe.
+    let pic: Point?
+    let seuils: SeuilsGlycemiques
+}
+
+// MARK: - Destination
+
+/// Où mène le toucher d'une carte. `nil` = la carte ne mène nulle part
+/// (alerte : tout est déjà dans la carte).
+enum DestinationInsight: Hashable, Sendable {
+    case basale
+    case ecartRatio
+    case detailRepas(UUID)
+    case detailSeance(UUID)
+    case importSport
+    case repasARevoir
+    case chargeEtGlycemie
 }
 
 // MARK: - Modèle
@@ -104,5 +147,18 @@ struct Insight: Identifiable, Sendable {
     /// page Analyses. `nil` = pas de lien (le bouton « Voir l'analyse
     /// → » reste visible mais inactif).
     let lienAnalyse: String?
+    /// Instant de l'événement qui a produit la carte — sert à ordonner la
+    /// pile (le plus récent d'abord). `nil` pour les cartes d'état.
+    var date: Date? = nil
+    /// Remplace l'icône de la catégorie dans l'en-tête.
+    var icone: String? = nil
+    /// Libellé du lien à droite du titre ; `nil` = « Voir l'analyse → ».
+    var libelleLien: String? = nil
+    var destination: DestinationInsight? = nil
+    /// Remplace la couleur de la catégorie (repas et séance se distinguent
+    /// l'un de l'autre, alors qu'ils partagent la catégorie `.reponse`).
+    var teinte: Color? = nil
+
+    var couleur: Color { teinte ?? categorie.couleur }
 }
 

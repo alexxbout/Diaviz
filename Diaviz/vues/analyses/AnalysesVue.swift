@@ -31,9 +31,8 @@ struct AnalysesVue: View {
     @Environment(BilanCorrectionsService.self) private var bilanCorrectionsService
 
     /// Service de la page « Charge et équilibre glycémique » — instance
-    /// propre à cette vue (pas de badge/insight partagé ailleurs pour
-    /// cette analyse, contrairement à B1).
-    @State private var correlationService = CorrelationChargeTIRService()
+    /// partagée avec l'accueil (carte « Nouvel épisode de charge »).
+    @Environment(CorrelationChargeTIRService.self) private var correlationService
 
     /// Override pour previews : quand fourni, court-circuite le service réel
     /// (et le `.task` de démarrage) pour exercer les états visuels mockés.
@@ -261,17 +260,20 @@ private struct CarteAnalyseChargeGlycemie: View {
     AnalysesVue(coucher: .mockDefault)
         .environment(ProfilService.mockComplet())
         .environment(AnalyseBasaleService())
+        .environment(CorrelationChargeTIRService())
 }
 
 #Preview("Analyses - Coucher mature") {
     AnalysesVue(coucher: .mockMature)
         .environment(ProfilService.mockComplet())
         .environment(AnalyseBasaleService())
+        .environment(CorrelationChargeTIRService())
 }
 
 #Preview("Analyses - Coucher débutant") {
     AnalysesVue(coucher: .mockDebutant)
         .environment(ProfilService.mockComplet())
         .environment(AnalyseBasaleService())
+        .environment(CorrelationChargeTIRService())
 }
 #endif
