@@ -1,21 +1,23 @@
-MIT License
+Copyright (c) 2026 Alexandre Boutinaud. Tous droits réservés.
+Copyright (c) 2026 Alexandre Boutinaud. All rights reserved.
 
-Copyright (c) 2026 Alexandre Boutinaud
+Le code source de ce dépôt est rendu visible à des fins de consultation
+uniquement. Aucune licence n'est accordée : toute reproduction, modification,
+distribution, publication (y compris sur une boutique d'applications),
+compilation en vue d'une diffusion ou réutilisation, totale ou partielle, est
+interdite sans l'autorisation écrite préalable de l'auteur.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+The source code in this repository is made visible for reference only. No
+license is granted: any reproduction, modification, distribution, publication
+(including on an app store), build for redistribution or reuse, in whole or in
+part, is prohibited without the author's prior written permission.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+CE LOGICIEL EST FOURNI « EN L'ÉTAT », SANS GARANTIE D'AUCUNE SORTE. IL N'EST
+PAS UN DISPOSITIF MÉDICAL ET NE DOIT PAS ÊTRE UTILISÉ POUR PRENDRE UNE DÉCISION
+DE TRAITEMENT. DANS TOUTE LA MESURE PERMISE PAR LA LOI, L'AUTEUR NE PEUT ÊTRE
+TENU RESPONSABLE D'AUCUN DOMMAGE RÉSULTANT DE SON UTILISATION.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. IT IS NOT A
+MEDICAL DEVICE AND MUST NOT BE USED TO MAKE TREATMENT DECISIONS. TO THE
+FULLEST EXTENT PERMITTED BY LAW, THE AUTHOR SHALL NOT BE LIABLE FOR ANY DAMAGE
+ARISING FROM ITS USE.
