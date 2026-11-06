@@ -42,7 +42,13 @@ struct DiavizApp: App {
             ContexteNormaliseEnregistre.self,
             RepasARevoirMasque.self,
         ])
+        #if DEMO
+        // App « Diaviz Démo » : hub en mémoire, sans iCloud, rempli au
+        // lancement par le jeu fictif (`DemarrageDemo`).
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
+        #else
         let configuration = ModelConfiguration(schema: schema, cloudKitDatabase: .automatic)
+        #endif
         do {
             return try ModelContainer(for: schema, configurations: [configuration])
         } catch {

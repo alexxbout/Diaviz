@@ -59,7 +59,11 @@ struct DetailAnalyseBasaleVue: View {
     /// Service de lecture des stades de sommeil HealthKit — instance propre à
     /// cette page (l'autorisation elle-même est demandée une fois au boot de
     /// l'app, voir `AppTabVues`). Lecture à la demande, jamais persistée.
+    #if DEMO
+    @State private var sleepService = LecteurSommeilDemo()
+    #else
     @State private var sleepService = HealthKitSleepService()
+    #endif
     /// Stades de sommeil de la nuit actuellement affichée en vue « Par
     /// nuit » — `[]` par défaut : overlay absent tant que rien n'est chargé
     /// (dégradation gracieuse, jamais de bande approximative).
@@ -125,9 +129,17 @@ struct DetailAnalyseBasaleVue: View {
     /// dégradé : réglage désactivé, HealthKit indisponible (simulateur) ou
     /// aucune donnée cette nuit-là → `sleepStages` reste `[]`, l'overlay ne
     /// s'affiche simplement pas.
+    private var sommeilDisponible: Bool {
+        #if DEMO
+        LecteurSommeilDemo.disponible
+        #else
+        HealthKitSleepService.disponible
+        #endif
+    }
+
     private func chargerStadesSommeil() async {
         guard ProfilService.shared.profil.preferencesAvancees.overlaySommeilActive ?? true,
-              HealthKitSleepService.disponible,
+              sommeilDisponible,
               let nuit = analyse.nightChartData.indices.contains(indexSelectionne)
                 ? analyse.nightChartData[indexSelectionne] : nil,
               let debut = nuit.glucoseValues.first?.time,
