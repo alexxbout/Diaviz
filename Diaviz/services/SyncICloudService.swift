@@ -77,6 +77,11 @@ final class SyncICloudService {
     /// moment où les services doivent relire le store, sans quoi les données
     /// venues d'un autre appareil resteraient invisibles.
     func observer(onImportReussi: @escaping () -> Void) async {
+        #if DEMO
+        // App démo : aucun accès iCloud (pas d'entitlement, et surtout aucun
+        // chemin vers les vraies données).
+        return
+        #endif
         for await notification in NotificationCenter.default.notifications(
             named: NSPersistentCloudKitContainer.eventChangedNotification
         ) {
@@ -171,6 +176,11 @@ final class SyncICloudService {
     /// dessein : mieux vaut proposer un choix inutile que d'effacer
     /// silencieusement un historique.
     static func interrogerDonneesICloud() async -> EtatDonnees {
+        #if DEMO
+        // App démo : aucun accès iCloud (pas d'entitlement, et surtout aucun
+        // chemin vers les vraies données).
+        return .vide
+        #endif
         let container = CKContainer(identifier: identifiantContainer)
 
         guard let statut = try? await container.accountStatus(), statut == .available else {
@@ -190,6 +200,11 @@ final class SyncICloudService {
     /// État du compte iCloud — sert à expliquer honnêtement pourquoi une
     /// synchronisation ne se fait pas, plutôt que de laisser croire à un bug.
     static func statutCompte() async -> CKAccountStatus {
+        #if DEMO
+        // App démo : aucun accès iCloud (pas d'entitlement, et surtout aucun
+        // chemin vers les vraies données).
+        return .noAccount
+        #endif
         (try? await CKContainer(identifier: identifiantContainer).accountStatus()) ?? .couldNotDetermine
     }
 
@@ -208,6 +223,11 @@ final class SyncICloudService {
     /// métadonnées de synchronisation qui pointent vers une zone désormais
     /// absente.
     static func supprimerZone() async throws {
+        #if DEMO
+        // App démo : aucun accès iCloud (pas d'entitlement, et surtout aucun
+        // chemin vers les vraies données).
+        return
+        #endif
         let base = CKContainer(identifier: identifiantContainer).privateCloudDatabase
         do {
             _ = try await base.deleteRecordZone(withID: zoneCoreData)

@@ -10,7 +10,13 @@
 //
 
 enum AppGroupe {
+    #if DEMO
+    /// App « Diaviz Démo » : groupe distinct, pour que le widget démo ne lise
+    /// jamais l'empreinte de la vraie app (ni l'inverse).
+    static let identifiant = "group.fr.al3xdre.diaviz.demo.widget"
+    #else
     static let identifiant = "group.fr.al3xdre.diaviz.widget"
+    #endif
 }
 
 /// Identifiant de kind du widget "empreinte glycémique du jour" — partagé

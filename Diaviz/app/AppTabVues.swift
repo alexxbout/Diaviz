@@ -254,6 +254,9 @@ struct AppTabVues: View {
             }
         }
         .task {
+            #if DEMO
+            DemarrageDemo.preparer(contexte: modelContext)
+            #endif
             await resoudreEtatDemarrage()
             // Charge active lancée tout de suite, en parallèle du reste du
             // démarrage, si l'autorisation Santé est déjà tranchée : la carte
@@ -284,6 +287,7 @@ struct AppTabVues: View {
             // sheet d'autorisation Santé ne doit apparaître qu'à
             // l'activation explicite du réglage overlay (voir
             // `SectionAnalyseCoucherReglages`), jamais au boot.
+            #if !DEMO
             _ = try? await HKHealthStore().requestAuthorization(
                 toShare: [],
                 read: [
@@ -298,6 +302,7 @@ struct AppTabVues: View {
             healthKit.demarrerSurveillance(container: modelContext.container)
             await importService.demanderAcces()
             await importService.rafraichir()
+            #endif
             // Charge active : contexte partagé (accueil, badges, B2/B3).
             // B2/B3 ont démarré sans lui plus haut — rechargés pour porter
             // le niveau de charge de chaque soir.
@@ -323,6 +328,9 @@ struct AppTabVues: View {
         // rattrape à chaque réception les données arrivées d'un autre
         // appareil, que les services tiennent en mémoire.
         .task {
+            #if DEMO
+            return
+            #endif
             await SyncICloudService.shared.observer {
                 profilService.rafraichirDepuisCloudKit()
                 rechargerServicesPreferences()
@@ -349,6 +357,12 @@ struct AppTabVues: View {
     /// mieux éviter de provoquer inutilement à chaque lancement.
     private func resoudreEtatDemarrage() async {
         profilService.demarrer(contexte: modelContext)
+
+        #if DEMO
+        // App démo : profil fictif déjà inséré, ni onboarding ni iCloud.
+        etatDemarrage = .pret
+        return
+        #endif
 
         // Question déjà tranchée sur cet appareil : l'app démarre
         // normalement, l'écran de restauration ne revient jamais.

@@ -33,7 +33,11 @@ final class ChargeActiveService {
     /// les deux. Théorique tant que le premier passage n'a pas abouti.
     private(set) var fcMax: FCMaxRetenue = .theorique
 
+    #if DEMO
+    private let lecteur = LecteurChargeDemo()
+    #else
     private let lecteur = HealthKitChargeActiveLecteur()
+    #endif
 
     /// Faits Apple Santé du dernier passage complet — réutilisés quand seules
     /// les séances du hub changent (saisie, import), pour ne pas relire des
