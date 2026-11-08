@@ -309,7 +309,7 @@ final class RepasService {
         try? contexte.save()
         recharger()
         rattacherEvenementsNonResolus(de: unRepas)
-        ToastsService.shared.afficher(.repas, titre: "Repas modifié", detail: detailToast(unRepas))
+        ToastsService.shared.afficher(.modification, titre: "Repas modifié", detail: detailToast(unRepas))
     }
 
     private func synchroniserBolus(

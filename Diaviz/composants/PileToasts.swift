@@ -114,8 +114,8 @@ private struct PilluleToast: View {
         .padding(.leading, 10)
         .padding(.trailing, 16)
         .padding(.vertical, 9)
-        // Teinte semantique — la famille de l'événement, pas de la décoration.
-        .glassEffect(.regular.tint(teinte.opacity(0.12)), in: .capsule)
+        // Teinte seulement pour un ajout ou une suppression, verre nu sinon.
+        .glassEffect(.regular.tint(estNeutre ? nil : teinte.opacity(0.12)), in: .capsule)
         .accessibilityElement(children: .combine)
         .accessibilityLabel([toast.titre, toast.detail].compactMap { $0 }.joined(separator: ", "))
         .accessibilityAddTraits(.isStaticText)
@@ -124,20 +124,23 @@ private struct PilluleToast: View {
         .accessibilityHidden(contenuMasque)
     }
 
-    /// Couleur de famille — décidée ici, la couche vue, et alignée sur les
-    /// teintes déjà utilisées par les domaines correspondants.
+    /// La couleur dit la nature de l'action, jamais le domaine : vert pour un
+    /// ajout, rouge pour une suppression, neutre pour le reste.
     private var teinte: Color {
         switch toast.categorie {
-        case .repas:       .green
-        case .insuline:    .purple
-        case .sport:       .blue
-        case .resucrage:   .orange
-        case .reglage:     .teal
-        case .donnees:     .indigo
+        case .repas, .insuline, .sport, .resucrage: .green
         // Rouge pour une suppression : ce n'est pas une alerte mais un fait
         // irréversible, et c'est la couleur que porte déjà l'action qui l'a
         // produite (bouton « Supprimer », swipe destructif).
         case .suppression: .red
+        case .reglage, .donnees, .modification: .primary
+        }
+    }
+
+    private var estNeutre: Bool {
+        switch toast.categorie {
+        case .reglage, .donnees, .modification: true
+        default: false
         }
     }
 }

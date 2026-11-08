@@ -17,6 +17,8 @@ nonisolated enum CategorieToast: Sendable {
     case reglage
     /// Opération sur l'ensemble des données (export, import d'archive).
     case donnees
+    /// Fait existant réécrit (repas modifié).
+    case modification
     /// Suppression, quelle que soit la famille de l'objet supprimé : c'est le
     /// caractère irréversible qui prime sur le domaine, et c'est le seul cas
     /// où une pilule porte une action.
@@ -30,6 +32,7 @@ nonisolated enum CategorieToast: Sendable {
         case .resucrage:   "takeoutbag.and.cup.and.straw.fill"
         case .reglage:     "slider.horizontal.3"
         case .donnees:     "externaldrive.fill"
+        case .modification: "pencil"
         case .suppression: "trash.fill"
         }
     }
