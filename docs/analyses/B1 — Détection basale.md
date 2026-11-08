@@ -116,6 +116,24 @@ Sur la **dérive totale** de la zone 3 (Δ mg/dL sur la fenêtre), pas sur une p
 
 >   **Bug corrigé le 2026-09-27** : le déclencheur immédiat « 1 hypo profonde → tendance descendante » ne regarde que les nuits **valides**. Avant le chantier 1, une hypo resucrée excluait sa propre nuit (pente non fiable) — donc cette même nuit sortait de `valides`  et le déclencheur ne la voyait jamais. La règle « immédiat » ne s'appliquait en pratique qu'aux hypos **non traitées**. Avec le signal indépendant (section précédente), une hypo resucrée rend sa nuit `.valide`  quand même — le déclencheur fonctionne enfin pour le cas courant.
 
+## Classement manuel d'une nuit (2026-11-08)
+Sur une nuit passée, l'utilisateur peut remplacer le statut calculé : carte « Verdict de la nuit » → **Modifier**. La feuille montre le calcul de l'app (le choisir annule le classement) et les autres statuts : Concluante, Dérive montante, Dérive descendante, Hypo, Écartée. Pas de bouton sur la nuit en cours ni sur les 2 nuits d'observation après un changement de dose : elles ne comptent pas encore. Motif d'origine : une nuit écartée (« fenêtre trop courte ») que l'utilisateur estime exploitable.
+
+| Statut choisi | Dans le verdict | Lente C1 |
+| ----- | ----- | ----- |
+| Concluante | nuit stable, retire tout déclenchement immédiat (hypo, rechute) | concluante |
+| Dérive montante / descendante | tendance haute / basse | ratée |
+| Hypo | tendance basse, **déclenche le verdict immédiat** comme une hypo détectée | hypo |
+| Écartée | sort du verdict, motif « Écartée par vous » | non évaluable |
+
+- **Le calcul reste connu** : la nuit affiche « Classée par vous » et « Calcul de l'app : … », la frise porte un petit crayon.
+- **Les faits ne changent pas** : courbe et compteur d'hypos restent ceux du CGM. Une nuit classée « Hypo » sans épisode détecté n'ajoute rien au compteur.
+- **Pas de dérive inventée** : une nuit que le calcul avait écartée entre dans le verdict sans chiffre de dérive, donc hors dérive moyenne.
+- **Une nuit classée entre dans les 5 retenues** si elle est récente, et peut donc débloquer un premier verdict.
+- **Un seul point d'application** : le classement est appliqué au calcul de la nuit, donc repris sans code dédié par tout ce qui lit une nuit (carte verdict, frise, timeline, répartition, accueil, détail de soirée, recherche du coucher, lente de C1). Chaque lancement du calcul doit juste lui transmettre les classements (`ConfigBasale.classementsManuels`) : 3 lancements aujourd'hui. Un nouveau lancement qui l'oublierait ignorerait les classements.
+- **Stockage** : dans le profil (`PreferencesAvancees.classementsNuits`, par jour du soir de la nuit). Synchronisé iCloud, inclus dans l'export JSON, sans nouveau type à déployer dans CloudKit.
+- **Hors périmètre** : B2/B3 comptent leurs hypos sur la courbe, un classement ne les modifie pas ; seule l'étiquette de nuit qu'elles affichent suit.
+
 ## Taxonomie des hypos nocturnes (signal vital)
 Les hypos sont comptées sur la **fenêtre de sommeil complète** (endormissement → fin de nuit, **zone 4 incluse** : une hypo à 4h45 reste une hypo — seule la _dérive_ de la zone dawn est exclue du calcul).
 

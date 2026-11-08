@@ -78,13 +78,20 @@ struct PreferencesAvancees: Codable, Equatable, Sendable {
     /// raison que ci-dessus.
     var cartesCourbesInsightsActives: Bool?
 
+    /// Statuts imposés à la main sur des nuits passées (tendance basale), par
+    /// jour du soir de la nuit (`ClassementManuelNuit.cle`). `nil` → aucun.
+    /// Optionnel pour la même raison que ci-dessus.
+    var classementsNuits: [String: ClassementManuelNuit]?
+
     init(occurrencesMinimalesRepasARevoir: Int? = nil,
          seuilRepasCopieuxNuit: Int? = nil,
          fenetreAffichageResucrageAccueilHeures: Int? = nil,
          glucidesResucrageRapideParDefaut: Int? = nil,
          fenetreRepasCorrectionMinutes: Int? = nil,
          overlaySommeilActive: Bool? = nil,
-         cartesCourbesInsightsActives: Bool? = nil) {
+         cartesCourbesInsightsActives: Bool? = nil,
+         classementsNuits: [String: ClassementManuelNuit]? = nil) {
+        self.classementsNuits = classementsNuits
         self.occurrencesMinimalesRepasARevoir = occurrencesMinimalesRepasARevoir
         self.seuilRepasCopieuxNuit = seuilRepasCopieuxNuit
         self.fenetreAffichageResucrageAccueilHeures = fenetreAffichageResucrageAccueilHeures

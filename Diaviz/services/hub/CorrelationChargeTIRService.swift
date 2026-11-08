@@ -139,6 +139,7 @@ final class CorrelationChargeTIRService {
         )
         config.seuilHypo = Int(profil.seuilsGlycemiques.hypoglycemie)
         config.seuilHyper = Int(profil.seuilsGlycemiques.hyperglycemie)
+        config.classementsManuels = profil.preferencesAvancees.classementsNuits ?? [:]
         config.fenetreNuits = nombreNuits
 
         return (entrees, config)

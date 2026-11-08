@@ -44,6 +44,8 @@ nonisolated enum ConstatB1Nuit: Sendable {
     /// indépendant (hypo/hyper profonde) donne quand même un verdict — pas
     /// de dérive chiffrée fiable à afficher.
     case signalSansDerive(categorie: CategorieNuit)
+    /// Statut imposé à la main par l'utilisateur.
+    case classeeParVous(libelle: String)
     /// Nuit exclue de B1 — motif brut (`RaisonExclusion.rawValue`).
     case exclue(motif: String)
     /// Pas de données B1 pour cette nuit.
@@ -177,6 +179,9 @@ nonisolated enum CalculDetailSoiree {
     private static func constat(_ nuit: NightChartData) -> ConstatB1Nuit {
         if let motif = nuit.motifExclusion {
             return .exclue(motif: motif)
+        }
+        if let manuel = nuit.classementManuel {
+            return .classeeParVous(libelle: manuel.libelle)
         }
         // Zone exclue de la régression mais nuit tout de même verdictée
         // (hypo/hyper profonde) — voir `categorieForcee` dans

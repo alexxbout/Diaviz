@@ -68,6 +68,7 @@ final class AnalyseBasaleService {
         )
         config.seuilRepasCopieux = profil.preferencesAvancees.seuilRepasCopieuxNuit
             ?? ConfigBasale.seuilRepasCopieuxParDefaut
+        config.classementsManuels = profil.preferencesAvancees.classementsNuits ?? [:]
         config.seuilHypo = Int(profil.seuilsGlycemiques.hypoglycemie)
         config.seuilHyper = Int(profil.seuilsGlycemiques.hyperglycemie)
         let entrees = chargerEntrees(contexte: contexte)

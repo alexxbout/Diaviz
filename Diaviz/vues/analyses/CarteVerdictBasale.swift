@@ -100,6 +100,16 @@ private struct PastilleNuitVerdict: View {
                                 .padding(-5)
                         }
                     }
+                    .overlay(alignment: .bottomTrailing) {
+                        if pastille.classeeParVous {
+                            Image(systemName: "pencil.circle.fill")
+                                .font(.caption)
+                                .symbolRenderingMode(.palette)
+                                .foregroundStyle(Color(.secondarySystemGroupedBackground), .secondary)
+                                .offset(x: 4, y: 3)
+                                .accessibilityHidden(true)
+                        }
+                    }
                 Text(jour)
                     .font(.subheadline)
                     .fontWeight(choisie ? .semibold : .regular)

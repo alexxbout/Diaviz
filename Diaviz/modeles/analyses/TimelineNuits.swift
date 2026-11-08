@@ -30,6 +30,7 @@ nonisolated enum RaisonExclusion: String, Sendable, Equatable {
     case modePause = "Mode pause"
     case pasDeLente = "Lente non renseignée"
     case dureeInsuffisante = "Fenêtre trop courte"
+    case classementManuel = "Écartée par vous"
 }
 
 /// État visuel d'une nuit dans la timeline 14 jours.
