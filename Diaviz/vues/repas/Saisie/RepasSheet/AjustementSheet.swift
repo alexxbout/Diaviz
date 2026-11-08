@@ -12,7 +12,7 @@ import SwiftUI
 /// Raisons possibles pour ajuster intentionnellement la dose d'insuline
 /// par rapport à ce que le ratio recommanderait. Distinct d'une correction
 /// d'hyperglycémie (gérée séparément dans `InsulineSection`).
-enum RaisonAjustement: String, CaseIterable, Identifiable, Equatable, Codable {
+nonisolated enum RaisonAjustement: String, CaseIterable, Identifiable, Equatable, Codable {
     case sportRecent
     case glycemieBasse
     case repasGras

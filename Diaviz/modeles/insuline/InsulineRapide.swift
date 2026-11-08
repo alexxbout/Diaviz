@@ -12,7 +12,7 @@ import Foundation
 /// La liste est volontairement finie pour limiter les fautes de frappe et
 /// permettre des analyses cohérentes par marque ; l'option `.autre` ouvre
 /// la porte aux cas non listés (rare).
-enum InsulineRapide: String, CaseIterable, Codable, Identifiable, Sendable {
+nonisolated enum InsulineRapide: String, CaseIterable, Codable, Identifiable, Sendable {
     case novorapid = "Novorapid"
     case humalog   = "Humalog"
     case fiasp     = "Fiasp"

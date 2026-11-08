@@ -15,7 +15,7 @@ import Foundation
 /// Sert de drapeau d'affichage (footer « Source : Apple Santé » dans la
 /// `LigneActiviteSport`) et conditionne la disponibilité des données
 /// associées (`healthKitData` n'est rempli que pour `.healthKit`).
-enum SourceActivite: String, Codable, Sendable, Hashable {
+nonisolated enum SourceActivite: String, Codable, Sendable, Hashable {
     case manuel
     case healthKit
 }

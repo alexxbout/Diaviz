@@ -241,7 +241,7 @@ nonisolated enum CalculBilanCorrections {
 
 // MARK: - Partition
 
-private extension Array {
+nonisolated private extension Array {
     /// Découpe en (éléments qui satisfont le prédicat, les autres) — évite
     /// deux `.filter` séquentiels sur la même collection.
     func partitioned(by predicat: (Element) -> Bool) -> (matches: [Element], reste: [Element]) {

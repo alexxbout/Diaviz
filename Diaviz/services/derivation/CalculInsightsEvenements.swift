@@ -262,7 +262,7 @@ nonisolated enum CalculInsightsEvenements {
     }
 }
 
-private extension NiveauChargeActive {
+nonisolated private extension NiveauChargeActive {
     /// Niveau en un mot, pour la ligne unique d'une carte.
     var libelleEpisode: String {
         switch self {

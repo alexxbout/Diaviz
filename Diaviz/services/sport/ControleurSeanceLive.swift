@@ -48,7 +48,7 @@ enum ControleurSeanceLive {
 
     // MARK: - État Live Activity
 
-    static func etat(_ s: SessionSportiveEnCours) -> ActiviteSportiveAttributes.ContentState {
+    nonisolated static func etat(_ s: SessionSportiveEnCours) -> ActiviteSportiveAttributes.ContentState {
         .init(
             enPause: s.enPause,
             dateReference: s.dateReference,
@@ -57,15 +57,15 @@ enum ControleurSeanceLive {
     }
 
     /// La Live Activity de séance en cours (au plus une à la fois).
-    static var activiteCourante: Activity<ActiviteSportiveAttributes>? {
+    nonisolated static var activiteCourante: Activity<ActiviteSportiveAttributes>? {
         Activity<ActiviteSportiveAttributes>.activities.first
     }
 
-    static func majActivite(_ s: SessionSportiveEnCours) async {
+    nonisolated static func majActivite(_ s: SessionSportiveEnCours) async {
         await activiteCourante?.update(ActivityContent(state: etat(s), staleDate: nil))
     }
 
-    static func finirActivite() async {
+    nonisolated static func finirActivite() async {
         await activiteCourante?.end(nil, dismissalPolicy: .immediate)
     }
 

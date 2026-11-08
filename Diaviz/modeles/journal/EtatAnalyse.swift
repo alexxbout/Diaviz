@@ -12,7 +12,7 @@ import Foundation
 // État du pré-calcul de la réponse glycémique pour un repas donné.
 // La row du Journal s'adapte selon le cas — on n'affiche jamais une
 // courbe partielle ou trompeuse, on signale plutôt l'état réel.
-enum EtatAnalyse: Sendable {
+nonisolated enum EtatAnalyse: Sendable {
     /// L'analyse est terminée et la courbe est exploitable.
     case disponible(ReponseGlycemique)
     /// Le repas est trop récent (< 3h) : on attend que la fenêtre T+4h se remplisse.

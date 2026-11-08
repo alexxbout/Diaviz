@@ -133,9 +133,9 @@ struct AnalysesVue: View {
                 fraicheurCoucher = marqueur
                 Task {
                     await basaleService.demarrer(contexte: modelContext)
-                    async let endo: Void = endormissementService.demarrer(contexte: modelContext, basale: basaleService)
-                    async let corr: Void = correctionsService.demarrer(contexte: modelContext, basale: basaleService)
-                    async let bilanCorr: Void = bilanCorrectionsService.demarrer(contexte: modelContext)
+                    async let endo: Void = { @MainActor in await endormissementService.demarrer(contexte: modelContext, basale: basaleService) }()
+                    async let corr: Void = { @MainActor in await correctionsService.demarrer(contexte: modelContext, basale: basaleService) }()
+                    async let bilanCorr: Void = { @MainActor in await bilanCorrectionsService.demarrer(contexte: modelContext) }()
                     _ = await (endo, corr, bilanCorr)
 
                     guard !premierBoot else { return }

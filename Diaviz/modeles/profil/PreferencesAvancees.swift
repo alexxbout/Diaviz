@@ -17,7 +17,7 @@ import Foundation
 /// « Préférences avancées » qui l'exposait ne contenait que lui.
 /// Retirer une propriété d'un `Codable` est sûr : les clés en trop du JSON
 /// existant sont ignorées au décodage.
-struct PreferencesAvancees: Codable, Equatable, Sendable {
+nonisolated struct PreferencesAvancees: Codable, Equatable, Sendable {
 
     /// Occurrences minimales pour qu'un repas récurrent remonte dans « Repas
     /// à revoir » (`CalculRepasARevoir.occurrencesMinimalesParDefaut` si `nil`).

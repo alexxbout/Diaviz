@@ -14,7 +14,7 @@ import Foundation
 ///
 /// Alimenté au fur et à mesure des analyses construites — les fiches
 /// actuelles viennent du cadrage de S1 (réponse glycémique au sport).
-enum CatalogueEncyclopedie {
+nonisolated enum CatalogueEncyclopedie {
 
     static var fiches: [FicheEncyclopedie] {
         [

@@ -10,7 +10,7 @@ import SwiftUI
 // MARK: - Modèle
 
 /// Zones anatomiques classiques pour une injection sous-cutanée d'insuline.
-enum ZoneInjection: String, CaseIterable, Identifiable {
+nonisolated enum ZoneInjection: String, CaseIterable, Identifiable, Sendable {
     case ventre = "Ventre"
     case cuisse = "Cuisse"
     case bras = "Bras"
@@ -31,7 +31,7 @@ enum ZoneInjection: String, CaseIterable, Identifiable {
 }
 
 /// Côté ou position relative au sein de la zone.
-enum CoteInjection: String, CaseIterable, Identifiable {
+nonisolated enum CoteInjection: String, CaseIterable, Identifiable, Sendable {
     case gauche = "Gauche"
     case centre = "Centre"
     case droite = "Droite"
@@ -40,7 +40,7 @@ enum CoteInjection: String, CaseIterable, Identifiable {
 }
 
 /// Site d'injection complet (zone + côté), tel qu'affiché en résumé "Ventre gauche".
-struct SiteInjection: Equatable, Hashable {
+nonisolated struct SiteInjection: Equatable, Hashable {
     var zone: ZoneInjection
     var cote: CoteInjection
 

@@ -565,6 +565,7 @@ extension Aliment {
     ///   glucides entiers (précision suffisante, cohérente avec l'affichage).
     /// - `insuline` : `doseInsuline ?? 0` (un aliment logué pour mémoire, sans
     ///   bolus, vaut 0 u).
+    @MainActor
     convenience init(depuis entree: EntreeAliment) {
         var idCiqualSource: Int?
         var codeProduitOFF: String?
@@ -649,7 +650,7 @@ extension EntreeAliment {
 
 /// Les 5 tranches canoniques du journal. Reste une dérivation d'affichage :
 /// le hub ne stocke pas la section, seulement l'heure absolue du repas.
-enum SectionRepas: String, CaseIterable {
+nonisolated enum SectionRepas: String, CaseIterable {
     case petitDejeuner
     case dejeuner
     case enCas

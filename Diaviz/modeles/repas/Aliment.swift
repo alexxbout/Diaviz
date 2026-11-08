@@ -94,6 +94,7 @@ nonisolated final class Aliment {
     /// Id CIQUAL utilisable pour résoudre une personnalisation : celui figé à
     /// la saisie, ou — pour les repas enregistrés avant l'ajout du champ —
     /// celui retrouvé par correspondance exacte sur le nom d'origine.
+    @MainActor
     private var idCiqualResolu: Int? {
         idCiqualSource ?? NomsPersonnalisesService.shared.idCiqual(pourNomOrigine: nom)
     }
@@ -103,12 +104,14 @@ nonisolated final class Aliment {
     /// Ce n'est PAS le nom stocké : `nom` reste le fait historique inchangé
     /// (utilisé par ex. pour la signature de composition de « Repas à
     /// revoir ») ; `nomAffiche` est une résolution à l'affichage uniquement.
+    @MainActor
     var nomAffiche: String {
         guard let id = idCiqualResolu else { return nom }
         return NomsPersonnalisesService.shared.nomPersonnalise(pour: id) ?? nom
     }
 
     /// Emoji à afficher — même logique que `nomAffiche`.
+    @MainActor
     var emojiAffiche: String {
         guard let id = idCiqualResolu else { return emoji }
         return NomsPersonnalisesService.shared.emojiPersonnalise(pour: id) ?? emoji
@@ -352,6 +355,7 @@ nonisolated final class Repas {
 
     /// Emoji représentatif du repas : l'aliment le plus contributeur en
     /// glucides (il pilote la réponse glycémique). À défaut, un emoji générique.
+    @MainActor
     var emojiPrincipal: String {
         aliments.max(by: { $0.glucides < $1.glucides })?.emojiAffiche ?? "🍽"
     }

@@ -20,7 +20,7 @@ import Foundation
 /// chute trop brutale). Le verdict est donc différent et calculé par
 /// la `MiniCourbeSport` directement — la struct n'embarque que les
 /// données brutes.
-struct ReponseGlycemiqueSport: Codable, Sendable, Hashable {
+nonisolated struct ReponseGlycemiqueSport: Codable, Sendable, Hashable {
 
     /// Échantillons CGM normalisés autour du début de l'activité. Le
     /// champ temporel utilisé est `secondesDepuisDebut` (négatif
@@ -47,7 +47,7 @@ struct ReponseGlycemiqueSport: Codable, Sendable, Hashable {
 /// de la session, et l'amplitude utile est de l'ordre de
 /// [-30min, dureeSession + 30min]. On garde un type dédié plutôt que
 /// de faire muter le sens de `secondesDepuisRepas` côté repas.
-struct PointCgmSport: Codable, Identifiable, Hashable, Sendable {
+nonisolated struct PointCgmSport: Codable, Identifiable, Hashable, Sendable {
     /// ID client pour `ForEach`/`Chart`. Non transmis à l'API.
     var id = UUID()
     /// Décalage par rapport au début de la session (négatif avant,

@@ -22,7 +22,7 @@ import SwiftUI
 ///
 /// Aucune catégorie ne **prescrit** d'action de soin — toutes restent
 /// descriptives, conformément aux principes de l'app.
-enum CategorieInsight: String, CaseIterable, Sendable {
+nonisolated enum CategorieInsight: String, CaseIterable, Sendable {
     case alerte
     case positif
     case attention
@@ -67,7 +67,7 @@ enum CategorieInsight: String, CaseIterable, Sendable {
 ///
 /// Chaque cas est rendu par `MicroVisuelInsight` ; ajouter un nouveau
 /// type de visuel consiste à étendre cet enum + son rendu.
-enum MicroVisuelType: Sendable {
+nonisolated enum MicroVisuelType: Sendable {
     /// Grand chiffre seul — 40pt bold à la couleur de la catégorie.
     /// Pour les insights où la donnée clé est une valeur unique
     /// (« -25% », « +12 », « x2 »…).
@@ -102,7 +102,7 @@ enum MicroVisuelType: Sendable {
 /// Courbe d'une carte de réponse glycémique. Abscisse en **minutes** depuis
 /// l'événement : l'instant du repas pour un repas, le début de la séance pour
 /// une séance.
-struct CourbeInsight: Sendable, Equatable {
+nonisolated struct CourbeInsight: Sendable, Equatable {
     struct Point: Sendable, Equatable {
         let minutes: Double
         let valeur: Double
@@ -118,7 +118,7 @@ struct CourbeInsight: Sendable, Equatable {
     let seuils: SeuilsGlycemiques
 }
 
-extension CourbeInsight {
+nonisolated extension CourbeInsight {
     enum Zone: Sendable, Equatable { case basse, cible, haute }
 
     struct Segment: Sendable, Equatable {
@@ -170,7 +170,7 @@ extension CourbeInsight {
 
 /// Où mène le toucher d'une carte. `nil` = la carte ne mène nulle part
 /// (alerte : tout est déjà dans la carte).
-enum DestinationInsight: Hashable, Sendable {
+nonisolated enum DestinationInsight: Hashable, Sendable {
     case basale
     case ecartRatio
     case detailRepas(UUID)
@@ -188,7 +188,7 @@ enum DestinationInsight: Hashable, Sendable {
 ///
 /// Restera identique quand la vraie source remplacera le mock — seul
 /// `InsightsAccueilServiceMock` changera.
-struct Insight: Identifiable, Sendable {
+nonisolated struct Insight: Identifiable, Sendable {
     let id: UUID
     let categorie: CategorieInsight
     let titre: String

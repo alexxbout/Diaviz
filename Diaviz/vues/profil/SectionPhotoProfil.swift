@@ -53,13 +53,16 @@ struct SectionPhotoProfil: View {
             // avant (une row de `Form` aligne son contenu à gauche par
             // défaut, `.frame(maxWidth:)` seul ne suffit pas à centrer).
             HStack {
+                // Copié ici : le libellé du sélecteur est construit hors du
+                // thread principal, il ne peut pas lire le profil.
+                let libelle = libellePhotoPicker
                 Spacer()
                 PhotosPicker(
                     selection: $selection,
                     matching: .images,
                     photoLibrary: .shared()
                 ) {
-                    Text(libellePhotoPicker)
+                    Text(libelle)
                         .font(.callout.weight(.semibold))
                 }
                 Spacer()

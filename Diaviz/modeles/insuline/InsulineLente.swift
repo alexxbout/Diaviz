@@ -12,7 +12,7 @@ import Foundation
 /// Pendante de `InsulineRapide` pour la configuration utilisateur.
 /// `.autre` couvre les cas non listés ; le nom libre n'est pas géré ici
 /// (l'app ne fait que noter le choix dans le profil).
-enum InsulineLente: String, CaseIterable, Codable, Identifiable, Sendable {
+nonisolated enum InsulineLente: String, CaseIterable, Codable, Identifiable, Sendable {
     case lantus  = "Lantus"
     case toujeo  = "Toujeo"
     case levemir = "Levemir"

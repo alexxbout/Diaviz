@@ -11,7 +11,7 @@ import Foundation
 ///
 /// Toutes les unités sont en pourcentage sauf `score` (0–100), `hypoCount`,
 /// `severeHypoCount` (entiers), et `peakValue` (mg/dL).
-struct FaitsJour: Sendable, Equatable, Hashable {
+nonisolated struct FaitsJour: Sendable, Equatable, Hashable {
     let score: Int
     let tir: Double
     let tbrLevel1: Double

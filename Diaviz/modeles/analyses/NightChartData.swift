@@ -265,7 +265,7 @@ nonisolated struct HypoRetenue: Sendable, Equatable {
     let resucree: Bool
 }
 
-extension Array where Element == NightChartData {
+nonisolated extension Array where Element == NightChartData {
 
     /// Heure moyenne de prise de lente sur l'ensemble — sert à
     /// positionner le repère 💉 sur la vue agrégée « Toutes ».

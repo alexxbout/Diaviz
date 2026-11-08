@@ -490,6 +490,7 @@ private extension String {
 // instances pré-cuisinées pour exercer les trois variantes principales
 // de la page (analyse OK, en attente, sans injection).
 
+@MainActor
 extension Repas {
 
     /// Repas standard avec analyse glycémique disponible — courbe verte

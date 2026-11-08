@@ -10,7 +10,7 @@ import Foundation
 /// Identifie une des trois sous-sections du Journal — sert de
 /// sélection pour le switcher de la barre minimisée custom posée
 /// en bas de `JournalConteneurVue`.
-enum SectionJournal: String, Hashable, CaseIterable, Identifiable {
+nonisolated enum SectionJournal: String, Hashable, CaseIterable, Identifiable {
     case repas
     case medications
     case sport

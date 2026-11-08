@@ -111,7 +111,7 @@ nonisolated struct AnalyseBasaleDetail: Identifiable, Sendable {
 
 /// Tendance dégagée par l'analyse de la pente moyenne zone 3 — pilote
 /// l'icône et la couleur du constat dans `CarteVerdictBasale`.
-enum BasalTrend: Sendable {
+nonisolated enum BasalTrend: Sendable {
     case descending
     case ascending
     case stable
@@ -120,7 +120,7 @@ enum BasalTrend: Sendable {
 /// État global du constat — permet à la carte de basculer entre 3
 /// rendus visuels distincts (verdict / nouvelle dose en observation /
 /// en attente de données).
-enum BasalVerdictState: Sendable {
+nonisolated enum BasalVerdictState: Sendable {
     case sufficient
     case recentChange
     case noData
@@ -129,7 +129,7 @@ enum BasalVerdictState: Sendable {
 /// Snapshot du constat affiché par `CarteVerdictBasale`. Pré-calculé
 /// par `AnalyseBasaleDetail.basalVerdict` — la vue est purement
 /// présentationnelle.
-struct BasalVerdict: Sendable {
+nonisolated struct BasalVerdict: Sendable {
     let state: BasalVerdictState
     let slope: Double?           // pente moyenne zone 3, nil hors `.sufficient`
     /// Dérive moyenne (Δ mg/dL par nuit) des nuits récentes — l'unité montrée
@@ -163,7 +163,7 @@ nonisolated struct MotifExclusion: Sendable, Equatable, Identifiable {
 
 /// Répartition de la qualité des zones analysées (zones 2 + 3 — seules
 /// concernées par le calcul de pente basale). Alimente `RepartitionNuitsVue`.
-struct BasalDistribution: Sendable {
+nonisolated struct BasalDistribution: Sendable {
     let stableZones: Int
     let descendingZones: Int
     let ascendingZones: Int
@@ -185,7 +185,7 @@ nonisolated struct DoseChange: Identifiable, Sendable {
 
 // MARK: - Helpers dérivés (sur AnalyseBasaleDetail)
 
-extension AnalyseBasaleDetail {
+nonisolated extension AnalyseBasaleDetail {
 
     /// Motifs d'exclusion de la fenêtre comparable, comptés depuis la timeline
     /// et triés du plus fréquent au moins fréquent.

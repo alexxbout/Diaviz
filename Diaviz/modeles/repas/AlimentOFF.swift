@@ -12,7 +12,7 @@ import Foundation
 /// nutriments OFF sont **optionnels** : la base est collaborative et certains
 /// produits n'ont pas de valeurs renseignées. Un nutriment `nil` est affiché
 /// « non renseigné » et compte pour 0 dans les calculs — signalé à l'écran.
-struct AlimentOFF: Codable, Identifiable, Hashable {
+nonisolated struct AlimentOFF: Codable, Identifiable, Hashable {
     /// Code-barres du produit — identifiant naturel côté OFF.
     let code: String
     let nom: String

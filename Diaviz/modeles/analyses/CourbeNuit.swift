@@ -18,7 +18,7 @@ import Foundation
 /// toujours sur 14 nuits glissantes, mais une **timeline visuelle**
 /// (`TimelineNuitsVue`) montre lesquelles sont valides et pourquoi les
 /// autres sont exclues.
-let kFenetreNuits: Int = 14
+nonisolated let kFenetreNuits: Int = 14
 
 // MARK: - Modèles de courbe nocturne
 

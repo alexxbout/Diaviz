@@ -14,7 +14,7 @@ import Foundation
 /// deux régimes différents dans la même analyse. Stampée uniquement sur une
 /// vraie transition valeur → valeur différente (jamais sur la configuration
 /// initiale, `nil → valeur`) — voir `SectionRatios`.
-struct DatesChangementRatio: Codable, Equatable, Sendable {
+nonisolated struct DatesChangementRatio: Codable, Equatable, Sendable {
     var unique: Date?
     var petitDejeuner: Date?
     var dejeuner: Date?

@@ -11,7 +11,7 @@ import Foundation
 /// par le ratio de correction (ISF) configuré — même grammaire que
 /// `TrancheRatio` (R1), appliquée ici à l'insuline de correction plutôt qu'au
 /// bolus repas.
-enum TrancheDoseCorrection: String, Sendable, CaseIterable {
+nonisolated enum TrancheDoseCorrection: String, Sendable, CaseIterable {
     case doseNettementFaible
     case doseProche
     case doseNettementForte
@@ -27,7 +27,7 @@ enum TrancheDoseCorrection: String, Sendable, CaseIterable {
 
 /// Effectif et taux d'adaptation (`issue == .adapte`) d'une tranche de dose —
 /// affiché seulement au-delà du garde-fou de volume (voir `CalculBilanCorrections`).
-struct BucketDoseCorrection: Sendable, Equatable {
+nonisolated struct BucketDoseCorrection: Sendable, Equatable {
     let tranche: TrancheDoseCorrection
     let total: Int
     let adaptees: Int
@@ -40,7 +40,7 @@ struct BucketDoseCorrection: Sendable, Equatable {
 /// Une correction rapide (`motif == .correction`), à toute heure — pas
 /// limitée à la fenêtre du coucher (≠ `CorrectionSoir`/B3). Observation
 /// rétrospective, jamais un conseil de dose.
-struct CorrectionEvaluee: Identifiable, Sendable, Equatable {
+nonisolated struct CorrectionEvaluee: Identifiable, Sendable, Equatable {
 
     let id: UUID
     let date: Date
@@ -90,7 +90,7 @@ struct CorrectionEvaluee: Identifiable, Sendable, Equatable {
 /// (isolées ou au repas) — les deux se calculent et s'affichent séparément,
 /// jamais mêlées : un taux d'adaptation qui mélangerait les deux mesurerait
 /// tantôt l'insuline seule, tantôt insuline + glucides.
-struct SousBilanCorrections: Sendable, Equatable {
+nonisolated struct SousBilanCorrections: Sendable, Equatable {
 
     /// Triées par date décroissante (la plus récente en tête).
     let corrections: [CorrectionEvaluee]
@@ -121,7 +121,7 @@ struct SousBilanCorrections: Sendable, Equatable {
 /// Snapshot prêt à afficher de la page « Corrections » : bilan de toutes les
 /// corrections rapides, à toute heure (≠ B3, limité au coucher), scindé en
 /// deux portées non comparables (voir `CorrectionEvaluee.auRepas`).
-struct BilanCorrections: Sendable, Equatable {
+nonisolated struct BilanCorrections: Sendable, Equatable {
 
     let isolees: SousBilanCorrections
     let auRepas: SousBilanCorrections

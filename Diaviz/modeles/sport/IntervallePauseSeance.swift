@@ -17,7 +17,7 @@ import Foundation
 /// `ActiviteSportive.dateFin`, qui sous-estimait la fin réelle en horloge
 /// murale d'une séance avec pauses (`dureeMinutes` est la durée d'effort
 /// net, pauses déjà déduites).
-struct IntervallePauseSeance: Codable, Sendable, Hashable {
+nonisolated struct IntervallePauseSeance: Codable, Sendable, Hashable {
     let debut: Date
     let fin: Date
 

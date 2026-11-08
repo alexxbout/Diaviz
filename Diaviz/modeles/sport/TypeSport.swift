@@ -14,7 +14,7 @@ import Foundation
 ///
 /// Le `rawValue` est la forme « titre » française pour réutilisation
 /// directe en UI sans table de correspondance supplémentaire.
-enum TypeSport: String, CaseIterable, Codable, Sendable, Hashable {
+nonisolated enum TypeSport: String, CaseIterable, Codable, Sendable, Hashable {
     case course          = "Course"
     case velo            = "Vélo"
     case natation        = "Natation"

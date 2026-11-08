@@ -18,7 +18,7 @@ import Foundation
 /// courante (`debutPauseCourante`). Le temps d'effort réel se recalcule à la
 /// volée depuis ces deux valeurs — aucun timer à faire tourner en tâche de
 /// fond, tout se déduit des horodatages.
-struct SessionSportiveEnCours: Codable, Sendable, Hashable, Identifiable {
+nonisolated struct SessionSportiveEnCours: Codable, Sendable, Hashable, Identifiable {
     let id: UUID
     let type: TypeSport
     /// Instant de démarrage (absolu).

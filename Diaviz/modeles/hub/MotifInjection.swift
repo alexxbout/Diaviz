@@ -12,7 +12,7 @@ import Foundation
 /// Sert de **trigger à l'analyse B3** : une rapide `.correction` prise au
 /// coucher déclenche l'analyse des corrections du soir (event-based, sans
 /// seuil de glycémie).
-enum MotifInjection: String, Codable, Sendable, CaseIterable {
+nonisolated enum MotifInjection: String, Codable, Sendable, CaseIterable {
     /// Bolus accompagnant une prise alimentaire.
     case repas
     /// Rapide hors repas pour corriger une hyperglycémie.

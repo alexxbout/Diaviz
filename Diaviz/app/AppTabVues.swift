@@ -270,10 +270,10 @@ struct AppTabVues: View {
             // B1 doit être démarré (et son `analyse` à jour) avant B2/B3, qui
             // lisent `analyseBasaleService.analyse` — d'où l'attente séquentielle.
             await analyseBasaleService.demarrer(contexte: modelContext)
-            async let endo: Void = analyseEndormissementService.demarrer(contexte: modelContext, basale: analyseBasaleService)
-            async let corr: Void = analyseCorrectionsService.demarrer(contexte: modelContext, basale: analyseBasaleService)
+            async let endo: Void = { @MainActor in await analyseEndormissementService.demarrer(contexte: modelContext, basale: analyseBasaleService) }()
+            async let corr: Void = { @MainActor in await analyseCorrectionsService.demarrer(contexte: modelContext, basale: analyseBasaleService) }()
             // Boot indépendant : aucun ancrage de nuit requis.
-            async let bilanCorr: Void = bilanCorrectionsService.demarrer(contexte: modelContext)
+            async let bilanCorr: Void = { @MainActor in await bilanCorrectionsService.demarrer(contexte: modelContext) }()
             _ = await (endo, corr, bilanCorr)
             // `HealthKitCGMService` et `HealthKitImportService` demandent
             // chacun leur propre type (glycémies / workouts) via leur

@@ -8,14 +8,14 @@ import Foundation
 /// Injection rapide minimale pour le calcul d'IOB — on ne retient que l'instant
 /// et la dose. Type valeur `Sendable` : le calcul peut tourner hors `MainActor`
 /// (ex. entraînement ML la nuit).
-struct InjectionPourIOB: Sendable, Equatable {
+nonisolated struct InjectionPourIOB: Sendable, Equatable {
     let heure: Date
     let dose: Double
 }
 
 /// Point de la courbe de décroissance IOB projetée. Exprimé en minutes depuis
 /// « maintenant » (0 = instant courant, positif = futur) et en unités résiduelles.
-struct PointIOB: Sendable, Equatable {
+nonisolated struct PointIOB: Sendable, Equatable {
     let minutesDepuisMaintenant: Int
     let iob: Double
 }
@@ -30,7 +30,7 @@ struct PointIOB: Sendable, Equatable {
 /// Doc complète (formules, dérivation, sources) : Eraser « Diaviz — Modèle IOB
 /// (insuline active) ». Toujours **factuel** : l'IOB est une estimation
 /// affichée, jamais un conseil de dose.
-enum IOBCalculateur {
+nonisolated enum IOBCalculateur {
 
     /// **Fraction de dose restante** (0…1) `t` minutes après une injection unique.
     ///
@@ -92,7 +92,7 @@ enum IOBCalculateur {
 
 // MARK: - Pic d'activité par type d'insuline
 
-extension InsulineRapide {
+nonisolated extension InsulineRapide {
 
     /// Temps du pic d'activité `tp` (minutes), dérivé du profil pharmacocinétique
     /// de l'insuline. Analogues rapides (aspart/lispro/glulisine) ≈ 75 min ;
