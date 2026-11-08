@@ -33,7 +33,7 @@ struct EnTeteAnalyse: View {
         /// suit pas la valeur du score, sinon la carte annoncerait le verdict
         /// avant qu'on l'ait lu.
         case score
-        /// Écart de ratio (R1) — sarcelle profond.
+        /// Écart de ratio (R1) — bleu azur.
         case ratio
         /// Glucides de la semaine — cuivre, la teinte que porte déjà la carte
         /// d'accueil correspondante.
@@ -128,16 +128,16 @@ struct EnTeteAnalyse: View {
                     Color(sombre: (0xD2, 0xDE, 0x3E), clair: (0xC2, 0xCC, 0x4A))
                 )
             case .ratio:
-                // Jaune doré — même teinte que la carte accueil « Repas
-                // dans le ratio » (`CarteAnalyseRatio`). Indigo, teal/mint
-                // et rose vif essayés puis écartés (déjà pris, ou pas au
-                // goût).
+                // Bleu azur — même teinte que la carte accueil « Repas dans
+                // le ratio » (`CarteAnalyseRatio`), plus clair que le bleu roi
+                // des corrections. Indigo, teal/mint, rose vif et jaune doré
+                // essayés puis écartés.
                 (
-                    Color(sombre: (0x24, 0x1A, 0x04), clair: (0x54, 0x3E, 0x0C)),
-                    Color(sombre: (0x3C, 0x2C, 0x08), clair: (0x7C, 0x5C, 0x14)),
-                    Color(sombre: (0x5C, 0x44, 0x0C), clair: (0xA6, 0x80, 0x20)),
-                    Color(sombre: (0x8C, 0x68, 0x14), clair: (0xCE, 0xA6, 0x30)),
-                    Color(sombre: (0xB0, 0x86, 0x20), clair: (0xE6, 0xBC, 0x44))
+                    Color(sombre: (0x03, 0x1C, 0x38), clair: (0x07, 0x3C, 0x78)),
+                    Color(sombre: (0x05, 0x2E, 0x5C), clair: (0x0A, 0x56, 0xA8)),
+                    Color(sombre: (0x08, 0x4A, 0x94), clair: (0x0E, 0x74, 0xD4)),
+                    Color(sombre: (0x0C, 0x6C, 0xCC), clair: (0x2A, 0x94, 0xF0)),
+                    Color(sombre: (0x24, 0x94, 0xF2), clair: (0x62, 0xB8, 0xFA))
                 )
             case .glucides:
                 (

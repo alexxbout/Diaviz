@@ -115,7 +115,7 @@ struct PageEcartRatio: View {
                 EnTeteAnalyse(
                     surtitre: "Analyse des repas",
                     titre: "Écart de ratio",
-                    accroche: "Vos résultats selon le ratio appliqué.",
+                    accroche: "Vos repas classés selon la dose injectée face à celle de votre ratio, avec le taux de bons résultats de chaque groupe.",
                     ambiance: .ratio
                 )
                 if moments.count > 1 { titreSection("Moment de la journée") }
