@@ -224,6 +224,16 @@ final class Repas {
     /// dose corrigée une fois la courbe connue pèse sur le ratio observé.
     var dateModification: Date?
 
+    /// Moment de la journée choisi à la main (`SectionRepas.rawValue`), `nil`
+    /// pour le classement automatique selon l'heure et les horaires du profil.
+    var momentChoisi: String?
+
+    /// Moment du repas : le choix manuel prime. **Seule lecture à utiliser**
+    /// pour ranger un repas ou lui associer un ratio.
+    nonisolated func section(horaires: HorairesRepas) -> SectionRepas {
+        momentChoisi.flatMap(SectionRepas.init(rawValue:)) ?? SectionRepas(heure: heure, horaires: horaires)
+    }
+
     /// État du pré-calcul de la réponse glycémique. **Dérivation non persistée**
     /// (`@Transient`) : recalculée à la volée depuis le CGM, et `EtatAnalyse`
     /// embarque une courbe non stockable. Renseignée à l'affichage / en preview.

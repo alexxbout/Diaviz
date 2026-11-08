@@ -215,7 +215,7 @@ struct AjouterRepasVue: View {
                 libelleValidation: repasAModifier == nil ? nil : "Enregistrer les modifications",
                 onFermeture: repasAModifier == nil ? nil : { valeursModification = $0 },
                 onAjouterUnAliment: tapperAjouterAliment,
-                onValiderRepas: { dose, site, heure, doseGlobale, doseCorrection, ajustements, evenements, exclureDesAnalyses in
+                onValiderRepas: { dose, site, heure, doseGlobale, doseCorrection, ajustements, evenements, exclureDesAnalyses, momentChoisi in
                     validerRepas(
                         doseInjectee: dose,
                         site: site,
@@ -224,7 +224,8 @@ struct AjouterRepasVue: View {
                         doseCorrection: doseCorrection,
                         ajustements: ajustements,
                         evenements: evenements,
-                        exclureDesAnalyses: exclureDesAnalyses
+                        exclureDesAnalyses: exclureDesAnalyses,
+                        momentChoisi: momentChoisi
                     )
                 }
             )
@@ -265,7 +266,8 @@ struct AjouterRepasVue: View {
         doseCorrection: Double = 0,
         ajustements: [Ajustement] = [],
         evenements: [EvenementRepas] = [],
-        exclureDesAnalyses: Bool = false
+        exclureDesAnalyses: Bool = false,
+        momentChoisi: SectionRepas? = nil
     ) {
         if let repasAModifier {
             repasService.modifier(
@@ -278,7 +280,8 @@ struct AjouterRepasVue: View {
                 doseCorrection: doseCorrection,
                 ajustements: ajustements,
                 evenements: evenements,
-                exclureDesAnalyses: exclureDesAnalyses
+                exclureDesAnalyses: exclureDesAnalyses,
+                momentChoisi: momentChoisi
             )
             analyseRatioService.recalculer(depuis: repasService.repas, contexte: modelContext)
             glucidesHebdoService.recalculer(depuis: repasService.repas)
@@ -295,7 +298,8 @@ struct AjouterRepasVue: View {
             doseCorrection: doseCorrection,
             ajustements: ajustements,
             evenements: evenements,
-            exclureDesAnalyses: exclureDesAnalyses
+            exclureDesAnalyses: exclureDesAnalyses,
+            momentChoisi: momentChoisi
         )
         // Le verdict de ce repas n'est pas encore connu (CGM pas encore
         // rempli), mais un repas plus ancien a pu changer de statut entre

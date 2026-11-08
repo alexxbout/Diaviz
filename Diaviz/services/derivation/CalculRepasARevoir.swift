@@ -171,7 +171,7 @@ nonisolated enum CalculRepasARevoir {
             estHypo: estHypo,
             glucidesMin: glucidesValeurs.min() ?? glucidesRef,
             glucidesMax: glucidesValeurs.max() ?? glucidesRef,
-            libelleSection: SectionRepas(heure: dernier.heure, horaires: horairesRepas).titre,
+            libelleSection: dernier.section(horaires: horairesRepas).titre,
             badgesAjustements: badgesAjustements(dernier),
             ratioApplique: dernier.ratioEffectifPersiste,
             evenements: evenements(

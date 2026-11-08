@@ -63,7 +63,7 @@ final class RepasService {
         let duJour = repasDuJour(jour)
         let horaires = horairesRepas
         return SectionRepas.allCases.map { section in
-            (titre: section.titre, repas: duJour.filter { SectionRepas(heure: $0.heure, horaires: horaires) == section })
+            (titre: section.titre, repas: duJour.filter { $0.section(horaires: horaires) == section })
         }
     }
 
@@ -195,7 +195,8 @@ final class RepasService {
         doseCorrection: Double = 0,
         ajustements: [Ajustement] = [],
         evenements: [EvenementRepas] = [],
-        exclureDesAnalyses: Bool = false
+        exclureDesAnalyses: Bool = false,
+        momentChoisi: SectionRepas? = nil
     ) -> Repas? {
         let alimentsHub = entrees.map(Aliment.init(depuis:))
         guard !alimentsHub.isEmpty else { return nil }
@@ -213,6 +214,7 @@ final class RepasService {
             evenements: evenements,
             exclureDesAnalyses: exclureDesAnalyses
         )
+        nouveau.momentChoisi = momentChoisi?.rawValue
         // IOB actif juste avant le repas — snapshot figé du contexte insuline
         // (dérivé du hub à la saisie, donc avant le bolus de ce repas). `nil` si
         // négligeable, pour ne pas afficher un badge « 0u ».
@@ -242,7 +244,7 @@ final class RepasService {
             zoneInjection: site.zone,
             coteInjection: site.cote,
             repasAssocieId: unRepas.id,
-            labelRepas: SectionRepas(heure: unRepas.heure, horaires: horairesRepas).titre,
+            labelRepas: unRepas.section(horaires: horairesRepas).titre,
             emojiRepas: unRepas.emojiPrincipal,
             motif: .repas,
             source: .manuel
@@ -267,7 +269,8 @@ final class RepasService {
         doseCorrection: Double,
         ajustements: [Ajustement],
         evenements: [EvenementRepas],
-        exclureDesAnalyses: Bool
+        exclureDesAnalyses: Bool,
+        momentChoisi: SectionRepas?
     ) {
         guard let contexte, !entrees.isEmpty else { return }
         let heureChangee = unRepas.heure != heure
@@ -288,6 +291,7 @@ final class RepasService {
         unRepas.remplacerEvenements(evenements)
         unRepas.exclureDesAnalyses = exclureDesAnalyses
         unRepas.dateModification = Date()
+        unRepas.momentChoisi = momentChoisi?.rawValue
 
         // Avant le calcul d'IOB : à sa nouvelle heure, le bolus de ce repas
         // n'entre pas dans l'insuline active « juste avant ».
@@ -322,7 +326,7 @@ final class RepasService {
         principal.heure = unRepas.heure
         principal.zoneInjection = site.zone
         principal.coteInjection = site.cote
-        principal.labelRepas = SectionRepas(heure: unRepas.heure, horaires: horairesRepas).titre
+        principal.labelRepas = unRepas.section(horaires: horairesRepas).titre
         principal.emojiRepas = unRepas.emojiPrincipal
     }
 
@@ -405,6 +409,7 @@ final class RepasService {
             exclureDesAnalyses: unRepas.exclureDesAnalyses
         )
         copie.dateModification = unRepas.dateModification
+        copie.momentChoisi = unRepas.momentChoisi
         return copie
     }
 
@@ -639,7 +644,7 @@ extension EntreeAliment {
 
 /// Les 5 tranches canoniques du journal. Reste une dérivation d'affichage :
 /// le hub ne stocke pas la section, seulement l'heure absolue du repas.
-enum SectionRepas: CaseIterable {
+enum SectionRepas: String, CaseIterable {
     case petitDejeuner
     case dejeuner
     case enCas

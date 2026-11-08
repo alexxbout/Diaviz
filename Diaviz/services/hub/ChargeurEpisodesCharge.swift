@@ -89,7 +89,7 @@ enum ChargeurEpisodesCharge {
                     issue: issue
                 )
             case .moment:
-                let section = SectionRepas(heure: r.heure, horaires: profil.horairesRepas)
+                let section = r.section(horaires: profil.horairesRepas)
                 let moment = moment(section: section, profil: profil)
                 let cle = CleParametre(parametre: parametre(moment))
                 return EvenementReglage(

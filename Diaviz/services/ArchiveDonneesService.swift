@@ -433,6 +433,7 @@ private struct RepasArchive: Codable {
     var contexteNormalise: String?
     var exclureDesAnalyses: Bool
     var dateModification: Date? = nil
+    var momentChoisi: String? = nil
 
     init(_ modele: Repas) {
         id = modele.id
@@ -450,6 +451,7 @@ private struct RepasArchive: Codable {
         contexteNormalise = modele.contexteNormalise
         exclureDesAnalyses = modele.exclureDesAnalyses
         dateModification = modele.dateModification
+        momentChoisi = modele.momentChoisi
     }
 
     func versModele() -> Repas {
@@ -470,6 +472,7 @@ private struct RepasArchive: Codable {
             exclureDesAnalyses: exclureDesAnalyses
         )
         repas.dateModification = dateModification
+        repas.momentChoisi = momentChoisi
         return repas
     }
 }

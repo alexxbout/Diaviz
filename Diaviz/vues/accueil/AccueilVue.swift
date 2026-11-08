@@ -562,9 +562,7 @@ struct AccueilVue: View {
             .navigationDestination(item: $repasOuvert) { repas in
                 DetailRepasVue(
                     repas: repas,
-                    titreSection: SectionRepas(
-                        heure: repas.heure, horaires: ProfilService.shared.profil.horairesRepas
-                    ).titre,
+                    titreSection: repas.section(horaires: ProfilService.shared.profil.horairesRepas).titre,
                     onSupprimer: { repasService.supprimer(repas) }
                 )
             }

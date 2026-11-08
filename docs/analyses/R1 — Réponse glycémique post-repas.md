@@ -290,3 +290,6 @@ Section « Alertes » de la saisie d'un repas : une conclusion et deux doses (sa
 - Aucune dose saisie : titre neutre « Dose au ratio : X u », icône en pointillé, pas de verdict.
 - Ratio sport en vigueur : le titre dit « ratio sport », le chiffre du ratio et sa durée restante sont sur la carte sport.
 - Détail au toucher, une valeur par ligne : doses, écart, ratio, ajustement, bons résultats observés, charge active. L'état du décompte des repas reste sur la page « Écart de ratio ».
+
+## Moment d'un repas choisi à la main
+Ligne « Moment » sous l'heure, à la saisie et à la modification. Par défaut automatique (heure et horaires du profil) ; un choix manuel (`Repas.momentChoisi`, à déployer sur CloudKit) ne bouge plus si l'heure change. Il pilote tout ce qui range un repas par moment : journal, ratio de référence à la saisie, mining R1, repas à revoir, épisodes C1 (`Repas.section(horaires:)`, seule lecture à utiliser). L'analyse de nuit lit l'heure réelle et n'est pas concernée.

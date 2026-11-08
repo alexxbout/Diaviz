@@ -17,9 +17,12 @@ import SwiftUI
 ///
 /// Jamais de date future (`in: ...Date()`) : on saisit ce qui s'est passé,
 /// jamais une prévision.
-struct SectionDateHeure: View {
+struct SectionDateHeure<Complement: View>: View {
 
     @Binding var date: Date
+
+    /// Lignes propres à l'écran, sous l'heure.
+    @ViewBuilder var complement: Complement
 
     var body: some View {
         Section("Date et heure") {
@@ -29,7 +32,14 @@ struct SectionDateHeure: View {
             DatePicker(selection: $date, in: ...Date(), displayedComponents: .hourAndMinute) {
                 Label("Heure", systemImage: "clock")
             }
+            complement
         }
+    }
+}
+
+extension SectionDateHeure where Complement == EmptyView {
+    init(date: Binding<Date>) {
+        self.init(date: date) { EmptyView() }
     }
 }
 
