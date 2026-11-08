@@ -93,7 +93,7 @@ enum MicroVisuelType: Sendable {
     /// couleur de la catégorie — quand la donnée clé est un verdict (« Stable »).
     case iconeEtTexte(systemName: String, texte: String)
     /// Courbe glycémique, entre les lignes d'hypo et d'hyper du profil.
-    /// Aucun texte autour : le repère (repas, séance) et le pic suffisent.
+    /// Aucun texte autour : le repère (repas, séance) suffit.
     case courbe(CourbeInsight)
 }
 
@@ -113,9 +113,56 @@ struct CourbeInsight: Sendable, Equatable {
     /// Séance : bande de la durée de l'effort.
     let repere: ClosedRange<Double>
     let repereEstUneBande: Bool
-    /// Plus haute valeur de la fenêtre, annotée sur la courbe.
+    /// Plus haute valeur de la fenêtre, lue par VoiceOver.
     let pic: Point?
     let seuils: SeuilsGlycemiques
+}
+
+extension CourbeInsight {
+    enum Zone: Sendable, Equatable { case basse, cible, haute }
+
+    struct Segment: Sendable, Equatable {
+        let zone: Zone
+        let points: [Point]
+    }
+
+    func zone(de valeur: Double) -> Zone {
+        if valeur < seuils.hypoglycemie { return .basse }
+        if valeur > seuils.hyperglycemie { return .haute }
+        return .cible
+    }
+
+    /// La courbe découpée par zone, coupée exactement sur les seuils : sans
+    /// point interpolé, la couleur changerait une mesure trop tôt ou trop tard.
+    var segments: [Segment] {
+        guard var courant = points.first.map({ [$0] }) else { return [] }
+        var resultat: [Segment] = []
+
+        func fermer(_ morceau: [Point]) {
+            guard morceau.count >= 2 else { return }
+            let horsCible = morceau.map { zone(de: $0.valeur) }.first { $0 != .cible }
+            resultat.append(Segment(zone: horsCible ?? .cible, points: morceau))
+        }
+
+        for (a, b) in zip(points, points.dropFirst()) {
+            let coupures = [seuils.hypoglycemie, seuils.hyperglycemie]
+                .filter { a.valeur != b.valeur && min(a.valeur, b.valeur) <= $0 && $0 <= max(a.valeur, b.valeur) }
+                .map { ($0 - a.valeur) / (b.valeur - a.valeur) }
+                .sorted()
+            for t in coupures {
+                let coupure = Point(
+                    minutes: a.minutes + (b.minutes - a.minutes) * t,
+                    valeur: a.valeur + (b.valeur - a.valeur) * t
+                )
+                courant.append(coupure)
+                fermer(courant)
+                courant = [coupure]
+            }
+            courant.append(b)
+        }
+        fermer(courant)
+        return resultat
+    }
 }
 
 // MARK: - Destination

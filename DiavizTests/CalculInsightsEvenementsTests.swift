@@ -75,6 +75,38 @@ struct CalculInsightsEvenementsTests {
         #expect(a.id != autre.id)
     }
 
+    // MARK: Zones de la courbe
+
+    private func courbe(_ valeurs: [Double]) -> CourbeInsight {
+        CourbeInsight(
+            points: valeurs.enumerated().map { .init(minutes: Double($0.offset) * 5, valeur: $0.element) },
+            repere: 0...0, repereEstUneBande: false, pic: nil, seuils: seuils
+        )
+    }
+
+    @Test("Courbe dans la cible : un seul segment")
+    func courbeDansLaCible() {
+        #expect(courbe([100, 120, 150]).segments.map(\.zone) == [.cible])
+    }
+
+    @Test("Passage au-dessus du seuil : coupure exactement sur l'hyper")
+    func coupureHyper() {
+        let segments = courbe([170, 190, 170]).segments
+        #expect(segments.map(\.zone) == [.cible, .haute, .cible])
+        #expect(segments[0].points.last?.valeur == 180)
+        #expect(segments[0].points.last?.minutes == 2.5)
+    }
+
+    @Test("Chute de l'hyper à l'hypo entre deux mesures : trois zones")
+    func traverseLesDeuxSeuils() {
+        #expect(courbe([200, 60]).segments.map(\.zone) == [.haute, .cible, .basse])
+    }
+
+    @Test("Point pile sur le seuil : pas de segment fantôme")
+    func pileSurLeSeuil() {
+        #expect(courbe([180, 200, 210]).segments.map(\.zone) == [.haute])
+    }
+
     // MARK: Réponse d'une séance
 
     private func reponseSeance() -> ReponseGlycemiqueSport {
