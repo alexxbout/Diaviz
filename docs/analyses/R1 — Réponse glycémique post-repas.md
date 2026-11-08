@@ -282,3 +282,11 @@ Menu ⋯ du détail du repas → « Modifier » : même écran que la saisie, pr
 - **Fidélité** : le hub ne garde que des valeurs figées. La fiche d'origine sert si elle redonne les glucides enregistrés à 1 g près, sinon une fiche est reconstruite depuis ces valeurs. Le nom et l'emoji enregistrés sont conservés.
 - **Trace** : « Modifié le … » sur le détail du repas (`Repas.dateModification`). Une dose corrigée après avoir vu la courbe pèse sur le ratio observé : la mention le rend visible.
 - **Schéma** : `Repas.dateModification`, `Aliment.taillePortion` et `Aliment.codeProduitOFF` sont à déployer sur CloudKit Production avant la prochaine build TestFlight.
+
+## Carte de validation à la saisie
+Section « Alertes » de la saisie d'un repas : une conclusion et deux doses (saisie, au ratio), sans badge.
+
+- Lignes facultatives : ajustement, et « Écart observé sur vos déjeuners » quand le mining a détecté un écart (jamais sous ratio sport).
+- Aucune dose saisie : titre neutre « Dose au ratio : X u », icône en pointillé, pas de verdict.
+- Ratio sport en vigueur : le titre dit « ratio sport », le chiffre du ratio et sa durée restante sont sur la carte sport.
+- Détail au toucher, une valeur par ligne : doses, écart, ratio, ajustement, bons résultats observés, charge active. L'état du décompte des repas reste sur la page « Écart de ratio ».
