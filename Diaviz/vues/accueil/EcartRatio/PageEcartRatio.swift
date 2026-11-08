@@ -33,13 +33,15 @@ struct PageEcartRatio: View {
     @State private var resultatAvance: (sections: [ObservationRatioSection], repartitions: [SectionRepas?: RepartitionRepasMoment])?
 
     /// Vue « Tout » : repas d'avant le dernier changement de ratio inclus.
-    @State private var toutHistorique = false
+    /// `nil` tant que l'utilisateur n'a rien choisi.
+    @State private var toutHistorique: Bool?
     @Environment(\.accessibilityReduceMotion) private var reduireAnimations
 
-    /// Bascule d'office sur « Tout » quand rien n'a encore été fait depuis
-    /// le changement — plutôt qu'une page vide alors que des repas existent.
+    /// S'ouvre sur « Tout » quand rien n'a encore été fait depuis le
+    /// changement — plutôt qu'une page vide alors que des repas existent.
+    /// Le choix de l'utilisateur prime ensuite, même sur une vue vide.
     private var vueComplete: Bool {
-        !sectionsCompletes.isEmpty && (toutHistorique || sections.isEmpty)
+        !sectionsCompletes.isEmpty && (toutHistorique ?? sections.isEmpty)
     }
     private var sectionsActives: [ObservationRatioSection] {
         resultatAvance?.sections ?? (vueComplete ? sectionsCompletes : sections)
