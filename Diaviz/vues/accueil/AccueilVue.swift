@@ -179,6 +179,7 @@ struct AccueilVue: View {
         let maintenant = Date()
         let seuils = ProfilService.shared.profil.seuilsGlycemiques
         insightsSeances = activitesRecentes
+            .filter(\.estEncoreDansLeHub)
             .filter { maintenant.timeIntervalSince($0.dateFin) < 36 * 3600 }
             .compactMap { activite in
                 guard let reponse = activitesService.reponse(pour: activite) else { return nil }
@@ -196,7 +197,7 @@ struct AccueilVue: View {
         case .basale:            afficherDetailBasale = true
         case .ecartRatio:        afficherDetailEcartRatio = true
         case .detailRepas(let id): repasOuvert = repasService.repas.first { $0.id == id }
-        case .detailSeance(let id): activiteOuverte = activitesRecentes.first { $0.id == id }
+        case .detailSeance(let id): activiteOuverte = activitesRecentes.first { $0.estEncoreDansLeHub && $0.id == id }
         case .importSport:       afficherImportSport = true
         case .repasARevoir:      afficherTousRepasARevoir = true
         case .chargeEtGlycemie:  afficherChargeEtGlycemie = true
@@ -206,8 +207,7 @@ struct AccueilVue: View {
 
     /// Injections et activités du hub — servent uniquement à superposer les
     /// faits (bolus, correction, lente, sport) sur les courbes des cartes
-    /// « Repas à revoir ». Chargées une fois au `task` de la page plutôt qu'à
-    /// chaque recalcul de la propriété dérivée.
+    /// « Repas à revoir ». Relues seulement quand le hub a changé.
     @State private var injectionsRecentes: [Injection] = []
     @State private var activitesRecentes: [ActiviteSportive] = []
     /// Repas dont la courbe ne mesure pas que lui — exclus des récurrences
@@ -240,16 +240,20 @@ struct AccueilVue: View {
     /// Les deux calculateurs restent distincts (recherche de récurrence vs
     /// fait isolé, seuils de fiabilité différents) : seule la présentation
     /// fusionne.
-    private var repasARevoir: [RepasARevoir] {
+    private func calculerRepasARevoir() -> [RepasARevoir] {
         let horaires = ProfilService.shared.profil.horairesRepas
         let occurrencesMinimales = ProfilService.shared.profil.preferencesAvancees.occurrencesMinimalesRepasARevoir
             ?? CalculRepasARevoir.occurrencesMinimalesParDefaut
         let idsMasques = RepasARevoirMasquesService.shared.idsMasques
         let seuils = ProfilService.shared.profil.seuilsGlycemiques
+        // Supprimer un repas supprime son bolus : ce calcul peut repartir
+        // avant la prochaine relecture de ces deux listes.
+        let injections = injectionsRecentes.filter(\.estEncoreDansLeHub)
+        let activites = activitesRecentes.filter(\.estEncoreDansLeHub)
         let recurrents = CalculRepasARevoir.analyser(
             repas: repasService.repas,
-            injections: injectionsRecentes,
-            activites: activitesRecentes,
+            injections: injections,
+            activites: activites,
             horairesRepas: horaires,
             seuils: seuils,
             occurrencesMinimales: occurrencesMinimales,
@@ -258,14 +262,63 @@ struct AccueilVue: View {
         )
         let isoles = CalculRepasIsoles.analyser(
             repas: repasService.repas,
-            injections: injectionsRecentes,
-            activites: activitesRecentes,
+            injections: injections,
+            activites: activites,
             horairesRepas: horaires,
             seuils: seuils,
             idsMasques: idsMasques
         )
         return (recurrents + isoles)
             .sorted(by: CalculRepasARevoir.plusSevereEnPremier)
+    }
+
+    /// Résultat de `calculerRepasARevoir`, conservé hors du `body` : le calcul
+    /// parcourt tous les repas pour chacun d'eux, et le `body` lit cette
+    /// liste plusieurs fois à chaque rendu.
+    @State private var repasARevoir: [RepasARevoir] = []
+
+    /// Avance à chaque relecture des faits superposés aux courbes.
+    @State private var revisionFaitsCourbes = 0
+
+    /// Tout ce dont dépend « Repas à revoir ». La liste n'est recalculée que
+    /// si l'une de ces valeurs change.
+    private struct CleRepasARevoir: Equatable {
+        let revisionCourbes: Int
+        let revisionFaits: Int
+        let idsMasques: Set<UUID>
+        let horaires: HorairesRepas
+        let seuils: SeuilsGlycemiques
+        let occurrencesMinimales: Int
+    }
+
+    private var cleRepasARevoir: CleRepasARevoir {
+        let profil = ProfilService.shared.profil
+        return CleRepasARevoir(
+            revisionCourbes: repasService.revisionCourbes,
+            revisionFaits: revisionFaitsCourbes,
+            idsMasques: RepasARevoirMasquesService.shared.idsMasques,
+            horaires: profil.horairesRepas,
+            seuils: profil.seuilsGlycemiques,
+            occurrencesMinimales: profil.preferencesAvancees.occurrencesMinimalesRepasARevoir
+                ?? CalculRepasARevoir.occurrencesMinimalesParDefaut
+        )
+    }
+
+    /// Données sur lesquelles la page a été chargée pour la dernière fois.
+    @State private var fraicheurDonnees: MarqueurFraicheur?
+    @State private var servicesDemarres = false
+
+    /// Relit le hub si quelque chose a changé depuis le dernier passage (un
+    /// repas ou une injection ajoutés depuis un autre onglet apparaissent
+    /// ainsi au retour). Sinon la page garde ce qu'elle affiche déjà.
+    private func rafraichirDonneesSiNecessaire() {
+        let marqueur = FraicheurHub.shared.marqueur()
+        guard fraicheurDonnees?.resteValable(par: marqueur) != true else { return }
+        fraicheurDonnees = marqueur
+        contexteLente = construireContexteLente()
+        chargerFaitsPourCourbes()
+        resucragesService.demarrer(contexte: modelContext)
+        Task { await scoreService.demarrerEnFond(contexte: modelContext) }
     }
 
     /// Progression affichée sous le placeholder « Glucides » — jours avec
@@ -301,6 +354,7 @@ struct AccueilVue: View {
         )
         Task { await ChargeActiveService.shared.actualiserSeances(contexte: modelContext) }
         rafraichirInsightsSeances()
+        revisionFaitsCourbes += 1
     }
 
     /// Contexte de la carte « Insuline lente » — **réel**, construit depuis la
@@ -546,10 +600,8 @@ struct AccueilVue: View {
                 }
             }
             .background(Color(.systemGroupedBackground))
-            .task {
-                // Injecte le contexte du hub au boot et charge les 30
-                // derniers jours de glycémies pour le calcul du score.
-                scoreService.demarrer(contexte: modelContext)
+            .onChange(of: cleRepasARevoir, initial: true) {
+                repasARevoir = calculerRepasARevoir()
             }
             .task {
                 // Épisodes de charge pour la pile d'insights : calculés une
@@ -673,20 +725,19 @@ struct AccueilVue: View {
                 )
             }
             .task {
+                // Un `.task` repart à chaque retour sur l'onglet : les services
+                // ne se branchent qu'une fois, `onAppear` gère la fraîcheur.
+                guard !servicesDemarres else { return }
+                servicesDemarres = true
                 iobService.demarrer(contexte: modelContext)
                 metriquesService.demarrer(contexte: modelContext)
-                resucragesService.demarrer(contexte: modelContext)
                 activitesService.demarrer(contexte: modelContext)
-                contexteLente = construireContexteLente()
-                chargerFaitsPourCourbes()
+                rafraichirInsightsSeances()
             }
             .onAppear {
                 iobService.rafraichir()
                 metriquesService.recharger()
-                contexteLente = construireContexteLente()
-                // Un repas ou une injection ajoutés depuis un autre onglet
-                // doivent apparaître sur les courbes au retour sur l'accueil.
-                chargerFaitsPourCourbes()
+                rafraichirDonneesSiNecessaire()
                 // Active l'animation de la carte lente au tick SUIVANT : le
                 // changement nil→valeur d'`etatLente` de ce cycle (boot) reste
                 // donc non animé ; seuls les changements ultérieurs (prise de

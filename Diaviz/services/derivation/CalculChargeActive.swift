@@ -155,6 +155,17 @@ nonisolated struct ContexteChargeActive: Sendable {
         jours: [], calendrier: .current
     )
 
+    /// Mêmes faits et mêmes niveaux, jour par jour. L'indice n'entre pas dans
+    /// la comparaison : celui du jour en cours glisse avec l'heure, sans
+    /// qu'aucune donnée ait changé.
+    func memesFaits(que autre: ContexteChargeActive) -> Bool {
+        jours.count == autre.jours.count && zip(jours, autre.jours).allSatisfy { a, b in
+            a.jour == b.jour && a.nombreSeances == b.nombreSeances
+                && a.minutesSeances == b.minutesSeances && a.minutesMarche == b.minutesMarche
+                && a.niveau == b.niveau
+        }
+    }
+
     func jour(contenant date: Date) -> JourChargeActive? {
         let debut = calendrier.startOfDay(for: date)
         return jours.first { $0.jour == debut }

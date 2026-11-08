@@ -32,6 +32,10 @@ final class RepasService {
     /// store après chaque écriture.
     private(set) var repas: [Repas] = []
 
+    /// Avance après chaque recalcul des courbes : `etatAnalyse` change sur
+    /// place, sans que la liste `repas` soit remplacée.
+    private(set) var revisionCourbes = 0
+
     // MARK: - Démarrage
 
     /// Branche le service sur le contexte du hub et charge les données. Idempotent.
@@ -485,6 +489,7 @@ final class RepasService {
     /// partir des `GlucoseReading` du hub. Un seul fetch CGM borné, puis
     /// découpage en mémoire par repas via `AssembleurReponseRepas` (pur).
     private func annoterReponsesGlycemiques() {
+        defer { revisionCourbes += 1 }
         guard let contexte else { return }
         let maintenant = Date()
         let borneAnalyse = Calendar.current.date(

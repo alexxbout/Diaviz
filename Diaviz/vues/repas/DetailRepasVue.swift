@@ -54,6 +54,14 @@ struct DetailRepasVue: View {
     // MARK: - Corps
 
     var body: some View {
+        // Après « Supprimer », la page peut se redessiner une fois avant de
+        // se refermer : ne plus lire le repas à ce moment-là.
+        if repas.estEncoreDansLeHub {
+            contenu
+        }
+    }
+
+    private var contenu: some View {
         ScrollView {
             VStack(spacing: 24) {
                 // Graphique en vedette : pleine largeur, sans carte, tout

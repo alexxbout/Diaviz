@@ -39,7 +39,7 @@ struct RecapDosesRepas: View {
         (repas.doseCorrection ?? 0) > 0 || !repas.ajustements.isEmpty
     }
 
-    private var afficheVentilation: Bool { Self.aUneVentilation(repas) }
+    private var afficheVentilation: Bool { repas.estEncoreDansLeHub && Self.aUneVentilation(repas) }
 
     var body: some View {
         if afficheVentilation {

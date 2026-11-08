@@ -40,7 +40,7 @@ final class AnalyseCorrectionsService {
         await recharger()
     }
 
-    /// Le fetch reste `MainActor` ; l'assemblage pur est déporté (voir
+    /// Lecture et assemblage hors du thread principal (voir
     /// `AnalyseBasaleService.recharger`).
     func recharger() async {
         guard let contexte, let basale else { return }
@@ -52,7 +52,11 @@ final class AnalyseCorrectionsService {
             diaHeures: profil.dureeActionInsulineHeures,
             picMinutes: profil.insulineRapide.picActionMinutes
         )
-        let entrees = chargerEntrees(contexte: contexte, basale: basale)
+        let nuits = ChargeurFaitsCoucher.ancragesNuit(depuis: basale.analyse.nightChartData)
+        let niveauxCharge = ChargeActiveService.shared.contexte?.niveauxParJour ?? [:]
+        let entrees = await LecteurHub.lire(container: contexte.container) {
+            Self.chargerEntrees(contexte: $0, nuits: nuits, niveauxCharge: niveauxCharge)
+        }
         let changementDoseRecent = basale.analyse.changementDoseRecent
         analyse = await Task.detached(priority: .userInitiated) {
             CalculAnalyseCorrections.analyser(
@@ -64,20 +68,22 @@ final class AnalyseCorrectionsService {
 
     // MARK: - Accès au hub (fetchs partagés `ChargeurFaitsCoucher`)
 
-    private func chargerEntrees(contexte: ModelContext, basale: AnalyseBasaleService) -> EntreesCorrections {
+    nonisolated private static func chargerEntrees(
+        contexte: ModelContext, nuits: [AncrageNuit], niveauxCharge: [Date: NiveauChargeActive]
+    ) -> EntreesCorrections {
         let cal = Calendar.current
         let debutCourant = ScoreService.debutJourMetabolique()
         let borneCourte = cal.date(byAdding: .day, value: -15, to: debutCourant) ?? debutCourant
 
         return EntreesCorrections(
-            nuits: ChargeurFaitsCoucher.ancragesNuit(depuis: basale.analyse.nightChartData),
+            nuits: nuits,
             lectures: ChargeurFaitsCoucher.cgm(contexte, depuis: borneCourte),
             rapides: ChargeurFaitsCoucher.rapides(contexte, depuis: borneCourte),
             repas: ChargeurFaitsCoucher.repasHorsResucrage(contexte, depuis: borneCourte),
             resucrages: ChargeurFaitsCoucher.resucrages(contexte, depuis: borneCourte),
             sports: ChargeurFaitsCoucher.sports(contexte, depuis: borneCourte),
             pauses: ChargeurFaitsCoucher.pauses(contexte, depuis: borneCourte),
-            niveauxCharge: ChargeActiveService.shared.contexte?.niveauxParJour ?? [:]
+            niveauxCharge: niveauxCharge
         )
     }
 }

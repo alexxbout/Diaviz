@@ -34,12 +34,10 @@ final class CorrelationChargeTIRService {
         await recalculer(contexte: contexte)
     }
 
-    /// Le fetch (I/O, a besoin du `ModelContext`) reste sur le `MainActor` ;
-    /// l'assemblage (`CalculAnalyseBasale.analyser` +
-    /// `CalculCorrelationChargeTIR.analyser`, purs et `Sendable`) est déporté
-    /// sur une tâche détachée pour ne pas bloquer le thread principal pendant
-    /// la segmentation des 70 nuits — même correctif que `AnalyseBasaleService`
-    /// pour le lag perçu au changement d'onglet.
+    /// Lecture (`LecteurHub`) et assemblage (`CalculAnalyseBasale.analyser` +
+    /// `CalculCorrelationChargeTIR.analyser`, purs) tournent hors du thread
+    /// principal : avec 90 jours de CGM, la seule lecture gelait l'onglet
+    /// près d'une demi-seconde.
     func recalculer(contexte: ModelContext) async {
         enCalcul = true
         let maintenant = Date()
@@ -52,22 +50,24 @@ final class CorrelationChargeTIRService {
             byAdding: .day, value: -CalculChargeActive.horizonJours, to: cal.startOfDay(for: maintenant)
         ) ?? borne
 
-        var descripteurCGM = FetchDescriptor<GlucoseReading>(predicate: #Predicate { $0.date >= borneEpisodes })
-        descripteurCGM.propertiesToFetch = [\.date, \.valeur]
-        let glycemies = ((try? contexte.fetch(descripteurCGM)) ?? []).map { MesureGlycemie(date: $0.date, valeur: $0.valeur) }
-
-        let (entrees, config) = chargerEntreesB1(contexte: contexte, borne: borneEpisodes)
-
         let charge = ChargeActiveService.shared.contexte ?? .vide
+        let profil = ProfilService.shared.profil
+        let config = configB1(borne: borneEpisodes)
+        let reglagesRepas = ChargeurEpisodesCharge.reglagesRepas(profil: profil)
+        var valeursActuelles = ChargeurEpisodesCharge.valeursActuelles(profil: profil)
+
+        let faits = await LecteurHub.lire(container: contexte.container) {
+            Self.lireFaits(contexte: $0, borneEpisodes: borneEpisodes, reglagesRepas: reglagesRepas)
+        }
+        let glycemies = faits.glycemies
+        let entrees = faits.entrees
+        let evenementsRepas = faits.evenementsRepas
+        let resucrages = faits.resucrages
         let glucosesMappes = glycemies.filter { $0.date >= borne }.map { (date: $0.date, valeur: $0.valeur) }
 
-        let profil = ProfilService.shared.profil
-        let evenementsRepas = ChargeurEpisodesCharge.evenementsRepas(contexte, depuis: borneEpisodes, profil: profil)
-        var valeursActuelles = ChargeurEpisodesCharge.valeursActuelles(profil: profil)
         if let lente = entrees.lentes.max(by: { $0.heure < $1.heure }) {
             valeursActuelles[.lente] = lente.dose
         }
-        let resucrages = ChargeurFaitsCoucher.resucrages(contexte, depuis: borneEpisodes).map(\.heure)
 
         let (correlation, episodes) = await Task.detached(priority: .userInitiated) {
             let detail = CalculAnalyseBasale.analyser(entrees: entrees, config: config, maintenant: maintenant)
@@ -93,9 +93,31 @@ final class CorrelationChargeTIRService {
 
     // MARK: - Faits B1 (fenêtre élargie)
 
-    private func chargerEntreesB1(contexte: ModelContext, borne: Date) -> (EntreesBasale, ConfigBasale) {
+    private struct Faits: Sendable {
+        let glycemies: [MesureGlycemie]
+        let entrees: EntreesBasale
+        let evenementsRepas: [EvenementReglage]
+        let resucrages: [Date]
+    }
+
+    /// Une seule lecture CGM : glycémies de l'horizon et nuits B1 sont deux
+    /// vues de la même tranche, la seconde avec un jour de marge.
+    nonisolated private static func lireFaits(
+        contexte: ModelContext, borneEpisodes: Date, reglagesRepas: ChargeurEpisodesCharge.ReglagesRepas
+    ) -> Faits {
+        let entrees = chargerEntreesB1(contexte: contexte, borne: borneEpisodes)
+        return Faits(
+            glycemies: entrees.lectures
+                .filter { $0.date >= borneEpisodes }
+                .map { MesureGlycemie(date: $0.date, valeur: $0.valeur) },
+            entrees: entrees,
+            evenementsRepas: ChargeurEpisodesCharge.evenementsRepas(contexte, depuis: borneEpisodes, reglages: reglagesRepas),
+            resucrages: ChargeurFaitsCoucher.resucrages(contexte, depuis: borneEpisodes).map(\.heure)
+        )
+    }
+
+    nonisolated private static func chargerEntreesB1(contexte: ModelContext, borne: Date) -> EntreesBasale {
         let cal = Calendar.current
-        let nombreNuits = cal.dateComponents([.day], from: cal.startOfDay(for: borne), to: cal.startOfDay(for: Date())).day.map { $0 + 1 } ?? CalculChargeActive.horizonJours
         // Marge zone 1 (pré-endormissement) + historique de dose, même esprit
         // que `AnalyseBasaleService.chargerEntrees` mais sur l'horizon élargi.
         let borneFaits = cal.date(byAdding: .day, value: -1, to: borne) ?? borne
@@ -127,11 +149,15 @@ final class CorrelationChargeTIRService {
             .filter { ($0.fin ?? Date()) >= borneFaits }
             .map { (debut: $0.debut, fin: $0.fin) }
 
-        let entrees = EntreesBasale(
+        return EntreesBasale(
             lectures: cgm, lentes: lentes, rapides: rapides,
             repas: repas, resucrages: resucrages, sports: sports, pauses: pauses
         )
+    }
 
+    private func configB1(borne: Date) -> ConfigBasale {
+        let cal = Calendar.current
+        let nombreNuits = cal.dateComponents([.day], from: cal.startOfDay(for: borne), to: cal.startOfDay(for: Date())).day.map { $0 + 1 } ?? CalculChargeActive.horizonJours
         let profil = ProfilService.shared.profil
         var config = ConfigBasale(
             diaHeures: profil.dureeActionInsulineHeures,
@@ -141,8 +167,7 @@ final class CorrelationChargeTIRService {
         config.seuilHyper = Int(profil.seuilsGlycemiques.hyperglycemie)
         config.classementsManuels = profil.preferencesAvancees.classementsNuits ?? [:]
         config.fenetreNuits = nombreNuits
-
-        return (entrees, config)
+        return config
     }
 }
 

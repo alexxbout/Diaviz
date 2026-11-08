@@ -18,7 +18,7 @@ import SwiftData
 /// différent de « non renseigné » n'existe pas ici — une liste vide veut
 /// simplement dire qu'aucun aliment n'a été ajouté.
 @Model
-final class ActiviteSportive {
+nonisolated final class ActiviteSportive {
     var id: UUID = UUID()
     var type: TypeSport = TypeSport.course
     /// Instant de début (absolu). La fin se déduit de `dateDebut + dureeMinutes`.

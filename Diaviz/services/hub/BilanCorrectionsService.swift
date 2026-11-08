@@ -50,13 +50,11 @@ final class BilanCorrectionsService {
                     ?? Int(CalculBilanCorrections.fenetreRepasMinutesParDefaut)
             )
         )
-        // Même règle que B1/B2/B3 : le fetch reste `MainActor` (ModelContext
-        // non-Sendable), mais l'assemblage pur (potentiellement des dizaines
-        // de corrections × fenêtres CGM) est déporté via `Task.detached` pour
-        // ne jamais bloquer le thread principal à l'arrivée sur l'onglet
-        // Analyses. Ne pas retirer ce détachement même si le calcul paraît
-        // rapide sur peu de données — il ne le restera pas avec l'historique.
-        let entrees = chargerEntrees(contexte: contexte)
+        // Même règle que B1/B2/B3 : lecture et assemblage pur hors du thread
+        // principal, pour ne jamais le bloquer à l'arrivée sur l'onglet
+        // Analyses. Ne pas revenir dessus même si le calcul paraît rapide sur
+        // peu de données : il ne le restera pas avec l'historique.
+        let entrees = await LecteurHub.lire(container: contexte.container) { Self.chargerEntrees(contexte: $0) }
         bilan = await Task.detached(priority: .userInitiated) {
             CalculBilanCorrections.analyser(entrees: entrees, config: config)
         }.value
@@ -65,7 +63,7 @@ final class BilanCorrectionsService {
 
     // MARK: - Accès au hub (fetchs partagés `ChargeurFaitsCoucher`)
 
-    private func chargerEntrees(contexte: ModelContext) -> EntreesBilanCorrections {
+    nonisolated private static func chargerEntrees(contexte: ModelContext) -> EntreesBilanCorrections {
         let cal = Calendar.current
         let debutCourant = ScoreService.debutJourMetabolique()
         // Fenêtre plus large que B3 (15 j) : les corrections diurnes ne sont

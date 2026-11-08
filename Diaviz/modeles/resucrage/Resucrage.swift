@@ -18,7 +18,7 @@ import SwiftData
 /// Valeurs par défaut ci-dessous : filet de secours schema-only exigé par
 /// CloudKit, jamais exercé par le flux normal — voir `GlucoseReading`.
 @Model
-final class Resucrage {
+nonisolated final class Resucrage {
     var id: UUID = UUID()
     /// Horodatage absolu de la prise (clé de tri / corrélation).
     var date: Date = Date.distantPast

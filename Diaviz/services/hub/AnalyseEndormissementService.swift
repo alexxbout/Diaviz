@@ -46,8 +46,8 @@ final class AnalyseEndormissementService {
     }
 
     /// Recalcule depuis le hub et depuis l'analyse B1 courante. Idempotent :
-    /// à rappeler après une ingestion CGM ou une mise à jour de B1. Le fetch
-    /// reste `MainActor` ; l'assemblage pur est déporté (voir `AnalyseBasaleService.recharger`).
+    /// à rappeler après une ingestion CGM ou une mise à jour de B1. Lecture et
+    /// assemblage hors du thread principal (voir `AnalyseBasaleService.recharger`).
     func recharger() async {
         guard let contexte, let basale else { return }
         enCalcul = true
@@ -57,7 +57,11 @@ final class AnalyseEndormissementService {
             diaHeures: profil.dureeActionInsulineHeures,
             picMinutes: profil.insulineRapide.picActionMinutes
         )
-        let entrees = chargerEntrees(contexte: contexte, basale: basale)
+        let nuits = ChargeurFaitsCoucher.ancragesNuit(depuis: basale.analyse.nightChartData)
+        let niveauxCharge = ChargeActiveService.shared.contexte?.niveauxParJour ?? [:]
+        let entrees = await LecteurHub.lire(container: contexte.container) {
+            Self.chargerEntrees(contexte: $0, nuits: nuits, niveauxCharge: niveauxCharge)
+        }
         let doseActuelle = basale.analyse.doseActuelle
         let changementDoseRecent = basale.analyse.changementDoseRecent
         analyse = await Task.detached(priority: .userInitiated) {
@@ -71,20 +75,22 @@ final class AnalyseEndormissementService {
 
     // MARK: - Accès au hub (fetchs partagés `ChargeurFaitsCoucher`)
 
-    private func chargerEntrees(contexte: ModelContext, basale: AnalyseBasaleService) -> EntreesEndormissement {
+    nonisolated private static func chargerEntrees(
+        contexte: ModelContext, nuits: [AncrageNuit], niveauxCharge: [Date: NiveauChargeActive]
+    ) -> EntreesEndormissement {
         let cal = Calendar.current
         let debutCourant = ScoreService.debutJourMetabolique()
         let borneCourte = cal.date(byAdding: .day, value: -15, to: debutCourant) ?? debutCourant
 
         return EntreesEndormissement(
-            nuits: ChargeurFaitsCoucher.ancragesNuit(depuis: basale.analyse.nightChartData),
+            nuits: nuits,
             lectures: ChargeurFaitsCoucher.cgm(contexte, depuis: borneCourte),
             rapides: ChargeurFaitsCoucher.rapides(contexte, depuis: borneCourte),
             repas: ChargeurFaitsCoucher.repasHorsResucrage(contexte, depuis: borneCourte),
             resucrages: ChargeurFaitsCoucher.resucrages(contexte, depuis: borneCourte),
             sports: ChargeurFaitsCoucher.sports(contexte, depuis: borneCourte),
             pauses: ChargeurFaitsCoucher.pauses(contexte, depuis: borneCourte),
-            niveauxCharge: ChargeActiveService.shared.contexte?.niveauxParJour ?? [:]
+            niveauxCharge: niveauxCharge
         )
     }
 }

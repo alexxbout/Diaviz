@@ -405,6 +405,18 @@ final class AnalyseRatioService {
         repas: [Repas], contexte: ModelContext?, activites: [ActiviteSportive]
     ) -> FaitsFenetreRepas {
         let profil = ProfilService.shared.profil
+        return faitsFenetre(
+            repas: repas, contexte: contexte, activites: activites,
+            diaHeures: profil.dureeActionInsulineHeures,
+            picMinutes: profil.insulineRapide.picActionMinutes
+        )
+    }
+
+    /// Variante sans lecture du profil, utilisable hors du thread principal.
+    nonisolated static func faitsFenetre(
+        repas: [Repas], contexte: ModelContext?, activites: [ActiviteSportive],
+        diaHeures: Double, picMinutes: Double
+    ) -> FaitsFenetreRepas {
         let injections = contexte.flatMap { try? $0.fetch(FetchDescriptor<Injection>()) } ?? []
         let resucrages = contexte.flatMap { try? $0.fetch(FetchDescriptor<Resucrage>()) } ?? []
         return FaitsFenetreRepas(
@@ -419,23 +431,26 @@ final class AnalyseRatioService {
             },
             resucrages: resucrages.map(\.date),
             seances: activites.map { .init(debut: $0.dateDebut, fin: $0.dateFin) },
-            diaHeures: profil.dureeActionInsulineHeures,
-            picMinutes: profil.insulineRapide.picActionMinutes
+            diaHeures: diaHeures,
+            picMinutes: picMinutes
         )
     }
 
     /// Séances dont le type a un ratio sport renseigné — sans ratio pour ce
     /// sport, la saisie garde le ratio du moment, le repas reste comparable.
     static func seancesRatioSport(_ activites: [ActiviteSportive], profil: ProfilUtilisateur) -> [SeanceRatioSport] {
-        let ratios = profil.ratiosSportEffectifs
-        return activites.compactMap { a in
+        seancesRatioSport(activites, ratios: profil.ratiosSportEffectifs)
+    }
+
+    nonisolated static func seancesRatioSport(_ activites: [ActiviteSportive], ratios: RatiosSport) -> [SeanceRatioSport] {
+        activites.compactMap { a in
             guard let grammes = ratios.ratio(pour: a.type), grammes > 0 else { return nil }
             return SeanceRatioSport(debut: a.dateDebut, fin: a.dateFin, type: a.type.rawValue)
         }
     }
 
     /// Un `Repas` vu par la règle commune d'éligibilité.
-    static func repasAJuger(_ r: Repas) -> RepasAJuger {
+    nonisolated static func repasAJuger(_ r: Repas) -> RepasAJuger {
         RepasAJuger(
             id: r.id, heure: r.heure, doseCorrection: r.doseCorrection,
             exclureDesAnalyses: r.exclureDesAnalyses, aUnEvenement: r.aUnEvenement,

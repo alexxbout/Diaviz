@@ -22,7 +22,7 @@ import SwiftData
 /// CloudKit, jamais exercé par le flux normal (l'`init` garde tous ses
 /// paramètres obligatoires) — voir `GlucoseReading` pour le principe.
 @Model
-final class Injection {
+nonisolated final class Injection {
     var id: UUID = UUID()
     var type: TypeInsuline = TypeInsuline.lente
     var dose: Double = 0

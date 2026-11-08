@@ -12,7 +12,7 @@ import SwiftData
 /// (emoji / nom / glucides / dose). Distinct de `EntreeAliment` (saisie, lié à
 /// `AlimentCiqual`) et de `AlimentCiqual` (référentiel, hors hub).
 @Model
-final class Aliment {
+nonisolated final class Aliment {
     var id: UUID = UUID()
     var emoji: String = ""
     var nom: String = ""
@@ -127,7 +127,7 @@ final class Aliment {
 /// absolue + liste d'aliments. La réponse glycémique (`etatAnalyse`) est une
 /// **dérivation** calculée depuis le CGM — jamais persistée, d'où `@Transient`.
 @Model
-final class Repas {
+nonisolated final class Repas {
     var id: UUID = UUID()
     /// Horodatage absolu du repas (clé de tri / découpage).
     var heure: Date = Date.distantPast

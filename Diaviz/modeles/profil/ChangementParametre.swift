@@ -51,7 +51,7 @@ struct CleParametre: Hashable, Sendable {
 /// Contraintes CloudKit du hub : aucun `@Attribute(.unique)`, toute
 /// propriété stockée optionnelle ou pourvue d'une valeur par défaut.
 @Model
-final class ChangementParametre {
+nonisolated final class ChangementParametre {
 
     var id: UUID = UUID()
 

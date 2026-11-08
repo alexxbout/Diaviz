@@ -18,6 +18,34 @@ enum ChargeurEpisodesCharge {
         return Calendar.current.date(from: c) ?? .distantPast
     }()
 
+    // MARK: Réglages copiés du profil
+
+    /// Copie des réglages du profil nécessaires aux événements de repas : le
+    /// profil est un `@Model`, il ne quitte pas le thread principal.
+    nonisolated struct ReglagesRepas: Sendable {
+        let ratiosSport: RatiosSport
+        let horaires: HorairesRepas
+        let modeRatio: ModeRatio
+        let valeursCourantes: [CleParametre: Double]
+        let inconnueAvant: [MomentRatio: Date]
+        let diaHeures: Double
+        let picMinutes: Double
+    }
+
+    @MainActor
+    static func reglagesRepas(profil: ProfilUtilisateur) -> ReglagesRepas {
+        let moments: [MomentRatio] = [.unique, .matin, .midi, .gouter, .soir]
+        return ReglagesRepas(
+            ratiosSport: profil.ratiosSportEffectifs,
+            horaires: profil.horairesRepas,
+            modeRatio: profil.modeRatio,
+            valeursCourantes: HistoriqueParametres.Instantane(profil: profil).valeurs,
+            inconnueAvant: moments.reduce(into: [:]) { $0[$1] = inconnueAvant($1, profil: profil) },
+            diaHeures: profil.dureeActionInsulineHeures,
+            picMinutes: profil.insulineRapide.picActionMinutes
+        )
+    }
+
     // MARK: Lente — une nuit
 
     /// Une nuit B1 → un événement de lente. Nuit en cours et nuit sans lente
@@ -48,19 +76,23 @@ enum ChargeurEpisodesCharge {
     /// retenus par la règle commune `CalculEligibiliteRepas` (la même que
     /// l'analyse des ratios), puis verdict disponible et dose non nulle ; le
     /// verdict `moyen` est non évaluable (C1 § 7).
-    @MainActor
-    static func evenementsRepas(_ contexte: ModelContext, depuis: Date, profil: ProfilUtilisateur) -> [EvenementReglage] {
+    nonisolated static func evenementsRepas(
+        _ contexte: ModelContext, depuis: Date, reglages: ReglagesRepas
+    ) -> [EvenementReglage] {
         // Un jour de marge : un repas de la veille peut polluer la fenêtre
         // d'un repas du premier jour.
         let borneFaits = depuis.addingTimeInterval(-86_400)
         let repas = (try? contexte.fetch(FetchDescriptor<Repas>(predicate: #Predicate { $0.heure >= borneFaits }))) ?? []
         let activites = (try? contexte.fetch(FetchDescriptor<ActiviteSportive>())) ?? []
-        let faits = AnalyseRatioService.faitsFenetre(repas: repas, contexte: contexte, activites: activites)
-        let seancesSport = AnalyseRatioService.seancesRatioSport(activites, profil: profil)
-        let fenetreSport = profil.ratiosSportEffectifs.fenetreEffetHeures * 3600
+        let faits = AnalyseRatioService.faitsFenetre(
+            repas: repas, contexte: contexte, activites: activites,
+            diaHeures: reglages.diaHeures, picMinutes: reglages.picMinutes
+        )
+        let seancesSport = AnalyseRatioService.seancesRatioSport(activites, ratios: reglages.ratiosSport)
+        let fenetreSport = reglages.ratiosSport.fenetreEffetHeures * 3600
         let changements = ((try? contexte.fetch(FetchDescriptor<ChangementParametre>())) ?? [])
             .compactMap { c in c.cle.map { (date: c.date, cle: $0, ancienne: c.ancienneValeur) } }
-        let courantes = HistoriqueParametres.Instantane(profil: profil).valeurs
+        let courantes = reglages.valeursCourantes
 
         return repas.compactMap { r -> EvenementReglage? in
             guard r.heure >= depuis else { return nil }
@@ -89,14 +121,14 @@ enum ChargeurEpisodesCharge {
                     issue: issue
                 )
             case .moment:
-                let section = r.section(horaires: profil.horairesRepas)
-                let moment = moment(section: section, profil: profil)
+                let section = r.section(horaires: reglages.horaires)
+                let moment = moment(section: section, modeRatio: reglages.modeRatio)
                 let cle = CleParametre(parametre: parametre(moment))
                 return EvenementReglage(
                     date: r.heure, reglage: .ratio(moment),
                     valeur: valeur(
                         a: r.heure, cle: cle, courante: courantes[cle], changements: changements,
-                        inconnueAvant: inconnueAvant(moment, profil: profil)
+                        inconnueAvant: reglages.inconnueAvant[moment]
                     ),
                     issue: issue
                 )
@@ -153,7 +185,11 @@ enum ChargeurEpisodesCharge {
     }
 
     static func moment(section: SectionRepas, profil: ProfilUtilisateur) -> MomentRatio {
-        guard profil.modeRatio == .parMoment else { return .unique }
+        moment(section: section, modeRatio: profil.modeRatio)
+    }
+
+    nonisolated static func moment(section: SectionRepas, modeRatio: ModeRatio) -> MomentRatio {
+        guard modeRatio == .parMoment else { return .unique }
         switch section {
         case .petitDejeuner: return .matin
         case .dejeuner:      return .midi

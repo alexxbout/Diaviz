@@ -25,6 +25,9 @@ final class ChargeActiveService {
 
     /// `nil` avant le premier calcul.
     private(set) var contexte: ContexteChargeActive?
+    /// Avance quand le contenu du contexte change réellement — un
+    /// réassemblage identique ne compte pas (`MarqueurFraicheur`).
+    private(set) var revisionContexte = 0
     /// Lecture à l'instant du dernier calcul.
     private(set) var synthese: SyntheseChargeActive?
     private(set) var enCalcul = false
@@ -286,6 +289,9 @@ final class ChargeActiveService {
             )
             return (contexte, contexte.synthese(a: maintenant))
         }.value
+        if contexte?.memesFaits(que: resultat.0) != true {
+            revisionContexte += 1
+        }
         contexte = resultat.0
         synthese = resultat.1
     }
