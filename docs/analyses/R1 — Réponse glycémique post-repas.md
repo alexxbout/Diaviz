@@ -150,6 +150,25 @@ Un changement de ratio n'efface rien : il pose une date, et le mining ignore les
 - Sans aucun repas depuis le changement, la page s'ouvre directement sur « Tout » plutôt que vide.
 - La mention « 45 derniers jours » en pied de page était fausse (le mining lit le verdict persisté, sans borne de date) : retirée.
 
+### Délai entre deux changements de ratio — cadré, pas livré (2026-11-08)
+**Question de l'écran :** puis-je changer ce ratio, ou manque-t-il encore du recul ? Maquette proposée, en attente de validation ; les seuils ci-dessous sont des propositions.
+
+**Besoin.** Chaque changement fait repartir l'analyse du moment de zéro. Des changements trop rapprochés empêchent donc tout constat sur le réglage en cours.
+
+**Page Ratios (Profil), ratios glucides / insuline :**
+
+- Chaque ligne affiche la valeur, puis en petit la date du dernier changement et le nombre de repas enregistrés sur ce moment depuis cette date (« Depuis le 3 nov. · 3 repas »). Un ratio jamais modifié affiche « Jamais modifié · N repas », tous repas du moment confondus.
+- Les boutons + / − quittent la ligne. Toucher une ligne ouvre une feuille, et la valeur n'est appliquée qu'à « Enregistrer ». Aujourd'hui, chaque pression compte comme un changement : passer de 10 à 12 en ferait deux, et le verrou se déclencherait dès la première.
+- Un ratio est verrouillé jusqu'à 5 repas enregistrés sur ce moment **ou** 14 jours après son dernier changement, selon ce qui arrive en premier. Le délai de 14 jours évite un blocage sans fin sur un moment rare (goûter).
+- Un ratio verrouillé se repère au cercle en pointillé (règle d'interface n° 11). Sa feuille indique ce qu'il reste : « Modifiable après 2 repas de plus, ou le 17 nov. »
+- La première saisie reste toujours libre : elle ne constitue pas un changement.
+
+**Points à trancher :**
+
+- Sortie de secours « Modifier quand même », avec confirmation, pour un ratio changé par le médecin. Sans elle, le réglage de l'app peut s'écarter du ratio réellement suivi.
+- Bascule Unique / Par moment : elle efface tous les ratios, donc elle contourne le verrou. À bloquer tant qu'un ratio est verrouillé, ou à soumettre à la même confirmation.
+- Ratios de correction et de sport : aucune date de changement n'est enregistrée aujourd'hui. Hors périmètre de cette première version, sauf décision contraire.
+
 ### Comparaison avant/après changement de ratio (`CalculDoseRatioChangement.swift`)
 - Nouveau calculateur pur (`nonisolated enum`  , même famille que `CalculRatioObserve`  ) dans `Diaviz/services/derivation/CalculDoseRatioChangement.swift`  . Son entrée `EntreeDoseChangement`  porte l'heure, la dose appliquée et le verdict ; sa sortie `ComparaisonChangementRatio`  porte la date de changement, les statistiques « avant » optionnelles (`nil`  si aucun repas ne précède le changement) et les statistiques « après ». `effectifMinimalComparaison = 5`  : sous ce seuil de repas après le changement, `comparer(entrees:dateChangement:)`  retourne `nil`  .
 - `AnalyseRatioService`  expose désormais `apercusChangementRatio: [SectionRepas?: ApercuChangementRatio]`  , reconstruit à chaque `recalculer(depuis:)`  , à la même cadence que le mining principal : démarrage, synchronisation HealthKit et chaque repas validé. Un mapping dédié (`mapperEntreesDoseChangement`  ) est volontairement dupliqué du mapping du mining principal : mêmes exclusions (pause, contexte libre, ajustement, verdict indéterminé, dose nulle), mais aucune dose suggérée calculée ni borne par date. Les deux mappers peuvent ainsi diverger indépendamment.
