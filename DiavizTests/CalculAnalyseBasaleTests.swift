@@ -503,6 +503,84 @@ struct CalculAnalyseBasaleTests {
         #expect(analyse.nuitsAnalysees == 1)
     }
 
+    // MARK: - Classement manuel d'une nuit
+
+    private func classement(_ decalage: Int, _ c: ClassementManuelNuit) -> [String: ClassementManuelNuit] {
+        [ClassementManuelNuit.cle(pour: cal.startOfDay(for: soir(decalage))): c]
+    }
+
+    @Test("Classement manuel : une nuit écartée par le calcul compte, le calcul reste connu")
+    func classementRattrapeNuitEcartee() {
+        let spec = SpecNuit(decalage: 1, depart: 90)
+        let prise = [resucrage(lente(1).addingTimeInterval(180 * 60), 15)]
+        let analyse = analyser([spec], fenetre: 2, resucrages: prise) {
+            $0.classementsManuels = classement(1, .concluante)
+        }
+        let nuit = analyse.nightChartData.first
+
+        #expect(analyse.nuitsAnalysees == 1)
+        #expect(nuit?.categorieVerdict == .stable)
+        #expect(nuit?.classementManuel == .concluante)
+        #expect(nuit?.classementCalcul == .ecartee)
+        #expect(nuit?.libelleCalcul == "écartée, resucrage en nuit profonde")
+        #expect(nuit?.motifExclusion == nil)
+        #expect(nuit?.slopeZone3 == nil)
+    }
+
+    @Test("Classement manuel « Hypo » → verdict immédiat, sans inventer d'épisode")
+    func classementHypoDeclencheVerdict() {
+        let specs = (1...3).map { SpecNuit(decalage: $0) }
+        let analyse = analyser(specs, fenetre: 4) { $0.classementsManuels = classement(1, .hypo) }
+
+        #expect(analyse.verdict == .tropHaute)
+        #expect(analyse.hyposNocturnes == 0)
+        let jour = ConstatVerdictBasale.jour(cal.startOfDay(for: soir(1)))
+        #expect(ConstatVerdictBasale(analyse: analyse).raison == "Une hypo la nuit du \(jour), classée par vous, suffit à ce verdict.")
+    }
+
+    @Test("Classement manuel « Concluante » sur une nuit avec hypo → plus de déclenchement, l'hypo reste comptée")
+    func classementConcluanteSurHypo() {
+        var specs = (1...3).map { SpecNuit(decalage: $0) }
+        specs[0].creux = [Creux(debutMinutes: 180, dureeMinutes: 20)]
+        let analyse = analyser(specs, fenetre: 4) { $0.classementsManuels = classement(1, .concluante) }
+
+        #expect(analyse.verdict == .adaptee)
+        #expect(analyse.hyposNocturnes == 1)
+    }
+
+    @Test("Classement manuel « Écartée » → la nuit sort du verdict")
+    func classementEcartee() {
+        let specs = (1...3).map { SpecNuit(decalage: $0) }
+        let analyse = analyser(specs, fenetre: 4) { $0.classementsManuels = classement(1, .ecartee) }
+
+        #expect(analyse.nuitsAnalysees == 2)
+        #expect(analyse.verdict == .donneesInsuffisantes)
+        #expect(analyse.nightChartData.first?.motifExclusion == RaisonExclusion.classementManuel.rawValue)
+        #expect(analyse.nightChartData.first?.classementCalcul == .concluante)
+    }
+
+    @Test("Classement manuel : ignoré sur la nuit en cours")
+    func classementIgnoreNuitEnCours() {
+        let analyse = analyser([SpecNuit(decalage: 0)], fenetre: 2) {
+            $0.classementsManuels = classement(0, .hypo)
+        }
+        #expect(analyse.nuitsAnalysees == 0)
+    }
+
+    @Test("Classement manuel : même statut pour la lente de C1")
+    func classementRepriseParC1() {
+        func issue(_ c: ClassementManuelNuit, creux: Bool = false) -> IssueEvenement? {
+            var spec = SpecNuit(decalage: 1)
+            if creux { spec.creux = [Creux(debutMinutes: 180, dureeMinutes: 20)] }
+            let analyse = analyser([spec], fenetre: 2) { $0.classementsManuels = classement(1, c) }
+            return ChargeurEpisodesCharge.evenementsNuits(analyse.nightChartData).first?.issue
+        }
+        #expect(issue(.hypo) == .hypo)
+        #expect(issue(.concluante, creux: true) == .concluant)
+        #expect(issue(.deriveMontante) == .rate)
+        #expect(issue(.ecartee, creux: true) == .nonEvaluable)
+    }
+
     // MARK: - Constat de la carte verdict
 
     @Test("Constat : une hypo de 25 min tranche le verdict, la phrase le dit")

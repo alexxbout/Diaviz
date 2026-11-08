@@ -7,51 +7,45 @@
 
 import SwiftUI
 
-/// Section « RATIOS GLUCIDES / INSULINE » — picker segmenté pour
-/// choisir entre un ratio unique ou des ratios par moment, puis les
-/// rows de saisie correspondantes.
+/// Section « Ratios glucides / insuline » — choix du mode (unique ou par
+/// moment), puis une ligne par ratio : valeur, date du dernier changement et
+/// repas enregistrés depuis. Le réglage se fait dans une feuille, et un ratio
+/// changé récemment est verrouillé (`CalculVerrouRatio`).
 ///
-/// **Contrainte volontaire** : la bascule entre `.unique` et
-/// `.parMoment` ne reporte aucune valeur. Si l'utilisateur passe de
-/// l'un à l'autre, les nouveaux champs sont vides et la sheet affiche
-/// « Requis » jusqu'à saisie. Cette contrainte évite les saisies
-/// distraites — on veut que l'utilisateur confirme explicitement les
-/// nouveaux ratios.
+/// **Contrainte volontaire** : la bascule entre `.unique` et `.parMoment` ne
+/// reporte aucune valeur, pour que l'utilisateur confirme explicitement les
+/// nouveaux ratios. Elle les efface tous : elle est donc refusée tant qu'un
+/// ratio est verrouillé, sinon elle contournerait le verrou.
 struct SectionRatios: View {
 
     @Environment(ProfilService.self) private var service
+    /// Optionnel : l'onboarding peut s'afficher avant le hub des repas.
+    @Environment(RepasService.self) private var repasService: RepasService?
+
+    @State private var ratioEdite: RatioRegle?
+    @State private var alerteMode = false
 
     var body: some View {
+        let lignes = self.lignes
         Section {
-            // MARK: Picker mode
-            Picker("Mode", selection: bindingMode) {
+            Picker("Mode", selection: bindingMode(lignes)) {
                 Text("Unique").tag(ModeRatio.unique)
                 Text("Par moment").tag(ModeRatio.parMoment)
             }
             .pickerStyle(.segmented)
             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            .sheet(item: $ratioEdite) { ratio in
+                feuille(ratio)
+            }
+            .alert("Un ratio est verrouillé", isPresented: $alerteMode) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Changer de mode efface tous les ratios. Ce sera possible quand aucun ne sera verrouillé.")
+            }
 
-            // MARK: Saisie selon le mode
-            switch service.profil.modeRatio {
-            case .unique:
-                ligneRatioUnique
-            case .parMoment:
-                ligneRatioMoment(
-                    libelle: "Petit-déjeuner",
-                    binding: bindingRatioMoment(\.petitDejeuner, dateKeyPath: \.petitDejeuner, libelleMoment: "Petit-déjeuner")
-                )
-                ligneRatioMoment(
-                    libelle: "Déjeuner",
-                    binding: bindingRatioMoment(\.dejeuner, dateKeyPath: \.dejeuner, libelleMoment: "Déjeuner")
-                )
-                ligneRatioMoment(
-                    libelle: "Goûter",
-                    binding: bindingRatioMoment(\.gouter, dateKeyPath: \.gouter, libelleMoment: "Goûter")
-                )
-                ligneRatioMoment(
-                    libelle: "Dîner",
-                    binding: bindingRatioMoment(\.diner, dateKeyPath: \.diner, libelleMoment: "Dîner")
-                )
+            ForEach(lignes) { ligne in
+                Button { ratioEdite = ligne.ratio } label: { vueLigne(ligne) }
+                    .foregroundStyle(.primary)
             }
         } header: {
             Text("Ratios glucides / insuline")
@@ -63,183 +57,214 @@ struct SectionRatios: View {
         }
     }
 
-    // MARK: - Ligne ratio unique
+    // MARK: - Lignes
 
-    private var ligneRatioUnique: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ligneRatio(libelle: "Ratio", binding: bindingRatioUnique)
-
-            if service.profil.ratioUnique == nil {
-                Text("Requis")
-                    .font(.caption)
-                    .foregroundStyle(.red)
-            }
-        }
+    private struct Ligne: Identifiable {
+        let ratio: RatioRegle
+        let valeur: Double?
+        let dateChangement: Date?
+        let nombreRepas: Int
+        let etat: CalculVerrouRatio.Etat
+        var id: RatioRegle { ratio }
+        var estVerrouille: Bool { etat != .libre }
     }
 
-    // MARK: - Ligne ratio par moment (avec validation locale)
-
-    /// Variante avec mention « Requis » si la valeur est nulle —
-    /// utilisée pour les quatre rows du mode `.parMoment`.
-    @ViewBuilder
-    private func ligneRatioMoment(
-        libelle: String,
-        binding: Binding<Double?>
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ligneRatio(libelle: libelle, binding: binding)
-            if binding.wrappedValue == nil {
-                Text("Requis")
-                    .font(.caption)
-                    .foregroundStyle(.red)
-            }
-        }
+    private var lignes: [Ligne] {
+        let ratios: [RatioRegle] = service.profil.modeRatio == .unique
+            ? [.unique]
+            : [.petitDejeuner, .dejeuner, .gouter, .diner]
+        return ratios.map(ligne)
     }
 
-    // MARK: - Ligne ratio générique
-
-    /// Row « libellé | valeur 1u / Xg | stepper ». Le label interne du
-    /// `Stepper` est masqué car il ne sert qu'à porter le binding ;
-    /// l'affichage de la valeur est posé à la main dans le `HStack`
-    /// pour pouvoir le mettre en gras et appliquer la transition
-    /// numérique.
-    @ViewBuilder
-    private func ligneRatio(
-        libelle: String,
-        binding: Binding<Double?>
-    ) -> some View {
-        HStack {
-            Text(libelle)
-            Spacer()
-            Text(affichageRatio(binding.wrappedValue))
-                .fontWeight(.bold)
-                .monospacedDigit()
-                .contentTransition(.numericText())
-                .animation(.easeOut(duration: 0.15), value: binding.wrappedValue)
-                .foregroundStyle(binding.wrappedValue == nil ? .secondary : .primary)
-            Stepper(
-                "",
-                value: bindingNonOptionnel(binding, defaut: 10),
-                in: 5...30,
-                step: 1
-            )
-            .labelsHidden()
-        }
-    }
-
-    /// Texte « 1u / Xg » — ou « Non défini » en gris si binding nil.
-    /// Affiché en gras pour faire ressortir la valeur dans la row.
-    private func affichageRatio(_ valeur: Double?) -> String {
-        guard let valeur else { return "Non défini" }
-        return "1u / \(Int(valeur))g"
-    }
-
-    // MARK: - Petits utilitaires de binding
-
-    /// Fabrique un `Binding<Double>` à partir d'un `Binding<Double?>`.
-    /// Lecture : valeur ou défaut. Écriture : remonte une valeur non
-    /// nulle (la première interaction matérialise le ratio).
-    private func bindingNonOptionnel(
-        _ source: Binding<Double?>,
-        defaut: Double
-    ) -> Binding<Double> {
-        Binding(
-            get: { source.wrappedValue ?? defaut },
-            set: { nouveau in source.wrappedValue = nouveau }
+    private func ligne(_ ratio: RatioRegle) -> Ligne {
+        let profil = service.profil
+        let date = ratio.date(dans: profil.datesChangementRatioEffectives)
+        let nombre = (repasService?.repas ?? []).filter { repas in
+            (date.map { repas.heure >= $0 } ?? true)
+                && ratio.couvre(repas.section(horaires: profil.horairesRepas))
+        }.count
+        return Ligne(
+            ratio: ratio,
+            valeur: ratio.valeur(dans: profil),
+            dateChangement: date,
+            nombreRepas: nombre,
+            etat: CalculVerrouRatio.etat(dateChangement: date, repasDepuis: nombre, maintenant: Date())
         )
     }
 
-    // MARK: - Bindings sur le modèle
+    private func vueLigne(_ ligne: Ligne) -> some View {
+        HStack(spacing: 10) {
+            if ligne.estVerrouille {
+                Image(systemName: "lock.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(ligne.ratio.libelle)
+                Text(sousTitre(ligne))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+            Text(ligne.valeur.map(FormatRatio.valeur) ?? "Non défini")
+                .fontWeight(ligne.valeur == nil ? .regular : .bold)
+                .monospacedDigit()
+                .fixedSize()
+                .foregroundStyle(ligne.valeur == nil ? .secondary : .primary)
+            Image(systemName: "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.tertiary)
+        }
+        .contentShape(.rect)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(ligne.estVerrouille ? "Verrouillé" : "")
+    }
 
-    private var bindingMode: Binding<ModeRatio> {
+    private func sousTitre(_ ligne: Ligne) -> String {
+        guard ligne.valeur != nil else { return "À renseigner" }
+        guard let date = ligne.dateChangement else {
+            return "Jamais modifié · \(ligne.nombreRepas) repas"
+        }
+        let depuis = Calendar.current.isDateInToday(date)
+            ? "Depuis aujourd'hui"
+            : "Depuis le \(FormatRatio.date(date))"
+        return "\(depuis) · \(ligne.nombreRepas) repas"
+    }
+
+    private func feuille(_ ratio: RatioRegle) -> some View {
+        let ligne = ligne(ratio)
+        return FeuilleModificationRatio(
+            libelle: ratio.libelle,
+            valeurActuelle: ligne.valeur,
+            dateChangement: ligne.dateChangement,
+            nombreRepas: ligne.nombreRepas,
+            etat: ligne.etat
+        ) { nouveau in
+            appliquer(nouveau, a: ratio)
+        }
+    }
+
+    // MARK: - Écritures
+
+    /// La date n'est posée que sur une vraie transition (valeur existante →
+    /// différente) : la configuration initiale n'invalide aucun historique.
+    private func appliquer(_ nouveau: Double, a ratio: RatioRegle) {
+        service.mettreAJour { profil in
+            let ancien = ratio.valeur(dans: profil)
+            ratio.ecrire(nouveau, dans: profil)
+            if let ancien, ancien != nouveau {
+                var dates = profil.datesChangementRatioEffectives
+                ratio.ecrireDate(Date(), dans: &dates)
+                profil.datesChangementRatio = dates
+                signalerChangement(libelle: ratio.libelle, nouveau: nouveau)
+            }
+        }
+    }
+
+    /// Confirme le changement **et son effet de bord** : l'analyse du ratio
+    /// repart de zéro sur ce moment, les repas antérieurs n'étant plus
+    /// comparables.
+    private func signalerChangement(libelle: String, nouveau: Double) {
+        guard nouveau > 0 else { return }
+        ToastsService.shared.afficher(
+            .reglage,
+            titre: "\(libelle) : \(String(format: "1u/%.0fg", nouveau))",
+            detail: "L'analyse de ce moment repart de zéro"
+        )
+    }
+
+    private func bindingMode(_ lignes: [Ligne]) -> Binding<ModeRatio> {
         Binding(
             get: { service.profil.modeRatio },
             set: { nouveau in
+                guard nouveau != service.profil.modeRatio else { return }
+                guard !lignes.contains(where: \.estVerrouille) else {
+                    alerteMode = true
+                    return
+                }
                 service.mettreAJour { profil in
-                    let ancien = profil.modeRatio
-                    guard ancien != nouveau else { return }
                     profil.modeRatio = nouveau
-                    // Pas de transfert entre modes — on remet à zéro
-                    // les valeurs du nouveau mode pour forcer la
-                    // saisie explicite.
-                    switch nouveau {
-                    case .unique:
-                        profil.ratioUnique = nil
-                        profil.ratiosParMoment = RatiosParMoment()
-                    case .parMoment:
-                        profil.ratioUnique = nil
-                        profil.ratiosParMoment = RatiosParMoment()
-                    }
-                    // Nouveau mode = table rase : les dates de changement de
-                    // l'ancien mode n'ont plus de sens (les ratios qu'elles
-                    // décrivaient viennent d'être effacés).
+                    // Pas de transfert entre modes : on remet à zéro pour
+                    // forcer la saisie explicite. Les dates de l'ancien mode
+                    // décrivaient des ratios qui viennent d'être effacés.
+                    profil.ratioUnique = nil
+                    profil.ratiosParMoment = RatiosParMoment()
                     profil.datesChangementRatio = DatesChangementRatio()
                 }
             }
         )
     }
+}
 
-    private var bindingRatioUnique: Binding<Double?> {
-        Binding(
-            get: { service.profil.ratioUnique },
-            set: { nouveau in
-                service.mettreAJour { profil in
-                    let ancien = profil.ratioUnique
-                    profil.ratioUnique = nouveau
-                    // Stamp uniquement sur une vraie transition (valeur
-                    // existante → différente) — jamais sur la configuration
-                    // initiale (`nil → valeur`), qui n'invalide aucun
-                    // historique.
-                    if let ancien, ancien != nouveau {
-                        var dates = profil.datesChangementRatioEffectives
-                        dates.unique = Date()
-                        profil.datesChangementRatio = dates
-                        signalerChangement(libelle: "Ratio", nouveau: nouveau)
-                    }
-                }
-            }
-        )
+// MARK: - Ratio réglé
+
+/// Un ratio de la page, et où lire ou écrire sa valeur et sa date.
+private enum RatioRegle: String, Identifiable {
+    case unique, petitDejeuner, dejeuner, gouter, diner
+
+    var id: String { rawValue }
+
+    var libelle: String {
+        switch self {
+        case .unique:        "Ratio"
+        case .petitDejeuner: "Petit-déjeuner"
+        case .dejeuner:      "Déjeuner"
+        case .gouter:        "Goûter"
+        case .diner:         "Dîner"
+        }
     }
 
-    /// Confirme le changement **et son effet de bord** : l'analyse du ratio
-    /// repart de zéro sur ce moment, les repas antérieurs n'étant plus
-    /// comparables. Sans ça, l'utilisateur voyait plus tard un compteur
-    /// retombé à zéro sans jamais avoir été prévenu.
-    private func signalerChangement(libelle: String, nouveau: Double?) {
-        guard let nouveau, nouveau > 0 else { return }
-        let formatte = nouveau == floor(nouveau)
-            ? String(format: "1u/%.0fg", nouveau)
-            : String(format: "1u/%.1fg", nouveau)
-        ToastsService.shared.afficher(
-            .reglage,
-            titre: "\(libelle) : \(formatte)",
-            detail: "L'analyse de ce moment repart de zéro"
-        )
+    /// Même correspondance que `AnalyseRatioService.dateChangement` : la nuit
+    /// relève du ratio du dîner.
+    func couvre(_ section: SectionRepas) -> Bool {
+        switch self {
+        case .unique:        true
+        case .petitDejeuner: section == .petitDejeuner
+        case .dejeuner:      section == .dejeuner
+        case .gouter:        section == .enCas
+        case .diner:         section == .diner || section == .nuit
+        }
     }
 
-    /// Binding paramétré par un keyPath sur `RatiosParMoment` — évite
-    /// de répéter quatre bindings quasi identiques pour chaque repas.
-    /// `dateKeyPath` pointe vers le champ miroir sur `DatesChangementRatio`,
-    /// stampé à la date du jour sur un vrai changement de valeur.
-    private func bindingRatioMoment(
-        _ keyPath: WritableKeyPath<RatiosParMoment, Double?>,
-        dateKeyPath: WritableKeyPath<DatesChangementRatio, Date?>,
-        libelleMoment: String
-    ) -> Binding<Double?> {
-        Binding(
-            get: { service.profil.ratiosParMoment[keyPath: keyPath] },
-            set: { nouveau in
-                service.mettreAJour { profil in
-                    let ancien = profil.ratiosParMoment[keyPath: keyPath]
-                    profil.ratiosParMoment[keyPath: keyPath] = nouveau
-                    if let ancien, ancien != nouveau {
-                        var dates = profil.datesChangementRatioEffectives
-                        dates[keyPath: dateKeyPath] = Date()
-                        profil.datesChangementRatio = dates
-                        signalerChangement(libelle: libelleMoment, nouveau: nouveau)
-                    }
-                }
-            }
-        )
+    private var cheminValeur: WritableKeyPath<RatiosParMoment, Double?>? {
+        switch self {
+        case .unique:        nil
+        case .petitDejeuner: \.petitDejeuner
+        case .dejeuner:      \.dejeuner
+        case .gouter:        \.gouter
+        case .diner:         \.diner
+        }
+    }
+
+    private var cheminDate: WritableKeyPath<DatesChangementRatio, Date?> {
+        switch self {
+        case .unique:        \.unique
+        case .petitDejeuner: \.petitDejeuner
+        case .dejeuner:      \.dejeuner
+        case .gouter:        \.gouter
+        case .diner:         \.diner
+        }
+    }
+
+    func valeur(dans profil: ProfilUtilisateur) -> Double? {
+        guard let cheminValeur else { return profil.ratioUnique }
+        return profil.ratiosParMoment[keyPath: cheminValeur]
+    }
+
+    func ecrire(_ valeur: Double, dans profil: ProfilUtilisateur) {
+        guard let cheminValeur else {
+            profil.ratioUnique = valeur
+            return
+        }
+        profil.ratiosParMoment[keyPath: cheminValeur] = valeur
+    }
+
+    func date(dans dates: DatesChangementRatio) -> Date? {
+        dates[keyPath: cheminDate]
+    }
+
+    func ecrireDate(_ date: Date, dans dates: inout DatesChangementRatio) {
+        dates[keyPath: cheminDate] = date
     }
 }

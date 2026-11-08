@@ -143,14 +143,16 @@ struct AccueilVue: View {
         let seuils = ProfilService.shared.profil.seuilsGlycemiques
         var cartes: [Insight] = []
 
-        for repas in repasService.repas where maintenant.timeIntervalSince(repas.heure) < 36 * 3600 {
-            guard case .disponible(let reponse)? = repas.etatAnalyse,
-                  let carte = CalculInsightsEvenements.reponseRepas(
-                      id: repas.id, heure: repas.heure, reponse: reponse, seuils: seuils, maintenant: maintenant
-                  ) else { continue }
-            cartes.append(carte)
+        if ProfilService.shared.profil.preferencesAvancees.cartesCourbesInsightsActives ?? true {
+            for repas in repasService.repas where maintenant.timeIntervalSince(repas.heure) < 36 * 3600 {
+                guard case .disponible(let reponse)? = repas.etatAnalyse,
+                      let carte = CalculInsightsEvenements.reponseRepas(
+                          id: repas.id, heure: repas.heure, reponse: reponse, seuils: seuils, maintenant: maintenant
+                      ) else { continue }
+                cartes.append(carte)
+            }
+            cartes += insightsSeances
         }
-        cartes += insightsSeances
 
         let candidats = importService.workoutsEnAttente.map {
             CalculInsightsEvenements.CandidatImport(
@@ -560,9 +562,7 @@ struct AccueilVue: View {
             .navigationDestination(item: $repasOuvert) { repas in
                 DetailRepasVue(
                     repas: repas,
-                    titreSection: SectionRepas(
-                        heure: repas.heure, horaires: ProfilService.shared.profil.horairesRepas
-                    ).titre,
+                    titreSection: repas.section(horaires: ProfilService.shared.profil.horairesRepas).titre,
                     onSupprimer: { repasService.supprimer(repas) }
                 )
             }

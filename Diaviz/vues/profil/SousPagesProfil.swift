@@ -52,6 +52,7 @@ struct SousPageRepas: View {
         Form {
             SectionHorairesRepas()
             SectionRepasARevoirReglages()
+            SectionNouvellesTendancesReglages()
         }
         .formStyle(.grouped)
         .navigationTitle("Repas")

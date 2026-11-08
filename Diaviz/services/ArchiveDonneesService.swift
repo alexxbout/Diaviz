@@ -375,6 +375,8 @@ private struct AlimentArchive: Codable {
     var imageURL: URL?
     var resucrage: Bool
     var idCiqualSource: Int?
+    var taillePortion: Double? = nil
+    var codeProduitOFF: String? = nil
 
     init(_ modele: Aliment) {
         id = modele.id
@@ -386,6 +388,8 @@ private struct AlimentArchive: Codable {
         imageURL = modele.imageURL
         resucrage = modele.resucrage
         idCiqualSource = modele.idCiqualSource
+        taillePortion = modele.taillePortion
+        codeProduitOFF = modele.codeProduitOFF
     }
 
     /// Toujours une instance neuve par parent : `Aliment` porte des
@@ -401,7 +405,9 @@ private struct AlimentArchive: Codable {
             insuline: insuline,
             imageURL: imageURL,
             resucrage: resucrage,
-            idCiqualSource: idCiqualSource
+            idCiqualSource: idCiqualSource,
+            taillePortion: taillePortion,
+            codeProduitOFF: codeProduitOFF
         )
     }
 }
@@ -426,6 +432,8 @@ private struct RepasArchive: Codable {
     var contexteLibre: String?
     var contexteNormalise: String?
     var exclureDesAnalyses: Bool
+    var dateModification: Date? = nil
+    var momentChoisi: String? = nil
 
     init(_ modele: Repas) {
         id = modele.id
@@ -442,6 +450,8 @@ private struct RepasArchive: Codable {
         contexteLibre = modele.contexteLibre
         contexteNormalise = modele.contexteNormalise
         exclureDesAnalyses = modele.exclureDesAnalyses
+        dateModification = modele.dateModification
+        momentChoisi = modele.momentChoisi
     }
 
     func versModele() -> Repas {
@@ -461,6 +471,8 @@ private struct RepasArchive: Codable {
             contexteNormalise: contexteNormalise,
             exclureDesAnalyses: exclureDesAnalyses
         )
+        repas.dateModification = dateModification
+        repas.momentChoisi = momentChoisi
         return repas
     }
 }

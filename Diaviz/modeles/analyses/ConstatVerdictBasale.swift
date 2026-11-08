@@ -36,6 +36,8 @@ nonisolated struct ConstatVerdictBasale: Sendable, Equatable {
         /// La nuit retenue précédente n'est pas la veille : un point gris
         /// marque le saut de dates.
         let sautAvant: Bool
+        /// Statut imposé par l'utilisateur plutôt que calculé.
+        var classeeParVous = false
     }
 
     let verdict: String
@@ -68,7 +70,8 @@ nonisolated struct ConstatVerdictBasale: Sendable, Equatable {
                 id: i, date: nuit.date, etat: etat,
                 titre: "Nuit du \(Self.jour(nuit.date)) · \(Self.libelle(etat))",
                 detail: Self.detail(de: nuit, etat: etat),
-                sautAvant: saut
+                sautAvant: saut,
+                classeeParVous: nuit.classementManuel != nil
             ))
             precedente = nuit.date
         }
@@ -126,6 +129,9 @@ nonisolated struct ConstatVerdictBasale: Sendable, Equatable {
         switch analyse.verdict {
         case .tropHaute:
             let verdict = "Tendance basse observée"
+            if nuitsHypo.count == 1, let nuit = nuitsHypo.first, nuit.classementManuel == .hypo {
+                return (verdict, "Une hypo la nuit du \(jour(nuit.date)), classée par vous, suffit à ce verdict.")
+            }
             if nuitsHypo.count == 1, let nuit = nuitsHypo.first, let h = nuit.hypoRetenue {
                 let autres = n - 1
                 let suite = autres > 0 ? " Vos \(autres) autre\(autres > 1 ? "s" : "") nuit\(autres > 1 ? "s" : "") n'en montre\(autres > 1 ? "nt" : "") pas." : ""
@@ -163,6 +169,13 @@ nonisolated struct ConstatVerdictBasale: Sendable, Equatable {
     // MARK: - Une nuit
 
     private static func etat(de nuit: NightChartData) -> EtatNuit {
+        switch nuit.classementManuel {
+        case .concluante:        return .concluante
+        case .deriveMontante:    return .deriveMontante
+        case .deriveDescendante: return .deriveDescendante
+        case .hypo:              return .hypo
+        case .ecartee, nil:      break
+        }
         if nuit.hypoRetenue != nil { return .hypo }
         switch nuit.categorieVerdict {
         case .tendanceHaute: return .deriveMontante
@@ -182,6 +195,9 @@ nonisolated struct ConstatVerdictBasale: Sendable, Equatable {
     }
 
     private static func detail(de nuit: NightChartData, etat: EtatNuit) -> String {
+        if nuit.classementManuel != nil {
+            return "Classée par vous. Calcul de l'app : \(nuit.libelleCalcul)."
+        }
         if etat == .observation {
             return "Ne compte pas encore : le temps que la nouvelle dose s'installe."
         }

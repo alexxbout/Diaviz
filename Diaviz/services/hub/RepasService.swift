@@ -63,7 +63,7 @@ final class RepasService {
         let duJour = repasDuJour(jour)
         let horaires = horairesRepas
         return SectionRepas.allCases.map { section in
-            (titre: section.titre, repas: duJour.filter { SectionRepas(heure: $0.heure, horaires: horaires) == section })
+            (titre: section.titre, repas: duJour.filter { $0.section(horaires: horaires) == section })
         }
     }
 
@@ -195,7 +195,8 @@ final class RepasService {
         doseCorrection: Double = 0,
         ajustements: [Ajustement] = [],
         evenements: [EvenementRepas] = [],
-        exclureDesAnalyses: Bool = false
+        exclureDesAnalyses: Bool = false,
+        momentChoisi: SectionRepas? = nil
     ) -> Repas? {
         let alimentsHub = entrees.map(Aliment.init(depuis:))
         guard !alimentsHub.isEmpty else { return nil }
@@ -213,6 +214,7 @@ final class RepasService {
             evenements: evenements,
             exclureDesAnalyses: exclureDesAnalyses
         )
+        nouveau.momentChoisi = momentChoisi?.rawValue
         // IOB actif juste avant le repas — snapshot figé du contexte insuline
         // (dérivé du hub à la saisie, donc avant le bolus de ce repas). `nil` si
         // négligeable, pour ne pas afficher un badge « 0u ».
@@ -228,22 +230,121 @@ final class RepasService {
         // que lisent l'IOB et la section « Bolus repas » de Médications (le hub
         // ne déduit pas l'insuline depuis les aliments). Rien créé sans dose.
         if doseInjectee > 0, let contexte {
-            let bolus = Injection(
-                type: .rapideRepas,
-                dose: doseInjectee,
-                heure: heure,
-                zoneInjection: site.zone,
-                coteInjection: site.cote,
-                repasAssocieId: nouveau.id,
-                labelRepas: SectionRepas(heure: heure, horaires: horairesRepas).titre,
-                emojiRepas: nouveau.emojiPrincipal,
-                motif: .repas,
-                source: .manuel
-            )
-            contexte.insert(bolus)
+            contexte.insert(nouveauBolus(de: nouveau, dose: doseInjectee, site: site))
             try? contexte.save()
         }
         return nouveau
+    }
+
+    private func nouveauBolus(de unRepas: Repas, dose: Double, site: SiteInjection) -> Injection {
+        Injection(
+            type: .rapideRepas,
+            dose: dose,
+            heure: unRepas.heure,
+            zoneInjection: site.zone,
+            coteInjection: site.cote,
+            repasAssocieId: unRepas.id,
+            labelRepas: unRepas.section(horaires: horairesRepas).titre,
+            emojiRepas: unRepas.emojiPrincipal,
+            motif: .repas,
+            source: .manuel
+        )
+    }
+
+    /// Réécrit un repas déjà enregistré depuis la saisie. Modification **sur
+    /// place** : le repas garde son `id`, donc son masquage éventuel dans
+    /// « Repas à revoir » et les liens qui pointent vers lui.
+    ///
+    /// Le bolus lié suit la dose, l'heure et le site : recréé s'il avait été
+    /// supprimé, retiré si la dose tombe à zéro. Les dérivés (verdict, ratio)
+    /// sont repris par `recharger()` tant que le repas est dans la fenêtre
+    /// d'analyse.
+    func modifier(
+        _ unRepas: Repas,
+        entrees: [EntreeAliment],
+        heure: Date,
+        doseInjectee: Double,
+        site: SiteInjection,
+        doseGlobale: Double?,
+        doseCorrection: Double,
+        ajustements: [Ajustement],
+        evenements: [EvenementRepas],
+        exclureDesAnalyses: Bool,
+        momentChoisi: SectionRepas?
+    ) {
+        guard let contexte, !entrees.isEmpty else { return }
+        let heureChangee = unRepas.heure != heure
+
+        // Un `Aliment` retiré de la relation n'est pas emporté par la cascade.
+        let anciens = unRepas.aliments
+        let nouveaux = entrees.map(Aliment.init(depuis:))
+        if doseGlobale != nil {
+            for aliment in nouveaux { aliment.insuline = 0 }
+        }
+        unRepas.aliments = nouveaux
+        for aliment in anciens { contexte.delete(aliment) }
+
+        unRepas.heure = heure
+        unRepas.doseGlobale = doseGlobale
+        unRepas.doseCorrection = doseCorrection > 0 ? doseCorrection : nil
+        unRepas.ajustements = ajustements
+        unRepas.remplacerEvenements(evenements)
+        unRepas.exclureDesAnalyses = exclureDesAnalyses
+        unRepas.dateModification = Date()
+        unRepas.momentChoisi = momentChoisi?.rawValue
+
+        // Avant le calcul d'IOB : à sa nouvelle heure, le bolus de ce repas
+        // n'entre pas dans l'insuline active « juste avant ».
+        synchroniserBolus(de: unRepas, dose: doseInjectee, site: site, contexte: contexte)
+        if heureChangee {
+            let iob = IOBService.iobDuHub(a: heure, contexte: contexte)
+            unRepas.iobAuDebut = iob > 0.05 ? iob : nil
+        }
+        reinitialiserDerives(de: unRepas, heureChangee: heureChangee)
+
+        try? contexte.save()
+        recharger()
+        rattacherEvenementsNonResolus(de: unRepas)
+        ToastsService.shared.afficher(.repas, titre: "Repas modifié", detail: detailToast(unRepas))
+    }
+
+    private func synchroniserBolus(
+        de unRepas: Repas, dose: Double, site: SiteInjection, contexte: ModelContext
+    ) {
+        var bolus = bolusLies(repasId: unRepas.id, contexte: contexte)
+        guard dose > 0 else {
+            for injection in bolus { contexte.delete(injection) }
+            return
+        }
+        guard let principal = bolus.first else {
+            contexte.insert(nouveauBolus(de: unRepas, dose: dose, site: site))
+            return
+        }
+        bolus.removeFirst()
+        for injection in bolus { contexte.delete(injection) }
+        principal.dose = dose
+        principal.heure = unRepas.heure
+        principal.zoneInjection = site.zone
+        principal.coteInjection = site.cote
+        principal.labelRepas = unRepas.section(horaires: horairesRepas).titre
+        principal.emojiRepas = unRepas.emojiPrincipal
+    }
+
+    /// Verdict et ratio persistés après une modification. Hors de la fenêtre
+    /// d'analyse rien ne les recalculera : une courbe déplacée ou un repas
+    /// devenu sans insuline ne garde pas son ancien verdict, et le ratio suit
+    /// la nouvelle dose.
+    private func reinitialiserDerives(de unRepas: Repas, heureChangee: Bool) {
+        guard unRepas.verdictPersiste != nil else { return }
+        let doseCouvrante = unRepas.totalInsuline - (unRepas.doseCorrection ?? 0)
+        if heureChangee || !unRepas.aUneInjection {
+            unRepas.verdictPersiste = nil
+            unRepas.raisonMauvaisPersistee = nil
+            unRepas.ratioEffectifPersiste = nil
+        } else {
+            unRepas.ratioEffectifPersiste = unRepas.totalGlucides > 0 && doseCouvrante > 0
+                ? Double(unRepas.totalGlucides) / doseCouvrante : nil
+        }
     }
 
     /// « 62 g · 6u » — les deux chiffres qui comptent pour un repas. La dose
@@ -283,7 +384,7 @@ final class RepasService {
     /// restauration. `etatAnalyse` n'en fait pas partie — dérivation
     /// `@Transient`, recalculée au rechargement.
     private static func copie(de unRepas: Repas) -> Repas {
-        Repas(
+        let copie = Repas(
             id: unRepas.id,
             heure: unRepas.heure,
             aliments: unRepas.aliments.map { aliment in
@@ -291,7 +392,8 @@ final class RepasService {
                     id: aliment.id, emoji: aliment.emoji, nom: aliment.nom,
                     quantite: aliment.quantite, glucides: aliment.glucides,
                     insuline: aliment.insuline, imageURL: aliment.imageURL,
-                    resucrage: aliment.resucrage, idCiqualSource: aliment.idCiqualSource
+                    resucrage: aliment.resucrage, idCiqualSource: aliment.idCiqualSource,
+                    taillePortion: aliment.taillePortion, codeProduitOFF: aliment.codeProduitOFF
                 )
             },
             iobAuDebut: unRepas.iobAuDebut,
@@ -306,6 +408,9 @@ final class RepasService {
             contexteNormalise: unRepas.contexteNormalise,
             exclureDesAnalyses: unRepas.exclureDesAnalyses
         )
+        copie.dateModification = unRepas.dateModification
+        copie.momentChoisi = unRepas.momentChoisi
+        return copie
     }
 
     private static func copieInjection(de injection: Injection) -> Injection {
@@ -457,19 +562,81 @@ extension Aliment {
     ///   bolus, vaut 0 u).
     convenience init(depuis entree: EntreeAliment) {
         var idCiqualSource: Int?
-        if case .ciqual(let a) = entree.aliment { idCiqualSource = a.id }
+        var codeProduitOFF: String?
+        switch entree.aliment {
+        case .ciqual(let a): idCiqualSource = a.id
+        case .off(let p):
+            codeProduitOFF = p.code.hasPrefix(EntreeAliment.prefixeCodeFige) ? nil : p.code
+        }
+        let taillePortion = entree.modeQuantite == .portions
+            ? AlimentsRecentsService.shared.tailleDePortion(entree.aliment)
+            : nil
 
         self.init(
-            emoji: entree.aliment.emoji ?? "🍽",
-            nom: entree.aliment.nom,
+            emoji: entree.emojiFige ?? entree.aliment.emoji ?? "🍽",
+            nom: entree.nomFige ?? entree.aliment.nom,
             quantite: Int(entree.quantiteGrammes.rounded()),
             glucides: Int(entree.glucides.rounded()),
             insuline: entree.doseInsuline ?? 0,
             // Miniature 200 px : suffisante pour les rows du journal.
             imageURL: entree.aliment.imagePetiteURL,
             resucrage: entree.resucrage,
-            idCiqualSource: idCiqualSource
+            idCiqualSource: idCiqualSource,
+            taillePortion: taillePortion,
+            codeProduitOFF: codeProduitOFF
         )
+    }
+}
+
+extension EntreeAliment {
+
+    /// Préfixe des fiches reconstruites depuis un repas enregistré : jamais un
+    /// vrai code-barres.
+    static let prefixeCodeFige = "repas-"
+
+    /// Rouvre un aliment enregistré pour modification. Le hub ne garde que des
+    /// valeurs figées : la fiche d'origine sert si elle redonne les glucides
+    /// enregistrés (à 1 g près), sinon on reconstruit une fiche à partir
+    /// d'eux — rouvrir un repas ne doit pas changer ses glucides en silence.
+    init(depuis aliment: Aliment) {
+        let grammes = aliment.quantite > 0 ? Double(aliment.quantite) : 100
+        let reference = Self.reference(de: aliment, grammes: grammes)
+        let enPortions = aliment.taillePortion != nil
+            && AlimentsRecentsService.shared.tailleDePortion(reference) != nil
+        self.init(
+            aliment: reference,
+            quantiteGrammes: grammes,
+            modeQuantite: enPortions ? .portions : .grammes,
+            quantiteApproximative: false,
+            doseInsuline: aliment.insuline > 0 ? aliment.insuline : nil,
+            note: "",
+            resucrage: aliment.resucrage,
+            nomFige: aliment.nom,
+            emojiFige: aliment.emoji
+        )
+    }
+
+    private static func reference(de aliment: Aliment, grammes: Double) -> ResultatRechercheAliment {
+        func ficheFigee(code: String) -> ResultatRechercheAliment {
+            .off(AlimentOFF(
+                code: code, nom: aliment.nom, marque: nil, calories: nil,
+                glucides: Double(aliment.glucides) * 100 / grammes,
+                sucres: nil, proteines: nil, lipides: nil, fibres: nil,
+                imagePetiteURL: aliment.imageURL, imageURL: aliment.imageURL
+            ))
+        }
+
+        var candidate: ResultatRechercheAliment?
+        if let id = aliment.idCiqualSource ?? NomsPersonnalisesService.shared.idCiqual(pourNomOrigine: aliment.nom),
+           let ciqual = CiqualService.shared.aliment(id: id) {
+            candidate = .ciqual(ciqual)
+        } else if let code = aliment.codeProduitOFF {
+            candidate = ficheFigee(code: code)
+        }
+        if let candidate, abs(candidate.glucides * grammes / 100 - Double(aliment.glucides)) <= 1 {
+            return candidate
+        }
+        return ficheFigee(code: prefixeCodeFige + aliment.id.uuidString)
     }
 }
 
@@ -477,7 +644,7 @@ extension Aliment {
 
 /// Les 5 tranches canoniques du journal. Reste une dérivation d'affichage :
 /// le hub ne stocke pas la section, seulement l'heure absolue du repas.
-enum SectionRepas: CaseIterable {
+enum SectionRepas: String, CaseIterable {
     case petitDejeuner
     case dejeuner
     case enCas

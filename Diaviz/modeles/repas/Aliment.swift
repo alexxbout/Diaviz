@@ -33,6 +33,14 @@ final class Aliment {
     /// moment de l'affichage plutôt qu'à la saisie : un renommage ultérieur
     /// se reflète alors même sur des repas déjà enregistrés.
     var idCiqualSource: Int?
+    /// Taille (g) de la portion si l'aliment a été saisi en portions, `nil`
+    /// s'il l'a été en grammes ou avant l'ajout du champ. Rouvre le repas dans
+    /// le même mode de saisie.
+    var taillePortion: Double?
+    /// Code-barres du produit Open Food Facts, `nil` pour un aliment CIQUAL ou
+    /// les repas antérieurs à l'ajout du champ. Retrouve à la modification du
+    /// repas la portion et les corrections propres à ce produit.
+    var codeProduitOFF: String?
 
     /// Inverses des trois relations `@Relationship(deleteRule: .cascade)`
     /// possibles vers cet `Aliment` (`Repas.aliments`, `Resucrage.aliments`,
@@ -66,7 +74,9 @@ final class Aliment {
         insuline: Double,
         imageURL: URL? = nil,
         resucrage: Bool = false,
-        idCiqualSource: Int? = nil
+        idCiqualSource: Int? = nil,
+        taillePortion: Double? = nil,
+        codeProduitOFF: String? = nil
     ) {
         self.id = id
         self.emoji = emoji
@@ -77,6 +87,8 @@ final class Aliment {
         self.imageURL = imageURL
         self.resucrage = resucrage
         self.idCiqualSource = idCiqualSource
+        self.taillePortion = taillePortion
+        self.codeProduitOFF = codeProduitOFF
     }
 
     /// Id CIQUAL utilisable pour résoudre une personnalisation : celui figé à
@@ -206,6 +218,21 @@ final class Repas {
     /// reste visible partout ailleurs (journal, détail) — seulement ignoré
     /// par les calculs statistiques.
     var exclureDesAnalyses: Bool = false
+
+    /// Date de la dernière modification après enregistrement, `nil` pour un
+    /// repas jamais retouché. Signale qu'il a été réécrit après coup : une
+    /// dose corrigée une fois la courbe connue pèse sur le ratio observé.
+    var dateModification: Date?
+
+    /// Moment de la journée choisi à la main (`SectionRepas.rawValue`), `nil`
+    /// pour le classement automatique selon l'heure et les horaires du profil.
+    var momentChoisi: String?
+
+    /// Moment du repas : le choix manuel prime. **Seule lecture à utiliser**
+    /// pour ranger un repas ou lui associer un ratio.
+    nonisolated func section(horaires: HorairesRepas) -> SectionRepas {
+        momentChoisi.flatMap(SectionRepas.init(rawValue:)) ?? SectionRepas(heure: heure, horaires: horaires)
+    }
 
     /// État du pré-calcul de la réponse glycémique. **Dérivation non persistée**
     /// (`@Transient`) : recalculée à la volée depuis le CGM, et `EtatAnalyse`

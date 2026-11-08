@@ -245,7 +245,7 @@ final class AnalyseRatioService {
         for r in repas {
             // Le groupe est déterminé avant toute exclusion : un repas écarté
             // doit quand même être compté dans le moment auquel il appartient.
-            let sectionReelle = SectionRepas(heure: r.heure, horaires: profil.horairesRepas)
+            let sectionReelle = r.section(horaires: profil.horairesRepas)
             let groupe = profil.modeRatio == .unique ? nil : sectionReelle
             var repartition = repartitions[groupe] ?? Self.repartitionVierge(groupe: groupe)
             defer { repartitions[groupe] = repartition }
@@ -358,7 +358,7 @@ final class AnalyseRatioService {
             let doseCouvrante = r.totalInsuline - (r.doseCorrection ?? 0)
             guard doseCouvrante > 0 else { continue }
 
-            let sectionReelle = SectionRepas(heure: r.heure, horaires: profil.horairesRepas)
+            let sectionReelle = r.section(horaires: profil.horairesRepas)
             let groupe = profil.modeRatio == .unique ? nil : sectionReelle
             parGroupe[groupe, default: []].append(
                 EntreeDoseChangement(heure: r.heure, doseAppliquee: doseCouvrante, verdict: verdict)

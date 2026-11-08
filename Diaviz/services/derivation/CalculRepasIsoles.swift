@@ -66,7 +66,7 @@ nonisolated enum CalculRepasIsoles {
                 estHypo: estHypo,
                 glucidesMin: r.totalGlucides,
                 glucidesMax: r.totalGlucides,
-                libelleSection: SectionRepas(heure: r.heure, horaires: horairesRepas).titre,
+                libelleSection: r.section(horaires: horairesRepas).titre,
                 badgesAjustements: CalculRepasARevoir.badgesAjustements(r),
                 contextesAffiches: r.evenementsAffiches,
                 ratioApplique: r.ratioEffectifPersiste,

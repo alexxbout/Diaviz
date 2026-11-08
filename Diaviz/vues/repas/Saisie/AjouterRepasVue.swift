@@ -47,6 +47,24 @@ struct AjouterRepasVue: View {
     /// Contexte du hub — sert au mining R1, qui a besoin des séances
     /// sportives pour écarter les repas où un ratio post-sport faisait foi.
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+
+    /// Repas enregistré à modifier, `nil` pour une nouvelle saisie. Même écran
+    /// dans les deux cas : la sheet s'ouvre préremplie, et « Ajouter un
+    /// aliment » revient à la recherche.
+    private let repasAModifier: Repas?
+
+    /// Réglages en cours de modification — survivent à la fermeture de la
+    /// sheet pendant l'ajout d'un aliment.
+    @State private var valeursModification: ValeursRepasEnCours?
+
+    /// Revient au détail du repas une fois la sheet refermée.
+    @State private var modificationValidee = false
+
+    init(repasAModifier: Repas? = nil) {
+        self.repasAModifier = repasAModifier
+        _alimentsRepas = State(initialValue: repasAModifier?.aliments.map(EntreeAliment.init(depuis:)) ?? [])
+    }
 
     @State private var recherche: String = ""
     @State private var resultats: [AlimentCiqual] = []
@@ -58,7 +76,7 @@ struct AjouterRepasVue: View {
     @State private var rechercheProduits = RechercheProduitsService()
 
     /// Aliments du repas en cours. Tant que vide, la bulle ne s'affiche pas.
-    @State private var alimentsRepas: [EntreeAliment] = []
+    @State private var alimentsRepas: [EntreeAliment]
 
     /// Aliment sélectionné depuis la liste de recherche — déclenche
     /// `DetailAlimentSheet` pour configurer la quantité, la dose, etc.
@@ -102,6 +120,10 @@ struct AjouterRepasVue: View {
     @AppStorage("modeAffichageRecherche") private var modeAffichage: ModeAffichageRecherche = .liste
 
     var body: some View {
+        // Lu ici et non dans la closure de la sheet : un `@State` lu seulement
+        // dans cette closure n'est pas suivi par SwiftUI, et la sheet s'ouvrait
+        // avec sa valeur périmée (`nil`, donc un repas prérempli à moitié).
+        let valeursRepas = valeursModification
         VStack(spacing: 0) {
             barreRecherche
             filtreSegmente
@@ -127,7 +149,7 @@ struct AjouterRepasVue: View {
         // ajout d'aliment individuel.
         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: alimentsRepas.isEmpty)
         .toolbar { menuToolbar }
-        .navigationTitle("Nouveau repas")
+        .navigationTitle(repasAModifier == nil ? "Nouveau repas" : "Modifier le repas")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $scannerCodeBarres) {
             scannerContenu
@@ -175,11 +197,25 @@ struct AjouterRepasVue: View {
         }
         // RepasSheet — plein écran (`.large` only). L'utilisateur peut
         // dismiss par swipe-down et revenir à la bulle en overlay.
-        .sheet(isPresented: $repasSheetPresentee) {
+        .task {
+            guard let repasAModifier, valeursModification == nil else { return }
+            valeursModification = ValeursRepasEnCours(
+                depuis: repasAModifier,
+                site: repasService.siteBolus(repasId: repasAModifier.id) ?? .parDefaut
+            )
+            repasSheetPresentee = true
+        }
+        .sheet(isPresented: $repasSheetPresentee, onDismiss: {
+            if modificationValidee { dismiss() }
+        }) {
             RepasSheet(
                 aliments: $alimentsRepas,
+                valeursInitiales: valeursRepas,
+                idRepasModifie: repasAModifier?.id,
+                libelleValidation: repasAModifier == nil ? nil : "Enregistrer les modifications",
+                onFermeture: repasAModifier == nil ? nil : { valeursModification = $0 },
                 onAjouterUnAliment: tapperAjouterAliment,
-                onValiderRepas: { dose, site, heure, doseGlobale, doseCorrection, ajustements, evenements, exclureDesAnalyses in
+                onValiderRepas: { dose, site, heure, doseGlobale, doseCorrection, ajustements, evenements, exclureDesAnalyses, momentChoisi in
                     validerRepas(
                         doseInjectee: dose,
                         site: site,
@@ -188,7 +224,8 @@ struct AjouterRepasVue: View {
                         doseCorrection: doseCorrection,
                         ajustements: ajustements,
                         evenements: evenements,
-                        exclureDesAnalyses: exclureDesAnalyses
+                        exclureDesAnalyses: exclureDesAnalyses,
+                        momentChoisi: momentChoisi
                     )
                 }
             )
@@ -229,8 +266,29 @@ struct AjouterRepasVue: View {
         doseCorrection: Double = 0,
         ajustements: [Ajustement] = [],
         evenements: [EvenementRepas] = [],
-        exclureDesAnalyses: Bool = false
+        exclureDesAnalyses: Bool = false,
+        momentChoisi: SectionRepas? = nil
     ) {
+        if let repasAModifier {
+            repasService.modifier(
+                repasAModifier,
+                entrees: alimentsRepas,
+                heure: heure,
+                doseInjectee: doseInjectee,
+                site: site,
+                doseGlobale: doseGlobale,
+                doseCorrection: doseCorrection,
+                ajustements: ajustements,
+                evenements: evenements,
+                exclureDesAnalyses: exclureDesAnalyses,
+                momentChoisi: momentChoisi
+            )
+            analyseRatioService.recalculer(depuis: repasService.repas, contexte: modelContext)
+            glucidesHebdoService.recalculer(depuis: repasService.repas)
+            modificationValidee = true
+            repasSheetPresentee = false
+            return
+        }
         repasService.enregistrerDepuisSaisie(
             entrees: alimentsRepas,
             heure: heure,
@@ -240,7 +298,8 @@ struct AjouterRepasVue: View {
             doseCorrection: doseCorrection,
             ajustements: ajustements,
             evenements: evenements,
-            exclureDesAnalyses: exclureDesAnalyses
+            exclureDesAnalyses: exclureDesAnalyses,
+            momentChoisi: momentChoisi
         )
         // Le verdict de ce repas n'est pas encore connu (CGM pas encore
         // rempli), mais un repas plus ancien a pu changer de statut entre

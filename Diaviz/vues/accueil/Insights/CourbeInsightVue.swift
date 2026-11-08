@@ -9,7 +9,7 @@ import Charts
 /// Courbe d'une carte « réponse glycémique ». Même peau que les autres
 /// graphiques glycémiques (`StyleGrapheGlycemie`) : lignes d'hypo et d'hyper
 /// du profil, pas de bande de cible, pas d'axes, pas de texte sous la courbe.
-/// Seuls le repère (repas ou séance) et la valeur du pic sont marqués.
+/// Seul le repère (repas ou séance) est marqué.
 struct CourbeInsightVue: View {
 
     let courbe: CourbeInsight
@@ -20,8 +20,7 @@ struct CourbeInsightVue: View {
     private var domaineY: ClosedRange<Double> {
         let valeurs = courbe.points.map(\.valeur)
         let bas = min(valeurs.min() ?? courbe.seuils.hypoglycemie, courbe.seuils.hypoglycemie) - 10
-        // Marge en haut : la valeur du pic s'écrit au-dessus du point.
-        let haut = max(valeurs.max() ?? courbe.seuils.hyperglycemie, courbe.seuils.hyperglycemie) + 40
+        let haut = max(valeurs.max() ?? courbe.seuils.hyperglycemie, courbe.seuils.hyperglycemie) + 10
         return bas...haut
     }
 
@@ -31,6 +30,16 @@ struct CourbeInsightVue: View {
             return courbe.repere
         }
         return premier...dernier
+    }
+
+    /// Hypo en rouge, hyper en orange, comme les lignes de seuil ; le reste
+    /// garde la couleur de la carte.
+    private func teinte(_ zone: CourbeInsight.Zone) -> Color {
+        switch zone {
+        case .basse: StyleGrapheGlycemie.couleurSeuilBas
+        case .haute: StyleGrapheGlycemie.couleurSeuilHaut
+        case .cible: couleur
+        }
     }
 
     var body: some View {
@@ -49,32 +58,17 @@ struct CourbeInsightVue: View {
 
             StyleGrapheGlycemie.lignesSeuils(courbe.seuils)
 
-            ForEach(Array(courbe.points.enumerated()), id: \.offset) { _, point in
-                LineMark(
-                    x: .value("Minutes", point.minutes),
-                    y: .value("Glycémie", point.valeur)
-                )
-                .foregroundStyle(couleur)
-                .lineStyle(StrokeStyle(
-                    lineWidth: StyleGrapheGlycemie.epaisseurCourbe, lineCap: .round, lineJoin: .round
-                ))
-            }
-
-            if let pic = courbe.pic {
-                PointMark(
-                    x: .value("Minutes", pic.minutes),
-                    y: .value("Glycémie", pic.valeur)
-                )
-                .symbolSize(28)
-                .foregroundStyle(couleur)
-                .annotation(
-                    position: .top, spacing: 1,
-                    overflowResolution: .init(x: .fit(to: .chart), y: .disabled)
-                ) {
-                    Text(Int(pic.valeur.rounded()).formatted())
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
+            ForEach(Array(courbe.segments.enumerated()), id: \.offset) { indice, segment in
+                ForEach(Array(segment.points.enumerated()), id: \.offset) { _, point in
+                    LineMark(
+                        x: .value("Minutes", point.minutes),
+                        y: .value("Glycémie", point.valeur),
+                        series: .value("Segment", indice)
+                    )
+                    .foregroundStyle(teinte(segment.zone))
+                    .lineStyle(StrokeStyle(
+                        lineWidth: StyleGrapheGlycemie.epaisseurCourbe, lineCap: .round, lineJoin: .round
+                    ))
                 }
             }
         }

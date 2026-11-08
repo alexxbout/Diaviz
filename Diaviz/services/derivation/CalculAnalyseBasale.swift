@@ -89,6 +89,9 @@ nonisolated struct ConfigBasale: Sendable {
     /// à la nouvelle dose ne comptent pas, le temps qu'elle s'installe. Même
     /// valeur que la lente de C1 (source unique : sa règle d'état).
     var nuitsObservationApresChangement: Int = RegleEtatReglage.lente.transition
+    /// Statuts imposés par l'utilisateur, par jour du soir de la nuit : ils
+    /// remplacent le calcul pour le verdict et pour la lente de C1.
+    var classementsManuels: [String: ClassementManuelNuit] = [:]
     /// Nombre de dernières nuits valides qui pilotent le verdict de tendance
     /// (récence — évite qu'une alerte reste figée quand la situation s'améliore).
     var nuitsRecence: Int = 5
@@ -245,6 +248,7 @@ nonisolated enum CalculAnalyseBasale {
         let bilan: BilanHyposNuit     // taxonomie hypos, fenêtre de sommeil complète
         let aHypoProfonde: Bool       // hypo zones 3+4 → trigger « tendance descendante »
         var hyposNonExpliquees = 0    // épisodes hypo de la fenêtre de sommeil hors IOB (C1)
+        var classementManuel: ClassementManuelNuit? = nil
         let reveil: Int?              // glycémie au réveil (mg/dL)
         let chart: NightChartData?    // nil si pas de CGM exploitable
     }
@@ -432,14 +436,14 @@ nonisolated enum CalculAnalyseBasale {
         )
 
         // État de la nuit (pilote la timeline + le verdict).
-        let etat: EtatNuit
-        let categorie: CategorieNuit?
-        let statut: NightStatus
+        var etat: EtatNuit
+        var categorie: CategorieNuit?
+        var statut: NightStatus
         // Pente fiable ? Pilote l'exposition de `slopeZone3`/`deriveZone3` —
         // distinct de « la nuit a-t-elle un verdict » : une hypo/hyper
         // profonde donne un verdict même quand la pente elle-même est exclue
         // (resucrage, bolus...), mais son chiffre de dérive n'est pas fiable.
-        let deriveFiable: Bool
+        var deriveFiable: Bool
         if estCourante {
             etat = .enCours; categorie = nil
             statut = evalZ3.analysee ? .valid : .excluded
@@ -468,12 +472,39 @@ nonisolated enum CalculAnalyseBasale {
             deriveFiable = false
         }
 
+        // Ce que le calcul conclut, gardé pour l'afficher à côté d'un
+        // classement manuel et pour pouvoir y revenir.
+        let classementCalcul: ClassementManuelNuit = {
+            switch categorie {
+            case nil:            return .ecartee
+            case .stable:        return .concluante
+            case .tendanceHaute: return .deriveMontante
+            case .tendanceBasse: return aHypoProfonde || bilan.rechutes > 0 ? .hypo : .deriveDescendante
+            }
+        }()
+        let motifCalcul: String? = { if case let .exclue(r) = etat { return r.rawValue }; return nil }()
+
+        // Classement manuel : il remplace le calcul pour le verdict. Les faits
+        // (courbe, épisodes comptés) ne changent pas.
+        let manuel = estCourante ? nil
+            : config.classementsManuels[ClassementManuelNuit.cle(pour: dateSoir, calendrier: cal)]
+        if let manuel {
+            if let imposee = manuel.categorie {
+                etat = .valide(categorie: imposee); categorie = imposee
+                if case .excluded = statut { statut = .partiallyValid }
+            } else {
+                etat = .exclue(raison: .classementManuel); categorie = nil
+                statut = .excluded
+                deriveFiable = false
+            }
+        }
+
         // Motif affiché au niveau nuit : seulement si la nuit n'a **aucun**
         // verdict (ni pente fiable, ni signal indépendant) — sinon le motif
         // de zone (déjà porté par `zonesData`) suffit à expliquer l'absence
         // de chiffre de dérive sans contredire le badge de verdict affiché.
         let motif: String? = {
-            if case .exclue = etat { return evalZ3.raison?.rawValue }
+            if case let .exclue(raison) = etat { return raison.rawValue }
             return nil
         }()
 
@@ -485,9 +516,12 @@ nonisolated enum CalculAnalyseBasale {
             slopeZone3: deriveFiable ? evalZ3.slope : nil, bilan: bilan,
             motif: motif
         )
+        chart.classementManuel = manuel
+        chart.classementCalcul = classementCalcul
+        chart.motifCalcul = motifCalcul
         // Ce qui tranche la nuit, pour la phrase de la carte verdict : la plus
         // longue hypo retenue, sinon la première hyper non expliquée.
-        if let h = hyposRetenues.max(by: {
+        if manuel == nil, let h = hyposRetenues.max(by: {
             $0.fin.timeIntervalSince($0.debut) < $1.fin.timeIntervalSince($1.debut)
         }) {
             chart.hypoRetenue = HypoRetenue(
@@ -496,16 +530,19 @@ nonisolated enum CalculAnalyseBasale {
                 resucree: entrees.resucrages.contains { estDans($0.heure, episode: h, config: config) }
             )
         }
-        chart.hyperRetenue = hypersRetenues.first?.haut
+        chart.hyperRetenue = manuel == nil ? hypersRetenues.first?.haut : nil
 
         var nuit = NuitAnalysee(
             dateNuit: dateSoir, etat: etat, categorie: categorie,
             slopeZone3: deriveFiable ? evalZ3.slope : nil,
             deriveZone3: deriveFiable ? evalZ3.derive : nil,
-            bilan: bilan, aHypoProfonde: aHypoProfonde,
+            bilan: bilan, aHypoProfonde: manuel.map { $0 == .hypo } ?? aHypoProfonde,
             reveil: reveil, chart: chart
         )
-        nuit.hyposNonExpliquees = hyposNonExpliquees
+        nuit.classementManuel = manuel
+        // C1 lit ce compte avant la catégorie : le classement doit donc y
+        // primer aussi, pour que la nuit ait le même statut sur les deux pages.
+        nuit.hyposNonExpliquees = manuel.map { $0 == .hypo ? max(1, hyposNonExpliquees) : 0 } ?? hyposNonExpliquees
         return nuit
     }
 
@@ -749,7 +786,9 @@ nonisolated enum CalculAnalyseBasale {
         guard valides.count >= 3 else { return (.donneesInsuffisantes, false) }
 
         // Signal descendant immédiat : hypo zone 3 récente ou resucrage avec rechute.
-        if recentes.contains(where: { $0.aHypoProfonde || $0.bilan.rechutes > 0 }) {
+        if recentes.contains(where: {
+            $0.classementManuel != nil ? $0.aHypoProfonde : ($0.aHypoProfonde || $0.bilan.rechutes > 0)
+        }) {
             return (.tropHaute, false)
         }
 

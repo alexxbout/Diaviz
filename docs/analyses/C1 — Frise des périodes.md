@@ -183,7 +183,7 @@ Plusieurs changements du même réglage à la suite (18 → 17 → 16 U) forment
 
 | Réglage | Une hypo, c'est | Ne compte pas |
 | ----- | ----- | ----- |
-| Lente | une nuit avec un épisode sous le seuil hypo d'au moins 15 min (ou sous 54 mg/dL) sur la fenêtre de sommeil (comptage B1, règle du 2026-10-20 — un passage bref de 1-2 relevés ne compte pas) | une hypo que B1 attribue à l'insuline rapide active au moment du creux (plus de 0,5 u, chantier 4 de B1) : la nuit est alors **non évaluable** pour la lente, ni concluante ni ratée. L'hypo reste comptée dans les métriques de l'épisode |
+| Lente | une nuit avec un épisode sous le seuil hypo d'au moins 15 min (ou sous 54 mg/dL) sur la fenêtre de sommeil (comptage B1, règle du 2026-10-20 — un passage bref de 1-2 relevés ne compte pas) | une hypo que B1 attribue à l'insuline rapide active au moment du creux (plus de 0,5 u, chantier 4 de B1) : la nuit est alors **non évaluable** pour la lente, ni concluante ni ratée. L'hypo reste comptée dans les métriques de l'épisode. Un classement manuel de la nuit (doc B1) prime sur tout cela : « Hypo » compte comme hypo, « Concluante » jamais, « Écartée » rend la nuit non évaluable |
 | Ratio d'un moment | un repas au verdict `mauvais` dont la cause est l'hypoglycémie (sous le seuil sur T+4 h) | un repas non évaluable (ajusté, contexte libre, autre événement dans la fenêtre) |
 | Ratio sport | idem, sur les repas pris sous ratio sport | idem |
 

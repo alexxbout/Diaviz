@@ -709,6 +709,12 @@ struct SheetDetailSoiree: View {
                          ? "Hyper en nuit profonde, dérive non mesurable"
                          : "Hypo en nuit profonde, dérive non mesurable")
                         .font(.footnote)
+                case let .classeeParVous(libelle):
+                    Image(systemName: "pencil.circle.fill")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text("\(libelle), classée par vous")
+                        .font(.footnote)
                 case let .exclue(motif):
                     Image(systemName: "circle.dashed")
                         .font(.footnote.weight(.semibold))

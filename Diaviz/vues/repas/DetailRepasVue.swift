@@ -49,6 +49,7 @@ struct DetailRepasVue: View {
 
     @State private var afficherConfirmationSuppression = false
     @State private var afficherEvenements = false
+    @State private var afficherModification = false
 
     // MARK: - Corps
 
@@ -83,6 +84,9 @@ struct DetailRepasVue: View {
         } message: {
             Text("Cette action est irréversible.")
         }
+        .navigationDestination(isPresented: $afficherModification) {
+            AjouterRepasVue(repasAModifier: repas)
+        }
         .sheet(isPresented: $afficherEvenements) {
             SheetEvenementsRepas(evenements: repas.evenementsAffiches) { nouveaux in
                 repasService.mettreAJourEvenements(nouveaux, sur: repas)
@@ -96,10 +100,14 @@ struct DetailRepasVue: View {
     private var menuActions: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
-                // Pas de « Modifier » ici : l'édition complète d'un repas n'est
-                // pas isolable du flow d'`AjouterRepasVue`. Les événements font
-                // exception — ils sont indépendants de la composition et de la
-                // dose, donc éditables seuls sans rouvrir tout le flow.
+                // « Modifier » rouvre le flow de saisie prérempli. Les événements
+                // restent éditables seuls : ils sont indépendants de la
+                // composition et de la dose.
+                Button {
+                    afficherModification = true
+                } label: {
+                    Label("Modifier", systemImage: "pencil")
+                }
                 Button {
                     afficherEvenements = true
                 } label: {
@@ -131,6 +139,11 @@ struct DetailRepasVue: View {
             Text(dateRelativeFormatee)
                 .font(.body)
                 .foregroundStyle(.secondary)
+            if let modifie = repas.dateModification {
+                Text("Modifié le \(modifie.formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: "fr_FR"))))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
@@ -330,6 +343,10 @@ struct DetailRepasVue: View {
                 valeur: siteInjectionFormate,
                 sousValeur: nil
             )
+            if repas.exclureDesAnalyses {
+                Divider().padding(.leading, 16)
+                LigneMetrique(libelle: "Analyses", valeur: "Exclu", sousValeur: nil)
+            }
         }
         .padding(.horizontal, 16)
     }

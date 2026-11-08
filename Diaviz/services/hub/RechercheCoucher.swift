@@ -68,6 +68,7 @@ enum RechercheCoucher {
         configB1.fenetreNuits = fenetreNuits
         configB1.seuilRepasCopieux = profil.preferencesAvancees.seuilRepasCopieuxNuit
             ?? ConfigBasale.seuilRepasCopieuxParDefaut
+        configB1.classementsManuels = profil.preferencesAvancees.classementsNuits ?? [:]
         let analyseB1 = CalculAnalyseBasale.analyser(
             entrees: EntreesBasale(
                 lectures: cgm.map { (date: $0.date, valeur: $0.valeur) },

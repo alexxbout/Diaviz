@@ -79,8 +79,8 @@ struct CarteAnalyseRatio: View {
         }
     }
 
-    /// Jaune doré (« goldenrod »).
-    fileprivate static let teinte = Color(red: 0.85, green: 0.65, blue: 0.13)
+    /// Bleu azur, celui de la carte de présentation de la page « Écart de ratio ».
+    fileprivate static let teinte = Color(red: 0.04, green: 0.52, blue: 1.0)
 
     var body: some View {
         if lignes.isEmpty {

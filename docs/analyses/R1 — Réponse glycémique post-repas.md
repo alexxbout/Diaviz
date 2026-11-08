@@ -150,6 +150,22 @@ Un changement de ratio n'efface rien : il pose une date, et le mining ignore les
 - Sans aucun repas depuis le changement, la page s'ouvre directement sur « Tout » plutôt que vide.
 - La mention « 45 derniers jours » en pied de page était fausse (le mining lit le verdict persisté, sans borne de date) : retirée.
 
+### Délai entre deux changements de ratio (2026-11-08)
+**Question de l'écran :** puis-je changer ce ratio, ou manque-t-il encore du recul ?
+
+**Besoin.** Chaque changement fait repartir l'analyse du moment de zéro. Des changements trop rapprochés empêchent donc tout constat sur le réglage en cours.
+
+**Page Ratios (Profil), ratios glucides / insuline :**
+
+- Chaque ligne affiche la valeur, puis en petit la date du dernier changement et le nombre de repas enregistrés sur ce moment depuis cette date (« Depuis le 3 nov. · 3 repas »). Un ratio jamais modifié affiche « Jamais modifié · N repas », tous repas du moment confondus. Le moment d'un repas suit le choix manuel s'il existe ; la nuit compte avec le dîner.
+- Toucher une ligne ouvre une feuille, et la valeur n'est appliquée qu'à « Enregistrer » : passer de 10 à 12 fait un seul changement.
+- Un ratio est verrouillé jusqu'à 5 repas enregistrés sur ce moment **ou** jusqu'au 14e jour après son dernier changement, selon ce qui arrive en premier (`CalculVerrouRatio`). Le délai de 14 jours évite un blocage sans fin sur un moment rare (goûter).
+- Un ratio verrouillé se repère à un cadenas : ici l'icône dit un blocage, pas un critère non rempli. Sa feuille indique ce qu'il reste : « Modifiable après 2 repas de plus, ou le 17 nov. »
+- « Modifier quand même », avec confirmation, reste possible depuis la feuille (ratio changé par le médecin) : sans cela, le réglage de l'app pourrait s'écarter du ratio réellement suivi.
+- La première saisie reste toujours libre : elle ne constitue pas un changement.
+- La bascule Unique / Par moment efface tous les ratios : elle est refusée tant qu'un ratio est verrouillé, sans sortie de secours.
+- Ratios de correction et de sport : hors périmètre, aucune date de changement n'est enregistrée pour eux.
+
 ### Comparaison avant/après changement de ratio (`CalculDoseRatioChangement.swift`)
 - Nouveau calculateur pur (`nonisolated enum`  , même famille que `CalculRatioObserve`  ) dans `Diaviz/services/derivation/CalculDoseRatioChangement.swift`  . Son entrée `EntreeDoseChangement`  porte l'heure, la dose appliquée et le verdict ; sa sortie `ComparaisonChangementRatio`  porte la date de changement, les statistiques « avant » optionnelles (`nil`  si aucun repas ne précède le changement) et les statistiques « après ». `effectifMinimalComparaison = 5`  : sous ce seuil de repas après le changement, `comparer(entrees:dateChangement:)`  retourne `nil`  .
 - `AnalyseRatioService`  expose désormais `apercusChangementRatio: [SectionRepas?: ApercuChangementRatio]`  , reconstruit à chaque `recalculer(depuis:)`  , à la même cadence que le mining principal : démarrage, synchronisation HealthKit et chaque repas validé. Un mapping dédié (`mapperEntreesDoseChangement`  ) est volontairement dupliqué du mapping du mining principal : mêmes exclusions (pause, contexte libre, ajustement, verdict indéterminé, dose nulle), mais aucune dose suggérée calculée ni borne par date. Les deux mappers peuvent ainsi diverger indépendamment.
@@ -271,3 +287,31 @@ Cette fonctionnalité est indépendante du mining du ratio (R1), mais a été li
 - Couvert par `CalculGlucidesHebdoTests.swift`  .
 ## Dépendances
 R1 → **R2** (ratio ajusté post-sport, combine R1 + S1) et **R3** (repas custom sans glucides connus) restent bloqués sur R1 mais peuvent maintenant démarrer.
+
+
+## Modification d'un repas enregistré
+Menu ⋯ du détail du repas → « Modifier » : même écran que la saisie, prérempli. Le repas est réécrit sur place et garde son identifiant (un masquage dans « Repas à revoir » reste valable).
+
+- **Bolus lié** : suit la dose, l'heure et le site ; recréé s'il avait été supprimé, retiré si la dose tombe à zéro.
+- **Heure changée** : l'insuline active au début est recalculée, le verdict persisté est effacé puis recalculé si le repas est dans la fenêtre d'analyse (45 jours).
+- **Dose changée, même heure** : le ratio effectif persisté suit la nouvelle dose.
+- **Fidélité** : le hub ne garde que des valeurs figées. La fiche d'origine sert si elle redonne les glucides enregistrés à 1 g près, sinon une fiche est reconstruite depuis ces valeurs. Le nom et l'emoji enregistrés sont conservés.
+- **Trace** : « Modifié le … » sur le détail du repas (`Repas.dateModification`). Une dose corrigée après avoir vu la courbe pèse sur le ratio observé : la mention le rend visible.
+- **Schéma** : `Repas.dateModification`, `Aliment.taillePortion` et `Aliment.codeProduitOFF` sont à déployer sur CloudKit Production avant la prochaine build TestFlight.
+
+## Carte de validation à la saisie
+Section « Alertes » de la saisie d'un repas : une conclusion et deux doses (saisie, au ratio), sans badge.
+
+- Lignes facultatives : ajustement, et « Écart observé sur vos déjeuners » quand le mining a détecté un écart (jamais sous ratio sport).
+- Aucune dose saisie : titre neutre « Dose au ratio : X u », icône en pointillé, pas de verdict.
+- Ratio sport en vigueur : le titre dit « ratio sport », le chiffre du ratio et sa durée restante sont sur la carte sport.
+- Détail au toucher, une valeur par ligne : doses, écart, ratio, ajustement, bons résultats observés, charge active. L'état du décompte des repas reste sur la page « Écart de ratio ».
+
+## Moment d'un repas choisi à la main
+Ligne « Moment » sous l'heure, à la saisie et à la modification. Par défaut automatique (heure et horaires du profil) ; un choix manuel (`Repas.momentChoisi`, à déployer sur CloudKit) ne bouge plus si l'heure change. Il pilote tout ce qui range un repas par moment : journal, ratio de référence à la saisie, mining R1, repas à revoir, épisodes C1 (`Repas.section(horaires:)`, seule lecture à utiliser). L'analyse de nuit lit l'heure réelle et n'est pas concernée.
+
+## Ratio effectif à la saisie
+Au-dessus des alertes, ratio effectif et ratio configuré côte à côte, dès qu'il y a des glucides. L'effectif = glucides / (dose de base + ajustements), hors correction. Le verdict de la carte de validation, lui, ne confronte que la dose de base : la mention « ajustement inclus » signale l'écart entre les deux lectures. Le ratio configuré est celui en vigueur aujourd'hui (moment ou sport), y compris à la modification d'un repas passé.
+
+## Portions sur la ligne d'un aliment
+Sur le repas en cours, un aliment saisi en portions affiche ses grammes puis le détail : « 100g · 2× 50g · sans insuline ». Seulement en mode portions : une quantité saisie en grammes ne se traduit pas en portions (« 2,6× 50g »).

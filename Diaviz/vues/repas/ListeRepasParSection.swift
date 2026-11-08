@@ -40,7 +40,7 @@ struct ListeRepasParSection: View {
         let horaires = ProfilService.shared.profil.horairesRepas
         return repasService.repas
             .filter { !$0.aliments.isEmpty }
-            .map { RepasGraph($0, label: SectionRepas(heure: $0.heure, horaires: horaires).titre) }
+            .map { RepasGraph($0, label: $0.section(horaires: horaires).titre) }
     }
 
     var body: some View {

@@ -31,7 +31,7 @@ Un fait vient de se produire ou de devenir consultable. Chaque carte a une **dur
 | **Repas à revoir** | Repas à revoir pris dans les 48 dernières heures (hors repas masqués) | 48 h après le repas | Page « Tous les repas à revoir » |
 | **Ratio** (« 5 repas », moment et date du changement) | Comparaison avant/après un changement de ratio devenue calculable (5 repas depuis le changement) | 7 jours après le 5ᵉ repas | Page « Écart de ratio » |
 
-**Cartes de courbe** (repas, séance) : aucune phrase, rien sous le graphique. La courbe est tracée entre les lignes d'hypo et d'hyper du profil (pas de bande de cible) ; un trait marque l'instant du repas, une bande la durée de l'effort ; la valeur du pic est écrite sur la courbe. Le verdict n'est pas affiché : la carte montre le fait, la page de détail l'interprète.
+**Cartes de courbe** (repas, séance) : aucune phrase, rien sous le graphique. La courbe est tracée entre les lignes d'hypo et d'hyper du profil (pas de bande de cible) ; un trait marque l'instant du repas, une bande la durée de l'effort. Les portions sous le seuil d'hypo sont en rouge, celles au-dessus du seuil d'hyper en orange. Le verdict n'est pas affiché : la carte montre le fait, la page de détail l'interprète. Elles se désactivent ensemble dans Profil → Repas → « Nouvelles tendances » (actives par défaut, réglage du profil synchronisé par iCloud).
 
 ### 3. Les cartes d'état — en dernier
 Deux cartes qui décrivent une situation tant qu'elle dure, sans date :

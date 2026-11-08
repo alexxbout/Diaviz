@@ -24,15 +24,12 @@ struct LigneAlimentEnCours: View {
     /// Glucides calculés sur la quantité réelle, arrondis à 0.1g.
     private var glucidesEntree: Double { entree.glucides }
 
-    /// Texte secondaire : "100g · 1u" ou "100g · sans insuline".
+    /// Texte secondaire : "100g · 2× 50g · 1u".
     private var sousTitre: String {
-        let qte = entree.quantiteApproximative
-            ? "≈ \(Int(entree.quantiteGrammes))g"
-            : "\(Int(entree.quantiteGrammes))g"
         if let dose = entree.doseInsuline, dose > 0 {
-            return "\(qte) · \(dose.doseInsulineFormatee)"
+            return "\(qteSeule) · \(dose.doseInsulineFormatee)"
         } else {
-            return qte
+            return qteSeule
         }
     }
 
@@ -95,11 +92,22 @@ struct LigneAlimentEnCours: View {
         .accessibilityHint("Touchez deux fois pour modifier, balayez vers la gauche pour supprimer")
     }
 
-    /// Quantité seule sans la dose, utilisée quand on affiche "sans insuline" en rouge.
+    /// Quantité sans la dose, utilisée quand on affiche "sans insuline" en rouge.
     private var qteSeule: String {
-        entree.quantiteApproximative
+        let grammes = entree.quantiteApproximative
             ? "≈ \(Int(entree.quantiteGrammes))g"
             : "\(Int(entree.quantiteGrammes))g"
+        return portions.map { "\(grammes) · \($0)" } ?? grammes
+    }
+
+    /// « 2× 50g » pour un aliment saisi en portions, `nil` sinon. Une quantité
+    /// saisie en grammes ne se traduit pas en portions (« 2,6× 50g »).
+    private var portions: String? {
+        guard entree.modeQuantite == .portions,
+              let taille = AlimentsRecentsService.shared.tailleDePortion(entree.aliment),
+              taille > 0 else { return nil }
+        let format = FloatingPointFormatStyle<Double>.number.precision(.fractionLength(0...1))
+        return "\((entree.quantiteGrammes / taille).formatted(format))× \(taille.formatted(format))g"
     }
 }
 

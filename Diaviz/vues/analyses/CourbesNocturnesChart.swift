@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 import Charts
 
 // MARK: - Tokens couleur partagés
@@ -1063,15 +1064,34 @@ private struct CarteVerdictNuit: View {
     /// Nb de nuits valides pilotant le verdict global (pied de carte).
     private let nuitsRecence = ConfigBasale().nuitsRecence
 
+    @State private var afficherClassement = false
+    @Environment(\.modelContext) private var modelContext
+    // Optionnels : absents des aperçus isolés de ce graphique.
+    @Environment(AnalyseBasaleService.self) private var serviceBasale: AnalyseBasaleService?
+    @Environment(CorrelationChargeTIRService.self) private var serviceCharge: CorrelationChargeTIRService?
+
+    /// Nuit en cours et nuits d'observation après un changement de dose ne
+    /// comptent pas encore : rien à classer.
+    private var peutClasser: Bool { !nuit.enCours && !nuit.enObservation }
+
     var body: some View {
         if let z3 = zone3 {
             VStack(alignment: .leading, spacing: 0) {
-                Text("Verdict de la nuit")
-                    .font(.subheadline.bold())
-                    .foregroundStyle(.secondary)
-                    .padding(.bottom, 12)
+                HStack {
+                    Text("Verdict de la nuit")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if peutClasser {
+                        Button("Modifier") { afficherClassement = true }
+                            .font(.subheadline)
+                    }
+                }
+                .padding(.bottom, 12)
 
-                if z3.isAnalyzed, let s = z3.slope {
+                if let manuel = nuit.classementManuel {
+                    verdictClasseParVous(manuel)
+                } else if z3.isAnalyzed, let s = z3.slope {
                     verdictAnalyse(z3, slope: s)
                 } else if let cat = nuit.categorieVerdict {
                     // Zone 3 exclue de la régression (resucrage, bolus...)
@@ -1086,7 +1106,53 @@ private struct CarteVerdictNuit: View {
                 LigneChargeHorsNormale(synthese: chargeSynthese)
                     .padding(.top, 10)
             }
+            .sheet(isPresented: $afficherClassement) {
+                FeuilleClassementNuit(nuit: nuit) { choix in
+                    enregistrer(choix)
+                }
+            }
         }
+    }
+
+    /// Enregistre le classement, puis recalcule les analyses qui lisent le
+    /// statut des nuits (tendance basale et page Charge et glycémie).
+    private func enregistrer(_ choix: ClassementManuelNuit?) {
+        let cle = ClassementManuelNuit.cle(pour: nuit.date)
+        ProfilService.shared.mettreAJour { profil in
+            var classements = profil.preferencesAvancees.classementsNuits ?? [:]
+            classements[cle] = choix
+            profil.preferencesAvancees.classementsNuits = classements
+        }
+        afficherClassement = false
+        Task {
+            await serviceBasale?.recharger()
+            await serviceCharge?.recalculer(contexte: modelContext)
+        }
+    }
+
+    /// Variante « classée par vous » : le statut choisi, et ce que l'app
+    /// avait calculé. Pas de jauge : le statut ne vient plus de la mesure.
+    @ViewBuilder
+    private func verdictClasseParVous(_ manuel: ClassementManuelNuit) -> some View {
+        HStack(alignment: .center) {
+            badge(texte: manuel.libelle,
+                  systemImage: manuel == .ecartee ? "xmark.circle.fill" : manuel.icone,
+                  couleur: manuel == .ecartee ? .orange : manuel.couleur)
+            Spacer()
+            Text("Classée par vous")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.bottom, 10)
+
+        Text("Calcul de l'app : \(nuit.libelleCalcul).")
+            .font(.system(size: 14))
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.bottom, 14)
+
+        blocRetenues(libelle: manuel.libelle.lowercased(),
+                     couleur: manuel == .ecartee ? .orange : manuel.couleur)
     }
 
     // MARK: Sous-vues
@@ -1189,7 +1255,7 @@ private struct CarteVerdictNuit: View {
     @ViewBuilder
     private func verdictExclu(_ z: ZoneData) -> some View {
         HStack(alignment: .top) {
-            badge(texte: "Exclue", systemImage: "xmark.circle.fill", couleur: .orange)
+            badge(texte: "Écartée", systemImage: "xmark.circle.fill", couleur: .orange)
             Spacer()
             if let raison = z.exclusionReason {
                 Text(raison)
@@ -1208,7 +1274,7 @@ private struct CarteVerdictNuit: View {
                 .padding(.bottom, 10)
         }
 
-        blocRetenues(libelle: "exclue", couleur: .orange)
+        blocRetenues(libelle: "écartée", couleur: .orange)
     }
 
     /// Jauge horizontale : bande verte = zone stable ±seuil, trait central
@@ -1486,6 +1552,7 @@ private struct CarteVerdictNuit: View {
     /// Couleur d'une nuit dans les segments : rouge si une hypo la tranche,
     /// sinon celle de sa catégorie — même codage que la frise de la carte verdict.
     private func couleurNuit(_ n: NightChartData) -> Color? {
+        if let manuel = n.classementManuel { return manuel == .hypo ? .red : n.categorieVerdict.map(couleur) }
         if n.hypoRetenue != nil || (n.categorieVerdict == .tendanceBasse && n.bilanHypos.rechutes > 0) { return .red }
         return n.categorieVerdict.map(couleur)
     }

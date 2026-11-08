@@ -242,6 +242,19 @@ nonisolated struct NightChartData: Identifiable, Sendable {
     /// Instant du pic de la première hyper non expliquée (zones 3+4), si
     /// c'est elle qui tranche. `nil` sinon.
     var hyperRetenue: Date? = nil
+    /// Statut imposé par l'utilisateur, `nil` si la nuit suit le calcul.
+    var classementManuel: ClassementManuelNuit? = nil
+    /// Ce que le calcul conclut, classement manuel ou non.
+    var classementCalcul: ClassementManuelNuit = .ecartee
+    /// Motif quand le calcul écarte la nuit.
+    var motifCalcul: String? = nil
+
+    /// « écartée, fenêtre trop courte » — pour rappeler le calcul à côté d'un
+    /// classement manuel.
+    var libelleCalcul: String {
+        ([classementCalcul.libelle] + (motifCalcul.map { [$0] } ?? []))
+            .map { $0.lowercased() }.joined(separator: ", ")
+    }
 }
 
 /// Une hypo retenue pour le verdict d'une nuit, telle que la carte la raconte.

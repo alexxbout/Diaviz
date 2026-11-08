@@ -15,6 +15,8 @@ import SwiftUI
 struct BoutonValiderRepas: View {
 
     let nombreAliments: Int
+    /// Remplace le libellé par défaut (modification d'un repas enregistré).
+    var libelleForce: String? = nil
     let onValider: () -> Void
 
     /// Trigger pour le retour haptique de succès.
@@ -25,6 +27,7 @@ struct BoutonValiderRepas: View {
     private var desactive: Bool { nombreAliments == 0 }
 
     private var libelle: String {
+        if let libelleForce { return libelleForce }
         let mot = nombreAliments == 1 ? "aliment" : "aliments"
         return "Enregistrer le repas (\(nombreAliments) \(mot))"
     }

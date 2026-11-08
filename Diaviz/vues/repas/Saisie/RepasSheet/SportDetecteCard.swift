@@ -11,8 +11,7 @@ import SwiftUI
 /// la fenêtre d'effet réglée au profil.
 ///
 /// Purement **factuelle** : elle dit ce qui s'est passé et quel ratio en
-/// découle, jamais un chiffre de ratio — celui-ci vit dans la carte de
-/// validation de la dose, seule à le confronter à la dose saisie.
+/// découle. La carte de validation de la dose confronte ce ratio à la dose.
 ///
 /// Design aligné sur les autres cartes : icône en cercle bleu à gauche,
 /// titre + détail à droite, fond uni à `0.10` d'opacité.
@@ -81,15 +80,19 @@ struct SportDetecteCard: View {
             : "\(sport.typeSport) terminé il y a \(FormatDureeSport.libelle(minutes: sport.minutesDepuisFin))"
     }
 
-    /// Dit d'où vient le ratio en vigueur, sans répéter son chiffre — il est
-    /// affiché une seule fois, dans la carte de validation de la dose.
+    /// Le ratio en vigueur et le temps qu'il s'applique encore : seule carte à
+    /// écrire son chiffre, la carte de validation dit juste qu'elle l'utilise.
     /// L'ancien message (« basé sur N séances ») attribuait à un historique
     /// inexistant un ratio qui venait du profil : le décompte était figé à 0
     /// et le mining par type de sport n'existe pas encore (S1/R2).
     private var messageContextuel: String {
-        sport.ratioAjuste != nil
-            ? "Votre ratio post-\(sport.typeSport.lowercased()) est appliqué à la dose de ce repas."
-            : "Aucun ratio post-\(sport.typeSport.lowercased()) configuré : le ratio du moment reste appliqué."
+        let type = sport.typeSport.lowercased()
+        guard let ratio = sport.ratioAjuste else {
+            return "Aucun ratio post-\(type) configuré : le ratio du moment reste appliqué."
+        }
+        let grammes = ratio.grammesParUnite.formatted(.number.precision(.fractionLength(0...1)))
+        let reste = sport.minutesRestantesEffet.map { " · encore \(FormatDureeSport.libelle(minutes: $0))" } ?? ""
+        return "Ratio post-\(type) 1 u / \(grammes) g\(reste)"
     }
 }
 
