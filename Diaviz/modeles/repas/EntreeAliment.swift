@@ -44,6 +44,12 @@ struct EntreeAliment: Identifiable {
     /// de repas d'un resucrage dans le détail d'une nuit).
     var resucrage: Bool = false
 
+    /// Nom et emoji tels qu'enregistrés, pour un aliment rouvert depuis un
+    /// repas déjà saisi : modifier une quantité ne doit pas réécrire ces faits
+    /// (la signature de « Repas à revoir » lit le nom). `nil` à la saisie.
+    var nomFige: String? = nil
+    var emojiFige: String? = nil
+
     /// Glucides calculés proportionnellement à la quantité consommée.
     var glucides: Double {
         aliment.glucides * quantiteGrammes / 100

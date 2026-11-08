@@ -15,6 +15,7 @@ import SwiftUI
 struct IOBCard: View {
 
     let iob: IOB
+    var avantRepas: Bool = false
 
     @State private var afficherExplication: Bool = false
 
@@ -56,7 +57,9 @@ struct IOBCard: View {
 
     private var contenu: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("\(format(iob.unitesTotales))u d'insuline rapide active")
+            Text(avantRepas
+                ? "\(format(iob.unitesTotales))u actives avant ce repas"
+                : "\(format(iob.unitesTotales))u d'insuline rapide active")
                 .font(.body.bold())
                 .foregroundStyle(.primary)
                 .multilineTextAlignment(.leading)

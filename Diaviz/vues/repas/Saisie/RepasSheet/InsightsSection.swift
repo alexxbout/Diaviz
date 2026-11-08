@@ -20,6 +20,9 @@ import SwiftUI
 struct InsightsSection: View {
 
     let contexte: ContexteInsights
+    /// Modification d'un repas enregistré : l'insuline active décrit l'état
+    /// avant ce repas, et la carte le dit.
+    var iobAvantRepas: Bool = false
 
     @State private var afficherInfo: Bool = false
 
@@ -38,7 +41,7 @@ struct InsightsSection: View {
                         ValidationRatioCard(validation: validation, chargeSynthese: contexte.chargeSynthese)
                     }
                     if let iob = contexte.iob {
-                        IOBCard(iob: iob)
+                        IOBCard(iob: iob, avantRepas: iobAvantRepas)
                     }
                 }
                 .listRowInsets(EdgeInsets())

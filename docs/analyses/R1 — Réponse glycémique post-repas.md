@@ -271,3 +271,14 @@ Cette fonctionnalité est indépendante du mining du ratio (R1), mais a été li
 - Couvert par `CalculGlucidesHebdoTests.swift`  .
 ## Dépendances
 R1 → **R2** (ratio ajusté post-sport, combine R1 + S1) et **R3** (repas custom sans glucides connus) restent bloqués sur R1 mais peuvent maintenant démarrer.
+
+
+## Modification d'un repas enregistré
+Menu ⋯ du détail du repas → « Modifier » : même écran que la saisie, prérempli. Le repas est réécrit sur place et garde son identifiant (un masquage dans « Repas à revoir » reste valable).
+
+- **Bolus lié** : suit la dose, l'heure et le site ; recréé s'il avait été supprimé, retiré si la dose tombe à zéro.
+- **Heure changée** : l'insuline active au début est recalculée, le verdict persisté est effacé puis recalculé si le repas est dans la fenêtre d'analyse (45 jours).
+- **Dose changée, même heure** : le ratio effectif persisté suit la nouvelle dose.
+- **Fidélité** : le hub ne garde que des valeurs figées. La fiche d'origine sert si elle redonne les glucides enregistrés à 1 g près, sinon une fiche est reconstruite depuis ces valeurs. Le nom et l'emoji enregistrés sont conservés.
+- **Trace** : « Modifié le … » sur le détail du repas (`Repas.dateModification`). Une dose corrigée après avoir vu la courbe pèse sur le ratio observé : la mention le rend visible.
+- **Schéma** : `Repas.dateModification`, `Aliment.taillePortion` et `Aliment.codeProduitOFF` sont à déployer sur CloudKit Production avant la prochaine build TestFlight.

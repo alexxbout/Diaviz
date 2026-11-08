@@ -16,6 +16,44 @@ import SwiftData
 /// section insuline, alertes, détails d'injection, et bouton de validation.
 /// Elle peut empiler des sheets enfants (`DetailAlimentSheet` pour l'édition
 /// d'un aliment, `AjustementSheet` pour les ajustements intentionnels).
+/// Réglages du repas portés par la sheet, hors aliments. Sert à la préremplir
+/// quand on modifie un repas enregistré, et à conserver ce qui a été retouché
+/// si la sheet se ferme le temps d'ajouter un aliment.
+struct ValeursRepasEnCours {
+    var ajustements: [Ajustement]
+    var correctionHyper: Double
+    var evenements: [EvenementRepas]
+    var exclusionManuelle: Bool?
+    var siteInjection: SiteInjection
+    var doseGlobale: Double?
+    var heureRepas: Date
+
+    init(depuis repas: Repas, site: SiteInjection) {
+        ajustements = repas.ajustements
+        correctionHyper = repas.doseCorrection ?? 0
+        evenements = repas.evenementsAffiches
+        // Exclu faute d'insuline : c'était un constat, pas un choix. Il ne doit
+        // pas survivre à l'ajout d'une dose.
+        exclusionManuelle = repas.exclureDesAnalyses ? (repas.aUneInjection ? true : nil) : false
+        siteInjection = site
+        doseGlobale = repas.doseGlobale
+        heureRepas = repas.heure
+    }
+
+    init(
+        ajustements: [Ajustement], correctionHyper: Double, evenements: [EvenementRepas],
+        exclusionManuelle: Bool?, siteInjection: SiteInjection, doseGlobale: Double?, heureRepas: Date
+    ) {
+        self.ajustements = ajustements
+        self.correctionHyper = correctionHyper
+        self.evenements = evenements
+        self.exclusionManuelle = exclusionManuelle
+        self.siteInjection = siteInjection
+        self.doseGlobale = doseGlobale
+        self.heureRepas = heureRepas
+    }
+}
+
 struct RepasSheet: View {
 
     // MARK: - Bindings
@@ -43,6 +81,47 @@ struct RepasSheet: View {
         _ evenements: [EvenementRepas],
         _ exclureDesAnalyses: Bool
     ) -> Void
+
+    /// Appelé à la fermeture avec les réglages courants — seulement en
+    /// modification, où le parent les rend à la réouverture.
+    private let onFermeture: ((ValeursRepasEnCours) -> Void)?
+
+    /// Libellé du bouton final, `nil` pour celui de la saisie.
+    private let libelleValidation: String?
+
+    /// Repas en cours de modification : son propre bolus ne compte pas dans
+    /// l'insuline active affichée, qui décrit l'état avant ce repas.
+    private let idRepasModifie: UUID?
+
+    init(
+        aliments: Binding<[EntreeAliment]>,
+        valeursInitiales: ValeursRepasEnCours? = nil,
+        idRepasModifie: UUID? = nil,
+        libelleValidation: String? = nil,
+        onFermeture: ((ValeursRepasEnCours) -> Void)? = nil,
+        onAjouterUnAliment: @escaping () -> Void,
+        onValiderRepas: @escaping (
+            _ doseInjectee: Double, _ site: SiteInjection, _ heure: Date, _ doseGlobale: Double?,
+            _ doseCorrection: Double, _ ajustements: [Ajustement], _ evenements: [EvenementRepas],
+            _ exclureDesAnalyses: Bool
+        ) -> Void
+    ) {
+        _aliments = aliments
+        self.idRepasModifie = idRepasModifie
+        self.libelleValidation = libelleValidation
+        self.onFermeture = onFermeture
+        self.onAjouterUnAliment = onAjouterUnAliment
+        self.onValiderRepas = onValiderRepas
+        if let valeursInitiales {
+            _ajustements = State(initialValue: valeursInitiales.ajustements)
+            _correctionHyper = State(initialValue: valeursInitiales.correctionHyper)
+            _evenements = State(initialValue: valeursInitiales.evenements)
+            _exclusionManuelle = State(initialValue: valeursInitiales.exclusionManuelle)
+            _siteInjection = State(initialValue: valeursInitiales.siteInjection)
+            _doseGlobale = State(initialValue: valeursInitiales.doseGlobale)
+            _heureRepas = State(initialValue: valeursInitiales.heureRepas)
+        }
+    }
 
     // MARK: - État interne
 
@@ -211,6 +290,7 @@ struct RepasSheet: View {
             heure: heureRepas,
             section: section,
             contexte: modelContext,
+            repasIgnore: idRepasModifie,
             analyseRatioObserve: analyseRatioService.analyse,
             repartitions: analyseRatioService.repartitions
         )
@@ -263,7 +343,7 @@ struct RepasSheet: View {
                 // en haut du formulaire elles étaient hors écran au moment
                 // précis où on saisit cette dose — donc invisibles quand
                 // elles comptent le plus.
-                InsightsSection(contexte: contexteInsights)
+                InsightsSection(contexte: contexteInsights, iobAvantRepas: idRepasModifie != nil)
 
                 // Site d'injection : visible seulement si une dose effective
                 // est prévue. Sans injection, la zone n'a pas de sens.
@@ -281,6 +361,7 @@ struct RepasSheet: View {
         .safeAreaInset(edge: .bottom) {
             BoutonValiderRepas(
                 nombreAliments: aliments.count,
+                libelleForce: libelleValidation,
                 onValider: {
                     onValiderRepas(
                         totalInjecte, siteInjection, heureRepas, doseGlobale, correctionHyper,
@@ -288,6 +369,13 @@ struct RepasSheet: View {
                     )
                 }
             )
+        }
+        .onDisappear {
+            onFermeture?(ValeursRepasEnCours(
+                ajustements: ajustements, correctionHyper: correctionHyper, evenements: evenements,
+                exclusionManuelle: exclusionManuelle, siteInjection: siteInjection,
+                doseGlobale: doseGlobale, heureRepas: heureRepas
+            ))
         }
         // Dernier aliment supprimé (swipe dans ListeAlimentsSection) → plus
         // rien à composer, on referme au lieu de laisser la sheet ouverte

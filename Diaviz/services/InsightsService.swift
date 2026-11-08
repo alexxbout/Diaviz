@@ -217,6 +217,7 @@ enum InsightsService {
         heure: Date,
         section: SectionRepas,
         contexte: ModelContext?,
+        repasIgnore: UUID? = nil,
         analyseRatioObserve: AnalyseRatioObserve = .vide,
         repartitions: [SectionRepas?: RepartitionRepasMoment] = [:]
     ) -> ContexteInsights {
@@ -233,7 +234,7 @@ enum InsightsService {
                 analyseRatioObserve: analyseRatioObserve, repartitions: repartitions
             ),
             sport: sport,
-            iob: iobActif(a: heure, contexte: contexte),
+            iob: iobActif(a: heure, contexte: contexte, repasIgnore: repasIgnore),
             chargeSynthese: ChargeActiveService.shared.contexte?.synthese(a: heure)
         )
     }
@@ -362,7 +363,7 @@ enum InsightsService {
 
     // MARK: IOB (insuline rapide active)
 
-    private static func iobActif(a instant: Date, contexte: ModelContext?) -> IOB? {
+    private static func iobActif(a instant: Date, contexte: ModelContext?, repasIgnore: UUID?) -> IOB? {
         guard let contexte else { return nil }
         let profil = ProfilService.shared.profil
         let dia = profil.dureeActionInsulineHeures
@@ -374,7 +375,9 @@ enum InsightsService {
         )
         // Le filtre « rapide » se fait en Swift (comparer un enum en #Predicate
         // SwiftData est fragile ; le volume est trivial) — même choix qu'`IOBService`.
-        let rapides = ((try? contexte.fetch(descripteur)) ?? []).filter { $0.type != .lente }
+        let rapides = ((try? contexte.fetch(descripteur)) ?? []).filter {
+            $0.type != .lente && (repasIgnore == nil || $0.repasAssocieId != repasIgnore)
+        }
         guard !rapides.isEmpty else { return nil }
 
         let td = dia * 60
