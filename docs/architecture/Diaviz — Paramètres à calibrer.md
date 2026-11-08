@@ -73,7 +73,7 @@ Recadrage du 2026-09-27 : la « période » à vecteur de réglages constant est
 | Lente — transition après changement de dose | 2 nuits | 🟡 Cadré | Au bout de combien de nuits la dérive zone 3 se stabilise-t-elle réellement ? |
 | Ratio d'un moment — fenêtre / minimum / entrée / sortie | 8 repas évaluables / 5 / 5 sur 8 / ≤ 3 sur 8 | 🟡 Cadré | Minimum aligné sur le mining R1 |
 | Ratio sport — fenêtre / minimum / entrée / sortie | 6 repas du même type de sport / 4 / 4 sur 6 / ≤ 2 sur 6 | 🟡 Cadré | Proportion du temps passé en « pas assez de recul » |
-| Délai entre deux changements de ratio (proposition, pas livré) | 5 repas enregistrés sur le moment ou 14 jours, au premier atteint | 🟡 Cadré (2026-11-08) | Le délai gêne-t-il un ajustement réellement nécessaire ? 5 repas enregistrés suffisent-ils, sachant que tous ne sont pas analysables ? |
+| Délai entre deux changements de ratio | 5 repas enregistrés sur le moment ou 14 jours, au premier atteint | 🟡 Cadré (2026-11-08) | Le délai gêne-t-il un ajustement réellement nécessaire ? 5 repas enregistrés suffisent-ils, sachant que tous ne sont pas analysables ? |
 | Verdict R1 `moyen` | hors compte (ni concluant ni raté) | 🟡 Cadré (2026-09-27) | Quelle part des repas tombe en `moyen` ? Si elle est forte, l'entonnoir se resserre trop |
 | Résultats d'épisode — seuils de lisibilité | TIR et score : 3 jours avec CGM ; resucrages / jour : 7 jours | 🟢 Implémenté (`CalculEpisodesCharge`) | Les chiffres d'un épisode court sont-ils stables d'une semaine à l'autre ? |
 | Horizon des épisodes | 90 jours (`CalculChargeActive.horizonJours`) | 🟢 Conservé (2026-10-19) | Un épisode comparable utile date-t-il de plus de 3 mois ? |
