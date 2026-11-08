@@ -13,8 +13,8 @@ import AppIntents
 
 /// Bouton Pause/Reprendre de la Dynamic Island / écran verrouillé.
 struct BasculerPauseSeanceIntent: LiveActivityIntent {
-    static var title: LocalizedStringResource = "Pause ou reprise de la séance"
-    static var isDiscoverable: Bool = false
+    static let title: LocalizedStringResource = "Pause ou reprise de la séance"
+    static let isDiscoverable: Bool = false
 
     func perform() async throws -> some IntentResult {
         await ControleurSeanceLive.basculerPause()
@@ -25,9 +25,9 @@ struct BasculerPauseSeanceIntent: LiveActivityIntent {
 /// Bouton Terminer de la Dynamic Island / écran verrouillé. Fige la séance
 /// pour l'enregistrement, clôt la Live Activity et ouvre l'app.
 struct TerminerSeanceIntent: LiveActivityIntent {
-    static var title: LocalizedStringResource = "Terminer la séance"
-    static var isDiscoverable: Bool = false
-    static var openAppWhenRun: Bool = true
+    static let title: LocalizedStringResource = "Terminer la séance"
+    static let isDiscoverable: Bool = false
+    static let openAppWhenRun: Bool = true
 
     func perform() async throws -> some IntentResult {
         await ControleurSeanceLive.terminer()

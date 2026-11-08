@@ -22,8 +22,8 @@ import SwiftUI
 import AppIntents
 
 struct EmpreinteConfigurationIntent: WidgetConfigurationIntent {
-    static var title: LocalizedStringResource = "Empreinte glycémique"
-    static var description = IntentDescription("Choisir l'affichage du widget empreinte glycémique.")
+    static let title: LocalizedStringResource = "Empreinte glycémique"
+    static let description = IntentDescription("Choisir l'affichage du widget empreinte glycémique.")
 
     @Parameter(title: "Empreinte seule", description: "N'affiche que le cercle, fond transparent.", default: false)
     var empreinteSeule: Bool

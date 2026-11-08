@@ -104,8 +104,7 @@ extension Injection {
 // MARK: - Conformances rétro-ajoutées sur le modèle de site
 
 // `ZoneInjection` et `CoteInjection` vivent dans `SiteInjectionPicker.swift`
-// (ressources partagées avec la page Repas). On y ajoute Codable + Sendable
-// ici sans toucher au fichier source : Codable est synthétisé pour les
-// `enum: String`, et Sendable est trivialement vérifié pour ces énumérations.
-extension ZoneInjection: Codable, Sendable {}
-extension CoteInjection: Codable, Sendable {}
+// (ressources partagées avec la page Repas). On y ajoute Codable ici sans
+// toucher au fichier source : il est synthétisé pour les `enum: String`.
+nonisolated extension ZoneInjection: Codable {}
+nonisolated extension CoteInjection: Codable {}

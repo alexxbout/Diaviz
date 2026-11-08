@@ -13,7 +13,7 @@ import SwiftData
 ///
 /// Stocké en base par `rawValue` (voir `ChangementParametre.parametreBrut`) :
 /// renommer un cas casserait la lecture des lignes déjà enregistrées.
-enum ParametreSuivi: String, CaseIterable, Codable, Sendable {
+nonisolated enum ParametreSuivi: String, CaseIterable, Codable, Sendable {
     case ratioUnique
     case ratioPetitDejeuner
     case ratioDejeuner
@@ -30,7 +30,7 @@ enum ParametreSuivi: String, CaseIterable, Codable, Sendable {
 
 /// Identifie une valeur suivie : le paramètre, et pour `ratioSport` le type
 /// de sport concerné (`TypeSport.rawValue`, `nil` pour tous les autres).
-struct CleParametre: Hashable, Sendable {
+nonisolated struct CleParametre: Hashable, Sendable {
     var parametre: ParametreSuivi
     var typeSport: String? = nil
 }

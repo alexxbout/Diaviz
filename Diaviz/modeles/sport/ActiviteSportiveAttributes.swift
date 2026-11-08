@@ -14,7 +14,7 @@ import ActivityKit
 import Foundation
 
 /// Attributs (partie **statique**) d'une Live Activity de séance sportive.
-struct ActiviteSportiveAttributes: ActivityAttributes {
+nonisolated struct ActiviteSportiveAttributes: ActivityAttributes {
 
     /// État **dynamique** poussé à chaque mise à jour de la Live Activity.
     struct ContentState: Codable, Hashable {

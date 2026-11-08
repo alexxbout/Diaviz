@@ -15,7 +15,7 @@ import Foundation
 ///
 /// Sert à catégoriser automatiquement un repas saisi (« 12:34 » →
 /// déjeuner) selon sa proximité avec ces horaires.
-struct HorairesRepas: Codable, Equatable, Sendable {
+nonisolated struct HorairesRepas: Codable, Equatable, Sendable {
     var petitDejeuner: Date
     var dejeuner: Date
     var gouter: Date

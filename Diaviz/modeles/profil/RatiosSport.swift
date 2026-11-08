@@ -21,7 +21,7 @@ import Foundation
 /// « Un hub, des dérivations » : ces valeurs sont des **références
 /// d'analyse** saisies par l'utilisateur (typiquement dictées par son
 /// médecin), jamais un calcul de dose fait par l'app.
-struct RatiosSport: Codable, Equatable, Sendable {
+nonisolated struct RatiosSport: Codable, Equatable, Sendable {
 
     /// Ratio par type de sport, en grammes couverts par 1u. Stocké par
     /// `rawValue` de `TypeSport` (et non par l'enum directement) pour que

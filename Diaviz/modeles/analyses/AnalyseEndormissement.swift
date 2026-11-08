@@ -11,7 +11,7 @@ import Foundation
 
 /// Ce qui s'est réellement passé à l'endormissement (zones 1-2, ≈ 2h après
 /// la lente). Observation factuelle d'une nuit passée, pas une prédiction.
-enum IssueEndormissement: Sendable, Equatable {
+nonisolated enum IssueEndormissement: Sendable, Equatable {
 
     /// Hypo survenue `delaiMinutes` minutes après la prise de lente.
     /// Couvre aussi le cas d'un resucrage **correctif** loggé sans creux CGM
@@ -47,7 +47,7 @@ enum IssueEndormissement: Sendable, Equatable {
 /// Les champs contextuels sont des **tags neutres**, jamais des « coupables » :
 /// c'est la mise en regard de toutes les nuits qui fait émerger le pattern,
 /// pas une ligne isolée.
-struct NuitEndormissement: Identifiable, Sendable, Equatable {
+nonisolated struct NuitEndormissement: Identifiable, Sendable, Equatable {
 
     let id: UUID
     let date: Date
@@ -88,7 +88,7 @@ struct NuitEndormissement: Identifiable, Sendable, Equatable {
 /// Snapshot prêt à afficher de l'analyse « Endormissement ».
 /// `nuits` est triée par glycémie de coucher **croissante** : le risque se
 /// concentre en haut, la lecture raconte l'histoire du plancher.
-struct AnalyseEndormissement: Sendable, Equatable {
+nonisolated struct AnalyseEndormissement: Sendable, Equatable {
 
     /// Seuil de coucher analysé (mg/dL) — couchers au-dessus exclus.
     /// Provisoirement constant ; deviendra un réglage utilisateur.

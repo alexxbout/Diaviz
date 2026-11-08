@@ -14,7 +14,7 @@ import SwiftUI
 /// reste lisible (pattern identique aux 3 types d'insuline du graphe
 /// Médications). Chaque catégorie a une couleur stable, que tous les
 /// types qui en relèvent partagent.
-enum CategorieSport: String, Codable, Sendable, CaseIterable, Hashable {
+nonisolated enum CategorieSport: String, Codable, Sendable, CaseIterable, Hashable {
 
     /// Effort cardiovasculaire — course, vélo, natation, marche, sport
     /// collectif. Impact glycémique typiquement **descendant** pendant

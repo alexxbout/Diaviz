@@ -14,7 +14,7 @@ import Foundation
 ///
 /// Servira à corréler la baisse de glycémie avec l'intensité réelle
 /// (« mes courses intenses font baisser de 30 mg/dL en 45min »).
-enum IntensiteSport: String, CaseIterable, Codable, Sendable, Hashable {
+nonisolated enum IntensiteSport: String, CaseIterable, Codable, Sendable, Hashable {
     case faible    = "Faible"
     case moderee   = "Modérée"
     case intense   = "Intense"

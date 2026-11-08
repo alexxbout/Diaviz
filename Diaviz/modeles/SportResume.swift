@@ -10,7 +10,7 @@ import Foundation
 /// Résumé d'une séance de sport rattachée à une soirée — assez riche pour
 /// mériter un détail au tap (type + intensité + durée) plutôt qu'une valeur
 /// inline. Contexte transverse (coucher, corrections, etc.).
-struct SportResume: Sendable, Equatable {
+nonisolated struct SportResume: Sendable, Equatable {
 
     let type: String           // ex. « Course », « Vélo »
     let intensite: String      // ex. « léger », « modéré », « intense »

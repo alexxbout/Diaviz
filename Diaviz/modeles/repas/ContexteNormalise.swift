@@ -10,7 +10,7 @@ import Foundation
 /// lequel convergent plusieurs formulations brutes (`variantes`) au fil du
 /// temps. Persisté par `ReferentielContextesService` (UserDefaults, JSON) —
 /// pas un fait brut horodaté du hub, donc pas de `@Model` SwiftData ici.
-struct ContexteNormalise: Codable, Identifiable, Equatable, Sendable {
+nonisolated struct ContexteNormalise: Codable, Identifiable, Equatable, Sendable {
     let id: UUID
     var libelle: String
     var emoji: String

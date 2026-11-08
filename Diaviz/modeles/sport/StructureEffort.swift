@@ -13,7 +13,7 @@ import Foundation
 /// Distinction cliniquement significative (littérature ISPAD 2022 : la
 /// chute glycémique en exercice mixte/intervalles diffère de l'aérobie
 /// continu), retenue lors du cadrage de l'analyse S1 (2026-08-06).
-enum StructureEffort: String, CaseIterable, Codable, Sendable, Hashable {
+nonisolated enum StructureEffort: String, CaseIterable, Codable, Sendable, Hashable {
     case continu = "Continu"
     case fractionne = "Fractionné"
 

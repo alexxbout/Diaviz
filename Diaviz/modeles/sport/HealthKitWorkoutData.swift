@@ -17,7 +17,7 @@ import Foundation
 /// et l'appareil source (Apple Watch vs iPhone), certaines métriques
 /// peuvent ne pas avoir été enregistrées (par ex. la distance pour
 /// une séance de yoga, ou la FC sans bracelet).
-struct HealthKitWorkoutData: Codable, Sendable, Hashable {
+nonisolated struct HealthKitWorkoutData: Codable, Sendable, Hashable {
     /// Identifiant HKWorkout côté Apple Santé — utilisé à terme pour
     /// dédupliquer un éventuel re-import.
     let workoutUUID: UUID

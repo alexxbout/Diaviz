@@ -9,7 +9,7 @@ import SwiftUI
 
 /// Règle « excursion + retour », calculée par `AssembleurReponseRepas.verdict`.
 /// Seuils hypo / hyper issus du profil (`SeuilsGlycemiques`, défaut 70 / 180).
-enum VerdictGlycemique: Hashable, Codable, Sendable {
+nonisolated enum VerdictGlycemique: Hashable, Codable, Sendable {
     case bon          // aucune hypo ET (pic ≤ 180, ou retour ≤ 180 sous 2 h avec pic < 220)
     case moyen        // le reste : pic > 180 revenu en cible, mais lentement ou avec pic ≥ 220
     case mauvais      // hypo (< 70) OU pic ≥ 250 OU excursion jamais revenue ≤ 180
@@ -44,7 +44,7 @@ enum VerdictGlycemique: Hashable, Codable, Sendable {
 /// un quatrième cas : l'enum du verdict est persisté (`Repas.verdictPersiste`,
 /// export JSON d'`ArchiveDonneesService`) et lu par une quinzaine de fichiers.
 /// Un champ à part se greffe sans migration ni recompilation en cascade.
-enum RaisonMauvaisVerdict: String, Hashable, Codable, Sendable {
+nonisolated enum RaisonMauvaisVerdict: String, Hashable, Codable, Sendable {
     /// Glycémie descendue sous le seuil d'hypoglycémie du profil.
     case hypoglycemie
     /// Pic élevé, ou excursion jamais redescendue en cible.
@@ -81,7 +81,7 @@ enum RaisonMauvaisVerdict: String, Hashable, Codable, Sendable {
     }
 }
 
-struct RepasGraph: Identifiable, Hashable {
+nonisolated struct RepasGraph: Identifiable, Hashable {
     let id: UUID
     let heure: Date
     let glucides: Double
@@ -122,11 +122,12 @@ struct RepasGraph: Identifiable, Hashable {
     }
 }
 
-extension RepasGraph {
+nonisolated extension RepasGraph {
     /// Convertit un `Repas` métier en projection pour le graphe. Le verdict
     /// provient de la réponse glycémique dérivée du CGM (`Repas.etatAnalyse`,
     /// posée par `RepasService`) — `.indetermine` tant qu'elle n'est pas
     /// disponible (repas récent, sans bolus, ou CGM manquant).
+    @MainActor
     init(_ repas: Repas, label: String) {
         self.init(
             id: repas.id,

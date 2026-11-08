@@ -18,7 +18,7 @@ import Foundation
 /// Peu de recul → pas d'alerte : sous `joursMinimum` jours exploitables, la
 /// moyenne ne repose sur presque rien. Mieux vaut se taire qu'afficher un
 /// chiffre fragile en rouge.
-enum CalculAlerteTempsSousSeuil {
+nonisolated enum CalculAlerteTempsSousSeuil {
 
     /// Seuil de la moyenne, en % du temps — dépassé strictement.
     static let seuilPourcent = 3.0

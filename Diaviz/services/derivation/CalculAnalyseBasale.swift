@@ -12,7 +12,7 @@ import Foundation
 /// Faits bruts du hub nécessaires à l'analyse B1, mappés en value types par
 /// le service hub pour que le calculateur reste **pur** (aucune dépendance
 /// SwiftData / MainActor). Tout est horodaté absolu.
-struct EntreesBasale: Sendable {
+nonisolated struct EntreesBasale: Sendable {
     /// Mesures CGM `(date, mg/dL)`, ordre quelconque.
     let lectures: [(date: Date, valeur: Int)]
     /// Injections de lente `(heure, dose u)` — ancre des nuits + historique dose.
@@ -947,7 +947,7 @@ nonisolated enum CalculAnalyseBasale {
 }
 
 #if DEBUG
-extension CalculAnalyseBasale {
+nonisolated extension CalculAnalyseBasale {
 
     /// Jeu de données **synthétique** (déterministe) exerçant le vrai pipeline
     /// dans les previews — 14 nuits de CGM à pas 5 min avec une basale

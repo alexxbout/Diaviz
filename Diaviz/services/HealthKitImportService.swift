@@ -303,7 +303,7 @@ final class HealthKitImportService {
 ///
 /// Retourne `.moderee` quand la FC n'est pas disponible — c'est la
 /// valeur médiane, la moins perturbante par rapport à un cas inconnu.
-func intensiteDepuisFC(_ fcMoyenne: Double?, fcMax: FCMaxRetenue) -> IntensiteSport {
+nonisolated func intensiteDepuisFC(_ fcMoyenne: Double?, fcMax: FCMaxRetenue) -> IntensiteSport {
     guard let fc = fcMoyenne, fcMax.bpm > 0 else { return .moderee }
     let pourcentage = fc / fcMax.bpm
     if pourcentage < 0.6 { return .faible }

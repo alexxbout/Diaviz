@@ -148,19 +148,25 @@ final class HealthKitCGMService {
     /// Observe les nouvelles glycémies (réveil en arrière-plan inclus) et
     /// déclenche une synchro à chaque arrivée.
     func demarrerSurveillance(container: ModelContainer) {
-        let observateur = HKObserverQuery(sampleType: glucose, predicate: nil) { [weak self] _, completion, erreur in
+        // `@Sendable` explicite : HealthKit appelle ces rappels sur sa propre
+        // file. En mode Swift 6, une fermeture héritant du `MainActor` y
+        // arrêterait l'app, sans que le compilateur le signale.
+        let observateur = HKObserverQuery(sampleType: glucose, predicate: nil) { @Sendable [weak self] _, completion, erreur in
             if let erreur {
                 Logger.sante.error("observer: \(erreur.localizedDescription, privacy: .public)")
                 completion()
                 return
             }
+            // HealthKit documente ce rappel comme appelable depuis n'importe
+            // quel thread ; son type ne le dit simplement pas.
+            nonisolated(unsafe) let terminer = completion
             Task { @MainActor in
                 await self?.synchroniser(container: container)
-                completion()
+                terminer()
             }
         }
         store.execute(observateur)
-        store.enableBackgroundDelivery(for: glucose, frequency: .hourly) { ok, erreur in
+        store.enableBackgroundDelivery(for: glucose, frequency: .hourly) { @Sendable ok, erreur in
             if let erreur {
                 Logger.sante.error("background delivery: \(erreur.localizedDescription, privacy: .public)")
             } else {

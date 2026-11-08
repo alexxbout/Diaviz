@@ -13,7 +13,7 @@ import SwiftUI
 /// Value type d'affichage : ne porte jamais un `@Model` directement, pour
 /// les mêmes raisons que `ResucrageAffiche` (éviter tout accès à un objet
 /// invalidé pendant une animation de liste).
-struct EvenementActivite: Identifiable, Hashable {
+nonisolated struct EvenementActivite: Identifiable, Hashable {
     enum Nature: Hashable {
         case correction
         case resucrage(IntentionResucrage)
@@ -55,7 +55,7 @@ struct EvenementActivite: Identifiable, Hashable {
 
 // MARK: - Rendu du verdict
 
-extension VerdictResucrage {
+nonisolated extension VerdictResucrage {
 
     /// Teinte du libellé de la pastille.
     var couleurTexte: Color {

@@ -7,7 +7,7 @@ import Foundation
 
 /// Heure du jour mémorisée comme couple (heure, minute), indépendante de la
 /// date. Sert au paramétrage de l'heure habituelle de la lente.
-struct HeureDuJour: Sendable, Equatable {
+nonisolated struct HeureDuJour: Sendable, Equatable {
     let heure: Int
     let minute: Int
 

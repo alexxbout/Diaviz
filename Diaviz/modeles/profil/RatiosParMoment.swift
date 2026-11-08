@@ -13,7 +13,7 @@ import Foundation
 /// d'insuline rapide (« 1u / Xg »). Tous les champs sont optionnels :
 /// un profil neuf n'a aucun ratio renseigné, et la vue affiche un état
 /// « Requis » tant que les quatre ne sont pas saisis.
-struct RatiosParMoment: Codable, Equatable, Sendable {
+nonisolated struct RatiosParMoment: Codable, Equatable, Sendable {
     var petitDejeuner: Double?
     var dejeuner: Double?
     var gouter: Double?

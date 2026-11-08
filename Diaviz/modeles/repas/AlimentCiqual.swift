@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct AlimentCiqual: Codable, Identifiable, Hashable {
+nonisolated struct AlimentCiqual: Codable, Identifiable, Hashable {
     let id: Int
     let nom: String
     let calories: Double
@@ -19,7 +19,7 @@ struct AlimentCiqual: Codable, Identifiable, Hashable {
     let emoji: String?
 }
 
-private extension String {
+nonisolated private extension String {
     func normaliser() -> String {
         self.lowercased().folding(options: .diacriticInsensitive, locale: .current)
     }

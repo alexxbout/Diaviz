@@ -20,7 +20,7 @@ import Foundation
 /// `texteBrut` conserve ce que l'utilisateur a réellement tapé, même une fois
 /// le libellé normalisé : c'est la matière première des `variantes` du
 /// référentiel, et la seule trace de sa formulation d'origine.
-struct EvenementRepas: Codable, Identifiable, Equatable, Hashable, Sendable {
+nonisolated struct EvenementRepas: Codable, Identifiable, Equatable, Hashable, Sendable {
     var id: UUID
     var idReferentiel: UUID?
     var libelle: String

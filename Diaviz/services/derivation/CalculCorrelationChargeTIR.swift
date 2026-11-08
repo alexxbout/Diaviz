@@ -30,7 +30,7 @@ nonisolated struct SyntheseCorrelationChargeTIR: Sendable, Equatable {
     let semaines: [PointSemaineCorrelation]
 }
 
-extension SyntheseCorrelationChargeTIR {
+nonisolated extension SyntheseCorrelationChargeTIR {
     /// Placeholder avant le premier recalcul (démarrage de l'app) — la carte
     /// sommaire est `.disabled` tant que le vrai `synthese` n'existe pas, ce
     /// `vide` ne sert qu'à donner un `SyntheseCorrelationChargeTIR` non

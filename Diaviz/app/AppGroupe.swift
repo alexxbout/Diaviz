@@ -9,7 +9,7 @@
 //  pouvoir builder.
 //
 
-enum AppGroupe {
+nonisolated enum AppGroupe {
     #if DEMO
     /// App « Diaviz Démo » : groupe distinct, pour que le widget démo ne lise
     /// jamais l'empreinte de la vraie app (ni l'inverse).
@@ -21,6 +21,6 @@ enum AppGroupe {
 
 /// Identifiant de kind du widget "empreinte glycémique du jour" — partagé
 /// entre l'app (reload ciblé) et l'extension (déclaration du `Widget`).
-enum EmpreinteWidgetKind {
+nonisolated enum EmpreinteWidgetKind {
     static let identifiant = "EmpreinteGlycemiqueWidget"
 }

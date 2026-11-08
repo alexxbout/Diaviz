@@ -15,7 +15,7 @@ import Foundation
 /// figé au moment du fetch supprime la classe de bug entière — même
 /// découplage que `RepasService`, qui mappe ses `@Model` avant de les
 /// passer aux calculateurs purs.
-struct ResucrageAffiche: Identifiable, Hashable, Sendable {
+nonisolated struct ResucrageAffiche: Identifiable, Hashable, Sendable {
     let id: UUID
     let date: Date
     let intention: IntentionResucrage
@@ -27,9 +27,10 @@ struct ResucrageAffiche: Identifiable, Hashable, Sendable {
     let glycemieCible: Double?
 }
 
-extension Resucrage {
+nonisolated extension Resucrage {
     /// Fige l'état courant pour l'affichage. Appelé côté service, sur des
     /// objets encore valides.
+    @MainActor
     var affichage: ResucrageAffiche {
         ResucrageAffiche(
             id: id,

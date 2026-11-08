@@ -11,7 +11,7 @@ import SwiftUI
 /// (lente vs rapide, repas vs correction) et de source d'attributs
 /// visuels (taille de marqueur, couleur sémantique) consommés par
 /// `GrapheJourneeMedications` et les listes de la page Médications.
-enum TypeInsuline: String, CaseIterable, Codable, Sendable {
+nonisolated enum TypeInsuline: String, CaseIterable, Codable, Sendable {
 
     /// Insuline longue durée (ex: Lantus, Tresiba). Une injection
     /// par jour, à heure fixe ; pas de glycémie associée.

@@ -16,7 +16,7 @@ import Foundation
 /// La bascule entre les deux modes ne reporte volontairement aucune
 /// valeur : c'est à l'utilisateur de saisir explicitement les nouveaux
 /// ratios pour éviter des reports distraits.
-enum ModeRatio: String, Codable, Sendable {
+nonisolated enum ModeRatio: String, Codable, Sendable {
     case unique
     case parMoment
 }

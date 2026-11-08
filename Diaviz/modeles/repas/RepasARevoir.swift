@@ -10,7 +10,7 @@ import SwiftUI
 
 // Capitalise uniquement la première lettre — `String.capitalized` capitalise
 // CHAQUE mot et transformerait « lun. 12 juin » en « Lun. 12 Juin ».
-private extension String {
+nonisolated private extension String {
     var capitalizedFirstLetter: String {
         guard let premiere = first else { return self }
         return String(premiere).uppercased() + dropFirst()
@@ -23,7 +23,7 @@ private extension String {
 /// en **minutes** depuis T0 (instant du repas). Granularité ~15 min
 /// sur 3h, avec des points intermédiaires possibles pour caler
 /// exactement les pics (qui ne tombent pas toujours sur la grille).
-struct PointCourbeRepas: Identifiable, Sendable {
+nonisolated struct PointCourbeRepas: Identifiable, Sendable {
     let id = UUID()
     /// Minutes depuis T0 (0 = instant du repas).
     let minutes: Int
@@ -39,7 +39,7 @@ struct PointCourbeRepas: Identifiable, Sendable {
 ///
 /// Positionné en minutes depuis T0 (instant du repas), comme
 /// `PointCourbeRepas` — la carte n'a donc aucune date à manipuler.
-struct EvenementCourbe: Identifiable, Sendable {
+nonisolated struct EvenementCourbe: Identifiable, Sendable {
 
     /// Nature du fait — pilote la couleur, le symbole et le rendu (marqueur
     /// ponctuel vs bande de durée pour le sport).
@@ -104,7 +104,7 @@ struct EvenementCourbe: Identifiable, Sendable {
 /// que la vue applique la bonne couleur (bleu pour le sport, violet pour les
 /// autres raisons). Le contexte libre (orange) est un champ séparé
 /// (`RepasARevoir.contextesAffiches`), pas structuré de la même façon.
-struct BadgeAjustement: Identifiable {
+nonisolated struct BadgeAjustement: Identifiable {
     let id = UUID()
     let libelle: String
     let estSport: Bool
@@ -121,7 +121,7 @@ struct BadgeAjustement: Identifiable {
 /// visuellement identique à un plat raté 1 fois sur 3, alors que c'est la
 /// distinction la plus utile de la carte — l'une appelle une remise en
 /// question du ratio, l'autre suggère un facteur ponctuel.
-struct OccurrencePassee: Identifiable {
+nonisolated struct OccurrencePassee: Identifiable {
     let id = UUID()
     let points: [PointCourbeRepas]
     /// `true` si le verdict de cette occurrence était `.mauvais`.
@@ -143,7 +143,7 @@ struct OccurrencePassee: Identifiable {
 /// (au lieu d'une seule courbe moyenne) — ça permet à la carte de
 /// montrer visuellement la **dispersion** des réponses : courbes
 /// regroupées = repas prévisible, courbes étalées = repas chaotique.
-struct RepasARevoir: Identifiable {
+nonisolated struct RepasARevoir: Identifiable {
     let id = UUID()
 
     /// Horizon d'affichage des courbes/événements — 4h post-repas, alignée

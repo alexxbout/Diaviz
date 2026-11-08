@@ -12,7 +12,7 @@ import Foundation
 /// Résultat **factuel** d'une correction prise au coucher, classé selon où la
 /// glycémie a atterri par rapport à la cible. Observation rétrospective, jamais
 /// une recommandation de dose.
-enum IssueCorrection: Sendable, Equatable {
+nonisolated enum IssueCorrection: Sendable, Equatable {
 
     /// La glycémie est restée au-dessus de la cible (correction trop faible).
     case insuffisant
@@ -29,7 +29,7 @@ enum IssueCorrection: Sendable, Equatable {
 /// Une correction d'insuline rapide prise au coucher, avec son contexte et son
 /// issue. B3 est **event-based** : déclenché par la présence d'une correction,
 /// sans seuil de glycémie.
-struct CorrectionSoir: Identifiable, Sendable, Equatable {
+nonisolated struct CorrectionSoir: Identifiable, Sendable, Equatable {
 
     let id: UUID
     let date: Date
@@ -69,7 +69,7 @@ struct CorrectionSoir: Identifiable, Sendable, Equatable {
 
 /// Snapshot prêt à afficher de l'analyse « Corrections du soir ».
 /// `corrections` triée par glycémie croissante (l'axe de comparaison premier).
-struct AnalyseCorrections: Sendable, Equatable {
+nonisolated struct AnalyseCorrections: Sendable, Equatable {
 
     let corrections: [CorrectionSoir]
 

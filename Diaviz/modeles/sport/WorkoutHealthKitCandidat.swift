@@ -16,7 +16,7 @@ import Foundation
 /// l'`ActiviteSportive` après import (snapshot final), tandis que
 /// `WorkoutHealthKitCandidat` représente un workout brut **avant** import,
 /// avec en plus le `typeSport` déjà mappé sur notre taxonomie interne.
-struct WorkoutHealthKitCandidat: Identifiable, Codable, Sendable, Hashable {
+nonisolated struct WorkoutHealthKitCandidat: Identifiable, Codable, Sendable, Hashable {
     let id: UUID
     let typeSport: TypeSport
     let dateDebut: Date
@@ -30,7 +30,7 @@ struct WorkoutHealthKitCandidat: Identifiable, Codable, Sendable, Hashable {
 
 // MARK: - Mocks pour previews
 
-extension WorkoutHealthKitCandidat {
+nonisolated extension WorkoutHealthKitCandidat {
 
     /// Date du jour à `h:m`, indépendante du fuseau et calée sur le
     /// calendrier courant — utile pour rendre les previews cohérentes

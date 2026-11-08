@@ -15,7 +15,7 @@ import SwiftUI
 // l'enum. On l'enrichit ici uniquement avec la description VoiceOver
 // spécifique à la mini-courbe.
 
-extension VerdictGlycemique {
+nonisolated extension VerdictGlycemique {
     /// Description textuelle utilisée pour l'accessibilité (VoiceOver) sur
     /// la mini-courbe — reformulation phrasée plutôt qu'un simple libellé.
     var descriptionAccessibilite: String {
@@ -32,7 +32,7 @@ extension VerdictGlycemique {
 //
 // Photographie complète de la réponse post-repas (T-1h à T+4h).
 // Pré-calculé côté backend : l'app n'a qu'à afficher.
-struct ReponseGlycemique: Codable, Sendable {
+nonisolated struct ReponseGlycemique: Codable, Sendable {
     /// Échantillons CGM normalisés autour de T0 (l'heure du repas).
     let pointsCgm: [PointCgm]
     let verdict: VerdictGlycemique

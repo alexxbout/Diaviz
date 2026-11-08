@@ -17,7 +17,7 @@ import Foundation
 /// Découplé de SwiftData façon `CalculScoreJournalier` / `IOBCalculateur` : le
 /// service (`RepasService`) mappe les `@Model` en tuples avant d'appeler ici,
 /// pour que ce calcul reste pur et `Sendable`.
-enum AssembleurReponseRepas {
+nonisolated enum AssembleurReponseRepas {
 
     // MARK: - Paramètres
 

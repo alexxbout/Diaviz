@@ -20,7 +20,7 @@ import Foundation
 /// Contenu figé dans le binaire (`CatalogueEncyclopedie`), pas de réseau ni
 /// de persistance : ces synthèses évoluent au rythme des analyses qu'on
 /// construit, pas à celui de l'utilisateur.
-struct FicheEncyclopedie: Identifiable, Hashable {
+nonisolated struct FicheEncyclopedie: Identifiable, Hashable {
     let id: String
     let titre: String
     /// Une phrase, affichée en sous-titre dans la liste.
@@ -43,14 +43,14 @@ struct FicheEncyclopedie: Identifiable, Hashable {
     }
 }
 
-struct SourceEncyclopedie: Identifiable, Hashable {
+nonisolated struct SourceEncyclopedie: Identifiable, Hashable {
     let id = UUID()
     let titre: String
     let reference: String
     let url: URL?
 }
 
-enum ThemeEncyclopedie: String, CaseIterable, Identifiable {
+nonisolated enum ThemeEncyclopedie: String, CaseIterable, Identifiable {
     case mesure = "Mesurer l'équilibre"
     case sport = "Activité sportive"
     case hypoglycemie = "Hypoglycémie"

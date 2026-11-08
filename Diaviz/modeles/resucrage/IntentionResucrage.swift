@@ -10,7 +10,7 @@ import SwiftUI
 /// pourquoi, ça ne se déduit pas des données. Sert d'axe principal de
 /// regroupement pour une future analyse (S1), jamais mélangée entre
 /// intentions dans une même statistique.
-enum IntentionResucrage: String, CaseIterable, Codable, Sendable, Hashable {
+nonisolated enum IntentionResucrage: String, CaseIterable, Codable, Sendable, Hashable {
     /// Hypoglycémie confirmée (< 70 mg/dL) — traitement classique.
     case correctifHypo = "Correctif hypo"
     /// Effort long (aérobie) : petites prises répétées pour maintenir la

@@ -14,7 +14,7 @@ import Foundation
 /// (hyper), entre les deux → zone cible. Les valeurs par défaut
 /// (70 / 180 mg/dL) sont les recommandations standards du temps dans
 /// la cible (TIR) — l'utilisateur peut les ajuster selon son médecin.
-struct SeuilsGlycemiques: Codable, Equatable, Sendable {
+nonisolated struct SeuilsGlycemiques: Codable, Equatable, Sendable {
     var hypoglycemie: Double
     var hyperglycemie: Double
 

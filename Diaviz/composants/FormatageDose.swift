@@ -5,7 +5,7 @@
 
 import Foundation
 
-extension Double {
+nonisolated extension Double {
 
     /// Dose d'insuline compacte : « 4u » si entier, « 3.5u » sinon.
     ///
