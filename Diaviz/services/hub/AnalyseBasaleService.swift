@@ -53,11 +53,9 @@ final class AnalyseBasaleService {
     /// Recharge les faits bruts depuis le hub et reconstruit l'analyse.
     /// Idempotent : peut être rappelé après une ingestion CGM.
     ///
-    /// Le fetch (I/O, a besoin du `ModelContext`) reste sur le
-    /// `MainActor` ; l'assemblage (`CalculAnalyseBasale.analyser`, pur et
-    /// `Sendable`) est déporté sur une tâche détachée pour ne pas bloquer le
-    /// thread principal pendant la segmentation des nuits — c'est ce calcul,
-    /// pas le fetch, qui causait le lag perçu au changement d'onglet.
+    /// Lecture (`LecteurHub`) et assemblage (`CalculAnalyseBasale.analyser`,
+    /// pur) tournent hors du thread principal : l'interface reste libre, le
+    /// dernier résultat restant affiché pendant ce temps.
     func recharger() async {
         guard let contexte else { return }
         enCalcul = true
@@ -71,7 +69,7 @@ final class AnalyseBasaleService {
         config.classementsManuels = profil.preferencesAvancees.classementsNuits ?? [:]
         config.seuilHypo = Int(profil.seuilsGlycemiques.hypoglycemie)
         config.seuilHyper = Int(profil.seuilsGlycemiques.hyperglycemie)
-        let entrees = chargerEntrees(contexte: contexte)
+        let entrees = await LecteurHub.lire(container: contexte.container) { Self.chargerEntrees(contexte: $0) }
         analyse = await Task.detached(priority: .userInitiated) {
             CalculAnalyseBasale.analyser(entrees: entrees, config: config)
         }.value
@@ -248,7 +246,7 @@ final class AnalyseBasaleService {
 
     // MARK: - Accès au hub (mapping @Model → value types)
 
-    private func chargerEntrees(contexte: ModelContext) -> EntreesBasale {
+    nonisolated private static func chargerEntrees(contexte: ModelContext) -> EntreesBasale {
         let cal = Calendar.current
         let debutCourant = ScoreService.debutJourMetabolique()
         // CGM / repas / sport / pauses : couvrent les 14 nuits (+ marge zone 1).
@@ -271,7 +269,7 @@ final class AnalyseBasaleService {
         )
     }
 
-    private func fetchCGM(_ contexte: ModelContext, depuis: Date) -> [(date: Date, valeur: Int)] {
+    nonisolated private static func fetchCGM(_ contexte: ModelContext, depuis: Date) -> [(date: Date, valeur: Int)] {
         var d = FetchDescriptor<GlucoseReading>(
             predicate: #Predicate { $0.date >= depuis },
             sortBy: [SortDescriptor(\.date, order: .forward)]
@@ -280,7 +278,7 @@ final class AnalyseBasaleService {
         return ((try? contexte.fetch(d)) ?? []).map { (date: $0.date, valeur: $0.valeur) }
     }
 
-    private func fetchInjections(
+    nonisolated private static func fetchInjections(
         _ contexte: ModelContext, depuis: Date
     ) -> (lentes: [(heure: Date, dose: Double)], rapides: [(heure: Date, dose: Double, correction: Bool)]) {
         let d = FetchDescriptor<Injection>(
@@ -297,12 +295,12 @@ final class AnalyseBasaleService {
         return (lentes, rapides)
     }
 
-    private func fetchSports(_ contexte: ModelContext, depuis: Date) -> [(debut: Date, dureeMin: Int)] {
+    nonisolated private static func fetchSports(_ contexte: ModelContext, depuis: Date) -> [(debut: Date, dureeMin: Int)] {
         let d = FetchDescriptor<ActiviteSportive>(predicate: #Predicate { $0.dateDebut >= depuis })
         return ((try? contexte.fetch(d)) ?? []).map { (debut: $0.dateDebut, dureeMin: $0.dureeMinutes) }
     }
 
-    private func fetchPauses(_ contexte: ModelContext, depuis: Date) -> [(debut: Date, fin: Date?)] {
+    nonisolated private static func fetchPauses(_ contexte: ModelContext, depuis: Date) -> [(debut: Date, fin: Date?)] {
         // Peu nombreuses : on récupère tout et on filtre les obsolètes en Swift
         // (les bornes `Date?` sont délicates dans un #Predicate).
         let d = FetchDescriptor<PeriodePause>()

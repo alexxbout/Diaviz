@@ -38,6 +38,11 @@ struct AnalysesVue: View {
     /// (et le `.task` de démarrage) pour exercer les états visuels mockés.
     private let coucherOverride: ResumeAnalyseCoucher?
 
+    /// Données sur lesquelles les derniers résultats ont été calculés : tant
+    /// qu'elles n'ont pas changé, un retour sur l'onglet ne recalcule rien.
+    @State private var fraicheurCoucher: MarqueurFraicheur?
+    @State private var fraicheurCharge: MarqueurFraicheur?
+
     init(coucher: ResumeAnalyseCoucher? = nil) {
         self.coucherOverride = coucher
     }
@@ -111,37 +116,44 @@ struct AnalysesVue: View {
             }
             .background(Color(.systemGroupedBackground))
         }
-        // On arrive sur la page **immédiatement** (le VStack ci-dessus rend
-        // avec l'état déjà connu des services, même stale) ; le recalcul tourne
-        // en tâche de fond — c'est le calcul (segmentation des nuits), pas
-        // l'affichage, qui causait le lag perçu au changement d'onglet. Seul
+        // On arrive sur la page **immédiatement**, avec le dernier résultat
+        // connu. Lectures et calculs tournent hors du thread principal ; seul
         // le chevron de la carte devient un spinner pendant ce temps.
         //
-        // Re-sync à chaque retour sur la page (ajout d'une lente/CGM depuis un
-        // autre onglet → l'analyse se met à jour sans action). `Task` dans
-        // `onAppear` est un choix délibéré ici (pas `.task`) : on veut relancer
-        // le recalcul à **chaque** apparition, pas seulement à la première.
+        // Re-sync au retour sur la page si les données ont changé depuis le
+        // dernier calcul (`MarqueurFraicheur`) : un ajout depuis un autre
+        // onglet se voit sans action, un simple aller-retour ne coûte rien.
+        // `Task` plutôt que `.task` : un calcul lancé doit aller à son terme
+        // même si l'utilisateur change d'onglet entre-temps.
         .onAppear {
             guard coucherOverride == nil else { return }
             let premierBoot = !basaleService.estDemarre
-            Task {
-                await basaleService.demarrer(contexte: modelContext)
-                async let endo: Void = endormissementService.demarrer(contexte: modelContext, basale: basaleService)
-                async let corr: Void = correctionsService.demarrer(contexte: modelContext, basale: basaleService)
-                async let bilanCorr: Void = bilanCorrectionsService.demarrer(contexte: modelContext)
-                _ = await (endo, corr, bilanCorr)
+            let marqueur = FraicheurHub.shared.marqueur()
+            if fraicheurCoucher?.resteValable(par: marqueur) != true {
+                fraicheurCoucher = marqueur
+                Task {
+                    await basaleService.demarrer(contexte: modelContext)
+                    async let endo: Void = endormissementService.demarrer(contexte: modelContext, basale: basaleService)
+                    async let corr: Void = correctionsService.demarrer(contexte: modelContext, basale: basaleService)
+                    async let bilanCorr: Void = bilanCorrectionsService.demarrer(contexte: modelContext)
+                    _ = await (endo, corr, bilanCorr)
 
-                guard !premierBoot else { return }
-                await basaleService.recharger()
-                async let endoR: Void = endormissementService.recharger()
-                async let corrR: Void = correctionsService.recharger()
-                async let bilanCorrR: Void = bilanCorrectionsService.recharger()
-                _ = await (endoR, corrR, bilanCorrR)
+                    guard !premierBoot else { return }
+                    await basaleService.recharger()
+                    async let endoR: Void = endormissementService.recharger()
+                    async let corrR: Void = correctionsService.recharger()
+                    async let bilanCorrR: Void = bilanCorrectionsService.recharger()
+                    _ = await (endoR, corrR, bilanCorrR)
+                }
             }
             // Charge active d'abord : la page Charge et glycémie lit son
-            // contexte (chronologie, épisodes).
+            // contexte (chronologie, épisodes). Marqueur pris après : le
+            // passage de charge peut lui-même changer ce contexte.
             Task {
                 await ChargeActiveService.shared.recalculerSiNecessaire(contexte: modelContext)
+                let marqueurCharge = FraicheurHub.shared.marqueur()
+                guard fraicheurCharge?.resteValable(par: marqueurCharge) != true else { return }
+                fraicheurCharge = marqueurCharge
                 await correlationService.recalculer(contexte: modelContext)
             }
         }

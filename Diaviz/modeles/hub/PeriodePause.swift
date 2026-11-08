@@ -10,7 +10,7 @@ import SwiftData
 /// analyses** (voyage, maladie, corticoïdes…). Les assembleurs filtrent tout
 /// événement dont la `date` tombe dans une `PeriodePause`.
 @Model
-final class PeriodePause {
+nonisolated final class PeriodePause {
     /// Début de la pause (horodatage absolu).
     var debut: Date = Date.distantPast
     /// Fin de la pause. `nil` = pause toujours en cours.

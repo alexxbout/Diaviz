@@ -11,10 +11,9 @@ import SwiftData
 /// tranches, même mapping @Model → value types. Évite deux copies conformes
 /// des mêmes descripteurs.
 ///
-/// `@MainActor` : manipule un `ModelContext` (non-Sendable), appelé depuis
-/// les services eux-mêmes MainActor.
-@MainActor
-enum ChargeurFaitsCoucher {
+/// `nonisolated` : chaque appel utilise le `ModelContext` de son appelant,
+/// en pratique celui de `LecteurHub`, hors du thread principal.
+nonisolated enum ChargeurFaitsCoucher {
 
     /// Ancrages dérivés du `NightChartData` déjà calculé par B1 — pas de
     /// nouvelle segmentation, juste une projection des champs stables.

@@ -77,8 +77,21 @@ final class ScoreService {
     /// consolidés. Idempotent : peut être rappelé après une ingestion.
     func recharger() {
         guard let contexte else { return }
-        echantillons = chargerEchantillons(contexte: contexte)
-        scores = consoliderJours()
+        echantillons = Self.chargerEchantillons(contexte: contexte)
+        scores = Self.consoliderJours(echantillons)
+        ecrireInstantaneWidget()
+    }
+
+    /// Même résultat que `demarrer`, mais lecture et consolidation hors du
+    /// thread principal : le dernier score reste affiché pendant ce temps.
+    func demarrerEnFond(contexte: ModelContext) async {
+        self.contexte = contexte
+        let (lus, consolides) = await LecteurHub.lire(container: contexte.container) {
+            let lus = Self.chargerEchantillons(contexte: $0)
+            return (lus, Self.consoliderJours(lus))
+        }
+        echantillons = lus
+        scores = consolides
         ecrireInstantaneWidget()
     }
 
@@ -273,11 +286,11 @@ final class ScoreService {
     /// vides / score 0). 50 % garde un score exploitable tout en écartant les
     /// jours quasi vides. Distinct du seuil « significatif » du jour en cours
     /// (≥ 6h de données réelles).
-    static let couvertureMinAffichage: Double = 0.5
+    nonisolated static let couvertureMinAffichage: Double = 0.5
 
-    private func consoliderJours() -> [ScoreJournalier] {
+    nonisolated private static func consoliderJours(_ echantillons: [(date: Date, valeur: Int)]) -> [ScoreJournalier] {
         let cal = Calendar.current
-        let debutJourCourant = Self.debutJourMetabolique(pour: Date())
+        let debutJourCourant = debutJourMetabolique(pour: Date())
 
         return (1...30).reversed().compactMap { decalage -> ScoreJournalier? in
             guard let debut = cal.date(byAdding: .day, value: -decalage, to: debutJourCourant) else {
@@ -287,7 +300,7 @@ final class ScoreService {
             guard let faits = CalculScoreJournalier.faits(
                 depuis: echantillons,
                 fenetre: debut...fin,
-                couvertureMin: Self.couvertureMinAffichage
+                couvertureMin: couvertureMinAffichage
             ) else {
                 return nil
             }
@@ -305,8 +318,8 @@ final class ScoreService {
     ///
     /// Le mapping `@Model → tuple` se fait **ici**, côté service, pour que
     /// `CalculScoreJournalier` reste pur et découplé de SwiftData.
-    private func chargerEchantillons(contexte: ModelContext) -> [(date: Date, valeur: Int)] {
-        let debutJourCourant = Self.debutJourMetabolique(pour: Date())
+    nonisolated private static func chargerEchantillons(contexte: ModelContext) -> [(date: Date, valeur: Int)] {
+        let debutJourCourant = debutJourMetabolique(pour: Date())
         let borneBasse = Calendar.current.date(
             byAdding: .day, value: -30, to: debutJourCourant
         ) ?? debutJourCourant

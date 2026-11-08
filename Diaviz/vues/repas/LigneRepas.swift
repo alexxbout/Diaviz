@@ -29,6 +29,12 @@ struct LigneRepas: View {
     let titreSection: String
 
     var body: some View {
+        if repas.estEncoreDansLeHub {
+            contenu
+        }
+    }
+
+    private var contenu: some View {
         NavigationLink {
             DetailRepasVue(
                 repas: repas,

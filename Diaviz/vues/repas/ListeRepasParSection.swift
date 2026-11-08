@@ -100,26 +100,28 @@ struct ListeRepasParSection: View {
 
             // Détail des aliments — swipe sur un aliment le retire du hub
             // (et retire le repas s'il devient vide).
-            ForEach(unRepas.aliments) { aliment in
-                CarteAlimentEnregistre(
-                    emoji: aliment.emojiAffiche,
-                    nom: aliment.nomAffiche,
-                    quantite: aliment.quantite,
-                    glucides: aliment.glucides,
-                    insuline: aliment.insuline,
-                    imageURL: aliment.imageURL,
-                    resucrage: aliment.resucrage
-                )
-                // Même inset forcé que le cadre gris : sans ça, une row à
-                // photo produit et une row à emoji calent leur séparateur à
-                // deux abscisses différentes dans la même carte.
-                .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    Button(role: .destructive) {
-                        repasService.supprimerAliment(aliment, de: unRepas)
-                        triggerSuppression += 1
-                    } label: {
-                        Label("Supprimer", systemImage: "trash")
+            ForEach(unRepas.estEncoreDansLeHub ? unRepas.aliments : []) { aliment in
+                if aliment.estEncoreDansLeHub {
+                    CarteAlimentEnregistre(
+                        emoji: aliment.emojiAffiche,
+                        nom: aliment.nomAffiche,
+                        quantite: aliment.quantite,
+                        glucides: aliment.glucides,
+                        insuline: aliment.insuline,
+                        imageURL: aliment.imageURL,
+                        resucrage: aliment.resucrage
+                    )
+                    // Même inset forcé que le cadre gris : sans ça, une row à
+                    // photo produit et une row à emoji calent leur séparateur à
+                    // deux abscisses différentes dans la même carte.
+                    .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            repasService.supprimerAliment(aliment, de: unRepas)
+                            triggerSuppression += 1
+                        } label: {
+                            Label("Supprimer", systemImage: "trash")
+                        }
                     }
                 }
             }

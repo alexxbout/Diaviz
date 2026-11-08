@@ -332,6 +332,7 @@ struct AppTabVues: View {
             return
             #endif
             await SyncICloudService.shared.observer {
+                FraicheurHub.shared.signalerChangement()
                 profilService.rafraichirDepuisCloudKit()
                 rechargerServicesPreferences()
             }

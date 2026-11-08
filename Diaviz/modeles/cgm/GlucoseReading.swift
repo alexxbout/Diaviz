@@ -25,7 +25,7 @@ import SwiftData
 /// jamais exercé par le flux normal de l'app — cf. `ActiviteSportive.pauses`
 /// pour le précédent qui a motivé cette règle.
 @Model
-final class GlucoseReading {
+nonisolated final class GlucoseReading {
     /// Horodatage absolu (= `systemTime` UTC pour la source `.dexcom`).
     var date: Date = Date.distantPast
 
