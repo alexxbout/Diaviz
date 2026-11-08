@@ -139,7 +139,8 @@ extension CourbeInsight {
         var resultat: [Segment] = []
 
         func fermer(_ morceau: [Point]) {
-            guard morceau.count >= 2 else { return }
+            // Un point pile sur un seuil produit une coupure de longueur nulle.
+            guard Set(morceau.map(\.minutes)).count >= 2 else { return }
             let horsCible = morceau.map { zone(de: $0.valeur) }.first { $0 != .cible }
             resultat.append(Segment(zone: horsCible ?? .cible, points: morceau))
         }
