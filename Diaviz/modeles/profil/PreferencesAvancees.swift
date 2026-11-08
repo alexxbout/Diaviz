@@ -73,17 +73,24 @@ struct PreferencesAvancees: Codable, Equatable, Sendable {
     /// persistés).
     var overlaySommeilActive: Bool?
 
+    /// Cartes de courbe (réponse d'un repas ou d'une séance) dans la pile
+    /// « Nouvelles tendances ». `nil` → affichées. Optionnel pour la même
+    /// raison que ci-dessus.
+    var cartesCourbesInsightsActives: Bool?
+
     init(occurrencesMinimalesRepasARevoir: Int? = nil,
          seuilRepasCopieuxNuit: Int? = nil,
          fenetreAffichageResucrageAccueilHeures: Int? = nil,
          glucidesResucrageRapideParDefaut: Int? = nil,
          fenetreRepasCorrectionMinutes: Int? = nil,
-         overlaySommeilActive: Bool? = nil) {
+         overlaySommeilActive: Bool? = nil,
+         cartesCourbesInsightsActives: Bool? = nil) {
         self.occurrencesMinimalesRepasARevoir = occurrencesMinimalesRepasARevoir
         self.seuilRepasCopieuxNuit = seuilRepasCopieuxNuit
         self.fenetreAffichageResucrageAccueilHeures = fenetreAffichageResucrageAccueilHeures
         self.glucidesResucrageRapideParDefaut = glucidesResucrageRapideParDefaut
         self.fenetreRepasCorrectionMinutes = fenetreRepasCorrectionMinutes
         self.overlaySommeilActive = overlaySommeilActive
+        self.cartesCourbesInsightsActives = cartesCourbesInsightsActives
     }
 }
