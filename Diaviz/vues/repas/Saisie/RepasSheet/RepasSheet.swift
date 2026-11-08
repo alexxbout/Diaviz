@@ -309,6 +309,7 @@ struct RepasSheet: View {
     // MARK: - Corps
 
     var body: some View {
+        let insights = contexteInsights
         // Architecture : un seul `Form` contient toutes les sections, y
         // compris la section "Alertes". Les cartes ont une cornerRadius
         // qui matche le clip arrondi des sections de `Form.grouped` (~10pt)
@@ -363,7 +364,16 @@ struct RepasSheet: View {
                 // en haut du formulaire elles étaient hors écran au moment
                 // précis où on saisit cette dose — donc invisibles quand
                 // elles comptent le plus.
-                InsightsSection(contexte: contexteInsights, iobAvantRepas: idRepasModifie != nil)
+                if glucidesTotal > 0 {
+                    SectionRatiosRepas(
+                        glucides: glucidesTotal,
+                        doseCouvrante: doseBaseRepas + totalAjustements,
+                        avecAjustement: totalAjustements != 0,
+                        ratioConfigure: insights.validation?.profil
+                    )
+                }
+
+                InsightsSection(contexte: insights, iobAvantRepas: idRepasModifie != nil)
 
                 // Site d'injection : visible seulement si une dose effective
                 // est prévue. Sans injection, la zone n'a pas de sens.

@@ -293,3 +293,6 @@ Section « Alertes » de la saisie d'un repas : une conclusion et deux doses (sa
 
 ## Moment d'un repas choisi à la main
 Ligne « Moment » sous l'heure, à la saisie et à la modification. Par défaut automatique (heure et horaires du profil) ; un choix manuel (`Repas.momentChoisi`, à déployer sur CloudKit) ne bouge plus si l'heure change. Il pilote tout ce qui range un repas par moment : journal, ratio de référence à la saisie, mining R1, repas à revoir, épisodes C1 (`Repas.section(horaires:)`, seule lecture à utiliser). L'analyse de nuit lit l'heure réelle et n'est pas concernée.
+
+## Ratio effectif à la saisie
+Au-dessus des alertes, ratio effectif et ratio configuré côte à côte, dès qu'il y a des glucides. L'effectif = glucides / (dose de base + ajustements), hors correction. Le verdict de la carte de validation, lui, ne confronte que la dose de base : la mention « ajustement inclus » signale l'écart entre les deux lectures. Le ratio configuré est celui en vigueur aujourd'hui (moment ou sport), y compris à la modification d'un repas passé.
