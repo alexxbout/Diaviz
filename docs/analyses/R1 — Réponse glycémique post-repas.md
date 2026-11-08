@@ -296,3 +296,6 @@ Ligne « Moment » sous l'heure, à la saisie et à la modification. Par défaut
 
 ## Ratio effectif à la saisie
 Au-dessus des alertes, ratio effectif et ratio configuré côte à côte, dès qu'il y a des glucides. L'effectif = glucides / (dose de base + ajustements), hors correction. Le verdict de la carte de validation, lui, ne confronte que la dose de base : la mention « ajustement inclus » signale l'écart entre les deux lectures. Le ratio configuré est celui en vigueur aujourd'hui (moment ou sport), y compris à la modification d'un repas passé.
+
+## Portions sur la ligne d'un aliment
+Sur le repas en cours, un aliment saisi en portions affiche ses grammes puis le détail : « 100g · 2× 50g · sans insuline ». Seulement en mode portions : une quantité saisie en grammes ne se traduit pas en portions (« 2,6× 50g »).
