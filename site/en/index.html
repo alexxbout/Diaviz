@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Diaviz — one journal to look back on type 1 diabetes</title>
+  <meta name="description" content="Diaviz, an iOS app in development: what it observes, how it computes it, what it does not do. Not a medical device, not distributed.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="alternate" hreflang="fr" href="../">
+  <link rel="alternate" hreflang="en" href="./">
+  <link rel="icon" href="../images/diaviz-icone.png">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header class="barre">
+  <a class="marque" href="#haut">
+    <img src="../images/diaviz-icone.png" alt="" width="28" height="28">
+    <span>Diaviz</span>
+  </a>
+  <nav class="barre-liens" aria-label="Sections">
+    <a href="#pourquoi">Why</a>
+    <a href="#notions">Concepts</a>
+    <a href="#statut">Status</a>
+    <a href="#avis">Feedback</a>
+  </nav>
+  <div class="langues" aria-label="Language">
+    <a href="../" lang="fr" hreflang="fr">FR</a>
+    <span aria-current="true">EN</span>
+  </div>
+</header>
+
+<main id="haut">
+
+  <!-- 0. Header -->
+  <section class="entete">
+    <div class="entete-texte">
+      <img class="entete-icone" src="../images/diaviz-icone.png" alt="Diaviz icon" width="96" height="96">
+      <h1>Diaviz</h1>
+      <p class="accroche">One journal to look back on type&nbsp;1 diabetes.</p>
+      <p class="chapo">Glucose, meals, insulin, exercise and sleep in one place, reviewed after the fact to see quickly what happened.</p>
+      <ul class="pastilles" aria-label="Status">
+        <li>In development</li>
+        <li>Not distributed</li>
+        <li>Not a medical device</li>
+      </ul>
+      <p class="note">This site presents the ideas behind the app and gathers feedback. Screenshots show the app in French.</p>
+      <div class="actions">
+        <a class="bouton" href="#pourquoi">Discover</a>
+        <a class="bouton bouton-second" href="#avis">Give feedback</a>
+      </div>
+    </div>
+    <div class="entete-iphone">
+      <figure class="iphone">
+        <div class="ecran"><img src="../images/ecrans/accueil.jpg" alt="App home screen: the score of the day"></div>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 1. Why -->
+  <section id="pourquoi" class="section">
+    <p class="surtitre">Why</p>
+    <h2>Today, the information is scattered.</h2>
+    <p class="intro">Living with type&nbsp;1 diabetes means juggling several sources. Each shows its own number, rarely the others'. Linking a meal to the curve that follows means switching from one app to another, and whatever wasn't written down at the time ends up forgotten.</p>
+
+    <ul class="tuiles">
+      <li class="tuile"><span class="ico" style="--t:var(--rouge)"><svg viewBox="0 0 24 24"><path d="M12 3c3.5 4.5 6 7.8 6 11a6 6 0 0 1-12 0c0-3.2 2.5-6.5 6-11z"/></svg></span><b>Glucose</b><small>in the sensor's app</small></li>
+      <li class="tuile"><span class="ico" style="--t:var(--orange)"><svg viewBox="0 0 24 24"><path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M16 3c-2 0-3 2.5-3 6s1.5 4 3 4v8"/></svg></span><b>Meals</b><small>a notebook, another app, or nothing</small></li>
+      <li class="tuile"><span class="ico" style="--t:var(--bleu)"><svg viewBox="0 0 24 24"><path d="M15 3l6 6M18 6l-9.5 9.5M13 5l6 6M7 13l4 4M8.5 15.5L4 20"/></svg></span><b>Rapid insulin</b><small>the pen, and memory</small></li>
+      <li class="tuile"><span class="ico" style="--t:var(--indigo)"><svg viewBox="0 0 24 24"><path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="8.5"/></svg></span><b>Basal insulin</b><small>once a day, often logged nowhere</small></li>
+      <li class="tuile"><span class="ico" style="--t:var(--vert)"><svg viewBox="0 0 24 24"><circle cx="14" cy="4.5" r="1.8"/><path d="M6 21l3-6 3 2v5M9 15l2-6 4 2 3 1M11 9L7 10l-2 3"/></svg></span><b>Exercise</b><small>in the watch</small></li>
+      <li class="tuile"><span class="ico" style="--t:var(--violet)"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></span><b>Sleep</b><small>in Apple Health</small></li>
+    </ul>
+  </section>
+
+  <!-- 2. What -->
+  <section id="quoi" class="section section-convergence">
+    <div class="scene">
+      <div class="scene-texte">
+        <p class="surtitre">What</p>
+        <h2>Diaviz brings them together in one journal.</h2>
+        <p class="intro">Each event takes its place next to the others, with nothing to copy over. The app is designed for spending little time in it: a few taps to log, a glance to review.</p>
+      </div>
+      <div class="scene-visuel" aria-hidden="true">
+        <span class="puce" data-x="-1" data-y="-1" style="--t:var(--rouge)">Glucose</span>
+        <span class="puce" data-x="1" data-y="-1" style="--t:var(--orange)">Meals</span>
+        <span class="puce" data-x="-1.2" data-y="0" style="--t:var(--bleu)">Rapid insulin</span>
+        <span class="puce" data-x="1.2" data-y="0" style="--t:var(--indigo)">Basal insulin</span>
+        <span class="puce" data-x="-1" data-y="1" style="--t:var(--vert)">Exercise</span>
+        <span class="puce" data-x="1" data-y="1" style="--t:var(--violet)">Sleep</span>
+        <div class="journal">
+          <p class="journal-titre">Journal</p>
+          <ul>
+            <li><i style="--t:var(--violet)"></i>Night<span>6&nbsp;h&nbsp;40 of sleep</span></li>
+            <li><i style="--t:var(--indigo)"></i>Basal insulin<span>at bedtime</span></li>
+            <li><i style="--t:var(--orange)"></i>Breakfast<span>4-hour curve</span></li>
+            <li><i style="--t:var(--bleu)"></i>Rapid insulin<span>linked to the meal</span></li>
+            <li><i style="--t:var(--vert)"></i>Run<span>45&nbsp;min</span></li>
+            <li><i style="--t:var(--rouge)"></i>Glucose<span>continuous</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. How -->
+  <section id="comment" class="section">
+    <p class="surtitre">How</p>
+    <h2>Three rules.</h2>
+    <div class="regles">
+      <article class="carte regle">
+        <span class="regle-num">1</span>
+        <h3>Look back, don't react.</h3>
+        <p>Sensor data reaches Apple Health several hours late. Diaviz makes no claim to real-time use: it is for understanding after the fact.</p>
+      </article>
+      <article class="carte regle">
+        <span class="regle-num">2</span>
+        <h3>Count, don't guess.</h3>
+        <p>Every analysis is descriptive statistics that can be recounted by hand. No opaque model, no prediction.</p>
+      </article>
+      <article class="carte regle">
+        <span class="regle-num">3</span>
+        <h3>Claim nothing too early.</h3>
+        <p>As long as there is not enough data, the app says so plainly instead of showing a result. A disrupted meal or night is set aside, with the reason.</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- 4. Concepts -->
+  <section id="notions" class="section">
+    <p class="surtitre">Concepts</p>
+    <h2>What the app observes.</h2>
+
+    <article class="notion">
+      <figure class="iphone petit"><div class="ecran"><img src="../images/ecrans/score.jpg" alt="Score of the day, in detail" loading="lazy"></div></figure>
+      <div class="notion-texte">
+        <h3>The score of the day</h3>
+        <p class="notion-accroche">Sum up a day without rereading the whole curve.</p>
+        <p class="notion-corps">The app gives a score out of 100, with its breakdown. It goes down with time spent in hypoglycemia or very high; hypoglycemia weighs more.</p>
+        <details>
+          <summary>Learn more</summary>
+          <p>The score is derived from the <em>Glycemia Risk Index</em> (Klonoff et al., 2022), a published index that weights the time spent in each glucose range. It is a personal indicator, not a clinically validated measure.</p>
+        </details>
+      </div>
+    </article>
+
+    <article class="notion notion-etapes">
+      <figure class="iphone petit"><div class="ecran"><img src="../images/ecrans/nuits-verdict.jpg" alt="Verdict of the last nights" loading="lazy"></div></figure>
+      <div class="notion-texte">
+        <h3>Nights</h3>
+        <p class="notion-accroche">At night, nobody watches the curve.</p>
+        <p class="notion-corps">The app shows glucose night after night. Each night is split into phases starting from the basal insulin time; only the calmest part is used to read a trend.</p>
+        <ol class="etapes" aria-label="Screens shown">
+          <li><button type="button" aria-current="true" data-src="../images/ecrans/nuits-verdict.jpg" data-alt="Verdict of the last nights"><b>The last nights</b><span>One finding per night, then a trend.</span></button></li>
+          <li><button type="button" aria-current="false" data-src="../images/ecrans/nuit-detail.jpg" data-alt="One night in detail"><b>One night</b><span>The curve, the basal dose, the retained measure.</span></button></li>
+        </ol>
+        <details>
+          <summary>Learn more</summary>
+          <p>A phase is set aside when it is disrupted: carb treatment, correction, incomplete sensor data. The result is a finding ("stable", "downward trend observed"), never dosing advice. After a dose change, the app waits a few nights before saying anything.</p>
+        </details>
+      </div>
+    </article>
+
+    <article class="notion notion-etapes">
+      <figure class="iphone petit"><div class="ecran"><img src="../images/ecrans/coucher.jpg" alt="Evenings and bedtime hypos" loading="lazy"></div></figure>
+      <div class="notion-texte">
+        <h3>Bedtime</h3>
+        <p class="notion-accroche">In the evening, every decision weighs on the night.</p>
+        <p class="notion-corps">The app counts evenings as they happened: hypos while falling asleep, evening corrections, carb treatments followed by another drop. It can also compare tonight's glucose with past evenings that started the same way.</p>
+        <ol class="etapes" aria-label="Screens shown">
+          <li><button type="button" aria-current="true" data-src="../images/ecrans/coucher.jpg" data-alt="Evenings since the last dose change"><b>All evenings</b><span>What followed, counted as is.</span></button></li>
+          <li><button type="button" aria-current="false" data-src="../images/ecrans/soiree.jpg" data-alt="One evening in detail"><b>One evening</b><span>Meal, basal dose, waking, and the curve in between.</span></button></li>
+        </ol>
+        <details>
+          <summary>Learn more</summary>
+          <p>These are raw facts, always with the total number of evenings, with no verdict or advice. Counts start over after a basal dose change.</p>
+        </details>
+      </div>
+    </article>
+
+    <article class="notion notion-etapes">
+      <figure class="iphone petit"><div class="ecran"><img src="../images/ecrans/saisie-recents.jpg" alt="Usual foods at the top of the search" loading="lazy"></div></figure>
+      <div class="notion-texte">
+        <h3>Logging a meal</h3>
+        <p class="notion-accroche">An analysis is only as good as what was logged.</p>
+        <p class="notion-corps">You search for a basic food in the official composition table, or for a packaged product by name or barcode. Usual foods come back at the top, with last time's quantity.</p>
+        <ol class="etapes" aria-label="Screens shown">
+          <li><button type="button" aria-current="true" data-src="../images/ecrans/saisie-recents.jpg" data-alt="Usual foods at the top of the search"><b>Your usual foods</b><span>Found without typing anything.</span></button></li>
+          <li><button type="button" aria-current="false" data-src="../images/ecrans/saisie-aliment.jpg" data-alt="Quantity of a food"><b>The quantity</b><span>Last time's, to adjust.</span></button></li>
+          <li><button type="button" aria-current="false" data-src="../images/ecrans/repas-journee.jpg" data-alt="Meals of the day"><b>The day</b><span>Carbs of each meal, with their curve.</span></button></li>
+        </ol>
+        <details>
+          <summary>Learn more</summary>
+          <p>Basic foods: the French Ciqual table (Anses). Packaged products: the collaborative Open Food Facts database, the app's only network connection, with no health data sent. A product whose carbs are missing is flagged as such.</p>
+        </details>
+      </div>
+    </article>
+
+    <article class="notion">
+      <figure class="iphone petit"><div class="ecran"><img src="../images/ecrans/repas-detail.jpg" alt="The curve around a meal" loading="lazy"></div></figure>
+      <div class="notion-texte">
+        <h3>Meals</h3>
+        <p class="notion-accroche">Know how a meal went without searching three apps.</p>
+        <p class="notion-corps">Each meal has its curve, from the hour before to the four hours after. A meal mixed up with another event (another meal, a correction, exercise) is left out of comparisons, with the reason.</p>
+        <details>
+          <summary>Learn more</summary>
+          <p>The peak, the return to range and the time in range are read on the actual sensor curve. A meal whose curve doesn't measure that meal alone is left out of every comparison.</p>
+        </details>
+      </div>
+    </article>
+
+    <article class="notion notion-etapes">
+      <figure class="iphone petit"><div class="ecran"><img src="../images/ecrans/accueil-ratios.jpg" alt="Meals within the ratio, by time of day" loading="lazy"></div></figure>
+      <div class="notion-texte">
+        <h3>The ratio, time of day by time of day</h3>
+        <p class="notion-accroche">A ratio set once doesn't tell whether it holds every day.</p>
+        <p class="notion-corps">The app compares the doses taken with the ratio the person set themselves, for each time of day, and shows how many meals ended in range.</p>
+        <ol class="etapes" aria-label="Screens shown">
+          <li><button type="button" aria-current="true" data-src="../images/ecrans/accueil-ratios.jpg" data-alt="Meals within the ratio, by time of day"><b>Overview</b><span>One time of day, one share of meals in range.</span></button></li>
+          <li><button type="button" aria-current="false" data-src="../images/ecrans/ratio.jpg" data-alt="Ratio gap at lunch"><b>One time of day in detail</b><span>Meals grouped by dose, against the ratio.</span></button></li>
+        </ol>
+        <details>
+          <summary>Learn more</summary>
+          <p>It only reports a gap when there are enough comparable meals; otherwise it shows "not enough history". Meals deliberately adjusted (after exercise, for instance) are not mixed with the others. It never suggests a new ratio.</p>
+        </details>
+      </div>
+    </article>
+
+    <article class="notion">
+      <figure class="iphone petit"><div class="ecran"><img src="../images/ecrans/repas-a-revoir.jpg" alt="A meal to review" loading="lazy"></div></figure>
+      <div class="notion-texte">
+        <h3>Recurring dishes</h3>
+        <p class="notion-accroche">A dish that often ends out of range easily goes unnoticed.</p>
+        <p class="notion-corps">The latest result of a recurring dish is shown next to its previous times. Two meals are "the same dish" only if they have the same composition: better to miss a duplicate than to invent one.</p>
+        <details>
+          <summary>Learn more</summary>
+          <p>The card says how many times the dish went out of range, out of how many in total. It disappears on its own if the next time goes well.</p>
+        </details>
+      </div>
+    </article>
+
+    <article class="notion notion-etapes">
+      <figure class="iphone petit"><div class="ecran"><img src="../images/ecrans/seance.jpg" alt="A run and its carb intake" loading="lazy"></div></figure>
+      <div class="notion-texte">
+        <h3>Exercise</h3>
+        <p class="notion-accroche">Effort moves glucose, during and after.</p>
+        <p class="notion-corps">Each carb intake during exercise is logged with its intent: raise, maintain, prevent a drop. The app then shows what glucose did: rose, held, drop avoided, or went too high.</p>
+        <ol class="etapes" aria-label="Screens shown">
+          <li><button type="button" aria-current="true" data-src="../images/ecrans/seance.jpg" data-alt="A run and its carb intake"><b>The session</b><span>The curve during the effort, and each intake.</span></button></li>
+          <li><button type="button" aria-current="false" data-src="../images/ecrans/seance-prise.jpg" data-alt="Detail of a carb intake during exercise"><b>One intake</b><span>What glucose did next.</span></button></li>
+        </ol>
+        <details>
+          <summary>Learn more</summary>
+          <p>Sessions come from Apple Health or from a stopwatch built into the app. Comparison across sessions is not built yet: it is waiting for enough history.</p>
+        </details>
+      </div>
+    </article>
+
+    <article class="notion">
+      <figure class="iphone petit"><div class="ecran"><img src="../images/ecrans/charge.jpg" alt="Activity load and glucose" loading="lazy"></div></figure>
+      <div class="notion-texte">
+        <h3>Activity load</h3>
+        <p class="notion-accroche">A busy week doesn't look like a quiet one.</p>
+        <p class="notion-corps">The app estimates what remains active from sessions and walking, and compares it with the person's usual weeks. Each effort counts, then fades over time.</p>
+        <details>
+          <summary>Learn more</summary>
+          <p>The settings in use (basal insulin, ratios) are set against each load period, each with its own count since its last change. The reference is personal, never a norm. The app describes; it doesn't say which setting to choose.</p>
+        </details>
+      </div>
+    </article>
+
+    <p class="aussi">Also: an estimate of the insulin still active, based on a published model, and a library of sourced summaries of the literature, kept apart from any personal data.</p>
+  </section>
+
+  <!-- 5. Limits -->
+  <section id="limites" class="section">
+    <p class="surtitre">Limits</p>
+    <h2>What Diaviz does not do.</h2>
+    <ul class="non">
+      <li>No dose calculation.</li>
+      <li>No treatment recommendation.</li>
+      <li>No alerts, no real time.</li>
+      <li>No prediction, no machine learning.</li>
+      <li>No server: data stays on the iPhone and in the person's private iCloud.</li>
+    </ul>
+    <p class="intro">It replaces neither the care team, nor the sensor's app, nor approved tools.</p>
+  </section>
+
+  <!-- 6. Status -->
+  <section id="statut" class="section">
+    <p class="surtitre">Status</p>
+    <h2>An app in development.</h2>
+    <div class="carte statut">
+      <p><b>Not distributed.</b> No App Store, no public TestFlight, no download. Only the source code can be viewed.</p>
+      <p><b>Not a medical device.</b> No clinical validation, no CE marking, no assessment by a health authority.</p>
+      <p><b>Descriptions, not guidance.</b> Nothing presented here should guide a treatment. For any decision, refer to your care team and your approved tools. In an emergency, call your local emergency number (112 in Europe).</p>
+      <details>
+        <summary>Regulatory framework and liability</summary>
+        <ul>
+          <li>Diaviz is not placed on the market and carries no CE marking under Regulation (EU) 2017/745.</li>
+          <li>Its cautious design (retrospective observations, no dose, no alert) does not guarantee it would fall outside regulation if it were distributed: some analyses would likely qualify as a medical device.</li>
+          <li>Scores, trends and findings are unvalidated indicators. They may be wrong or incomplete, especially with missing data, approximate logging or a sensor fault.</li>
+          <li>The source code is visible, without any license of use. Building or using this code to manage one's health is done without permission and at one's own risk.</li>
+          <li>The project is neither sold nor monetized.</li>
+        </ul>
+      </details>
+    </div>
+  </section>
+
+  <!-- 7. Feedback -->
+  <section id="avis" class="section">
+    <p class="surtitre">Feedback</p>
+    <h2>Your view.</h2>
+    <p class="intro">This site is here to test these ideas against people who live with diabetes or support those who do. Does a concept seem right, debatable, poorly worded? Is something missing?</p>
+    <ul class="questions">
+      <li>Do these concepts match what you actually look at?</li>
+      <li>What is missing, or bothers you, in the way they are presented?</li>
+    </ul>
+    <a class="bouton" href="https://github.com/alexxbout/Diaviz/issues" rel="noopener">Open a discussion on GitHub</a>
+    <p class="note">Discussions are public: do not post any personal health data. No request for medical help can be handled there.</p>
+  </section>
+
+</main>
+
+<footer class="pied">
+  <p>Designed and built by <a href="https://github.com/alexxbout" rel="noopener">@alexxbout</a>. Source code: <a href="https://github.com/alexxbout/Diaviz" rel="noopener">GitHub repository</a>.</p>
+  <p>Under the hood: Swift 6, SwiftUI, SwiftData, HealthKit, CloudKit. Everything runs on the iPhone, with no server.</p>
+  <p>Screenshots taken with the demo app: a fictional person, no real data.</p>
+  <p class="petit">Apple, iPhone, Apple Health and iCloud are trademarks of their owners. This project is not affiliated with any of them. This site uses no cookies and no analytics.</p>
+</footer>
+
+<script src="../vendor/gsap.min.js"></script>
+<script src="../vendor/ScrollTrigger.min.js"></script>
+<script src="../main.js"></script>
+</body>
+</html>

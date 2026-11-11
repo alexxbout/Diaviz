@@ -250,3 +250,7 @@ details p, details ul { color: var(--texte-2); margin: 10px 0 0; }
   .aussi { margin-top: 96px; }
   .scene-visuel { height: 380px; }
 }
+
+/* Sélecteur de langue : lien vers l'autre version */
+.langues a { padding: 3px 9px; border-radius: 999px; color: var(--texte-2); }
+.langues a:hover { color: var(--texte); text-decoration: none; }
