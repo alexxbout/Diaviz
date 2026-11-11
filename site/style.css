@@ -282,3 +282,13 @@ img { -webkit-user-drag: none; user-drag: none; pointer-events: none; }
   .regle h3 { font-size: 20px; margin-bottom: 6px; }
   .regle p { font-size: 16px; }
 }
+
+/* Téléphone : tuiles « Aujourd'hui, l'information est éparpillée » plus compactes */
+@media (max-width: 960px) {
+  .tuiles { gap: 10px; margin-top: 36px; }
+  .tuile { padding: 14px 16px; column-gap: 12px; }
+  .ico { width: 34px; height: 34px; }
+  .ico svg { width: 19px; height: 19px; }
+  .tuile b { font-size: 16px; }
+  .tuile small { font-size: 13px; }
+}
