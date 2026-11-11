@@ -273,3 +273,12 @@ details p, details ul { color: var(--texte-2); margin: 10px 0 0; }
 /* Ni sélection de texte, ni glisser ou appui long sur les images. */
 body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 img { -webkit-user-drag: none; user-drag: none; pointer-events: none; }
+
+/* Téléphone : cartes des trois règles plus compactes */
+@media (max-width: 960px) {
+  .regles { gap: 12px; margin-top: 40px; }
+  .regle { padding: 20px; }
+  .regle-num { width: 28px; height: 28px; font-size: 15px; margin-bottom: 10px; }
+  .regle h3 { font-size: 20px; margin-bottom: 6px; }
+  .regle p { font-size: 16px; }
+}
