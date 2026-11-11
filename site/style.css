@@ -254,3 +254,22 @@ details p, details ul { color: var(--texte-2); margin: 10px 0 0; }
 /* Sélecteur de langue : lien vers l'autre version */
 .langues a { padding: 3px 9px; border-radius: 999px; color: var(--texte-2); }
 .langues a:hover { color: var(--texte); text-decoration: none; }
+
+/* Le cadre épouse exactement la capture (1206 × 2622) : jamais de rognage,
+   quelle que soit la largeur du cadre. */
+.iphone { aspect-ratio: auto; height: auto; }
+.ecran { height: auto; aspect-ratio: 1206 / 2622; }
+.ecran img { height: 100%; object-fit: contain; }
+
+@media (max-width: 960px) {
+  .section { padding: 112px 0; }
+  .section-convergence .scene { padding-top: 112px; }
+  .iphone.petit { width: min(300px, 80vw); padding: 9px; border-radius: 48px; }
+  .iphone.petit .ecran { border-radius: 40px; }
+  .entete-iphone .iphone { width: min(290px, 78vw); }
+  .notion, .notion:nth-of-type(even) { margin-top: 120px; gap: 40px; }
+}
+
+/* Ni sélection de texte, ni glisser ou appui long sur les images. */
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+img { -webkit-user-drag: none; user-drag: none; pointer-events: none; }
