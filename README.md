@@ -14,6 +14,9 @@
 
 <p align="center"><b>Français</b> · <a href="README.en.md">English</a></p>
 
+<h3 align="center"><a href="https://alexxbout.github.io/Diaviz/">Découvrir les notions de l'app sur le site →</a></h3>
+<p align="center"><sub>Ce qu'elle observe, comment elle le calcule, ce qu'elle ne fait pas. Vos avis sont bienvenus.</sub></p>
+
 > [!CAUTION]
 > **Diaviz n'est pas un dispositif médical.** Ce dépôt contient le code source d'un outil personnel, partagé à titre éducatif et de démonstration technique. Il n'a fait l'objet d'aucune validation clinique, d'aucune certification (marquage CE) et n'est pas distribué en tant qu'application.
 > **Ne prenez aucune décision de traitement (dose d'insuline, resucrage, alimentation, activité) sur la base de ce logiciel.** En cas de doute, référez-vous à votre lecteur de glycémie homologué et à votre équipe soignante. En cas d'hypoglycémie sévère ou d'urgence, appelez le 15 ou le 112.

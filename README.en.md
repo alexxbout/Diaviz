@@ -14,6 +14,9 @@
 
 <p align="center"><a href="README.md">Français</a> · <b>English</b></p>
 
+<h3 align="center"><a href="https://alexxbout.github.io/Diaviz/en/">Explore the app's concepts on the website →</a></h3>
+<p align="center"><sub>What it observes, how it computes it, what it does not do. Feedback welcome.</sub></p>
+
 > [!CAUTION]
 > **Diaviz is not a medical device.** This repository contains the source code of a personal tool, shared for educational and technical demonstration purposes. It has undergone no clinical validation and no certification (CE marking), and it is not distributed as an application.
 > **Do not make any treatment decision (insulin dose, hypo treatment, food, physical activity) based on this software.** If in doubt, rely on your approved glucose meter and your care team. In case of severe hypoglycaemia or any emergency, call your local emergency number (112 in Europe).
