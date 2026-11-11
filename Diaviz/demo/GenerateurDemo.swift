@@ -100,6 +100,18 @@ struct JeuDemo {
         let date: Date
         let aliment: AlimentDemo
         let glycemie: Double
+        /// Intention déclarée : hypo à traiter, ou prise préventive pendant
+        /// une séance (maintien sur un effort long, anti-chute sur un effort
+        /// intense).
+        var intention: IntentionResucrage = .correctifHypo
+    }
+
+    /// Prise de glucides prévue pendant une séance, connue à la
+    /// planification ; la glycémie du moment est relevée à la simulation.
+    struct PriseSportPrevue {
+        let date: Date
+        let aliment: AlimentDemo
+        let intention: IntentionResucrage
     }
 
     struct SeanceDemo {
@@ -146,6 +158,7 @@ struct JeuDemo {
     var repas: [RepasDemo] = []
     var injections: [InjectionDemo] = []
     var resucrages: [ResucrageDemo] = []
+    var prisesSportPrevues: [PriseSportPrevue] = []
     var seances: [SeanceDemo] = []
     var marches: [MarcheDemo] = []
     var sommeil: [StadeSommeilDemo] = []
@@ -324,6 +337,13 @@ enum GenerateurDemo {
         .init(emoji: "🍎", nom: "Pomme", quantite: 150, glucides: 18),
         .init(emoji: "🍪", nom: "Biscuits sablés", quantite: 25, glucides: 17),
     ]
+    /// Prises pendant l'effort.
+    private static let prisesEffort: [JeuDemo.AlimentDemo] = [
+        .init(emoji: "🧪", nom: "Gel énergétique", quantite: 32, glucides: 22),
+        .init(emoji: "🍌", nom: "Banane", quantite: 100, glucides: 20),
+        .init(emoji: "🥤", nom: "Boisson isotonique", quantite: 250, glucides: 15),
+    ]
+
     private static let resucrages: [JeuDemo.AlimentDemo] = [
         .init(emoji: "🧃", nom: "Jus d'orange", quantite: 150, glucides: 15),
         .init(emoji: "🍬", nom: "Morceaux de sucre", quantite: 15, glucides: 15),
@@ -364,6 +384,27 @@ enum GenerateurDemo {
             planifies.append(.init(date: s.debut, nature: .sport(
                 amplitude: amplitude * facteurType * min(1.6, Double(duree) / 45), duree: Double(duree)
             )))
+            // Prises de glucides pendant l'effort : petites prises répétées
+            // sur un effort long (maintien), une prise juste avant un effort
+            // intense (anti-chute). Absorption pendant l'effort réduite de
+            // moitié (glucides en partie consommés par le muscle).
+            func prise(_ minute: Double, _ aliment: JeuDemo.AlimentDemo, _ intention: IntentionResucrage) {
+                let date = s.debut.addingTimeInterval(minute * 60)
+                jeu.prisesSportPrevues.append(.init(date: date, aliment: aliment, intention: intention))
+                planifies.append(.init(date: date, nature: .repas(
+                    glucides: Double(aliment.glucides), csf: phys.isf / 18, tau: 14, persistance: 240
+                )))
+            }
+            if type != .musculation, duree >= 70 {
+                var m = 30 + h.entre(-4, 4)
+                while m < Double(duree) - 10 {
+                    prise(m, h.choix(prisesEffort), .preventifMaintien)
+                    m += 35 + h.entre(-5, 5)
+                }
+            }
+            if intensite == .intense {
+                prise(-8, h.choix(prisesEffort), .preventifAntiChute)
+            }
         }
         if !aujourdhui {
             if haute {
@@ -422,7 +463,10 @@ enum GenerateurDemo {
         }
 
         let pdj = petitsDejeuners[j == 0 ? 1 : (abs(j) % 5 == 0 ? 2 : abs(j) % 2)].map { varier($0, &h) }
-        repas(.petitDejeuner, (weekend ? 8.7 : 7.2) + h.entre(-0.3, 0.3), pdj,
+        // Samedi de sortie longue : petit-déjeuner tôt, la course démarre
+        // loin du repas (sa courbe ne mesure que l'effort et les prises).
+        let heurePdj = w == 6 && haute ? 6.9 : (weekend ? 8.7 : 7.2)
+        repas(.petitDejeuner, heurePdj + h.entre(-0.3, 0.3), pdj,
               ecartDose: aujourdhui ? 0.12 : nil)
 
         let dej = dejeuners[Int(h.suivant() % UInt64(dejeuners.count))].map { varier($0, &h) }
@@ -501,6 +545,9 @@ enum GenerateurDemo {
 
     private static func simuler(_ jeu: inout JeuDemo, planifies: [Planifie], derives: [Int: Double], calendrier cal: Calendar) {
         var h = HasardDemo(graine: graine ^ 0xC0FFEE)
+        // Hasard à part pour les ajouts (prises sport, corrections du soir) :
+        // le flux principal reste celui qui raconte l'histoire.
+        var hs = HasardDemo(graine: graine ^ 0x5017)
         var actifs: [Planifie] = []
         var prochain = 0
         var bruit = 0.0
@@ -508,6 +555,8 @@ enum GenerateurDemo {
         var dernierRepasOuBolus = Date.distantPast
         var derniereCorrection = Date.distantPast
         var dernierResucrage = Date.distantPast
+        var prochainePrise = 0
+        let prises = jeu.prisesSportPrevues.sorted { $0.date < $1.date }
         let pas: TimeInterval = 300
         let fin = jeu.ancre.addingTimeInterval(-600)
         var t = jeu.debut
@@ -550,6 +599,15 @@ enum GenerateurDemo {
             let eveille = heureJ >= 7 && heureJ < 23.25
             let phys = physiologie(index: jour)
 
+            // Prises pendant l'effort (effet déjà planifié) : on relève la
+            // glycémie du moment.
+            while prochainePrise < prises.count, prises[prochainePrise].date <= t {
+                let p = prises[prochainePrise]
+                jeu.resucrages.append(.init(id: uuid(&hs), date: p.date, aliment: p.aliment,
+                                            glycemie: g.rounded(), intention: p.intention))
+                prochainePrise += 1
+            }
+
             // Resucrage sous 70 (la nuit aussi : réveil).
             if g < 70, t.timeIntervalSince(dernierResucrage) > 40 * 60 {
                 let aliment = h.choix(resucrages)
@@ -566,6 +624,23 @@ enum GenerateurDemo {
                h.chance(0.35) {
                 let dose = arrondiDemi((g - 130) / JeuDemo.ratioCorrection)
                 jeu.injections.append(.init(id: uuid(&h), type: .rapideCorrection, dose: dose, heure: t, glycemie: g.rounded(), repasId: nil))
+                actifs.append(.init(date: t, nature: .insuline(dose: dose, isf: phys.isf)))
+                derniereCorrection = t
+                dernierRepasOuBolus = t
+            } else if heureJ >= 21, heureJ < 23, g.rounded() > 185, jour < -1,
+                      t.timeIntervalSince(dernierRepasOuBolus) > 2 * 3600,
+                      t.timeIntervalSince(derniereCorrection) > 3 * 3600,
+                      !actifs.contains(where: { p in
+                          if case let .repas(_, _, _, persistance) = p.nature { return persistance > 300 }
+                          return false
+                      }),
+                      hs.chance(0.55) {
+                // Correction du coucher (21 h – 23 h), seuil plus bas : celles
+                // que l'analyse « Hypos au coucher » regarde. Jamais un soir de
+                // pizza (sa courbe reste celle de « Repas à revoir »), ni la
+                // veille d'aujourd'hui (l'accueil montre une bonne journée).
+                let dose = arrondiDemi((g - 130) / JeuDemo.ratioCorrection)
+                jeu.injections.append(.init(id: uuid(&hs), type: .rapideCorrection, dose: dose, heure: t, glycemie: g.rounded(), repasId: nil))
                 actifs.append(.init(date: t, nature: .insuline(dose: dose, isf: phys.isf)))
                 derniereCorrection = t
                 dernierRepasOuBolus = t

@@ -37,7 +37,9 @@ extension JeuDemo {
             ratiosSport: RatiosSport(parType: [TypeSport.course.rawValue: Self.ratioSportCourse]),
             horairesRepas: HorairesRepas.defaut(),
             seuilsGlycemiques: SeuilsGlycemiques(),
-            preferencesAvancees: PreferencesAvancees()
+            // Stades de sommeil masqués sur les courbes de nuit (réglage de
+            // l'app) : les captures montrent la glycémie seule.
+            preferencesAvancees: PreferencesAvancees(overlaySommeilActive: false)
         )
     }
 
@@ -109,7 +111,7 @@ extension JeuDemo {
         }
         for r in resucrages {
             contexte.insert(Resucrage(
-                id: r.id, date: r.date, intention: .correctifHypo,
+                id: r.id, date: r.date, intention: r.intention,
                 aliments: [Aliment(emoji: r.aliment.emoji, nom: r.aliment.nom, quantite: r.aliment.quantite,
                                    glucides: r.aliment.glucides, insuline: 0, resucrage: true)]
             ))
@@ -123,6 +125,15 @@ extension JeuDemo {
                     caloriesActives: s.calories, distanceMetres: s.distanceMetres, sourceAppareil: "Apple Watch"
                 )
             ))
+        }
+        // Aliments récents de la saisie (table Ciqual), les plus utilisés en
+        // tête : la recherche ne s'ouvre pas sur une liste vide.
+        let recents: [(cle: String, quantite: Double)] = [
+            ("ciqual:32004", 60), ("ciqual:19033", 200), ("ciqual:13005", 110), ("ciqual:9125", 180),
+            ("ciqual:7110", 80), ("ciqual:20587", 200), ("ciqual:13039", 150),
+        ]
+        for (rang, r) in recents.enumerated() {
+            contexte.insert(AlimentRecentEnregistre(cle: r.cle, rang: rang, quantite: r.quantite))
         }
         try? contexte.save()
 

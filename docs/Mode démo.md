@@ -39,6 +39,14 @@ Histoire racontée :
 - pizza du vendredi récurrente, dernière occurrence hors cible (« Repas à revoir ») ;
 - dessert pris 40 min après certains déjeuners (repas rapprochés, écartés) ;
 - séances Apple Watch avec FC, marche soutenue, sommeil chaque nuit ;
+- prises de glucides pendant l'effort : « préventif maintien » toutes les
+  ~35 min sur les séances longues (≥ 70 min, hors musculation), « préventif
+  anti-chute » juste avant une course intense ;
+- corrections du coucher (21 h – 23 h, au-dessus de 185), jamais un soir de
+  pizza ni la veille d'aujourd'hui ;
+- aliments récents de la saisie déjà remplis (Ciqual : muesli, lait, banane,
+  riz, pain complet, lentilles, pomme) ;
+- stades de sommeil masqués sur les courbes de nuit (réglage de l'app) ;
 - aujourd'hui : une bonne journée (accueil, widget).
 
 Les lectures Apple Santé « en direct » (sommeil, pas et marche, séances et FC

@@ -129,12 +129,27 @@ struct GenerateurDemoTests {
         }
     }
 
-    @Test("Corrections : glycémie notée, au-dessus de 240, jamais la nuit")
+    @Test("Corrections : glycémie notée, au-dessus de 240 (185 le soir), jamais la nuit")
     func corrections() {
         let corrections = jeu.injections.filter { $0.type == .rapideCorrection }
         #expect(!corrections.isEmpty)
-        #expect(corrections.allSatisfy { ($0.glycemie ?? 0) > 240 })
+        #expect(corrections.allSatisfy {
+            let soir = (21..<23).contains(cal.component(.hour, from: $0.heure))
+            return ($0.glycemie ?? 0) > (soir ? 185 : 240)
+        })
         #expect(corrections.allSatisfy { (7...23).contains(cal.component(.hour, from: $0.heure)) })
+        // Des corrections du coucher, pour l'analyse « Hypos au coucher ».
+        #expect(corrections.filter { (21..<23).contains(cal.component(.hour, from: $0.heure)) }.count >= 4)
+    }
+
+    @Test("Prises de glucides pendant les séances longues ou intenses, intention préventive")
+    func prisesSport() {
+        let preventives = jeu.resucrages.filter { $0.intention != .correctifHypo }
+        #expect(preventives.contains { $0.intention == .preventifMaintien })
+        #expect(preventives.contains { $0.intention == .preventifAntiChute })
+        #expect(preventives.allSatisfy { p in
+            jeu.seances.contains { p.date >= $0.debut.addingTimeInterval(-15 * 60) && p.date <= $0.fin }
+        })
     }
 
     @Test("Ratio du dîner changé à J-21 (10 → 12 g/u)")
