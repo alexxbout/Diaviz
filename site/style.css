@@ -292,3 +292,8 @@ img { -webkit-user-drag: none; user-drag: none; pointer-events: none; }
   .tuile b { font-size: 16px; }
   .tuile small { font-size: 13px; }
 }
+
+/* Filet de sécurité : jamais de défilement horizontal (iOS ignore
+   overflow-x sur body seul). */
+html, body { overflow-x: clip; }
+.scene-visuel { overflow: clip; }

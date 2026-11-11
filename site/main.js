@@ -64,7 +64,12 @@ const etapesNotions = [...document.querySelectorAll('.notion-etapes')].map((noti
   };
   gsap.set(puces, {
     xPercent: -50, yPercent: -50, opacity: 1,
-    x: (i, el) => ecart().dx * +el.dataset.x,
+    // Écart horizontal borné : l'étiquette reste entière dans la scène,
+    // même sur un écran étroit (sinon la page défile de côté).
+    x: (i, el) => {
+      const max = visuel.clientWidth / 2 - el.offsetWidth / 2 - 4;
+      return Math.sign(+el.dataset.x) * Math.min(ecart().dx * Math.abs(+el.dataset.x), Math.max(0, max));
+    },
     y: (i, el) => ecart().dy * +el.dataset.y,
   });
   gsap.set('.journal', { scale: .55, opacity: 0 });
