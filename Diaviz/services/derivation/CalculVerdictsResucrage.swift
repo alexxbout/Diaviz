@@ -98,11 +98,17 @@ nonisolated enum RaisonNonEvaluable: String, Sendable, Hashable {
     case correctionInsuline
     /// Trop peu de mesures CGM sur la fenêtre.
     case mesuresInsuffisantes
+    /// Un repas a été pris dans l'heure précédant la prise ou pendant la
+    /// fenêtre : ses glucides agissent encore, on ne peut rien attribuer au
+    /// resucrage seul.
+    case repasProche
 
     var libelle: String {
         switch self {
         case .priseSuivante:
             return "un autre resucrage est intervenu pendant la fenêtre"
+        case .repasProche:
+            return "un repas a été pris dans l'heure précédente ou pendant la fenêtre"
         case .correctionInsuline:
             return "une correction d'insuline est intervenue pendant la fenêtre"
         case .mesuresInsuffisantes:
@@ -185,6 +191,11 @@ nonisolated enum CalculVerdictsResucrage {
     /// regroupement en épisodes (voir doc du type).
     static let delaiJugement: TimeInterval = 30 * 60
 
+    /// Un repas pris jusqu'à cette durée **avant** la prise rend celle-ci non
+    /// évaluable : ses glucides agissent encore pendant la fenêtre. Plus
+    /// large, presque tout préventif suivant un dîner deviendrait muet.
+    static let margeRepasAvant: TimeInterval = 60 * 60
+
     /// Nombre minimum de mesures sur la fenêtre pour juger — en dessous,
     /// `indetermine` plutôt qu'un verdict sur une courbe trouée.
     static let minimumPoints = 3
@@ -208,12 +219,16 @@ nonisolated enum CalculVerdictsResucrage {
     ///     pas ces doses (l'effort fait lui aussi baisser la glycémie, on ne
     ///     saurait pas attribuer), mais leur seule présence dans une fenêtre
     ///     empêche d'y juger les glucides : deux effets opposés s'y mélangent.
+    ///   - repas: instants des repas (hors repas de resucrage). Un repas pris
+    ///     dans `margeRepasAvant` avant la prise ou pendant sa fenêtre la rend
+    ///     non évaluable.
     static func juger(
         prises: [PriseAJuger],
         points: [PointGlycemie],
         bornes: BornesVerdict,
         finEffort: Date?,
-        correctionsInsuline: [Date] = []
+        correctionsInsuline: [Date] = [],
+        repas: [Date] = []
     ) -> [ResultatPrise] {
         let triees = prises.sorted { $0.date < $1.date }
         let mesures = points.sorted { $0.date < $1.date }
@@ -228,6 +243,7 @@ nonisolated enum CalculVerdictsResucrage {
                 bornes: bornes,
                 finEffort: finEffort,
                 correctionsInsuline: correctionsInsuline,
+                repas: repas,
                 idEpisode: episodes[prise.id] ?? 0
             )
         }
@@ -264,6 +280,7 @@ nonisolated enum CalculVerdictsResucrage {
         bornes: BornesVerdict,
         finEffort: Date?,
         correctionsInsuline: [Date],
+        repas: [Date],
         idEpisode: Int
     ) -> ResultatPrise {
         let (fin, libelleFenetre) = fenetre(pour: prise, finEffort: finEffort)
@@ -285,6 +302,24 @@ nonisolated enum CalculVerdictsResucrage {
                 libelleFenetre: libelleFenetre,
                 idEpisode: idEpisode,
                 raison: .correctionInsuline
+            )
+        }
+
+        // Après la correction, avant l'enchaînement de prises : même un
+        // « chute non enrayée » ne se lit plus, les glucides du repas se
+        // mêlent à ceux de la prise.
+        let debutRepas = prise.date.addingTimeInterval(-margeRepasAvant)
+        if repas.contains(where: { $0 >= debutRepas && $0 < fin }) {
+            return ResultatPrise(
+                id: prise.id,
+                verdict: .nonEvaluable,
+                glycemieAvant: valeur(a: prise.date, dans: mesures),
+                glycemieApres: nil,
+                tendanceAvant: tendance(avant: prise.date, dans: mesures),
+                dureeFenetreMinutes: dureeMinutes,
+                libelleFenetre: libelleFenetre,
+                idEpisode: idEpisode,
+                raison: .repasProche
             )
         }
 

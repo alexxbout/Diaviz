@@ -128,11 +128,42 @@ final class ActivitesSportService {
         let debut = activite.dateDebut.addingTimeInterval(-Self.margeFenetre)
         let fin = activite.dateFin.addingTimeInterval(Self.margeFenetre)
 
+        // Repas lus une heure plus tôt que la fenêtre d'affichage, et au-delà
+        // de sa fin : un repas peut rendre non évaluable un resucrage proche
+        // du bord sans apparaître lui-même dans la liste.
+        let debutRepas = debut.addingTimeInterval(-CalculVerdictsResucrage.margeRepasAvant)
+        let finRepas = fin.addingTimeInterval(CalculVerdictsResucrage.delaiJugement)
+        let descripteurRepas = FetchDescriptor<Repas>(
+            predicate: #Predicate { $0.heure >= debutRepas && $0.heure <= finRepas }
+        )
+        let repasProches = ((try? contexte.fetch(descripteurRepas)) ?? [])
+            .filter { !ChargeurFaitsCoucher.estRepasResucrage($0) }
+        let repasAffiches = repasProches.filter { $0.heure >= debut && $0.heure <= fin }
+        let idsRepasAffiches = Set(repasAffiches.map(\.id))
+
+        let horaires = ProfilService.shared.profil.horairesRepas
+        let repas = repasAffiches.map { r in
+            EvenementActivite(
+                id: "repas-\(r.id.uuidString)",
+                date: r.heure,
+                nature: .repas(moment: r.section(horaires: horaires).titre),
+                detail: detailRepas(r),
+                pendantPause: pendantUnePause(r.heure, dans: activite)
+            )
+        }
+
         let descripteurInjections = FetchDescriptor<Injection>(
             predicate: #Predicate { $0.heure >= debut && $0.heure <= fin }
         )
-        let corrections = ((try? contexte.fetch(descripteurInjections)) ?? [])
+        let rapides = ((try? contexte.fetch(descripteurInjections)) ?? [])
             .filter { $0.type != .lente }
+        // Le bolus d'un repas affiché est déjà sur la ligne du repas : il ne
+        // doit pas réapparaître comme « Correction ».
+        let corrections = rapides
+            .filter { injection in
+                guard let idRepas = injection.repasAssocieId else { return true }
+                return !idsRepasAffiches.contains(idRepas)
+            }
             .map { injection in
                 EvenementActivite(
                     id: "correction-\(injection.id.uuidString)",
@@ -157,7 +188,8 @@ final class ActivitesSportService {
             debutFenetre: debut,
             fin: fin,
             contexte: contexte,
-            correctionsInsuline: corrections.map(\.date)
+            correctionsInsuline: rapides.map(\.heure),
+            repas: repasProches.map(\.heure)
         )
 
         let resucrages = objetsResucrage.map { resucrage in
@@ -172,7 +204,15 @@ final class ActivitesSportService {
             )
         }
 
-        return (corrections + resucrages).sorted { $0.date < $1.date }
+        return (corrections + resucrages + repas).sorted { $0.date < $1.date }
+    }
+
+    /// « 30 g · 2 u », ou « 30 g » sans insuline.
+    private func detailRepas(_ repas: Repas) -> String {
+        let glucides = "\(repas.totalGlucides) g"
+        let insuline = repas.totalInjecte
+        guard insuline > 0 else { return glucides }
+        return "\(glucides) · \(insuline.doseInsulineFormatee)"
     }
 
     /// Juge les prises de la fenêtre. Les mesures sont lues au-delà de la
@@ -184,7 +224,8 @@ final class ActivitesSportService {
         debutFenetre: Date,
         fin: Date,
         contexte: ModelContext,
-        correctionsInsuline: [Date]
+        correctionsInsuline: [Date],
+        repas: [Date]
     ) -> [String: ResultatPrise] {
         guard !resucrages.isEmpty else { return [:] }
 
@@ -214,7 +255,8 @@ final class ActivitesSportService {
                 hyperglycemie: seuils.hyperglycemie
             ),
             finEffort: activite.dateFin,
-            correctionsInsuline: correctionsInsuline
+            correctionsInsuline: correctionsInsuline,
+            repas: repas
         )
         return Dictionary(uniqueKeysWithValues: resultats.map { ($0.id, $0) })
     }

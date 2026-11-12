@@ -26,7 +26,7 @@
 ## Ce que S1 fait
 Répondre à : **qu'est-ce qui a fonctionné pour tenir la glycémie pendant cet effort ?**
 
-Concrètement, sur le détail d'une activité : la courbe CGM parcourable au doigt, les événements qui l'expliquent (glucides, corrections, pauses), et un verdict factuel pour chaque prise de glucides.
+Concrètement, sur le détail d'une activité : la courbe CGM parcourable au doigt, les événements qui l'expliquent (glucides, repas, corrections, pauses), et un verdict factuel pour chaque prise de glucides.
 
 ## Ce que S1 ne fait pas (redline)
 - **Aucun calcul temps réel actionnable.** Pas de « prenez X g maintenant » à partir de la glycémie courante et du poids, même avec une formule issue de la littérature : c'est structurellement un conseiller de dose, interdit par CLAUDE.md (le principe vaut pour les glucides comme pour l'insuline).
@@ -73,6 +73,12 @@ Pour chaque prise de glucides
 │              Deux effets opposés se mélangent. Règle prioritaire :
 │              même un échec apparent devient ininterprétable, car
 │              l'insuline a peut-être causé la chute.
+│
+├─ Un repas entre 1 h avant la prise et la fin de la fenêtre ?
+│     └─ OUI → NON ÉVALUABLE (raison : repas proche)
+│              Les glucides du repas agissent encore : rien n'est
+│              attribuable à la prise seule. Masque aussi la
+│              « chute non enrayée » ci-dessous.
 │
 ├─ Une autre prise de glucides dans la fenêtre ?
 │     ├─ C'est un correctif hypo, et la prise jugée est un préventif ?
@@ -124,6 +130,7 @@ Un verdict « correction efficace » alors que c'est l'effort qui a travaillé i
 | Regroupement en épisodes | 30 min | <p>**Dérivé**</p><p> : si une prise arrive avant qu'on ait pu juger la précédente, leurs effets se mélangent. Un seul chiffre au lieu de deux</p> |
 | Fenêtre du préventif maintien | Jusqu'à la fin de l'effort, plancher 30 min | Maintenir, c'est tenir jusqu'au bout ; une fenêtre fixe ne dirait rien d'une course d'une heure. Le plancher évite de juger sur 3 min une prise faite juste avant la fin |
 | Bornes hypo / hyper | Seuils du profil utilisateur | Aucune convention externe n'entre dans l'algorithme |
+| Repas proche | De 1 h avant la prise à la fin de la fenêtre | Décision PO du 2026-11-12. Plus large, presque tout préventif suivant un dîner deviendrait non évaluable ; plus court, un repas pris 40 min avant fausserait le verdict sans le signaler. Repas de resucrage (tous aliments badgés) exclus |
 | Mesures CGM minimales | 3 sur la fenêtre | En dessous, `indéterminé` plutôt qu'un verdict sur une courbe trouée |
 | Fenêtre de lecture de tendance | 15 min avant la prise, seuil ±10 mg/dL | Qualifie la pente en baisse / stable / hausse |
 >  Un espacement d'épisode de **45 min** avait été proposé puis écarté : aucun fondement dans la littérature ni dérivation interne. Le 30 min le remplace, et se justifie tout seul. 
@@ -139,6 +146,8 @@ Design retenu après itération sur six variantes (pills au-dessus, rail dédié
 **La liste** porte tout le détail sans troncature ni chevauchement, quel qu'en soit le nombre. C'est ce couplage qui règle le problème de densité.
 
 **Les deux se répondent** : faire glisser le curseur met en évidence l'événement le plus proche (aimantation à 90 s, retour haptique) ; taper une ligne déplace le curseur.
+
+**Repas du journal** (ajout du 2026-11-12 — l'hypothèse d'août « pas de repas pendant une séance » ne tient plus) : une ligne par repas pris dans la même fenêtre que les autres événements (30 min avant le début → 30 min après la fin), à son heure. Titre = moment du repas, à droite glucides et insuline. **Aucun point sur la courbe** (règle : ne pas charger un graphique existant) et pas d'aimantation du curseur dessus ; taper la ligne place le curseur à l'heure du repas, sans ouvrir de détail. Son bolus n'est pas répété en ligne « Correction ». Les aliments pré-sport des anciennes activités (sans horodatage) sont rangés à l'heure du départ.
 
 **Barre de contexte au-dessus de la courbe**, hauteur fixe : pendant un scrub, le doigt masque tout ce qui est en dessous du point touché. Au repos elle affiche le bilan de la séance, pour que l'écran reste lisible sans interaction.
 

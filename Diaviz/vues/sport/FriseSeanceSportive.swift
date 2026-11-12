@@ -211,7 +211,7 @@ struct FriseSeanceSportive: View {
     /// la liste qui nomme. Le point actif grossit et prend un halo.
     @ChartContentBuilder
     private var pointsEvenements: some ChartContent {
-        ForEach(evenementsDansFenetre) { evenement in
+        ForEach(marqueursDansFenetre) { evenement in
             let temps = tempsDe(evenement)
             PointMark(
                 x: .value("Temps", temps),
@@ -412,12 +412,15 @@ struct FriseSeanceSportive: View {
         }
     }
 
-    /// Lignes affichées : les aliments pré-sport d'abord (ils n'ont pas
-    /// d'horodatage propre — ils appartiennent à l'activité, pas au hub —
-    /// donc pas de marqueur sur la courbe, seulement une ligne de contexte),
-    /// puis les événements corrélés dans l'ordre chronologique.
+    /// Lignes affichées dans l'ordre chronologique. Les aliments pré-sport
+    /// (anciennes activités, sans horodatage propre) sont rangés à l'heure du
+    /// départ : après un repas pris avant la séance, avant ce qui suit.
     private var lignesListe: [LigneFrise] {
         var lignes: [LigneFrise] = []
+        let avantDepart = evenements.filter { $0.date < activite.dateDebut }
+        let ensuite = evenements.filter { $0.date >= activite.dateDebut }
+
+        lignes += avantDepart.map(ligne(pour:))
 
         if !activite.alimentsPreSport.isEmpty {
             let noms = activite.alimentsPreSport.map(\.nomAffiche).joined(separator: ", ")
@@ -434,19 +437,21 @@ struct FriseSeanceSportive: View {
             )
         }
 
-        lignes += evenements.map { evenement in
-            LigneFrise(
-                id: evenement.id,
-                idEvenement: evenement.id,
-                icone: evenement.icone,
-                couleur: evenement.couleur,
-                titre: evenement.titre,
-                sousTitre: sousTitreEvenement(evenement),
-                detail: evenement.detail
-            )
-        }
+        lignes += ensuite.map(ligne(pour:))
 
         return lignes
+    }
+
+    private func ligne(pour evenement: EvenementActivite) -> LigneFrise {
+        LigneFrise(
+            id: evenement.id,
+            idEvenement: evenement.id,
+            icone: evenement.icone,
+            couleur: evenement.couleur,
+            titre: evenement.titre,
+            sousTitre: sousTitreEvenement(evenement),
+            detail: evenement.detail
+        )
     }
 
     private func sousTitreEvenement(_ evenement: EvenementActivite) -> String {
@@ -509,6 +514,13 @@ struct FriseSeanceSportive: View {
         }
     }
 
+    /// Événements portant un point sur la courbe — pas les repas (règle :
+    /// ne pas charger le graphique). Le curseur ne s'aimante que sur eux ;
+    /// un repas se situe en touchant sa ligne.
+    private var marqueursDansFenetre: [EvenementActivite] {
+        evenementsDansFenetre.filter(\.estMarqueSurCourbe)
+    }
+
     private var couleurCourbe: Color {
         if reponse.glycemieFin < seuils.hypoglycemie { return .red }
         if abs(reponse.deltaMgDl) < 20 { return .green }
@@ -528,7 +540,7 @@ struct FriseSeanceSportive: View {
     }
 
     private func evenementLePlusProche(de temps: TimeInterval) -> EvenementActivite? {
-        evenementsDansFenetre.min {
+        marqueursDansFenetre.min {
             abs(tempsDe($0) - temps) < abs(tempsDe($1) - temps)
         }
     }

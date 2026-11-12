@@ -106,7 +106,7 @@ nonisolated enum ChargeurFaitsCoucher {
     }
 
     /// Un repas non vide dont **tous** les aliments sont badgés resucrage.
-    private static func estRepasResucrage(_ repas: Repas) -> Bool {
+    static func estRepasResucrage(_ repas: Repas) -> Bool {
         !repas.aliments.isEmpty && repas.aliments.allSatisfy(\.resucrage)
     }
 

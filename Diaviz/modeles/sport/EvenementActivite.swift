@@ -17,6 +17,9 @@ nonisolated struct EvenementActivite: Identifiable, Hashable {
     enum Nature: Hashable {
         case correction
         case resucrage(IntentionResucrage)
+        /// Repas du journal pris autour de la séance. Listé, jamais marqué
+        /// sur la courbe : un toucher sur sa ligne y place le curseur.
+        case repas(moment: String)
     }
 
     let id: String
@@ -35,6 +38,7 @@ nonisolated struct EvenementActivite: Identifiable, Hashable {
         switch nature {
         case .correction:               "syringe"
         case .resucrage(let intention): intention.icone
+        case .repas:                    "fork.knife"
         }
     }
 
@@ -42,6 +46,7 @@ nonisolated struct EvenementActivite: Identifiable, Hashable {
         switch nature {
         case .correction:               .blue
         case .resucrage(let intention): intention.couleur
+        case .repas:                    .orange
         }
     }
 
@@ -49,7 +54,14 @@ nonisolated struct EvenementActivite: Identifiable, Hashable {
         switch nature {
         case .correction:               "Correction"
         case .resucrage(let intention): intention.rawValue
+        case .repas(let moment):        moment
         }
+    }
+
+    /// Marqué d'un point sur la courbe — les repas, non.
+    var estMarqueSurCourbe: Bool {
+        if case .repas = nature { return false }
+        return true
     }
 }
 

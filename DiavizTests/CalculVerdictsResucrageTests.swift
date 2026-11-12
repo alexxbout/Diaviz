@@ -48,11 +48,13 @@ struct CalculVerdictsResucrageTests {
         _ prises: [PriseAJuger],
         _ points: [PointGlycemie],
         finEffort: Date? = nil,
-        correctionsInsuline: [Date] = []
+        correctionsInsuline: [Date] = [],
+        repas: [Date] = []
     ) -> ResultatPrise {
         let resultats = CalculVerdictsResucrage.juger(
             prises: prises, points: points, bornes: bornes,
-            finEffort: finEffort, correctionsInsuline: correctionsInsuline
+            finEffort: finEffort, correctionsInsuline: correctionsInsuline,
+            repas: repas
         )
         return resultats[0]
     }
@@ -229,6 +231,59 @@ struct CalculVerdictsResucrageTests {
             [prise()], points, correctionsInsuline: [Fixtures.instant(debut, plusMinutes: 30)]
         )
         #expect(aLaFin.verdict == .remonte)
+    }
+
+    @Test("Repas pris dans l'heure précédant la prise → non évaluable")
+    func repasAvantInvalide() {
+        let sortie = resultat(
+            [prise()], mesures([65, 80, 95, 105, 110, 115, 120]),
+            repas: [Fixtures.instant(debut, plusMinutes: -45)]
+        )
+        #expect(sortie.verdict == .nonEvaluable)
+        #expect(sortie.raison == .repasProche)
+        #expect(sortie.glycemieApres == nil)
+    }
+
+    @Test("Repas pendant la fenêtre → non évaluable")
+    func repasPendantInvalide() {
+        let sortie = resultat(
+            [prise()], mesures([65, 80, 95, 105, 110, 115, 120]),
+            repas: [Fixtures.instant(debut, plusMinutes: 15)]
+        )
+        #expect(sortie.raison == .repasProche)
+    }
+
+    @Test("Repas plus d'une heure avant, ou après la fenêtre : n'invalide pas")
+    func repasHorsMarge() {
+        let points = mesures([65, 80, 95, 105, 110, 115, 120])
+        let avant = resultat([prise()], points, repas: [Fixtures.instant(debut, plusMinutes: -61)])
+        #expect(avant.verdict == .remonte)
+        let apres = resultat([prise()], points, repas: [Fixtures.instant(debut, plusMinutes: 30)])
+        #expect(apres.verdict == .remonte)
+    }
+
+    @Test("La correction d'insuline prime sur le repas proche")
+    func correctionPrimeSurRepas() {
+        let sortie = resultat(
+            [prise()], mesures([65, 80, 95, 105, 110, 115, 120]),
+            correctionsInsuline: [Fixtures.instant(debut, plusMinutes: 10)],
+            repas: [Fixtures.instant(debut, plusMinutes: -20)]
+        )
+        #expect(sortie.raison == .correctionInsuline)
+    }
+
+    @Test("Un repas proche masque la chute non enrayée d'un préventif")
+    func repasPrimeSurChuteNonEnrayee() {
+        let prises = [
+            prise("p1", .preventifMaintien),
+            prise("p2", .correctifHypo, minutes: 15)
+        ]
+        let sortie = resultat(
+            prises, mesures([120, 100, 80, 68, 75, 85, 95]),
+            repas: [Fixtures.instant(debut, plusMinutes: -10)]
+        )
+        #expect(sortie.verdict == .nonEvaluable)
+        #expect(sortie.raison == .repasProche)
     }
 
     @Test("Prise suivante dans la fenêtre → non évaluable")
