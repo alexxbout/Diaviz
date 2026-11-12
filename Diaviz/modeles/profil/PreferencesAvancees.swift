@@ -55,16 +55,6 @@ nonisolated struct PreferencesAvancees: Codable, Equatable, Sendable {
     /// de resucrage). Optionnel pour la même raison que ci-dessus.
     var glucidesResucrageRapideParDefaut: Int?
 
-    /// Fenêtre (min, symétrique autour de l'heure de correction) au-delà de
-    /// laquelle un repas proche ne compte plus comme concomitant — sépare
-    /// les corrections « isolées » des corrections « au repas » dans le
-    /// bilan des corrections (les glucides du repas confondent l'effet de
-    /// la correction sur la courbe CGM qui suit).
-    ///
-    /// `nil` → `CalculBilanCorrections.fenetreRepasMinutesParDefaut` (30).
-    /// Optionnel pour la même raison que ci-dessus.
-    var fenetreRepasCorrectionMinutes: Int?
-
     /// Overlay des stades de sommeil HealthKit sur la courbe nocturne (vue
     /// « Par nuit » de l'analyse du coucher). `nil` → désactivé par défaut
     /// (`false`) : l'accès HealthKit au sommeil n'est demandé qu'à
@@ -87,7 +77,6 @@ nonisolated struct PreferencesAvancees: Codable, Equatable, Sendable {
          seuilRepasCopieuxNuit: Int? = nil,
          fenetreAffichageResucrageAccueilHeures: Int? = nil,
          glucidesResucrageRapideParDefaut: Int? = nil,
-         fenetreRepasCorrectionMinutes: Int? = nil,
          overlaySommeilActive: Bool? = nil,
          cartesCourbesInsightsActives: Bool? = nil,
          classementsNuits: [String: ClassementManuelNuit]? = nil) {
@@ -96,7 +85,6 @@ nonisolated struct PreferencesAvancees: Codable, Equatable, Sendable {
         self.seuilRepasCopieuxNuit = seuilRepasCopieuxNuit
         self.fenetreAffichageResucrageAccueilHeures = fenetreAffichageResucrageAccueilHeures
         self.glucidesResucrageRapideParDefaut = glucidesResucrageRapideParDefaut
-        self.fenetreRepasCorrectionMinutes = fenetreRepasCorrectionMinutes
         self.overlaySommeilActive = overlaySommeilActive
         self.cartesCourbesInsightsActives = cartesCourbesInsightsActives
     }

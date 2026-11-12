@@ -51,9 +51,6 @@ struct EnTeteAnalyse: View {
         /// Charge d'activité — flamme ambrée, la teinte que porte déjà la
         /// carte d'accueil correspondante.
         case chargeActivite
-        /// Corrections — bleu acier, froid comme le geste de la seringue :
-        /// se distingue du sarcelle de R1 et de l'indigo nocturne de B1.
-        case corrections
 
         /// Décale le motif de bruit d'une analyse à l'autre : deux cartes
         /// affichées l'une sous l'autre partageraient sinon exactement le même
@@ -69,7 +66,6 @@ struct EnTeteAnalyse: View {
             case .repasARevoir: 853
             case .donnees:      991
             case .chargeActivite: 1129
-            case .corrections:    1277
             }
         }
 
@@ -85,7 +81,6 @@ struct EnTeteAnalyse: View {
             case .repasARevoir: "fork.knife"
             case .donnees:      "externaldrive.fill"
             case .chargeActivite: "flame.fill"
-            case .corrections:    "syringe.fill"
             }
         }
 
@@ -183,19 +178,6 @@ struct EnTeteAnalyse: View {
                     Color(sombre: (0x7A, 0x42, 0x0A), clair: (0xB8, 0x71, 0x18)),
                     Color(sombre: (0xE8, 0x8A, 0x1E), clair: (0xE0, 0x91, 0x2E)),
                     Color(sombre: (0xD9, 0x52, 0x1E), clair: (0xD1, 0x5C, 0x2A))
-                )
-            case .corrections:
-                // Bleu roi profond — froid comme le geste de la seringue,
-                // sans virer au cyan clair (trop pâle) ni à l'acier terne
-                // (premier jet). Halo saturé mais sombre, à l'opposé
-                // chromatique du vermillon des repas à revoir et de l'ambre
-                // de la charge d'activité.
-                (
-                    Color(sombre: (0x04, 0x0C, 0x22), clair: (0x0C, 0x1C, 0x42)),
-                    Color(sombre: (0x08, 0x16, 0x3C), clair: (0x11, 0x2A, 0x60)),
-                    Color(sombre: (0x0C, 0x28, 0x6E), clair: (0x16, 0x42, 0x9C)),
-                    Color(sombre: (0x1A, 0x48, 0xE8), clair: (0x1E, 0x4C, 0xD8)),
-                    Color(sombre: (0x2C, 0x30, 0xA0), clair: (0x30, 0x38, 0x98))
                 )
             }
         }

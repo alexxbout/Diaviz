@@ -28,7 +28,6 @@ struct AnalysesVue: View {
     @Environment(AnalyseBasaleService.self) private var basaleService
     @Environment(AnalyseEndormissementService.self) private var endormissementService
     @Environment(AnalyseCorrectionsService.self) private var correctionsService
-    @Environment(BilanCorrectionsService.self) private var bilanCorrectionsService
 
     /// Service de la page « Charge et équilibre glycémique » — instance
     /// partagée avec l'accueil (carte « Nouvel épisode de charge »).
@@ -96,10 +95,7 @@ struct AnalysesVue: View {
                         }
                     )
 
-                    CarteBilanCorrections(
-                        bilan: bilanCorrectionsService.bilan,
-                        chargement: coucherOverride == nil && bilanCorrectionsService.enCalcul
-                    )
+
                     CarteAnalyseChargeGlycemie(
                         synthese: correlationService.synthese,
                         chargeActive: ChargeActiveService.shared.synthese,
@@ -135,15 +131,13 @@ struct AnalysesVue: View {
                     await basaleService.demarrer(contexte: modelContext)
                     async let endo: Void = { @MainActor in await endormissementService.demarrer(contexte: modelContext, basale: basaleService) }()
                     async let corr: Void = { @MainActor in await correctionsService.demarrer(contexte: modelContext, basale: basaleService) }()
-                    async let bilanCorr: Void = { @MainActor in await bilanCorrectionsService.demarrer(contexte: modelContext) }()
-                    _ = await (endo, corr, bilanCorr)
+                    _ = await (endo, corr)
 
                     guard !premierBoot else { return }
                     await basaleService.recharger()
                     async let endoR: Void = endormissementService.recharger()
                     async let corrR: Void = correctionsService.recharger()
-                    async let bilanCorrR: Void = bilanCorrectionsService.recharger()
-                    _ = await (endoR, corrR, bilanCorrR)
+                    _ = await (endoR, corrR)
                 }
             }
             // Charge active d'abord : la page Charge et glycémie lit son

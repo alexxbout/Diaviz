@@ -35,7 +35,6 @@ struct SousPageRatios: View {
             SectionRatios()
             SectionRatioCorrection()
             SectionRatiosSport()
-            SectionCorrectionsReglages()
         }
         .formStyle(.grouped)
         .navigationTitle("Ratios")
