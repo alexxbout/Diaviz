@@ -36,7 +36,7 @@
 - **Sport du jour + charge 7j** : via le service activités.
 - **Seuils** : seuil hypo du profil + réglage « seuil de coucher analysé » + cible haute du profil (déclenchement classification B3).
 - **Fenêtrage du tableau** = depuis le dernier changement de dose. Les données ne sont pas supprimées (la recherche par similarité garde tout l'historique récent).
-- **Resucrages** : lus depuis le modèle `Resucrage`  du hub (section « Resucrage » du Journal) + les repas entièrement badgés `resucrage`  , via `ChargeurFaitsCoucher.resucrages`  . Le tableau `repas`  devient `repasHorsResucrage`  pour éviter le double comptage. L'**intention déclarée** distingue une hypo traitée (`correctifHypo`  ) d'une hypo évitée (préventifs) — jamais déduite.
+- **Resucrages** : lus depuis le modèle `Resucrage`  du hub (section « Resucrage » du Journal), via `ChargeurFaitsCoucher.resucrages`  . (Le badge « resucrage » sur un aliment de repas a été retiré le 2026-11-13 : seuls les resucrages saisis par la page dédiée comptent, les anciens repas badgés sont des repas ordinaires.) L'**intention déclarée** distingue une hypo traitée (`correctifHypo`  ) d'une hypo évitée (préventifs) — jamais déduite.
 ### Distinction B1 / B2-B3
 - **B1** = déterministe : pente basale de la nuit profonde (zone 3), **exclut** les zones polluées (IOB, rapide, sport, chaotique).
 - **B2/B3** = remontée d'événements sur les zones 1-2 (endormissement) : **garde** ces nuits sales et cible l'endormissement/la correction. Deux sujets différents, pas une contradiction (zone 3 ≠ zones 1-2).

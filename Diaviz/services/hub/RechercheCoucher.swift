@@ -53,9 +53,6 @@ enum RechercheCoucher {
         let lentes = ChargeurFaitsCoucher.lentes(contexte, depuis: borneDose)
         let rapides = ChargeurFaitsCoucher.rapides(contexte, depuis: borne)
         let repas = ChargeurFaitsCoucher.repas(contexte, depuis: borne)
-        // B1 sépare repas et resucrages (les repas badgés basculent côté
-        // resucrages) ; B2/B3 consomment encore `repas` entier.
-        let repasHorsResucrage = ChargeurFaitsCoucher.repasHorsResucrage(contexte, depuis: borne)
         let resucrages = ChargeurFaitsCoucher.resucrages(contexte, depuis: borne)
         let sports = ChargeurFaitsCoucher.sports(contexte, depuis: borne)
         let pauses = ChargeurFaitsCoucher.pauses(contexte, depuis: borne)
@@ -74,7 +71,7 @@ enum RechercheCoucher {
                 lectures: cgm.map { (date: $0.date, valeur: $0.valeur) },
                 lentes: lentes,
                 rapides: rapides,
-                repas: repasHorsResucrage,
+                repas: repas,
                 resucrages: resucrages,
                 sports: sports.map { (debut: $0.debut, dureeMin: $0.resume.dureeMinutes) },
                 pauses: pauses
@@ -93,7 +90,7 @@ enum RechercheCoucher {
         let endormissement = CalculAnalyseEndormissement.analyser(
             entrees: EntreesEndormissement(
                 nuits: ancrages, lectures: cgm, rapides: rapides,
-                repas: repasHorsResucrage, resucrages: resucrages,
+                repas: repas, resucrages: resucrages,
                 sports: sports, pauses: pauses, niveauxCharge: niveauxCharge
             ),
             doseActuelle: analyseB1.doseActuelle,
@@ -103,7 +100,7 @@ enum RechercheCoucher {
         let corrections = CalculAnalyseCorrections.analyser(
             entrees: EntreesCorrections(
                 nuits: ancrages, lectures: cgm, rapides: rapides,
-                repas: repasHorsResucrage, resucrages: resucrages,
+                repas: repas, resucrages: resucrages,
                 sports: sports, pauses: pauses, niveauxCharge: niveauxCharge
             ),
             changementDoseRecent: nil,

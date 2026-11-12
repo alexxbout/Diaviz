@@ -119,7 +119,7 @@ struct SheetDetailSoiree: View {
         let borne = cal.date(byAdding: .day, value: -1, to: soir.date) ?? soir.date
         let faits = faitsApercu ?? (
             rapides: ChargeurFaitsCoucher.rapides(modelContext, depuis: borne),
-            repas: ChargeurFaitsCoucher.repasHorsResucrage(modelContext, depuis: borne)
+            repas: ChargeurFaitsCoucher.repas(modelContext, depuis: borne)
         )
         // Les resucrages sont un fait de hub distinct — jamais devinés depuis
         // les repas (voir doc Eraser B2/B3).

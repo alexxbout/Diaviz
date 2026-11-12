@@ -258,7 +258,7 @@ final class AnalyseBasaleService {
         let (lentes, rapides) = fetchInjections(contexte, depuis: borneDose)
         // Repas et resucrages sont deux faits distincts : les repas badgés
         // resucrage basculent côté `resucrages`, jamais comptés deux fois.
-        let repas = ChargeurFaitsCoucher.repasHorsResucrage(contexte, depuis: borneCourte)
+        let repas = ChargeurFaitsCoucher.repas(contexte, depuis: borneCourte)
         let resucrages = ChargeurFaitsCoucher.resucrages(contexte, depuis: borneCourte)
         let sports = fetchSports(contexte, depuis: borneCourte)
         let pauses = fetchPauses(contexte, depuis: borneCourte)

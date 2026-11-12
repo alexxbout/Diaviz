@@ -139,11 +139,7 @@ struct RepasSheet: View {
     @State private var evenements: [EvenementRepas] = []
     @State private var afficherEvenements = false
     /// Choix **explicite** de l'utilisateur sur l'exclusion des analyses.
-    /// `nil` = jamais touché, la valeur suit alors la suggestion automatique
-    /// (`exclusionSuggeree`). Un `Bool` simple ne suffit pas : il faut
-    /// distinguer « décoché parce que l'utilisateur l'a décoché » de
-    /// « décoché par défaut », sinon la suggestion automatique écraserait le
-    /// choix manuel à chaque changement d'aliment.
+    /// `nil` = jamais touché (décoché par défaut).
     @State private var exclusionManuelle: Bool? = nil
     @State private var siteInjection: SiteInjection = .parDefaut
 
@@ -254,23 +250,10 @@ struct RepasSheet: View {
         !aliments.isEmpty && totalInjecte == 0
     }
 
-    /// Repas de pur resucrage : tous les aliments sont marqués « pris pour
-    /// traiter une hypoglycémie » et aucun ne porte de dose. Ce n'est pas un
-    /// repas ordinaire, sa réponse glycémique polluerait le mining du ratio —
-    /// on le pré-coche, mais l'utilisateur reste libre de décocher.
-    /// La condition « aucune insuline par aliment » est explicite : un
-    /// resucrage bolusé (rare mais possible) reste un repas analysable.
-    private var exclusionSuggeree: Bool {
-        !aliments.isEmpty
-            && aliments.allSatisfy { $0.resucrage }
-            && aliments.allSatisfy { ($0.doseInsuline ?? 0) == 0 }
-    }
-
-    /// Valeur effective du toggle : le forçage prime, puis le choix manuel,
-    /// puis la suggestion automatique.
+    /// Valeur effective du toggle : le forçage prime, puis le choix manuel.
     private var exclureDesAnalyses: Bool {
         if exclusionForcee { return true }
-        return exclusionManuelle ?? exclusionSuggeree
+        return exclusionManuelle ?? false
     }
 
     /// Explication affichée sous le toggle — `nil` quand l'état courant n'a
@@ -278,9 +261,6 @@ struct RepasSheet: View {
     private var raisonExclusionAuto: String? {
         if exclusionForcee {
             return "Ce repas n'a aucune dose d'insuline : sa réponse glycémique n'est pas analysable."
-        }
-        if exclusionManuelle == nil && exclusionSuggeree {
-            return "Tous les aliments sont marqués comme resucrage — pré-coché, décochable si besoin."
         }
         return nil
     }

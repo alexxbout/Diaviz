@@ -108,8 +108,7 @@ struct ListeRepasParSection: View {
                         quantite: aliment.quantite,
                         glucides: aliment.glucides,
                         insuline: aliment.insuline,
-                        imageURL: aliment.imageURL,
-                        resucrage: aliment.resucrage
+                        imageURL: aliment.imageURL
                     )
                     // Même inset forcé que le cadre gris : sans ça, une row à
                     // photo produit et une row à emoji calent leur séparateur à

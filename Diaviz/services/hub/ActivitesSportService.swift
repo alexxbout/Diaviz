@@ -136,8 +136,7 @@ final class ActivitesSportService {
         let descripteurRepas = FetchDescriptor<Repas>(
             predicate: #Predicate { $0.heure >= debutRepas && $0.heure <= finRepas }
         )
-        let repasProches = ((try? contexte.fetch(descripteurRepas)) ?? [])
-            .filter { !ChargeurFaitsCoucher.estRepasResucrage($0) }
+        let repasProches = (try? contexte.fetch(descripteurRepas)) ?? []
         let repasAffiches = repasProches.filter { $0.heure >= debut && $0.heure <= fin }
         let idsRepasAffiches = Set(repasAffiches.map(\.id))
 

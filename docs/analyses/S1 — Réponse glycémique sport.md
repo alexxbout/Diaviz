@@ -130,7 +130,7 @@ Un verdict « correction efficace » alors que c'est l'effort qui a travaillé i
 | Regroupement en épisodes | 30 min | <p>**Dérivé**</p><p> : si une prise arrive avant qu'on ait pu juger la précédente, leurs effets se mélangent. Un seul chiffre au lieu de deux</p> |
 | Fenêtre du préventif maintien | Jusqu'à la fin de l'effort, plancher 30 min | Maintenir, c'est tenir jusqu'au bout ; une fenêtre fixe ne dirait rien d'une course d'une heure. Le plancher évite de juger sur 3 min une prise faite juste avant la fin |
 | Bornes hypo / hyper | Seuils du profil utilisateur | Aucune convention externe n'entre dans l'algorithme |
-| Repas proche | De 1 h avant la prise à la fin de la fenêtre | Décision PO du 2026-11-12. Plus large, presque tout préventif suivant un dîner deviendrait non évaluable ; plus court, un repas pris 40 min avant fausserait le verdict sans le signaler. Repas de resucrage (tous aliments badgés) exclus |
+| Repas proche | De 1 h avant la prise à la fin de la fenêtre | Décision PO du 2026-11-12. Plus large, presque tout préventif suivant un dîner deviendrait non évaluable ; plus court, un repas pris 40 min avant fausserait le verdict sans le signaler. |
 | Mesures CGM minimales | 3 sur la fenêtre | En dessous, `indéterminé` plutôt qu'un verdict sur une courbe trouée |
 | Fenêtre de lecture de tendance | 15 min avant la prise, seuil ±10 mg/dL | Qualifie la pente en baisse / stable / hausse |
 >  Un espacement d'épisode de **45 min** avait été proposé puis écarté : aucun fondement dans la littérature ni dérivation interne. Le 30 min le remplace, et se justifie tout seul. 

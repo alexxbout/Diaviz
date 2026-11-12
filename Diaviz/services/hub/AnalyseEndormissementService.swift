@@ -86,7 +86,7 @@ final class AnalyseEndormissementService {
             nuits: nuits,
             lectures: ChargeurFaitsCoucher.cgm(contexte, depuis: borneCourte),
             rapides: ChargeurFaitsCoucher.rapides(contexte, depuis: borneCourte),
-            repas: ChargeurFaitsCoucher.repasHorsResucrage(contexte, depuis: borneCourte),
+            repas: ChargeurFaitsCoucher.repas(contexte, depuis: borneCourte),
             resucrages: ChargeurFaitsCoucher.resucrages(contexte, depuis: borneCourte),
             sports: ChargeurFaitsCoucher.sports(contexte, depuis: borneCourte),
             pauses: ChargeurFaitsCoucher.pauses(contexte, depuis: borneCourte),

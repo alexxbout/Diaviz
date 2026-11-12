@@ -138,7 +138,7 @@ final class CorrelationChargeTIRService {
             (heure: $0.heure, dose: $0.dose, correction: $0.type == .rapideCorrection || $0.motif == .correction)
         }
 
-        let repas = ChargeurFaitsCoucher.repasHorsResucrage(contexte, depuis: borneFaits)
+        let repas = ChargeurFaitsCoucher.repas(contexte, depuis: borneFaits)
         let resucrages = ChargeurFaitsCoucher.resucrages(contexte, depuis: borneFaits)
 
         let sports = (try? contexte.fetch(

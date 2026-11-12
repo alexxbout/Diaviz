@@ -147,7 +147,7 @@ Quatre patterns, détectés sur la courbe CGM + le log des resucrages :
 | 1 épisode continu ≥ 30 min sous 70 | hypo prolongée | basale maintient trop bas |
 | <p>plusieurs épisodes < 60 min d'écart, </p><p>**sans correction entre**</p> | hypos en série | glycémie qui rase le seuil |
 | resucrage correctif → remontée → nouvelle hypo < 60 min | resucrage avec rechute | correction insuffisante |
-**Source des resucrages** : le modèle `Resucrage` du hub (section « Resucrage » du Journal, chemin principal, intention obligatoire) **et** les repas dont tous les aliments portent le badge `resucrage` (chemin secondaire, sans intention déclarée → traités en `correctifHypo`). Ces repas badgés sortent du tableau `repas` pour ne jamais être comptés deux fois. Le tableau `repas` ne sert plus qu'au repas ordinaire tardif.
+**Source des resucrages** : le modèle `Resucrage` du hub uniquement (section « Resucrage » du Journal, intention obligatoire). (Le badge « resucrage » sur un aliment de repas a été retiré le 2026-11-13 : seuls les resucrages saisis par la page dédiée comptent, les anciens repas badgés sont des repas ordinaires.)
 
 **Resucrage vs remontée spontanée** : un épisode est « resucré » si une prise est enregistrée pendant l'hypo (fenêtre élargie à 20 min après son début). **Aucune prise enregistrée → remontée spontanée par principe** (contre-régulation, fin d'action d'insuline — ou compression du capteur). La phrase affichée reste factuelle : « remontée spontanée, sans resucrage enregistré ».
 
@@ -202,7 +202,7 @@ Conséquence : une hypo qui suit un `preventifMaintien` ou `preventifAntiChute` 
 | ----- | ----- | ----- |
 | `CalculAnalyseBasale`  | `services/derivation/`  | Calculateur **pur** (`nonisolated`, Sendable, value types). Zones, dérive, exclusions, verdict, dose. |
 | `AnalyseBasaleService`  | `services/hub/`  | Service `@Observable @MainActor` : lit le hub au boot, mappe en value types, délègue, expose `analyse`. Re-sync au retour sur la page. |
-| `ChargeurFaitsCoucher`  | `services/hub/`  | Chargeurs partagés B1/B2/B3 — dont `resucrages` (modèle `Resucrage` + repas badgés) et `repasHorsResucrage` . |
+| `ChargeurFaitsCoucher`  | `services/hub/`  | Chargeurs partagés B1/B2/B3 — dont `resucrages` (modèle `Resucrage`) et `repas` . |
 | `StyleGrapheGlycemie`  | `composants/`  | Peau commune des graphiques de glycémie (traits, opacités, teintes de seuil, bande cible). |
 - **Entrées hub** : `GlucoseReading`  , `Injection`  (lente/rapide/motif), `Repas`  , `Resucrage`  , `ActiviteSportive`  , `PeriodePause`  , `ProfilUtilisateur`  , `ScoreService.debutJourMetabolique`  , `IOBCalculateur`  .
 - **Grille d'affichage** : chaque nuit rééchantillonnée sur 121 points (21h→07h, 5 min) pour la moyenne point-à-point sans crash. Couverture/exclusions calculées sur le **brut**.

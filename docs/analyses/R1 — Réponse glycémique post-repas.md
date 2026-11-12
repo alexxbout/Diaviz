@@ -45,7 +45,7 @@ Ce seuil compte donc des **répétitions, pas des échecs**. Un plat mangé 3 fo
 ### 6. Mode dose globale (saisie)
 - Une seule dose pour tout le repas plutôt qu'une ventilation aliment par aliment, pour les cas où les quantités sont connues d'avance et où l'app donne déjà le total de glucides.
 ### 7. Flag resucrage sur un aliment
-- Déclaration manuelle qu'un aliment a été pris pour traiter une hypoglycémie plutôt que comme repas ordinaire — signal factuel réservé à de futures analyses. **Distinct** du « resucrage » détecté automatiquement par B1/B2 sur la courbe CGM (collision de vocabulaire à connaître, les deux ne sont pas reliés dans le code).
+- ~~Déclaration manuelle qu'un aliment a été pris pour traiter une hypoglycémie~~ — retirée le 2026-11-13 : doublon de la page Resucrage, à moitié prise en compte. Plus proposée à la saisie ni lue par aucune analyse ; le champ reste stocké (iCloud ne permet pas de le retirer proprement).
 ### 8. Comparaison dose/verdict avant-après changement de ratio
 - Dans `SheetEcartRatio`  , chaque section (moment de la journée) dont le ratio a déjà changé au moins une fois affiche désormais un badge à côté de son titre : date du dernier changement et nombre total de repas depuis. Un bloc juste en dessous compare, avant/après cette date, la dose moyenne appliquée et le taux de bons verdicts (réponse glycémique) dans les 3h suivant l'injection.
 - Le badge est toujours affiché dès qu'un changement existe, même sous le seuil de comparaison. Le bloc de comparaison lui-même n'apparaît que si au moins 5 repas ont eu lieu depuis le changement (`CalculDoseRatioChangement.effectifMinimalComparaison`  ) ; en dessous, un état « Pas encore comparable » est affiché à la place, avec le nombre de repas manquant.
