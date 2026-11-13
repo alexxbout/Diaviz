@@ -54,8 +54,7 @@ struct PageInventaireDonnees: View {
             .padding(16)
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Mes données")
-        .navigationBarTitleDisplayMode(.inline)
+        .pageAvecBandeau(titre: "Mes données")
         .task { inventaire = ChargeurInventaire.charger(contexte: modelContext) }
     }
 

@@ -55,8 +55,7 @@ struct PageCorrelationChargeGlycemie: View {
             .padding(16)
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Charge et glycémie")
-        .navigationBarTitleDisplayMode(.inline)
+        .pageAvecBandeau(titre: "Charge et glycémie")
         .boutonCriteresEpisodes()
     }
 

@@ -200,6 +200,7 @@ struct PageEcartRatio: View {
             .padding(.bottom, 16)
         }
         .background(Color(.systemGroupedBackground))
+        .pageAvecBandeau(titre: "Écart de ratio", debordHaut: 0)
     }
 
     /// Lignes « Par ratio appliqué », regroupées **comme les gélules** :

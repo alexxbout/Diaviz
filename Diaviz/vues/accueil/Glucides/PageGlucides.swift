@@ -40,8 +40,7 @@ struct PageGlucides: View {
             .padding(16)
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Glucides")
-        .navigationBarTitleDisplayMode(.inline)
+        .pageAvecBandeau(titre: "Glucides")
     }
 
     private var enTeteStats: some View {

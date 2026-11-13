@@ -55,8 +55,7 @@ struct PageTousRepasARevoir: View {
             .padding(16)
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Repas à revoir")
-        .navigationBarTitleDisplayMode(.inline)
+        .pageAvecBandeau(titre: "Repas à revoir")
     }
 }
 
