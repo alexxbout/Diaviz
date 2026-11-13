@@ -39,8 +39,7 @@ struct PageChargeActivite: View {
             .padding(16)
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Activité")
-        .navigationBarTitleDisplayMode(.inline)
+        .pageAvecBandeau(titre: "Activité")
     }
 
     // MARK: - Totaux

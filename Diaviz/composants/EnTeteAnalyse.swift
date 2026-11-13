@@ -191,25 +191,106 @@ struct EnTeteAnalyse: View {
     let titre: String
     let accroche: String
     let ambiance: Ambiance
+    /// Hauteur laissée libre en bas du bandeau, pour des contrôles posés
+    /// dessus par la page (pilules de l'analyse du coucher).
+    var reserveBas: CGFloat = 0
 
     /// Hauteur minimale — le contenu peut la dépasser en gros corps de texte,
     /// jamais l'inverse : une carte qui rétrécit casserait le rythme des pages
     /// entre elles.
     private static let hauteurMinimale: CGFloat = 148
 
+    /// Présent quand la page a demandé le bandeau bord à bord
+    /// (`pageAvecBandeau`) ; absent, l'en-tête reste une carte arrondie.
+    @Environment(EtatBandeau.self) private var bandeau: EtatBandeau?
+    @Environment(\.accessibilityReduceMotion) private var reduireAnimations
+
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            fond
-            contenu
+        Group {
+            if let bandeau {
+                enBandeau(bandeau)
+            } else {
+                ZStack(alignment: .bottomLeading) {
+                    fond
+                    contenu
+                }
+                .frame(maxWidth: .infinity, minHeight: Self.hauteurMinimale, alignment: .bottomLeading)
+                .clipShape(NiveauCarte.carte.forme)
+            }
         }
-        .frame(maxWidth: .infinity, minHeight: Self.hauteurMinimale, alignment: .bottomLeading)
-        .clipShape(NiveauCarte.carte.forme)
         .accessibilityElement(children: .combine)
         .accessibilityLabel([surtitre, titre, accroche].compactMap { $0 }.joined(separator: ". "))
     }
 
-    private var fond: some View {
+    /// Bandeau bord à bord : sort des marges de la page et remonte sous la
+    /// barre d'état et la barre de navigation, qui flottent par-dessus.
+    ///
+    /// Tiré vers le bas en haut de page, le dégradé s'étire depuis son bord
+    /// inférieur au lieu de laisser apparaître le fond gris au-dessus.
+    private func enBandeau(_ etat: EtatBandeau) -> some View {
+        contenu
+            .padding(.top, etat.margeHaute)
+            .padding(.horizontal, 4)
+            .padding(.bottom, 4 + reserveBas)
+            .frame(
+                maxWidth: .infinity,
+                minHeight: etat.margeHaute + Self.hauteurMinimale + reserveBas,
+                alignment: .bottomLeading
+            )
+            .background(alignment: .bottom) {
+                let parallaxe = !reduireAnimations
+                fondBandeau
+                    .visualEffect { vue, proxy in
+                        let y = proxy.frame(in: .scrollView(axis: .vertical)).minY
+                        let hauteur = max(proxy.size.height, 1)
+                        let tire = max(0, y)
+                        // Au défilement, le dégradé remonte moins vite que le
+                        // texte : effet de profondeur, coupé par Réduire les
+                        // animations.
+                        let retard = parallaxe ? max(0, -y) * 0.4 : 0
+                        return vue
+                            .scaleEffect(x: 1, y: (hauteur + tire) / hauteur, anchor: .bottom)
+                            .offset(y: retard)
+                    }
+                    // Coupe le dégradé décalé au bas du bandeau, sans brider
+                    // l'étirement vers le haut.
+                    .mask(alignment: .bottom) {
+                        Rectangle().padding(.top, -4000)
+                    }
+            }
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.frame(in: .scrollView(axis: .vertical)).maxY
+            } action: { bas in
+                etat.basBandeau = bas
+                // Replié dès que le bas du bandeau passe sous la barre de
+                // navigation : la barre reprend alors le titre en petit.
+                etat.replie = bas - reserveBas < etat.margeHaute + 24
+            }
+            .padding(.horizontal, -etat.debordHorizontal)
+            .padding(.top, -etat.debordHaut)
+    }
+
+    private var fond: some View { degrade(pleinEcran: false) }
+
+    private var fondBandeau: some View { degrade(pleinEcran: true) }
+
+    /// En carte, la lueur est en haut. En bandeau, le haut passe sous l'heure
+    /// et le bouton retour : il reste profond, pour qu'ils se lisent en blanc,
+    /// et la lueur descend derrière le titre — le bandeau se lit d'un bloc
+    /// au lieu d'un haut délavé posé sur un bas dense.
+    private func degrade(pleinEcran: Bool) -> some View {
         let p = ambiance.palette
+        let couleurs: [Color] = pleinEcran
+            ? [
+                p.profond, p.fond,   p.profond,
+                p.milieu,  p.halo,   p.second,
+                p.fond,    p.milieu, p.profond,
+            ]
+            : [
+                p.halo,    p.milieu, p.second,
+                p.milieu,  p.fond,   p.milieu,
+                p.fond,    p.profond, p.fond,
+            ]
         return MeshGradient(
             width: 3,
             height: 3,
@@ -221,11 +302,7 @@ struct EnTeteAnalyse: View {
                 .init(0.00, 0.45), .init(0.38, 0.58), .init(1.00, 0.38),
                 .init(0.00, 1.00), .init(0.62, 1.00), .init(1.00, 1.00),
             ],
-            colors: [
-                p.halo,    p.milieu, p.second,
-                p.milieu,  p.fond,   p.milieu,
-                p.fond,    p.profond, p.fond,
-            ],
+            colors: couleurs,
             colorSpace: .perceptual
         )
         // Grain appliqué **au dégradé**, pas en calque au-dessus : le shader
@@ -256,13 +333,18 @@ struct EnTeteAnalyse: View {
 
             Spacer(minLength: 12)
 
-            VStack(alignment: .leading, spacing: 4) {
+            // En bandeau, la place gagnée va au titre — grand titre gras,
+            // légèrement resserré comme ceux d'iOS — et à une accroche plus
+            // lisible, interlignée. En carte, la hiérarchie reste compacte.
+            VStack(alignment: .leading, spacing: bandeau == nil ? 4 : 6) {
                 Text(titre)
-                    .font(.title.weight(.semibold))
+                    .font(bandeau == nil ? .title.weight(.semibold) : .largeTitle.weight(.bold))
+                    .tracking(bandeau == nil ? 0 : -0.4)
                     .foregroundStyle(.white)
                 Text(accroche)
-                    .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.72))
+                    .font(bandeau == nil ? .footnote : .subheadline)
+                    .lineSpacing(bandeau == nil ? 0 : 2)
+                    .foregroundStyle(.white.opacity(bandeau == nil ? 0.72 : 0.82))
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -276,15 +358,17 @@ struct EnTeteAnalyse: View {
     /// blanc à opacité fixe ne sait pas faire. Le reste de la carte reste du
     /// contenu, et le contenu ne se pose pas sur du verre.
     private func badge(_ libelle: String) -> some View {
-        HStack(spacing: 5) {
+        // Plus grand en bandeau, à l'échelle du grand titre.
+        let grand = bandeau != nil
+        return HStack(spacing: grand ? 6 : 5) {
             Image(systemName: ambiance.icone)
-                .font(.caption2.weight(.semibold))
+                .font(grand ? .footnote.weight(.semibold) : .caption2.weight(.semibold))
             Text(libelle)
-                .font(.caption.weight(.medium))
+                .font(grand ? .subheadline.weight(.semibold) : .caption.weight(.medium))
         }
         .foregroundStyle(.white)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
+        .padding(.horizontal, grand ? 12 : 10)
+        .padding(.vertical, grand ? 7 : 5)
         .glassEffect(.regular, in: .capsule)
     }
 }
@@ -297,7 +381,10 @@ private extension Color {
     /// posé dessus reste blanc dans les deux thèmes, le dégradé doit donc
     /// garder sa densité en mode clair plutôt que de s'éclaircir.
     init(sombre: (Int, Int, Int), clair: (Int, Int, Int)) {
-        self.init(uiColor: UIColor { traits in
+        // `@Sendable` : UIKit résout la couleur sur le fil de rendu de SwiftUI.
+        // Héritée du MainActor, la fermeture arrêtait l'app pendant une
+        // animation de couleur (changement d'onglet du coucher).
+        self.init(uiColor: UIColor { @Sendable traits in
             let c = traits.userInterfaceStyle == .dark ? sombre : clair
             return UIColor(
                 red: CGFloat(c.0) / 255,

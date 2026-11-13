@@ -80,8 +80,7 @@ struct DetailScoreVue: View {
         }
         .scrollIndicators(.hidden)
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Score de gestion")
-        .navigationBarTitleDisplayMode(.inline)
+        .pageAvecBandeau(titre: "Score de gestion", debordHaut: 12)
         .task {
             service.demarrer(contexte: modelContext)
             // Recale `jourConsulte` sur le jour navigable le plus proche de

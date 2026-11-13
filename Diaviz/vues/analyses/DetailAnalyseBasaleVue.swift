@@ -109,18 +109,21 @@ struct DetailAnalyseBasaleVue: View {
         // pas démarrer caché derrière elles au repos.
         ScrollView(.vertical) {
             contenuPage
-                .padding(.top, PillsCoucher.hauteur + 24)
                 .padding(.bottom, 28)
                 .animation(.easeInOut(duration: 0.22), value: selection)
         }
         .scrollIndicators(.hidden)
         .overlay(alignment: .top) {
-            PillsCoucher(selection: $selection, items: pills)
-                .padding(.top, 4)
+            // Posées en bas du bandeau, puis accrochées sous la barre une
+            // fois le bandeau remonté.
+            PillsSurBandeau(
+                selection: $selection,
+                items: pills,
+                teinteActive: (pageCourante == .basale ? EnTeteAnalyse.Ambiance.nuit : .coucher).palette.profond
+            )
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Analyse du coucher")
-        .navigationBarTitleDisplayMode(.inline)
+        .pageAvecBandeau(titre: pageCourante.titre, debordHaut: 0)
         .onAppear { onApparition?(analyse) }
         .task(id: indexSelectionne) { await chargerStadesSommeil() }
     }
@@ -153,10 +156,34 @@ struct DetailAnalyseBasaleVue: View {
 
     // MARK: - Contenu de la page sélectionnée
 
+    @ViewBuilder
+    private var enTete: some View {
+        switch pageCourante {
+        case .basale:
+            EnTeteAnalyse(
+                titre: "Tendance basale",
+                accroche: "La pente de vos nuits profondes, mesurée depuis votre prise de lente.",
+                ambiance: .nuit,
+                reserveBas: PillsCoucher.hauteur
+            )
+        case .hyposCoucher:
+            EnTeteAnalyse(
+                titre: "Hypos au coucher",
+                accroche: "Ce qui suit vos soirées, selon la façon dont elles commencent.",
+                ambiance: .coucher,
+                reserveBas: PillsCoucher.hauteur
+            )
+        }
+    }
+
     /// Contenu de la sous-analyse courante. Le `.id(selection)` le recrée à
     /// chaque changement de page → transition d'opacité entre sections.
     private var contenuPage: some View {
         VStack(spacing: 12) {
+            // Un seul bandeau pour les deux analyses : sa couleur et son texte
+            // suivent l'onglet, en fondu avec le reste de la page (`.id`).
+            enTete
+                .padding(.bottom, 12)
             switch pageCourante {
             case .basale:        contenuBasale
             case .hyposCoucher:
@@ -186,13 +213,6 @@ struct DetailAnalyseBasaleVue: View {
         // 8pt à l'intérieur d'un groupe, 24 entre deux : c'est l'écart qui
         // porte l'information, pas une ligne de séparation.
         VStack(alignment: .leading, spacing: 24) {
-            EnTeteAnalyse(
-                surtitre: "Analyse du coucher",
-                titre: "Tendance basale",
-                accroche: "La pente de vos nuits profondes, mesurée depuis votre prise de lente.",
-                ambiance: .nuit
-            )
-
             VStack(alignment: .leading, spacing: 8) {
                 TitreSection(texte: "Verdict")
                 CarteVerdictBasale(analyse: analyse)
@@ -343,3 +363,129 @@ private struct CarteResumeIA: View {
     SheetExplicativeBasale()
 }
 #endif
+
+/// Sélecteur d'onglet posé sur le bandeau : un conteneur Liquid Glass et
+/// une pilule blanche qu'on touche ou qu'on attrape et fait glisser.
+///
+/// Pendant le glissement, la pilule suit le doigt au point près ; au lâcher,
+/// elle se cale sur l'onglet le plus proche (élan compris). L'onglet ne
+/// change qu'au lâcher : reconstruire la page sous le doigt saccadait.
+///
+/// Suit le bas du bandeau tant qu'il est visible, puis reste accroché sous
+/// la barre de navigation, libellés inactifs en couleur de texte normale.
+private struct PillsSurBandeau: View {
+    @Binding var selection: Int
+    let items: [PillCoucher]
+    /// Couleur du libellé actif : la teinte profonde du bandeau courant.
+    let teinteActive: Color
+
+    @Environment(EtatBandeau.self) private var bandeau: EtatBandeau?
+    @Environment(\.accessibilityReduceMotion) private var reduireAnimations
+    @Environment(\.accessibilityReduceTransparency) private var reduireTransparence
+
+    /// Largeur d'un onglet : celle du plus long libellé, pour des pilules
+    /// égales et un calage net.
+    @State private var largeurs: [Int: CGFloat] = [:]
+    /// Position de la pilule pendant un glissement, `nil` au repos.
+    @State private var positionGlissee: CGFloat?
+    @State private var debutGlissement: CGFloat = 0
+
+    private var surBandeau: Bool { !(bandeau?.replie ?? false) }
+    private var largeurOnglet: CGFloat { max(largeurs.values.max() ?? 0, 60) }
+    private var rangSelection: Int { items.firstIndex { $0.id == selection } ?? 0 }
+    private var positionRepos: CGFloat { CGFloat(rangSelection) * largeurOnglet }
+    private var position: CGFloat { positionGlissee ?? positionRepos }
+    /// Onglet sous la pilule — sert à colorer les libellés pendant le geste.
+    private var rangSousPilule: Int {
+        min(max(Int((position / largeurOnglet).rounded()), 0), items.count - 1)
+    }
+
+    private var ressort: Animation? {
+        reduireAnimations ? nil : .spring(duration: 0.35, bounce: 0.22)
+    }
+
+    var body: some View {
+        let haut = bandeau.map {
+            max($0.margeHaute + 6, $0.basBandeau - PillsCoucher.hauteur + 8)
+        } ?? 8
+        ZStack(alignment: .leading) {
+            Capsule()
+                .fill(.white)
+                .shadow(color: .black.opacity(0.14), radius: 6, y: 2)
+                .frame(width: largeurOnglet)
+                // Légère dilatation tenue en main, comme les contrôles iOS.
+                .scaleEffect(positionGlissee == nil || reduireAnimations ? 1 : 1.06)
+                .offset(x: position)
+            HStack(spacing: 0) {
+                ForEach(Array(items.enumerated()), id: \.element.id) { rang, item in
+                    libelle(item, rang: rang)
+                }
+            }
+        }
+        .frame(width: largeurOnglet * CGFloat(items.count), height: 40)
+        .contentShape(Capsule())
+        .gesture(geste)
+        .padding(4)
+        .background {
+            if reduireTransparence {
+                Capsule().fill(surBandeau ? Color.black.opacity(0.35) : Color(.secondarySystemBackground))
+            }
+        }
+        .glassEffect(reduireTransparence ? .identity : .regular.interactive(), in: .capsule)
+        .padding(.top, haut)
+        .frame(maxWidth: .infinity)
+        .sensoryFeedback(.selection, trigger: rangSousPilule)
+        .animation(reduireAnimations ? nil : .smooth(duration: 0.25), value: surBandeau)
+        .animation(ressort, value: positionGlissee == nil)
+    }
+
+    private func libelle(_ item: PillCoucher, rang: Int) -> some View {
+        let actif = rang == rangSousPilule
+        return Label(item.titre, systemImage: item.icone)
+            .font(.subheadline.weight(.semibold))
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, 14)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { largeurs[item.id] = $0 }
+            .frame(width: largeurOnglet)
+            .foregroundStyle(actif ? teinteActive : (surBandeau ? Color.white : Color.primary))
+            .animation(reduireAnimations ? nil : .smooth(duration: 0.2), value: actif)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(item.id == selection ? [.isButton, .isSelected] : .isButton)
+            .accessibilityAction { choisir(rang: rang) }
+    }
+
+    private var geste: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { g in
+                if positionGlissee == nil {
+                    // Un toucher hors de la pilule ne l'attrape pas : il
+                    // vaudra sélection au lâcher.
+                    let surPilule = abs(g.startLocation.x - (positionRepos + largeurOnglet / 2)) <= largeurOnglet / 2
+                    guard surPilule, abs(g.translation.width) > 2 else { return }
+                    debutGlissement = positionRepos
+                }
+                let max = largeurOnglet * CGFloat(items.count - 1)
+                let brute = debutGlissement + g.translation.width
+                // Résistance élastique au-delà des bords.
+                let bornee = brute < 0 ? brute / 3 : (brute > max ? max + (brute - max) / 3 : brute)
+                positionGlissee = bornee
+            }
+            .onEnded { g in
+                if positionGlissee != nil {
+                    let elan = debutGlissement + g.predictedEndTranslation.width
+                    choisir(rang: Int((elan / largeurOnglet).rounded()))
+                } else {
+                    choisir(rang: Int(g.location.x / largeurOnglet))
+                }
+            }
+    }
+
+    private func choisir(rang: Int) {
+        let r = min(max(rang, 0), items.count - 1)
+        withAnimation(ressort) {
+            positionGlissee = nil
+            selection = items[r].id
+        }
+    }
+}

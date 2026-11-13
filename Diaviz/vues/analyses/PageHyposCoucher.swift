@@ -71,13 +71,6 @@ struct PageHyposCoucher: View {
         // rejoint la liste des soirs — il ouvre la recherche du soir le plus
         // proche, il appartient donc au même geste qu'explorer les soirées.
         VStack(alignment: .leading, spacing: 24) {
-            EnTeteAnalyse(
-                surtitre: "Analyse du coucher",
-                titre: "Hypos au coucher",
-                accroche: "Ce qui suit vos soirées, selon la façon dont elles commencent.",
-                ambiance: .coucher
-            )
-
             VStack(alignment: .leading, spacing: 8) {
                 TitreSection(texte: "Vue d'ensemble")
                 carteMetriques
